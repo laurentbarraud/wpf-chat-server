@@ -12,12 +12,19 @@ namespace chat_client.MVVM.ViewModel
     {
         public RelayCommand ConnectToServerCommand { get; set; }
 
+        // What the user type in the textbox on top left of
+        // the MainWindow in View gets stored in this property
+        public string Username { get; set; }
+
         private Server _server;
 
         public MainViewModel()
         {
             _server = new Server();
-            ConnectToServerCommand = new RelayCommand(o => _server.ConnectToServer());
+
+            // This command will be able to run only if the Username
+            // property is not empty
+            ConnectToServerCommand = new RelayCommand(o => _server.ConnectToServer(Username), o => !string.IsNullOrEmpty(Username));
         }
     }
 }

@@ -16,7 +16,8 @@ namespace chat_client.Net
             _client = new TcpClient();
         }
 
-        public void ConnectToServer()
+        // We're calling this from the ViewModel
+        public void ConnectToServer(string username)
         {
             if (!_client.Connected)
             {
