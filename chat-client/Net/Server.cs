@@ -1,4 +1,5 @@
-﻿using System;
+﻿using chat_client.Net.IO;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -10,6 +11,7 @@ namespace chat_client.Net
     internal class Server
     {
         TcpClient _client;
+        PacketBuilder _packetBuilder;
 
         public Server()
         {
@@ -22,6 +24,10 @@ namespace chat_client.Net
             if (!_client.Connected)
             {
                 _client.Connect("127.0.0.1", 7123);
+                var connectPacket = new PacketBuilder();
+                connectPacket.WriteOpCode(0);
+                connectPacket.WriteString(username);
+                _client.Client.Send(connectPacket.GetPacketBytes());
             }
         }
     }
