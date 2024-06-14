@@ -26,14 +26,20 @@ namespace chat_client.Net
             if (!_client.Connected)
             {
                 _client.Connect("127.0.0.1", 7123);
+
                 // If the connection is successfull
                 PacketReader = new PacketReader(_client.GetStream());
                 
                 if(!_client.Connected)
                 {
                     var connectPacket = new PacketBuilder();
+                    
+                    // We use opcode 0 for "connection of a new user" packets
                     connectPacket.WriteOpCode(0);
-                    connectPacket.WriteString(username);
+                    connectPacket.WriteMessage(username);
+
+                    // We send the message packet through the Client socket,
+                    // in the TCPClient 
                     _client.Client.Send(connectPacket.GetPacketBytes());
                 }
                 ReadPackets();
@@ -49,7 +55,6 @@ namespace chat_client.Net
                     // Reads the first byte (opcode) and stores it
                     var opcode = PacketReader.ReadByte();
                     
-                    // We don't do anything if the opcode value is 0
                     switch (opcode)
                     {
                         case 1:
@@ -61,6 +66,19 @@ namespace chat_client.Net
                     }
                 }
             });
+        }
+
+        public void SendMessageToServer(string message)
+        {
+            var messagePacket = new PacketBuilder();
+
+            // We use opcode 5 for messages packets
+            messagePacket.WriteOpCode(5);
+            messagePacket.WriteMessage(message);
+
+            // We send the message packet through the Client socket,
+            // in the TCPClient 
+            _client.Client.Send(messagePacket.GetPacketBytes());
         }
     }
 }

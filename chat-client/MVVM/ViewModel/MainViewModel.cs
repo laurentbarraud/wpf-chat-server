@@ -4,9 +4,13 @@ using chat_client.Net;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Xml.Linq;
 
 namespace chat_client.MVVM.ViewModel
 {
@@ -16,11 +20,21 @@ namespace chat_client.MVVM.ViewModel
         // when items are added or removed, or when the full list is refreshed.
         public ObservableCollection<UserModel> Users { get; set; }
 
+        // The RelayCommand is a ICommand implementation that can expose
+        // a method or delegate to the view.These types act as a way
+        // to bind commands between the viewmodel and UI elements.
         public RelayCommand ConnectToServerCommand { get; set; }
+        public RelayCommand SendMessageCommand { get; set; }
 
         // What the user type in the textbox on top left of
         // the MainWindow in View gets stored in this property
+        // (binded in xaml file)
         public string Username { get; set; }
+
+        // What the user type in the textbox on bottom right
+        // of the MainWindow in View gets stored in this property
+        // (binded in xaml file)
+        public string Message; { get; set; }
 
         private Server _server;
 
@@ -30,9 +44,9 @@ namespace chat_client.MVVM.ViewModel
             _server = new Server();
             _server.connectedEvent += UserConnected;
 
-            // This command will be able to run only if the Username
-            // property is not empty
+            // These commands will be able to run only if the binded property is not empty.
             ConnectToServerCommand = new RelayCommand(o => _server.ConnectToServer(Username), o => !string.IsNullOrEmpty(Username));
+            SendMessageCommand = new RelayCommand(o => _server.SendMessageToServer(Message), o => !string.IsNullOrEmpty(Message));
         }
 
         private void UserConnected()
@@ -43,6 +57,13 @@ namespace chat_client.MVVM.ViewModel
                 UID = _server.PacketReader.ReadMessage(),
             };
 
+            // If the users collection doesn't
+            // contain any user that already has that UID
+            if (!Users.Any(x => x.UID == user.UID))
+            {
+                // We add data to the collection
+                Application.Current.Dispatcher.Invoke(() => Users.Add(user));
+            }
 
         }
     }
