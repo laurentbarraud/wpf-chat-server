@@ -1,4 +1,9 @@
-﻿using System.Text;
+﻿/// <file>MainWindow.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.2</version>
+/// <date>June 15th, 2024</date>
+
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;

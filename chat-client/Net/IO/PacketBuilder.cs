@@ -1,9 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿/// <file>PacketBuilder.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.2</version>
+/// <date>June 15th, 2024</date>
+
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+
 
 namespace chat_client.Net.IO
 {

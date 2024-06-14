@@ -1,11 +1,10 @@
-﻿using chat_client.Net.IO;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿/// <file>Server.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.2</version>
+/// <date>June 15th, 2024</date>
+
+using chat_client.Net.IO;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 
 namespace chat_client.Net
 {

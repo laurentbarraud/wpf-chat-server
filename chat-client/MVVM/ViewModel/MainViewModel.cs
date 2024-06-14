@@ -1,16 +1,16 @@
-﻿using chat_client.MVVM.Core;
+﻿/// <file>UserModel.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.2</version>
+/// <date>June 15th, 2024</date>
+
+
+using chat_client.MVVM.Core;
 using chat_client.MVVM.Model;
 using chat_client.Net;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Xml.Linq;
+
+
 
 namespace chat_client.MVVM.ViewModel
 {

@@ -1,5 +1,9 @@
-﻿using chat_server.Net.IO;
-using System;
+﻿/// <file>Program.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.2</version>
+/// <date>June 15th, 2024</date>
+
+using chat_server.Net.IO;
 using System.Net;
 using System.Net.Sockets;
 

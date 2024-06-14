@@ -1,8 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿/// <file>PacketBuilder.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.2</version>
+/// <date>June 15th, 2024</date>
+
 using System.Text;
-using System.Threading.Tasks;
 
 namespace chat_server.Net.IO
 {

@@ -1,5 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿/// <file>PacketReader.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.2</version>
+/// <date>June 15th, 2024</date>
+
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
