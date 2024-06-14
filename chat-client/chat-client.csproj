@@ -10,8 +10,4 @@
     <AssemblyVersion>0.1</AssemblyVersion>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Folder Include="MVVM\Model\" />
-  </ItemGroup>
-
 </Project>
