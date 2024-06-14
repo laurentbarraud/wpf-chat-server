@@ -5,12 +5,14 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace chat_client.Net
 {
     class Server
     {
         TcpClient _client;
+        public PacketBuilder PacketBuilder;
         public PacketReader PacketReader;
 
         public event Action connectedEvent;
@@ -22,7 +24,7 @@ namespace chat_client.Net
             _client = new TcpClient();
         }
 
-        // We're calling this from the ViewModel
+        // We're calling this from the MainViewModel
         public void ConnectToServer(string username)
         {
             if (!_client.Connected)
@@ -31,8 +33,8 @@ namespace chat_client.Net
 
                 // If the connection is successfull
                 PacketReader = new PacketReader(_client.GetStream());
-                
-                if(!_client.Connected)
+
+                if (!string.IsNullOrEmpty(username))
                 {
                     var connectPacket = new PacketBuilder();
                     
@@ -57,6 +59,7 @@ namespace chat_client.Net
                     // Reads the first byte (opcode) and stores it
                     var opcode = PacketReader.ReadByte();
                     
+                    // opcode 0 is handled somewhere else
                     switch (opcode)
                     {
                         case 1:
@@ -69,10 +72,6 @@ namespace chat_client.Net
 
                         case 10:
                             userDisconnectEvent?.Invoke();
-                            break;
-
-                        default:
-                            Console.WriteLine("Error reading the opcode.");
                             break;
                     }
                 }

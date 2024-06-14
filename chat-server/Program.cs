@@ -37,6 +37,7 @@ namespace chat_server
                 {
                     var broadcastPacket = new PacketBuilder();
                     broadcastPacket.WriteOpCode(1);
+                    broadcastPacket.WriteMessage(usr.Username);
                     broadcastPacket.WriteMessage(usr.UID.ToString());
                     user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
                 }

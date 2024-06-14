@@ -70,7 +70,7 @@ namespace chat_client.MVVM.ViewModel
         private void MessageReceived()
         {
             var msg = _server.PacketReader.ReadMessage();
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+            Application.Current.Dispatcher.Invoke(() => Messages.Add($"{Username} says: " + msg));
         }
 
         private void UserConnected()
@@ -78,7 +78,7 @@ namespace chat_client.MVVM.ViewModel
             var user = new UserModel
             {
                 Username = _server.PacketReader.ReadMessage(),
-                UID = _server.PacketReader.ReadMessage(),
+                UID = _server.PacketReader.ReadMessage(), 
             };
 
             // If the users collection doesn't
