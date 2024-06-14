@@ -19,6 +19,7 @@ namespace chat_client.MVVM.ViewModel
         // Represents a dynamic data collection that provides notification
         // when items are added or removed, or when the full list is refreshed.
         public ObservableCollection<UserModel> Users { get; set; }
+        public ObservableCollection<string> Messages { get; set; }
 
         // The RelayCommand is a ICommand implementation that can expose
         // a method or delegate to the view.These types act as a way
@@ -34,19 +35,42 @@ namespace chat_client.MVVM.ViewModel
         // What the user type in the textbox on bottom right
         // of the MainWindow in View gets stored in this property
         // (binded in xaml file)
-        public string Message; { get; set; }
+        public string Message { get; set; }
 
         private Server _server;
 
         public MainViewModel()
         {
             Users = new ObservableCollection<UserModel>();
+            Messages = new ObservableCollection<string>();
             _server = new Server();
             _server.connectedEvent += UserConnected;
+            _server.msgReceivedEvent += MessageReceived;
+            _server.userDisconnectEvent += RemoveUser;
 
             // These commands will be able to run only if the binded property is not empty.
             ConnectToServerCommand = new RelayCommand(o => _server.ConnectToServer(Username), o => !string.IsNullOrEmpty(Username));
             SendMessageCommand = new RelayCommand(o => _server.SendMessageToServer(Message), o => !string.IsNullOrEmpty(Message));
+        }
+
+        private void RemoveUser()
+        {
+            // This is the first thing sent when a user disconnects
+            var uid = _server.PacketReader.ReadMessage();
+            var user = Users.Where(x => x.UID == uid).FirstOrDefault();
+            
+            // Removes the user from the collection
+            Application.Current.Dispatcher.Invoke(() => Users.Remove(user));
+
+        }
+
+        /// <summary>
+        /// Reads the data incoming
+        /// </summary>
+        private void MessageReceived()
+        {
+            var msg = _server.PacketReader.ReadMessage();
+            Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
         }
 
         private void UserConnected()
@@ -66,5 +90,7 @@ namespace chat_client.MVVM.ViewModel
             }
 
         }
+
+
     }
 }

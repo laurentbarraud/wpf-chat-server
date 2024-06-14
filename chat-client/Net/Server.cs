@@ -14,6 +14,8 @@ namespace chat_client.Net
         public PacketReader PacketReader;
 
         public event Action connectedEvent;
+        public event Action msgReceivedEvent;
+        public event Action userDisconnectEvent;
 
         public Server()
         {
@@ -60,6 +62,15 @@ namespace chat_client.Net
                         case 1:
                             connectedEvent?.Invoke();
                             break;
+
+                        case 5:
+                            msgReceivedEvent?.Invoke();
+                            break;
+
+                        case 10:
+                            userDisconnectEvent?.Invoke();
+                            break;
+
                         default:
                             Console.WriteLine("Error reading the opcode.");
                             break;

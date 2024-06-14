@@ -42,5 +42,30 @@ namespace chat_server
                 }
             }
         }
+
+        public static void BroadcastMessage(string message)
+        {
+            foreach (var user in _users)
+            {
+                var msgPacket = new PacketBuilder();
+                msgPacket.WriteOpCode(5);
+                msgPacket.WriteMessage(message);
+                user.ClientSocket.Client.Send(msgPacket.GetPacketBytes());
+            }
+        }
+
+        public static void BroadcastDisconnect(string uid)
+        {
+            var disconnectedUser = _users.Where(x => x.UID.ToString() == uid).FirstOrDefault();
+            foreach (var user in _users)
+            {
+                var broadcastPacket = new PacketBuilder();
+                broadcastPacket.WriteOpCode(10);
+                broadcastPacket.WriteMessage(uid);
+                user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+            }
+
+            BroadcastMessage($"[{disconnectedUser.Username}] Disconnected!");
+        }
     }
 }
