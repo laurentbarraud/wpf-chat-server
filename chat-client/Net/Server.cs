@@ -8,10 +8,10 @@ using System.Threading.Tasks;
 
 namespace chat_client.Net
 {
-    internal class Server
+    class Server
     {
         TcpClient _client;
-        PacketBuilder _packetBuilder;
+        public PacketReader PacketReader;
 
         public Server()
         {
@@ -24,6 +24,8 @@ namespace chat_client.Net
             if (!_client.Connected)
             {
                 _client.Connect("127.0.0.1", 7123);
+                // If the connection is successfull
+                PacketReader = new PacketReader(_client.GetStream());
                 var connectPacket = new PacketBuilder();
                 connectPacket.WriteOpCode(0);
                 connectPacket.WriteString(username);
