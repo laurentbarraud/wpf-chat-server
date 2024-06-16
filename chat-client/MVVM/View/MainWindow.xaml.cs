@@ -17,10 +17,10 @@ namespace chat_client
     {
         private void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
         {
-          
             if (!string.IsNullOrEmpty(MainViewModel.Username))
             {
                 MainViewModel._server.ConnectToServer(MainViewModel.Username);
+                this.Title += " - Connecté au serveur.";
             }
         }
 
