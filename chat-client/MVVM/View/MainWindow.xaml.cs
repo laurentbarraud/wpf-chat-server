@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.3</version>
-/// <date>June 16th, 2024</date>
+/// <date>June 17th, 2024</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
@@ -19,8 +19,16 @@ namespace chat_client
         {
             if (!string.IsNullOrEmpty(MainViewModel.Username))
             {
-                MainViewModel._server.ConnectToServer(MainViewModel.Username);
-                this.Title += " - Connecté au serveur.";
+                try
+                {
+                    MainViewModel._server.ConnectToServer(MainViewModel.Username);
+                    this.Title += " - Connecté au serveur.";
+                }
+
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Le serveur est injoignable ou il a refusé la connexion.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 

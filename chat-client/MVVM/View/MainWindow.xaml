@@ -42,7 +42,8 @@
                          Width="545"
                          VerticalContentAlignment="Center"
                          Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}"/>
-                <Button x:Name="cmdSend" Width="55" Click="cmdSend_Click" Content="Send">
+                <Button x:Name="cmdSend" Width="55" Click="cmdSend_Click">
+                    <Image Source="/Resources/send.png" Stretch="None"/>
                 </Button>
             </StackPanel>
         </StackPanel>

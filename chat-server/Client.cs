@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.3</version>
-/// <date>June 16th, 2024</date>
+/// <date>June 17th, 2024</date>
 
 using chat_server.Net.IO;
 using System.Net.Sockets;

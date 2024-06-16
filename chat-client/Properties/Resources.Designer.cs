@@ -59,5 +59,15 @@ namespace chat_client.Properties {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Recherche une ressource localisée de type System.Byte[].
+        /// </summary>
+        internal static byte[] send {
+            get {
+                object obj = ResourceManager.GetObject("send", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
     }
 }
