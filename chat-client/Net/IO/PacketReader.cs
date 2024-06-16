@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.2</version>
-/// <date>June 15th, 2024</date>
+/// <version>0.3</version>
+/// <date>June 16th, 2024</date>
 
 using System.IO;
 using System.Net.Sockets;
@@ -9,7 +9,7 @@ using System.Text;
 
 namespace chat_client.Net.IO
 {
-    class PacketReader : BinaryReader
+    public class PacketReader : BinaryReader
     {
         private NetworkStream _ns;
         public PacketReader(NetworkStream ns) : base(ns)

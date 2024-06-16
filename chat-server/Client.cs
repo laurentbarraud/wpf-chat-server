@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.2</version>
-/// <date>June 15th, 2024</date>
+/// <version>0.3</version>
+/// <date>June 16th, 2024</date>
 
 using chat_server.Net.IO;
 using System.Net.Sockets;
@@ -39,9 +39,9 @@ namespace chat_server
                     switch (opcode)
                     {
                         case 5:
-                            var msg = _packetReader.ReadMessage();
-                            Console.WriteLine($"[{DateTime.Now}]: Message received from {Username}: {msg}");
-                            Program.BroadcastMessage(msg);
+                            var messageReceived = _packetReader.ReadMessage();
+                            Console.WriteLine($"[{DateTime.Now}]: Message received from {Username}: {messageReceived}");
+                            Program.BroadcastMessage(messageReceived);
                             break;
                         default:
                             break;
@@ -49,11 +49,12 @@ namespace chat_server
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine($"[{UID.ToString()}]: Disconnected!");
-                    Program.BroadcastDisconnect(UID.ToString());
-
+                    Console.WriteLine($"{Username.ToString()} disconnected!");
+                    
                     // Will dispose the actual object as well and then closes it.
                     ClientSocket.Close();
+
+                    Program.BroadcastDisconnect(UID.ToString());
                     break;
                 }
             }

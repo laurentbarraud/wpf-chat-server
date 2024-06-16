@@ -1,43 +1,35 @@
-﻿/// <file>UserModel.cs</file>
+﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.2</version>
-/// <date>June 15th, 2024</date>
+/// <version>0.3</version>
+/// <date>June 16th, 2024</date>
 
 
-using chat_client.MVVM.Core;
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using System.Collections.ObjectModel;
 using System.Windows;
 
 
-
 namespace chat_client.MVVM.ViewModel
 {
-    class MainViewModel
+    public class MainViewModel
     {
         // Represents a dynamic data collection that provides notification
         // when items are added or removed, or when the full list is refreshed.
         public ObservableCollection<UserModel> Users { get; set; }
         public ObservableCollection<string> Messages { get; set; }
 
-        // The RelayCommand is a ICommand implementation that can expose
-        // a method or delegate to the view.These types act as a way
-        // to bind commands between the viewmodel and UI elements.
-        public RelayCommand ConnectToServerCommand { get; set; }
-        public RelayCommand SendMessageCommand { get; set; }
-
         // What the user type in the textbox on top left of
         // the MainWindow in View gets stored in this property
         // (binded in xaml file)
-        public string Username { get; set; }
+        public static string Username { get; set; }
 
         // What the user type in the textbox on bottom right
         // of the MainWindow in View gets stored in this property
         // (binded in xaml file)
-        public string Message { get; set; }
+        public static string Message { get; set; }
 
-        private Server _server;
+        public static Server _server;
 
         public MainViewModel()
         {
@@ -47,10 +39,6 @@ namespace chat_client.MVVM.ViewModel
             _server.connectedEvent += UserConnected;
             _server.msgReceivedEvent += MessageReceived;
             _server.userDisconnectEvent += RemoveUser;
-
-            // These commands will be able to run only if the binded property is not empty.
-            ConnectToServerCommand = new RelayCommand(o => _server.ConnectToServer(Username), o => !string.IsNullOrEmpty(Username));
-            SendMessageCommand = new RelayCommand(o => _server.SendMessageToServer(Message), o => !string.IsNullOrEmpty(Message));
         }
 
         private void RemoveUser()
@@ -58,7 +46,7 @@ namespace chat_client.MVVM.ViewModel
             // This is the first thing sent when a user disconnects
             var uid = _server.PacketReader.ReadMessage();
             var user = Users.Where(x => x.UID == uid).FirstOrDefault();
-            
+
             // Removes the user from the collection
             Application.Current.Dispatcher.Invoke(() => Users.Remove(user));
 
@@ -78,7 +66,7 @@ namespace chat_client.MVVM.ViewModel
             var user = new UserModel
             {
                 Username = _server.PacketReader.ReadMessage(),
-                UID = _server.PacketReader.ReadMessage(), 
+                UID = _server.PacketReader.ReadMessage(),
             };
 
             // If the users collection doesn't
@@ -88,9 +76,6 @@ namespace chat_client.MVVM.ViewModel
                 // We add data to the collection
                 Application.Current.Dispatcher.Invoke(() => Users.Add(user));
             }
-
         }
-
-
     }
 }

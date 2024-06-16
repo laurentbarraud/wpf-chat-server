@@ -1,14 +1,14 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.2</version>
-/// <date>June 15th, 2024</date>
+/// <version>0.3</version>
+/// <date>June 16th, 2024</date>
 
 using chat_client.Net.IO;
 using System.Net.Sockets;
 
 namespace chat_client.Net
 {
-    class Server
+    public class Server
     {
         TcpClient _client;
         public PacketBuilder PacketBuilder;

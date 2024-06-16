@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.2</version>
-/// <date>June 15th, 2024</date>
+/// <version>0.3</version>
+/// <date>June 16th, 2024</date>
 
 using System.IO;
 using System.Text;
@@ -9,7 +9,7 @@ using System.Text;
 
 namespace chat_client.Net.IO
 {
-    class PacketBuilder
+    public class PacketBuilder
     {
         MemoryStream _ms;
         public PacketBuilder()

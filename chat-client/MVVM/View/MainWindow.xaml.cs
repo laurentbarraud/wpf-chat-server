@@ -1,18 +1,12 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.2</version>
-/// <date>June 15th, 2024</date>
+/// <version>0.3</version>
+/// <date>June 16th, 2024</date>
 
-using System.Text;
+using chat_client.MVVM.ViewModel;
+using chat_client.Net;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+
 
 namespace chat_client
 {
@@ -21,9 +15,21 @@ namespace chat_client
     /// </summary>
     public partial class MainWindow : Window
     {
-        public MainWindow()
+        private void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
         {
-            InitializeComponent();
+          
+            if (!string.IsNullOrEmpty(MainViewModel.Username))
+            {
+                MainViewModel._server.ConnectToServer(MainViewModel.Username);
+            }
+        }
+
+        private void cmdSend_Click(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrEmpty(MainViewModel.Message))
+            {
+                MainViewModel._server.SendMessageToServer(MainViewModel.Message);
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿/// <file>UserModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.2</version>
-/// <date>June 15th, 2024</date>
+/// <version>0.3</version>
+/// <date>June 16th, 2024</date>
 
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace chat_client.MVVM.Model
 {
-    class UserModel
+    public class UserModel
     {
         public string Username { get; set; }
         public string UID { get; set; }
