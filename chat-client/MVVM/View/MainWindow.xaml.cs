@@ -6,6 +6,8 @@
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 
 namespace chat_client
@@ -37,6 +39,21 @@ namespace chat_client
             if (!string.IsNullOrEmpty(MainViewModel.Message))
             {
                 MainViewModel._server.SendMessageToServer(MainViewModel.Message);
+            }
+        }
+
+        private void OnTextBoxTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            if (sender is TextBox txtbox)
+            {
+                if (string.IsNullOrEmpty(txtbox.Text))
+                {
+                    txtbox.Background = (ImageBrush)FindResource("txtUsername_background");
+                }
+                else
+                {
+                    txtbox.Background = null;
+                }
             }
         }
     }

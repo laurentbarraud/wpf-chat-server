@@ -15,12 +15,14 @@
 
   <ItemGroup>
     <None Remove="Resources\send.png" />
+    <None Remove="Resources\txtUsername_background.gif" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Resources\send.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Resources\txtUsername_background.gif" />
   </ItemGroup>
 
   <ItemGroup>
