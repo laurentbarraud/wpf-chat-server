@@ -5,6 +5,7 @@
 
 using chat_client.Net.IO;
 using System.Net.Sockets;
+using System.Windows;
 
 namespace chat_client.Net
 {
@@ -53,26 +54,34 @@ namespace chat_client.Net
         {
             Task.Run(() =>
             {
-                while (true)
+                try
                 {
-                    // Reads the first byte (opcode) and stores it
-                    var opcode = PacketReader.ReadByte();
-                    
-                    // opcode 0 is handled somewhere else
-                    switch (opcode)
+                    while (true)
                     {
-                        case 1:
-                            connectedEvent?.Invoke();
-                            break;
+                        // Reads the first byte (opcode) and stores it
+                        var opcode = PacketReader.ReadByte();
 
-                        case 5:
-                            msgReceivedEvent?.Invoke();
-                            break;
+                        // opcode 0 is handled somewhere else
+                        switch (opcode)
+                        {
+                            case 1:
+                                connectedEvent?.Invoke();
+                                break;
 
-                        case 10:
-                            userDisconnectEvent?.Invoke();
-                            break;
+                            case 5:
+                                msgReceivedEvent?.Invoke();
+                                break;
+
+                            case 10:
+                                userDisconnectEvent?.Invoke();
+                                break;
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Le serveur a coupé la connexion. Redémarrez l'application pour vous reconnecter.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                    
                 }
             });
         }
