@@ -1,6 +1,6 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.3</version>
+/// <version>0.4</version>
 /// <date>June 17th, 2024</date>
 
 using chat_server.Net.IO;

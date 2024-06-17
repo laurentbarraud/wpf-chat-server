@@ -1,9 +1,11 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.3</version>
+/// <version>0.4</version>
 /// <date>June 17th, 2024</date>
 
+using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Windows;
 
@@ -25,11 +27,34 @@ namespace chat_client.Net
         }
 
         // We're calling this from the MainViewModel
-        public void ConnectToServer(string username)
+        public void ConnectToServer(string username, string IPAdressOfServer)
         {
             if (!_client.Connected)
             {
-                _client.Connect("127.0.0.1", 7123);
+                if (IPAdressOfServer == "")
+                {
+                    // Localhost connection
+                    _client.Connect("127.0.0.1", 7123);
+                }
+
+                else
+                {
+                    IPAddress serverIPAddress;
+                    bool IPAddressValid = IPAddress.TryParse(IPAdressOfServer, out serverIPAddress);
+
+                    if (IPAddressValid)
+                    {
+                        // Connection to the ip address provided
+                        _client.Connect(IPAdressOfServer, 7123);
+                    }
+
+                    else
+                    {
+                        MessageBox.Show("The IP address is incorrect. Leave it blank to connect locally.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MainViewModel.IsConnectedToServer = false;
+                    }
+
+                }
 
                 // If the connection is successfull
                 PacketReader = new PacketReader(_client.GetStream());
@@ -80,8 +105,8 @@ namespace chat_client.Net
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Le serveur a coupé la connexion. Redémarrez l'application pour vous reconnecter.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
-                    
+                    MessageBox.Show("The server has cut the connection. Restart the application to reconnect.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MainViewModel.IsConnectedToServer = false;
                 }
             });
         }

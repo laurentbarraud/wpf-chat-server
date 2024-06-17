@@ -1,6 +1,6 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.3</version>
+/// <version>0.4</version>
 /// <date>June 17th, 2024</date>
 
 using chat_client.MVVM.ViewModel;
@@ -25,7 +25,8 @@ namespace chat_client
                 {
                     cmdConnect.IsEnabled = false;
                     txtUsername.IsEnabled = false;
-                    MainViewModel._server.ConnectToServer(MainViewModel.Username);
+                    txtIPAddress.IsEnabled = false;
+                    MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
                     this.Title += " - Connecté au serveur.";
                     MainViewModel.IsConnectedToServer = true;
                     spnCenter.Visibility = Visibility.Visible;
@@ -33,9 +34,10 @@ namespace chat_client
 
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Le serveur est injoignable ou il a refusé la connexion.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("The server is unreachable or has refused the connection.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                     cmdConnect.IsEnabled = true;
                     txtUsername.IsEnabled = true;
+                    txtIPAddress.IsEnabled = true;
                 }
             }
         }
@@ -67,7 +69,7 @@ namespace chat_client
 
         private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (txtMessageToSend.Text == "")
+            if (txtMessageToSend.Text == "" || MainViewModel.IsConnectedToServer == false)
             {
                 cmdSend.IsEnabled = false;
             }

@@ -1,6 +1,6 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.3</version>
+/// <version>0.4</version>
 /// <date>June 17th, 2024</date>
 
 

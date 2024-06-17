@@ -7,14 +7,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyVersion>0.3</AssemblyVersion>
-    <FileVersion>0.3</FileVersion>
+    <AssemblyVersion>0.4</AssemblyVersion>
+    <FileVersion>0.4</FileVersion>
     <Company></Company>
-    <Version>0.3</Version>
+    <Version>0.4</Version>
+    <Title>chat-client</Title>
+    <Authors>Laurent Barraud</Authors>
+    <Description>chat-server app</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="Resources\send.png" />
+    <None Remove="Resources\txtIPAddress_background.gif" />
     <None Remove="Resources\txtUsername_background.gif" />
   </ItemGroup>
 
@@ -22,6 +26,7 @@
     <Resource Include="Resources\send.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Resources\txtIPAddress_background.gif" />
     <Resource Include="Resources\txtUsername_background.gif" />
   </ItemGroup>
 

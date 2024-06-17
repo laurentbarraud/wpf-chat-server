@@ -8,6 +8,7 @@
         Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background.gif" AlignmentX="Left" Stretch="None" />
+        <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background.gif" AlignmentX="Left" Stretch="None" />
     </Window.Resources>
     <Window.DataContext>
         <viewmodel:MainViewModel/>
@@ -25,6 +26,11 @@
                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
                     TextChanged="OnTextBoxTextChanged"
                     Background="{StaticResource txtUsername_background}" FontSize="14"/>
+            <TextBox x:Name="txtIPAddress" Height="25"
+                    DockPanel.Dock="Top"
+                    Text="{Binding Username}"
+                    TextChanged="OnTextBoxTextChanged"
+                    Background="{StaticResource txtIPAddress_background}" FontSize="14" MaxLines="1" MaxLength="15"/>
             <Button x:Name="cmdConnect" Height="25" 
                     DockPanel.Dock="Top"
                     Content="Connect" Click="cmdConnect_Click"/>
