@@ -8,6 +8,7 @@ using chat_client.Net;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Configuration;
 
 
 namespace chat_client
@@ -29,6 +30,8 @@ namespace chat_client
                     MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
                     this.Title += " - Connecté au serveur.";
                     MainViewModel.IsConnectedToServer = true;
+                    chat_client.Properties.Settings.Default.LastIPAddressUsed = MainViewModel.IPAddressOfServer;
+                    chat_client.Properties.Settings.Default.Save();
                     spnCenter.Visibility = Visibility.Visible;
                 }
 
@@ -79,5 +82,9 @@ namespace chat_client
             }
         }
 
+        private void frmMainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
+        }
     }
 }

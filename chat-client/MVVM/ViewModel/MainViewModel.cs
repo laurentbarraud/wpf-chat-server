@@ -19,10 +19,15 @@ namespace chat_client.MVVM.ViewModel
         public ObservableCollection<UserModel> Users { get; set; }
         public ObservableCollection<string> Messages { get; set; }
 
-        // What the user type in the textbox on top left of
+        // What the user type in the first textbox on top left of
         // the MainWindow in View gets stored in this property
         // (binded in xaml file)
         public static string Username { get; set; }
+
+        // What the user type in the second textbox on top left of
+        // the MainWindow in View gets stored in this property
+        // (binded in xaml file)
+        public static string IPAddressOfServer { get; set; }
 
         // What the user type in the textbox on bottom right
         // of the MainWindow in View gets stored in this property

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
         mc:Ignorable="d"
-        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen">
+        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="frmMainWindow_Loaded">
     <Window.Resources>
         <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background.gif" AlignmentX="Left" Stretch="None" />
         <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background.gif" AlignmentX="Left" Stretch="None" />
@@ -28,7 +28,7 @@
                     Background="{StaticResource txtUsername_background}" FontSize="14"/>
             <TextBox x:Name="txtIPAddress" Height="25"
                     DockPanel.Dock="Top"
-                    Text="{Binding Username}"
+                    Text="{Binding IPAddressOfServer}"
                     TextChanged="OnTextBoxTextChanged"
                     Background="{StaticResource txtIPAddress_background}" FontSize="14" MaxLines="1" MaxLength="15"/>
             <Button x:Name="cmdConnect" Height="25" 
