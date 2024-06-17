@@ -45,8 +45,8 @@
                 <TextBox x:Name="txtMessageToSend" Height="55"
                          Width="545"
                          VerticalContentAlignment="Center"
-                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}"/>
-                <Button x:Name="cmdSend" Width="55" Click="cmdSend_Click">
+                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="txtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500"/>
+                <Button x:Name="cmdSend" Width="55" Click="cmdSend_Click" IsEnabled="False">
                     <Image Source="/Resources/send.png" Stretch="None"/>
                 </Button>
             </StackPanel>

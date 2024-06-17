@@ -41,6 +41,8 @@ namespace chat_client
             if (!string.IsNullOrEmpty(MainViewModel.Message))
             {
                 MainViewModel._server.SendMessageToServer(MainViewModel.Message);
+                txtMessageToSend.Text = "";
+                txtMessageToSend.Focus();
             }
         }
 
@@ -56,6 +58,18 @@ namespace chat_client
                 {
                     txtbox.Background = null;
                 }
+            }
+        }
+
+        private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (txtMessageToSend.Text == "")
+            {
+                cmdSend.IsEnabled = false;
+            }
+            else
+            {
+                cmdSend.IsEnabled = true;
             }
         }
     }
