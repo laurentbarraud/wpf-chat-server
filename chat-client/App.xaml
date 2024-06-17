@@ -4,6 +4,6 @@
              xmlns:local="clr-namespace:chat_client"
              StartupUri="MVVM\View\MainWindow.xaml">
     <Application.Resources>
-         
+        
     </Application.Resources>
 </Application>

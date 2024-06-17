@@ -25,6 +25,8 @@ namespace chat_client
                 {
                     MainViewModel._server.ConnectToServer(MainViewModel.Username);
                     this.Title += " - Connecté au serveur.";
+                    MainViewModel.IsConnectedToServer = true;
+                    spnCenter.Visibility = Visibility.Visible;
                 }
 
                 catch (Exception ex)

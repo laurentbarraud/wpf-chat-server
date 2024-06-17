@@ -31,6 +31,8 @@ namespace chat_client.MVVM.ViewModel
 
         public static Server _server;
 
+        public static bool IsConnectedToServer { get; set; }
+
         public MainViewModel()
         {
             Users = new ObservableCollection<UserModel>();
