@@ -17,12 +17,14 @@ namespace chat_client
     /// </summary>
     public partial class MainWindow : Window
     {
-        private void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
+        private void cmdConnect_Click(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrEmpty(MainViewModel.Username))
             {
                 try
                 {
+                    cmdConnect.IsEnabled = false;
+                    txtUsername.IsEnabled = false;
                     MainViewModel._server.ConnectToServer(MainViewModel.Username);
                     this.Title += " - Connecté au serveur.";
                     MainViewModel.IsConnectedToServer = true;
@@ -32,6 +34,8 @@ namespace chat_client
                 catch (Exception ex)
                 {
                     MessageBox.Show("Le serveur est injoignable ou il a refusé la connexion.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    cmdConnect.IsEnabled = true;
+                    txtUsername.IsEnabled = true;
                 }
             }
         }
@@ -72,5 +76,6 @@ namespace chat_client
                 cmdSend.IsEnabled = true;
             }
         }
+
     }
 }

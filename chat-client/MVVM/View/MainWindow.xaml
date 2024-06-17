@@ -25,9 +25,9 @@
                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
                     TextChanged="OnTextBoxTextChanged"
                     Background="{StaticResource txtUsername_background}" FontSize="14"/>
-            <Button x:Name="cmdConnectDisconnect" Height="25" 
+            <Button x:Name="cmdConnect" Height="25" 
                     DockPanel.Dock="Top"
-                    Content="Connect" Click="cmdConnectDisconnect_Click"/>
+                    Content="Connect" Click="cmdConnect_Click"/>
             <ListView x:Name="lstUsersConnected" ItemsSource="{Binding Users}">
                 <ListView.ItemTemplate>
                     <DataTemplate>
