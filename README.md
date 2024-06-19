@@ -1,8 +1,8 @@
 ## WPF Chat app and server
-- Made in C# using MVVM model. 
-- This project creates network packets, using a packet builder and a packet reader.
-- A package builder inserts an opcode at the beginning, so that the package reader can determine its type. 
-- Includes a list of connected users, which updates automatically when someone logs in or out.
+- Made in C# using MVVM model.
+- The client can run on localhost if the IP address of the server is left blank. 
+- Both server and client create network packets, using a packet builder. The package builder inserts an opcode at the beginning, so that the package reader can determine its type. 
+- Including is a list of connected users, which updates automatically when someone logs in or out.
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/master/WPF-chat-server-screenshot.jpg" width="500" alt="screenshot of chat server app" >
