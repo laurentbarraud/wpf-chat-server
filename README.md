@@ -2,7 +2,7 @@
 - Made in C# using MVVM model.
 - The client can run on localhost if the IP address of the server is left blank. 
 - Both server and client create network packets, using a packet builder. It inserts an opcode at the beginning, so that the package reader can determine its type. 
-- Including is a list of connected users, which updates automatically when someone logs in or out.
+- Includes a list of connected users, which updates automatically when someone logs in or out.
 - The last IP address that the client successfully connected to is stored in the app for convenient use. 
 
 <p align="center">
