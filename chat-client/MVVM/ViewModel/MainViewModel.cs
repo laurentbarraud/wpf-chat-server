@@ -73,7 +73,7 @@ namespace chat_client.MVVM.ViewModel
             
             else
             {
-                Application.Current.Dispatcher.Invoke(() => Messages.Add($"{Username}: " + msg));
+                Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
             }
         }
 
