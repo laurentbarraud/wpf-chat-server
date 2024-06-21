@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.4</version>
-/// <date>June 17th, 2024</date>
+/// <date>June 21th, 2024</date>
 
 using chat_server.Net.IO;
 using System.Net.Sockets;
@@ -49,8 +49,8 @@ namespace chat_server
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine($"{Username.ToString()} disconnected!");
-                    
+                    Console.WriteLine($"[{DateTime.Now}]: {Username.ToString()} disconnected!");
+
                     // Will dispose the actual object as well and then closes it.
                     ClientSocket.Close();
 

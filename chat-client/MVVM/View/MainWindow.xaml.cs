@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.4</version>
-/// <date>June 17th, 2024</date>
+/// <date>June 21th, 2024</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
@@ -41,6 +41,8 @@ namespace chat_client
                     cmdConnect.IsEnabled = true;
                     txtUsername.IsEnabled = true;
                     txtIPAddress.IsEnabled = true;
+                    this.Title = "WPF Chat Server";
+                    spnCenter.Visibility = Visibility.Hidden;
                 }
             }
         }
