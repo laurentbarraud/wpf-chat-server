@@ -51,6 +51,7 @@ namespace chat_client.Net
                     else
                     {
                         MessageBox.Show("The IP address is incorrect. Leave it blank to connect locally.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MainViewModel.IsConnectedToServer = false;
                     }
 
                 }
@@ -105,6 +106,7 @@ namespace chat_client.Net
                 catch (Exception ex)
                 {
                     MessageBox.Show("The server has cut the connection. Restart the application to reconnect.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MainViewModel.IsConnectedToServer = false;
                 }
             });
         }

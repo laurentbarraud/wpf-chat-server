@@ -9,8 +9,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Configuration;
-using chat_client.MVVM.Model;
-using System.Collections.ObjectModel;
 
 
 namespace chat_client
@@ -31,6 +29,7 @@ namespace chat_client
                     txtIPAddress.IsEnabled = false;
                     MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
                     this.Title += " - Connecté au serveur.";
+                    MainViewModel.IsConnectedToServer = true;
                     chat_client.Properties.Settings.Default.LastIPAddressUsed = MainViewModel.IPAddressOfServer;
                     chat_client.Properties.Settings.Default.Save();
                     spnCenter.Visibility = Visibility.Visible;
@@ -75,7 +74,7 @@ namespace chat_client
 
         private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (txtMessageToSend.Text == "")
+            if (txtMessageToSend.Text == "" || MainViewModel.IsConnectedToServer == false)
             {
                 cmdSend.IsEnabled = false;
             }

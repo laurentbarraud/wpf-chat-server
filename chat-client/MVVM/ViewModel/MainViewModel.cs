@@ -36,10 +36,12 @@ namespace chat_client.MVVM.ViewModel
 
         public static Server _server;
 
+        public static bool IsConnectedToServer { get; set; }
+
         public MainViewModel()
         {
-            ObservableCollection<UserModel> Users = new ObservableCollection<UserModel>();
-            ObservableCollection<string> Messages = new ObservableCollection<string>();
+            Users = new ObservableCollection<UserModel>();
+            Messages = new ObservableCollection<string>();
             _server = new Server();
             _server.connectedEvent += UserConnected;
             _server.msgReceivedEvent += MessageReceived;
@@ -71,7 +73,7 @@ namespace chat_client.MVVM.ViewModel
             
             else
             {
-                Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+                Application.Current.Dispatcher.Invoke(() => Messages.Add($"{Username}: " + msg));
             }
         }
 
