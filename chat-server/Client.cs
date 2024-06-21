@@ -41,7 +41,7 @@ namespace chat_server
                         case 5:
                             var messageReceived = _packetReader.ReadMessage();
                             Console.WriteLine($"[{DateTime.Now}]: Message received from {Username}: {messageReceived}");
-                            Program.BroadcastMessage(messageReceived);
+                            Program.BroadcastMessage($"{Username}: " + "{messageReceived}");
                             break;
                         default:
                             break;
