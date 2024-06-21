@@ -36,6 +36,16 @@ namespace chat_client.MVVM.ViewModel
 
         public static Server _server;
 
+        public MainViewModel()
+        {
+            ObservableCollection<UserModel> Users = new ObservableCollection<UserModel>();
+            ObservableCollection<string> Messages = new ObservableCollection<string>();
+            _server = new Server();
+            _server.connectedEvent += UserConnected;
+            _server.msgReceivedEvent += MessageReceived;
+            _server.userDisconnectEvent += RemoveUser;
+        }
+
         private void RemoveUser()
         {
             // This is the first thing sent when a user disconnects

@@ -24,19 +24,11 @@ namespace chat_client
         {
             if (!string.IsNullOrEmpty(MainViewModel.Username))
             {
-                Users = new ObservableCollection<UserModel>();
-                Messages = new ObservableCollection<string>();
-                _server = new Server();
-                _server.connectedEvent += UserConnected;
-                _server.msgReceivedEvent += MessageReceived;
-                _server.userDisconnectEvent += RemoveUser;
-
                 try
                 {
                     cmdConnect.IsEnabled = false;
                     txtUsername.IsEnabled = false;
                     txtIPAddress.IsEnabled = false;
-
                     MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
                     this.Title += " - Connecté au serveur.";
                     chat_client.Properties.Settings.Default.LastIPAddressUsed = MainViewModel.IPAddressOfServer;
@@ -83,7 +75,7 @@ namespace chat_client
 
         private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (txtMessageToSend.Text == "" || MainViewModel.IsConnectedToServer == false)
+            if (txtMessageToSend.Text == "")
             {
                 cmdSend.IsEnabled = false;
             }
