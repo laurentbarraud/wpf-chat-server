@@ -9,6 +9,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Configuration;
+using chat_client.MVVM.Model;
+using System.Collections.ObjectModel;
 
 
 namespace chat_client
@@ -22,14 +24,21 @@ namespace chat_client
         {
             if (!string.IsNullOrEmpty(MainViewModel.Username))
             {
+                Users = new ObservableCollection<UserModel>();
+                Messages = new ObservableCollection<string>();
+                _server = new Server();
+                _server.connectedEvent += UserConnected;
+                _server.msgReceivedEvent += MessageReceived;
+                _server.userDisconnectEvent += RemoveUser;
+
                 try
                 {
                     cmdConnect.IsEnabled = false;
                     txtUsername.IsEnabled = false;
                     txtIPAddress.IsEnabled = false;
+
                     MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
                     this.Title += " - Connecté au serveur.";
-                    MainViewModel.IsConnectedToServer = true;
                     chat_client.Properties.Settings.Default.LastIPAddressUsed = MainViewModel.IPAddressOfServer;
                     chat_client.Properties.Settings.Default.Save();
                     spnCenter.Visibility = Visibility.Visible;
@@ -41,6 +50,8 @@ namespace chat_client
                     cmdConnect.IsEnabled = true;
                     txtUsername.IsEnabled = true;
                     txtIPAddress.IsEnabled = true;
+                    this.Title = "WPF Chat Server";
+                    spnCenter.Visibility = Visibility.Hidden;
                 }
             }
         }

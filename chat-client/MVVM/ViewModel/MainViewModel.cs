@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.4</version>
-/// <date>June 17th, 2024</date>
+/// <date>June 21th, 2024</date>
 
 
 using chat_client.MVVM.Model;
@@ -35,18 +35,6 @@ namespace chat_client.MVVM.ViewModel
         public static string Message { get; set; }
 
         public static Server _server;
-
-        public static bool IsConnectedToServer { get; set; }
-
-        public MainViewModel()
-        {
-            Users = new ObservableCollection<UserModel>();
-            Messages = new ObservableCollection<string>();
-            _server = new Server();
-            _server.connectedEvent += UserConnected;
-            _server.msgReceivedEvent += MessageReceived;
-            _server.userDisconnectEvent += RemoveUser;
-        }
 
         private void RemoveUser()
         {
