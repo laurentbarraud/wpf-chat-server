@@ -50,7 +50,7 @@ namespace chat_server
                 catch (Exception)
                 {
                     Console.WriteLine($"[{DateTime.Now}]: {Username.ToString()} disconnected!");
-                    
+
                     // Will dispose the actual object as well and then closes it.
                     ClientSocket.Close();
 
