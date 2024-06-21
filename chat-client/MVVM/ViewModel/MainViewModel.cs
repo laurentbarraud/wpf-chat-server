@@ -62,8 +62,17 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private void MessageReceived()
         {
-            var msg = _server.PacketReader.ReadMessage();         
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+            var msg = _server.PacketReader.ReadMessage();
+            
+            if (msg.EndsWith("disconnected!"))
+            {
+                Application.Current.Dispatcher.Invoke(() => Messages.Add("[Server]: " + msg));
+            } 
+            
+            else
+            {
+                Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+            }
         }
 
         private void UserConnected()
