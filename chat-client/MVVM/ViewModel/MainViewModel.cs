@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.4</version>
-/// <date>June 21th, 2024</date>
+/// <date>June 26th, 2024</date>
 
 
 using chat_client.MVVM.Model;
@@ -66,15 +66,7 @@ namespace chat_client.MVVM.ViewModel
         {
             var msg = _server.PacketReader.ReadMessage();
             
-            if (msg.EndsWith("disconnected!"))
-            {
-                Application.Current.Dispatcher.Invoke(() => Messages.Add("[Server]: " + msg));
-            } 
-            
-            else
-            {
-                Application.Current.Dispatcher.Invoke(() => Messages.Add($"{Username}: " + msg));
-            }
+                Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
         }
 
         private void UserConnected()

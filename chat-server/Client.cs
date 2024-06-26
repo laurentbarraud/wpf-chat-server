@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.4</version>
-/// <date>June 21th, 2024</date>
+/// <date>June 26th, 2024</date>
 
 using chat_server.Net.IO;
 using System.Net.Sockets;
@@ -41,7 +41,7 @@ namespace chat_server
                         case 5:
                             var messageReceived = _packetReader.ReadMessage();
                             Console.WriteLine($"[{DateTime.Now}]: Message received from {Username}: {messageReceived}");
-                            Program.BroadcastMessage(messageReceived);
+                            Program.BroadcastMessage($"{Username}: " + $"{messageReceived}");
                             break;
                         default:
                             break;

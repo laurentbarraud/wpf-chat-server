@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.4</version>
-/// <date>June 21th, 2024</date>
+/// <date>June 26th, 2024</date>
 
 using chat_server.Net.IO;
 using System.Net;
@@ -72,7 +72,7 @@ namespace chat_server
                 user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
             }
 
-            BroadcastMessage($"{disconnectedUser.Username} disconnected!");
+            BroadcastMessage($"Server: {disconnectedUser.Username} disconnected!");
         }
     }
 }
