@@ -6,5 +6,5 @@
 - The client remembers the last IP address it connected to.
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/master/WPF-chat-server-screenshot.jpg" width="500" alt="screenshot of chat server app" >
+<img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server app" >
 </p>
