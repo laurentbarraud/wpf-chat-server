@@ -8,6 +8,10 @@
 - Includes a list of connected users, which updates automatically when someone logs in or out.
 - The client remembers the last IP address it connected to.
 
+<p align="center">
+<img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server app" >
+</p>
+
 ### How to Run
 
 - Clone the repository
@@ -15,7 +19,3 @@
 - Build and run the solution
 
 Or go to the Release section to download a zip archive, containing the compiled executable (for x64 systems, starting from Windows 7 and upwards)
-
-<p align="center">
-<img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server app" >
-</p>
