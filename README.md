@@ -1,6 +1,6 @@
 ### WPF Chat app and server
 ![Release](https://img.shields.io/badge/release-stable-blue)
-![GitHub all releases](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/total?color=88aacc&style=flat)
+![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.4/total?color=F28500&style=flat)
 
 - Uses MVVM model.
 - The client can run on localhost if the IP address of the server is left blank. 
