@@ -16,6 +16,6 @@
 
 - Clone the repository
 - Open in Visual Studio 2022
-- Build and run the solution
+- Build and run the solution to test the two projects in local connection.
 
-Or go to the Release section to download a zip archive, containing the compiled executable (for x64 systems, starting from Windows 7 and upwards)
+Or go to the [Release](https://github.com/laurentbarraud/wpf-chat-server/releases) section to download a zip archive, containing the compiled executable (for x64 systems, starting from Windows 7 and upwards)
