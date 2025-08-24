@@ -2,15 +2,15 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
     <RootNamespace>chat_client</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyVersion>0.4</AssemblyVersion>
-    <FileVersion>0.4</FileVersion>
+    <AssemblyVersion>0.5</AssemblyVersion>
+    <FileVersion>0.5</FileVersion>
     <Company></Company>
-    <Version>0.4</Version>
+    <Version>0.5</Version>
     <Title>chat-client</Title>
     <Authors>Laurent Barraud</Authors>
     <Description>chat-server app</Description>

@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.4</version>
-/// <date>June 26th, 2024</date>
+/// <version>0.5</version>
+/// <date>August 24th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
@@ -75,6 +75,33 @@ namespace chat_client.Net
             }
         }
 
+        /// <summary>
+        /// Closes the TCP connection and resets internal state
+        /// </summary>
+        public void DisconnectFromServer()
+        {
+            try
+            {
+                // Close the TCP connection if it's active
+                if (_client != null && _client.Connected)
+                {
+                    _client.Close();
+                }
+
+                // Reset internal objects
+                PacketReader = null;
+                PacketBuilder = null;
+
+                // Reinitialize the TcpClient so we can reconnect later
+                _client = new TcpClient();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error while disconnecting: {ex.Message}", "Disconnect Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+
         private void ReadPackets()
         {
             Task.Run(() =>
@@ -105,7 +132,6 @@ namespace chat_client.Net
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("The server has cut the connection. Restart the application to reconnect.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
                     MainViewModel.IsConnectedToServer = false;
                 }
             });

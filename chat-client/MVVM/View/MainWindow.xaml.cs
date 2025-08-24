@@ -1,14 +1,15 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.4</version>
-/// <date>June 26th, 2024</date>
+/// <version>0.5</version>
+/// <date>August 24th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
+using System.Configuration;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
-using System.Configuration;
 
 
 namespace chat_client
@@ -18,34 +19,82 @@ namespace chat_client
     /// </summary>
     public partial class MainWindow : Window
     {
+        public MainViewModel ViewModel { get; set; }
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            ViewModel = new MainViewModel();
+            this.DataContext = ViewModel;
+        }
+
+
         private void cmdConnect_Click(object sender, RoutedEventArgs e)
         {
-            if (!string.IsNullOrEmpty(MainViewModel.Username))
+            // Check if user is already connected
+            if (MainViewModel.IsConnectedToServer)
             {
+                // --- DISCONNECT LOGIC ---
                 try
                 {
-                    cmdConnect.IsEnabled = false;
-                    txtUsername.IsEnabled = false;
-                    txtIPAddress.IsEnabled = false;
-                    MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
-                    this.Title += " - Connected to the server.";
-                    MainViewModel.IsConnectedToServer = true;
-                    chat_client.Properties.Settings.Default.LastIPAddressUsed = MainViewModel.IPAddressOfServer;
-                    chat_client.Properties.Settings.Default.Save();
-                    spnCenter.Visibility = Visibility.Visible;
-                }
+                    // Close the connection to the server
+                    MainViewModel._server.DisconnectFromServer();
 
-                catch (Exception ex)
-                {
-                    MessageBox.Show("The server is unreachable or has refused the connection.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                    cmdConnect.IsEnabled = true;
+                    // Reset UI state
+                    cmdConnect.Content = "_Connect"; // Button text back to "Connect"
                     txtUsername.IsEnabled = true;
                     txtIPAddress.IsEnabled = true;
+
+                    // Clear the bound collections instead of Items.Clear()
+                    ViewModel.Users.Clear();
+                    ViewModel.Messages.Clear();
+
                     this.Title = "WPF Chat Server";
                     spnCenter.Visibility = Visibility.Hidden;
+                    MainViewModel.IsConnectedToServer = false;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error while disconnecting: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                // --- CONNECT LOGIC ---
+                if (!string.IsNullOrEmpty(MainViewModel.Username))
+                {
+                    try
+                    {
+                        txtUsername.IsEnabled = false;
+                        txtIPAddress.IsEnabled = false;
+
+                        // Attempt to connect to the server with the provided username and IP
+                        MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
+
+                        // Update UI to reflect connected state
+                        this.Title += " - Connected to the server.";
+                        MainViewModel.IsConnectedToServer = true;
+                        cmdConnect.Content = "_Disconnect"; // Button text changes to "Disconnect"
+
+                        // Save last used IP in settings
+                        chat_client.Properties.Settings.Default.LastIPAddressUsed = MainViewModel.IPAddressOfServer;
+                        chat_client.Properties.Settings.Default.Save();
+
+                        spnCenter.Visibility = Visibility.Visible;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("The server is unreachable or has refused the connection.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                        cmdConnect.IsEnabled = true;
+                        txtUsername.IsEnabled = true;
+                        txtIPAddress.IsEnabled = true;
+                        this.Title = "WPF Chat Server";
+                        spnCenter.Visibility = Visibility.Hidden;
+                    }
                 }
             }
         }
+
 
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
@@ -55,6 +104,12 @@ namespace chat_client
                 txtMessageToSend.Text = "";
                 txtMessageToSend.Focus();
             }
+        }
+
+        private void frmMainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
+            txtUsername.Focus();
         }
 
         private void OnTextBoxTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -72,6 +127,27 @@ namespace chat_client
             }
         }
 
+        private void txtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                // Simulate the click on the cmdConnect button
+                cmdConnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+        }
+
+        private void txtMessageToSend_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                // Simulate the click on the cmdSend button
+                cmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+                // Prevents the line break in the textBox
+                e.Handled = true;
+            }
+        }
+
         private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (txtMessageToSend.Text == "" || MainViewModel.IsConnectedToServer == false)
@@ -84,9 +160,14 @@ namespace chat_client
             }
         }
 
-        private void frmMainWindow_Loaded(object sender, RoutedEventArgs e)
+        private void txtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
+            if (e.Key == Key.Enter)
+            {
+                // Simulate the click on the cmdConnect button
+                cmdConnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
         }
+
     }
 }

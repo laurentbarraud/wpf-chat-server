@@ -25,16 +25,16 @@
                     DockPanel.Dock="Top"
                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
                     TextChanged="OnTextBoxTextChanged"
-                    Background="{StaticResource txtUsername_background}" FontSize="14"/>
+                    Background="{StaticResource txtUsername_background}" FontSize="14" PreviewKeyDown="txtUsername_PreviewKeyDown" MaxLines="1" TabIndex="0"/>
             <TextBox x:Name="txtIPAddress" Height="25"
                     DockPanel.Dock="Top"
                     Text="{Binding IPAddressOfServer}"
                     TextChanged="OnTextBoxTextChanged"
-                    Background="{StaticResource txtIPAddress_background}" FontSize="14" MaxLines="1" MaxLength="15"/>
+                    Background="{StaticResource txtIPAddress_background}" FontSize="14" MaxLines="1" MaxLength="15" PreviewKeyDown="txtIPAddress_PreviewKeyDown" TabIndex="1"/>
             <Button x:Name="cmdConnect" Height="25" 
                     DockPanel.Dock="Top"
-                    Content="Connect" Click="cmdConnect_Click"/>
-            <ListView x:Name="lstUsersConnected" ItemsSource="{Binding Users}">
+                    Content="_Connect" Click="cmdConnect_Click" TabIndex="-2"/>
+            <ListView x:Name="lstUsersConnected" ItemsSource="{Binding Users}" TabIndex="5">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding Username}"/>
@@ -51,8 +51,8 @@
                 <TextBox x:Name="txtMessageToSend" Height="55"
                          Width="545"
                          VerticalContentAlignment="Center"
-                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="txtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500"/>
-                <Button x:Name="cmdSend" Width="55" Click="cmdSend_Click" IsEnabled="False">
+                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="txtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500" PreviewKeyDown="txtMessageToSend_PreviewKeyDown" TabIndex="3"/>
+                <Button x:Name="cmdSend" Width="55" Click="cmdSend_Click" IsEnabled="False" TabIndex="4">
                     <Image Source="/Resources/send.png" Stretch="None"/>
                 </Button>
             </StackPanel>
