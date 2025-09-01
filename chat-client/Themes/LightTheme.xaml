@@ -8,8 +8,10 @@
     <!-- Soft black text -->
     <Color x:Key="PrimaryColor">#FFD3D3D3</Color>
     <!-- Light grey button -->
+    <Color x:Key="DisabledButtonColor">#FFD3D3D3</Color>
 
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+    <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource PrimaryColor}" />
 </ResourceDictionary>

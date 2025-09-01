@@ -83,35 +83,65 @@
                 <StackPanel x:Name="spnThemeToggleButton" Orientation="Horizontal"
                     Height="32"
                     VerticalAlignment="Center">
-
                     <ToggleButton x:Name="ThemeToggle"
-                        Width="32" Height="32"
-                        Checked="ThemeToggle_Checked"
-                        Unchecked="ThemeToggle_Unchecked"
-                        Background="{DynamicResource PrimaryBrush}"
-                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="6" IsChecked="False">
-                        <ToggleButton.Style>
-                            <Style TargetType="ToggleButton">
-                                <Setter Property="Content">
-                                    <Setter.Value>
-                                        <Image Source="/Resources/moon.png" Width="24" Height="24"/>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
+                          Width="60" Height="32"
+                          Checked="ThemeToggle_Checked"
+                          Unchecked="ThemeToggle_Unchecked">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Grid>
+                                    <!-- Rounded background -->
+                                    <Border x:Name="SwitchBackground"
+                                        CornerRadius="16"
+                                        Background="{DynamicResource BackgroundBrush}"
+                                        BorderBrush="{DynamicResource PrimaryBrush}"
+                                        BorderThickness="1" />
+
+                                    <!-- Thumb with icon -->
+                                    <Grid x:Name="ThumbContainer"
+                                      Width="28" Height="28"
+                                      VerticalAlignment="Center"
+                                      Margin="2,2,30,2">
+                                        <!-- Default: left -->
+                                        <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+
+                                        <Image x:Name="SwitchIcon"
+                                           Source="/Resources/sun.png"
+                                           Width="18" Height="18"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                                    </Grid>
+                                </Grid>
+
+                                <ControlTemplate.Triggers>
+                                    <!-- Checked: move thumb to right + change icon -->
                                     <Trigger Property="IsChecked" Value="True">
-                                        <Setter Property="Content">
-                                            <Setter.Value>
-                                                <Image Source="/Resources/sun.png" Width="24" Height="24"/>
-                                            </Setter.Value>
-                                        </Setter>
+                                        <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/moon.png" />
+                                        <Setter TargetName="ThumbContainer" Property="Margin" Value="30,2,2,2" />
                                     </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ToggleButton.Style>
+
+                                    <!-- Unchecked: move thumb to left + change icon -->
+                                    <Trigger Property="IsChecked" Value="False">
+                                        <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/sun.png" />
+                                        <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,30,2" />
+                                    </Trigger>
+
+                                    <!-- Hover effect -->
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                    </Trigger>
+
+                                    <!-- Disabled state -->
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="SwitchBackground" Property="Opacity" Value="0.4" />
+                                        <Setter TargetName="ThumbContainer" Property="Opacity" Value="0.4" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
                     </ToggleButton>
                 </StackPanel>
             </StackPanel>
-
         </DockPanel>
 
         <StackPanel x:Name="spnCenter" Grid.Column="1" Visibility="Hidden">
