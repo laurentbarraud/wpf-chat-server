@@ -1,7 +1,7 @@
 ### WPF Chat app and server 
 
 ![Release](https://img.shields.io/badge/release-stable-1B4636)
-![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.5/total?color=88aacc&style=flat)
+![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.6/total?color=88aacc&style=flat)
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server app" >
@@ -11,6 +11,7 @@
 - Both the server and client use a custom packet builder that adds an opcode to each packet, allowing the receiver to identify its type.
 - The application includes a real-time list of connected users, which updates automatically when users log in or out.
 - The client also remembers the last IP address it successfully connected to, making reconnections faster and more convenient.
+- The client supports both light and dark themes, which can be switched seamlessly using a custom toggle button.
 
 ### How to Run
 
