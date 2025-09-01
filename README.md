@@ -1,7 +1,7 @@
 ### WPF Chat app and server 
 
 ![Release](https://img.shields.io/badge/release-stable-1B4636)
-![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.4/total?color=88aacc&style=flat)
+![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.5/total?color=88aacc&style=flat)
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server app" >
@@ -16,6 +16,6 @@
 
 - Clone the repository
 - Open in Visual Studio 2022
-- Build and run the solution
+- Build and run the solution to test the two projects in local connection.
 
-Or go to the Release section to download a zip archive, containing the compiled executable (for x64 systems, starting from Windows 7 and upwards)
+Or go to the [Release](https://github.com/laurentbarraud/wpf-chat-server/releases) section to download a zip archive, containing the compiled executable (for x64 systems, starting from Windows 7 and upwards)
