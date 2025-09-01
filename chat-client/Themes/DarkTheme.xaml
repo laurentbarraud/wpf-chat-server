@@ -13,4 +13,6 @@
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource DisabledButtonColor}" />
+    <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background_dark.gif" />
+    <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background_dark.gif" />
 </ResourceDictionary>

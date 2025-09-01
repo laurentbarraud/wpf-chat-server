@@ -21,7 +21,9 @@
     <None Remove="Resources\send.png" />
     <None Remove="Resources\sun.png" />
     <None Remove="Resources\txtIPAddress_background.gif" />
+    <None Remove="Resources\txtIPAddress_background_dark.gif" />
     <None Remove="Resources\txtUsername_background.gif" />
+    <None Remove="Resources\txtUsername_background_dark.gif" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,7 +33,9 @@
     </Resource>
     <Resource Include="Resources\sun.png" />
     <Resource Include="Resources\txtIPAddress_background.gif" />
+    <Resource Include="Resources\txtIPAddress_background_dark.gif" />
     <Resource Include="Resources\txtUsername_background.gif" />
+    <Resource Include="Resources\txtUsername_background_dark.gif" />
   </ItemGroup>
 
   <ItemGroup>
