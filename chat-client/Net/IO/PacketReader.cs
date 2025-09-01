@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.5</version>
-/// <date>August 24th, 2025</date>
+/// <date>September 1st, 2025</date>
 
 using System.IO;
 using System.Net.Sockets;
@@ -34,7 +34,7 @@ namespace chat_client.Net.IO
             // Reads data from the network stream and
             // stores it to a byte array (msgBuffer)
             // from the first byte to the length of the message
-            _ns.Read(msgBuffer, 0, length);
+            _ns.ReadExactly(msgBuffer, 0, length);
 
             var msg = Encoding.ASCII.GetString(msgBuffer);
             return msg;

@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.5</version>
-/// <date>August 24th, 2025</date>
+/// <version>0.6</version>
+/// <date>September 1st, 2025</date>
 
 using chat_server.Net.IO;
 using System.Net;
@@ -62,17 +62,21 @@ namespace chat_server
         public static void BroadcastDisconnect(string uidDisconnected)
         {
             var disconnectedUser = _users.Where(x => x.UID.ToString() == uidDisconnected).FirstOrDefault();
-            _users.Remove(disconnectedUser);
+            
+            if (disconnectedUser != null) 
+            { 
+                _users.Remove(disconnectedUser); 
 
-            foreach (var user in _users)
-            {
-                var broadcastPacket = new PacketBuilder();
-                broadcastPacket.WriteOpCode(10);
-                broadcastPacket.WriteMessage(uidDisconnected);
-                user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+                foreach (var user in _users)
+                {
+                    var broadcastPacket = new PacketBuilder();
+                    broadcastPacket.WriteOpCode(10);
+                    broadcastPacket.WriteMessage(uidDisconnected);
+                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+                }
+
+                BroadcastMessage($"Server: {disconnectedUser.Username} disconnected!");
             }
-
-            BroadcastMessage($"Server: {disconnectedUser.Username} disconnected!");
         }
     }
 }

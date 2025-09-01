@@ -1,0 +1,31 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Google Material Dark Theme -->
+    <Color x:Key="BackgroundColor">#FF121212</Color>
+    <!-- Very dark background -->
+    <Color x:Key="ForegroundColor">#FFFFFFFF</Color>
+    <!-- White text -->
+    <Color x:Key="PrimaryColor">#FF2196F3</Color>
+    <!-- Google's azure blue -->
+
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+    <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+
+    <!-- Optional: global styles -->
+    <Style TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+
+    <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource BackgroundBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+
+</ResourceDictionary>

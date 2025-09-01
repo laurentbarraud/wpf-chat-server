@@ -1,0 +1,15 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Visual Studio Light Theme -->
+    <Color x:Key="BackgroundColor">#FFFDFDFD</Color>
+    <!-- almost white -->
+    <Color x:Key="ForegroundColor">#FF1E1E1E</Color>
+    <!-- Soft black text -->
+    <Color x:Key="PrimaryColor">#FFD3D3D3</Color>
+    <!-- Light grey button -->
+
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+    <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
+    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+</ResourceDictionary>

@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.5</version>
-/// <date>August 24th, 2025</date>
+/// <version>0.6</version>
+/// <date>September 1st, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using chat_client.Helpers;
 
 
 namespace chat_client
@@ -109,7 +110,27 @@ namespace chat_client
         private void frmMainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
+            
+            // Synchronize the toggle button with the current theme
+            ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
+
+            // Attach event handlers to save theme choice when toggled
+            ThemeToggle.Checked += (s, _) =>
+            {
+                // Save dark theme preference
+                Properties.Settings.Default.AppTheme = "Dark";
+                Properties.Settings.Default.Save();
+            };
+
+            ThemeToggle.Unchecked += (s, _) =>
+            {
+                // Save light theme preference
+                Properties.Settings.Default.AppTheme = "Light";
+                Properties.Settings.Default.Save();
+            };
+
             txtUsername.Focus();
+
         }
 
         private void OnTextBoxTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -126,6 +147,27 @@ namespace chat_client
                 }
             }
         }
+
+        private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            // Apply dark theme to this window with fade animation
+            ThemeManager.ApplyTheme(true);
+
+            // Save user preference
+            Properties.Settings.Default.AppTheme = "Dark";
+            Properties.Settings.Default.Save();
+        }
+
+        private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // Apply light theme to this window with fade animation
+            ThemeManager.ApplyTheme(false);
+
+            // Save user preference
+            Properties.Settings.Default.AppTheme = "Light";
+            Properties.Settings.Default.Save();
+        }
+
 
         private void txtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
         {

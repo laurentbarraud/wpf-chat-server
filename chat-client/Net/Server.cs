@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.5</version>
-/// <date>August 24th, 2025</date>
+/// <version>0.6</version>
+/// <date>September 1st, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
@@ -130,7 +130,7 @@ namespace chat_client.Net
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     MainViewModel.IsConnectedToServer = false;
                 }
