@@ -60,14 +60,62 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Reads the data incoming
+        /// Reads the data incoming and handles disconnect command gracefully.
         /// </summary>
         private void MessageReceived()
         {
             var msg = _server.PacketReader.ReadMessage();
-            
-                Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+
+            // Checks for disconnect command from server
+            if (msg == "/disconnect")
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    // Gets reference to MainWindow and ViewModel
+                    var mainWindow = Application.Current.MainWindow as MainWindow;
+                    if (mainWindow == null || mainWindow.ViewModel == null)
+                        return;
+
+                    var viewModel = mainWindow.ViewModel;
+
+                    // Creates a timer to delay UI reset
+                    var timer = new System.Timers.Timer(2000)
+                    {
+                        AutoReset = false // Fire only once
+                    };
+
+                    timer.Elapsed += (s, e) =>
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            // Resets UI state
+                            mainWindow.cmdConnect.Content = "_Connect";
+                            mainWindow.txtUsername.IsEnabled = true;
+                            mainWindow.txtIPAddress.IsEnabled = true;
+
+                            viewModel.Users.Clear();
+                            viewModel.Messages.Clear();
+
+                            mainWindow.Title = "WPF Chat Server";
+                            mainWindow.spnCenter.Visibility = Visibility.Hidden;
+                            MainViewModel.IsConnectedToServer = false;
+
+                            // Closes socket if still open
+                            _server.DisconnectFromServer();
+                        });
+                    };
+
+                    timer.Start();
+                });
+
+                return;
+            }
+
+            // Normal message
+            Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
         }
+
+
 
         private void UserConnected()
         {

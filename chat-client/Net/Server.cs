@@ -102,18 +102,22 @@ namespace chat_client.Net
         }
 
 
+        /// <summary>
+        /// Continuously reads incoming packets from the server.
+        /// Handles known opcodes and manages disconnection on failure.
+        /// </summary>
         private void ReadPackets()
         {
             Task.Run(() =>
             {
                 try
                 {
-                    while (true)
+                    while (_client.Connected)
                     {
-                        // Reads the first byte (opcode) and stores it
+                        // Read the first byte (opcode)
                         var opcode = PacketReader.ReadByte();
 
-                        // opcode 0 is handled somewhere else
+                        // Dispatch based on opcode
                         switch (opcode)
                         {
                             case 1:
@@ -127,15 +131,52 @@ namespace chat_client.Net
                             case 10:
                                 userDisconnectEvent?.Invoke();
                                 break;
+
+                                // Add more opcodes as needed
                         }
                     }
                 }
                 catch (Exception)
                 {
-                    MainViewModel.IsConnectedToServer = false;
+                    // Handle disconnection or stream failure
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        var mainWindow = Application.Current.MainWindow as MainWindow;
+                        if (mainWindow == null) return;
+
+                        var mainViewModel = mainWindow.ViewModel;
+                        if (mainViewModel == null) return;
+
+                        // Notify user in chat
+                        mainViewModel.Messages.Add("Server has closed. You will be disconnected shortly...");
+
+                        // Create a timer to delay UI reset
+                        var timer = new System.Timers.Timer(2000);
+                        timer.AutoReset = false; // Only fire once
+                        timer.Elapsed += (s, e) =>
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                // Reset UI state
+                                mainWindow.cmdConnect.Content = "_Connect";
+                                mainWindow.txtUsername.IsEnabled = true;
+                                mainWindow.txtIPAddress.IsEnabled = true;
+
+                                mainViewModel.Users.Clear();
+                                mainViewModel.Messages.Clear();
+
+                                mainWindow.Title = "WPF Chat Server";
+                                mainWindow.spnCenter.Visibility = Visibility.Hidden;
+                                MainViewModel.IsConnectedToServer = false;
+                            });
+                        };
+
+                        timer.Start();
+                    });
                 }
             });
         }
+
 
         public void SendMessageToServer(string message)
         {

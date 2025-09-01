@@ -26,7 +26,7 @@ namespace chat_client.Helpers
         {
             var targetWindow = Application.Current.MainWindow;
 
-            // If the window is not yet available, apply theme without animation
+            // If the window is not yet available, applies theme without animation
             if (targetWindow == null)
             {
                 ApplyThemeWithoutAnimation(useDarkTheme);
@@ -35,11 +35,11 @@ namespace chat_client.Helpers
 
             var themeUri = useDarkTheme ? DarkThemeUri : LightThemeUri;
 
-            // Fade out animation before switching theme
+            // Fades out animation before switching theme
             var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150));
             fadeOut.Completed += (_, _) =>
             {
-                // Remove any existing theme dictionaries
+                // Removes any existing theme dictionaries
                 var existingThemes = Application.Current.Resources.MergedDictionaries
                     .Where(d => d.Source != null &&
                                 (d.Source.Equals(LightThemeUri) || d.Source.Equals(DarkThemeUri)))
@@ -51,23 +51,37 @@ namespace chat_client.Helpers
                 // Add the new theme dictionary
                 Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
 
-                // 🔄 Refresh TextBox backgrounds manually to reflect new theme
+                // Refreshes TextBox backgrounds manually to reflect new theme
                 if (targetWindow.FindName("txtUsername") is TextBox txtUsername)
+                {
                     txtUsername.Background = (Brush)Application.Current.Resources["txtUsername_background"];
+                    
+                    if (!string.IsNullOrEmpty(txtUsername.Text))
+                    {
+                        txtUsername.Background = null;
+                    }
+                }
 
                 if (targetWindow.FindName("txtIPAddress") is TextBox txtIPAddress)
+                {
                     txtIPAddress.Background = (Brush)Application.Current.Resources["txtIPAddress_background"];
+                    
+                    if (!string.IsNullOrEmpty(txtIPAddress.Text))
+                    {
+                        txtIPAddress.Background = null;
+                    }
+                }
 
-                // Fade in animation after theme switch
+                // Fades in animation after theme switch
                 var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
                 targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeIn);
 
-                // Force redraw of the window
+                // Forces redraw of the window
                 targetWindow.InvalidateVisual();
                 targetWindow.UpdateLayout();
             };
 
-            // Start fade out
+            // Starts fade out
             targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeOut);
         }
 
@@ -79,7 +93,7 @@ namespace chat_client.Helpers
         {
             var themeUri = useDarkTheme ? DarkThemeUri : LightThemeUri;
 
-            // Remove any existing theme dictionaries
+            // Removes any existing theme dictionaries
             var existingThemes = Application.Current.Resources.MergedDictionaries
                 .Where(d => d.Source != null &&
                             (d.Source.Equals(LightThemeUri) || d.Source.Equals(DarkThemeUri)))
@@ -88,10 +102,10 @@ namespace chat_client.Helpers
             foreach (var dict in existingThemes)
                 Application.Current.Resources.MergedDictionaries.Remove(dict);
 
-            // Add the new theme dictionary
+            // Adds the new theme dictionary
             Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
 
-            // 🔄 Refresh TextBox backgrounds manually to reflect new theme
+            // Refreshes textBox backgrounds manually to reflect new theme
             var targetWindow = Application.Current.MainWindow;
 
             if (targetWindow != null)

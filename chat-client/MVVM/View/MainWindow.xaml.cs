@@ -30,7 +30,7 @@ namespace chat_client
         }
 
 
-        private void cmdConnect_Click(object sender, RoutedEventArgs e)
+        public void cmdConnect_Click(object sender, RoutedEventArgs e)
         {
             // Check if user is already connected
             if (MainViewModel.IsConnectedToServer)
@@ -133,18 +133,32 @@ namespace chat_client
 
         }
 
-        private void OnTextBoxTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void OnTextBoxTextChanged(object sender, TextChangedEventArgs e)
         {
-            if (sender is TextBox txtbox)
+            if (sender is not TextBox txtbox)
+                return;
+
+            // Determine which background resource to use based on TextBox name
+            string? resourceKey = txtbox.Name switch
             {
-                if (string.IsNullOrEmpty(txtbox.Text))
+                "txtUsername" => "txtUsername_background",
+                "txtIPAddress" => "txtIPAddress_background",
+                _ => null
+            };
+
+            if (string.IsNullOrEmpty(txtbox.Text))
+            {
+                if (resourceKey != null)
                 {
-                    txtbox.Background = (ImageBrush)FindResource("txtUsername_background");
+                    if (TryFindResource(resourceKey) is ImageBrush brush)
+                    {
+                        txtbox.Background = brush;
+                    }
                 }
-                else
-                {
-                    txtbox.Background = null;
-                }
+            }
+            else
+            {
+                txtbox.Background = null;
             }
         }
 

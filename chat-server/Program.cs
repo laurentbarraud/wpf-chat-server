@@ -15,6 +15,13 @@ namespace chat_server
         static TcpListener _listener;
         public static void Main(string[] args)
         {
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                e.Cancel = true;
+                Shutdown();
+                Environment.Exit(0);
+            };
+
             _users = new List<Client>();
             _listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 7123);
             _listener.Start();
@@ -77,6 +84,12 @@ namespace chat_server
 
                 BroadcastMessage($"Server: {disconnectedUser.Username} disconnected!");
             }
+        }
+        public static void Shutdown()
+        {
+            Console.WriteLine("Shutting down server...");
+            BroadcastMessage("/disconnect"); // Special command for client to disconnect
+            Console.WriteLine("Server shutdown complete.");
         }
     }
 }
