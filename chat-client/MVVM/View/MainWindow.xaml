@@ -80,13 +80,21 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <StackPanel x:Name="spnThemeToggleButton" Orientation="Horizontal"
-                    Height="32"
-                    VerticalAlignment="Center">
+                <StackPanel x:Name="spnToolbar"
+                            Orientation="Horizontal"
+                            Height="32"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Margin="0,0,0,0">
+
+                    <!-- Toggle button to switch theme -->
                     <ToggleButton x:Name="ThemeToggle"
-                          Width="60" Height="32"
-                          Checked="ThemeToggle_Checked"
-                          Unchecked="ThemeToggle_Unchecked">
+                                  Width="60"
+                                  Height="32"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,10,0"
+                                  Checked="ThemeToggle_Checked"
+                                  Unchecked="ThemeToggle_Unchecked">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Grid>
@@ -140,6 +148,31 @@
                             </ControlTemplate>
                         </ToggleButton.Template>
                     </ToggleButton>
+
+                    <!-- Button to choose the port that will be used for connection -->
+                    <Button x:Name="cmdPortSetting"
+                              Width="32"
+                              Height="32"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              VerticalAlignment="Center"
+                              ToolTip="Configure port settings">
+                        <Image Source="/Resources/port-setting.png"
+                                       Stretch="Uniform"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center" />
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
                 </StackPanel>
             </StackPanel>
         </DockPanel>
