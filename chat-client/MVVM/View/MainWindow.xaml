@@ -33,11 +33,11 @@
                     Text="{Binding IPAddressOfServer}"
                     TextChanged="OnTextBoxTextChanged"
                     Background="{DynamicResource txtIPAddress_background}" FontSize="14" MaxLines="1" MaxLength="15" PreviewKeyDown="txtIPAddress_PreviewKeyDown" TabIndex="1"/>
-            <Button x:Name="cmdConnect" Height="25"
+            <Button x:Name="cmdConnectDisconnect" Height="25"
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"
                     DockPanel.Dock="Top"
-                    Content="_Connect" Click="cmdConnect_Click" TabIndex="-2"/>
+                    Content="_Connect" Click="cmdConnectDisconnect_Click" TabIndex="-2"/>
             <StackPanel DockPanel.Dock="Top"
                 Orientation="Vertical"
                 Margin="0,0,0,0" Height="356">

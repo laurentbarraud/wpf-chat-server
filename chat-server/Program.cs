@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.6</version>
-/// <date>September 1st, 2025</date>
+/// <version>0.6.1</version>
+/// <date>September 2nd, 2025</date>
 
 using chat_server.Net.IO;
 using System.Net;

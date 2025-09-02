@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.6</version>
-/// <date>September 1st, 2025</date>
+/// <version>0.6.1</version>
+/// <date>September 2nd, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
@@ -21,59 +21,64 @@ namespace chat_client.Net
         public event Action msgReceivedEvent;
         public event Action userDisconnectEvent;
 
+        /// <summary>
+        /// Indicates whether the client is currently connected to the server.
+        /// Returns true if the TCP client exists and is connected; otherwise, false.
+        /// </summary>
+        public bool IsConnected => _client?.Connected ?? false;
+
         public Server()
         {
             _client = new TcpClient();
         }
 
         // We're calling this from the MainViewModel
-        public void ConnectToServer(string username, string IPAdressOfServer)
+        public bool ConnectToServer(string username, string IPAddressOfServer)
         {
-            if (!_client.Connected)
+            // If already connected, no need to reconnect
+            if (_client.Connected)
+                return true;
+
+            try
             {
-                if (IPAdressOfServer == "")
+                // Determines which IP to connect to: localhost or user-provided
+                string ipToConnect = string.IsNullOrWhiteSpace(IPAddressOfServer) ? "127.0.0.1" : IPAddressOfServer;
+
+                // Validates IP format if not localhost
+                if (ipToConnect != "127.0.0.1" && !IPAddress.TryParse(ipToConnect, out _))
                 {
-                    // Localhost connection
-                    _client.Connect("127.0.0.1", 7123);
+                    // Invalid IP format — throw exception to be caught by caller
+                    throw new ArgumentException("The IP address is incorrect. Leave it blank to connect locally.");
                 }
 
-                else
-                {
-                    IPAddress serverIPAddress;
-                    bool IPAddressValid = IPAddress.TryParse(IPAdressOfServer, out serverIPAddress);
+                // Attempts to connect to the server on port 7123
+                _client.Connect(ipToConnect, 7123);
 
-                    if (IPAddressValid)
-                    {
-                        // Connection to the ip address provided
-                        _client.Connect(IPAdressOfServer, 7123);
-                    }
-
-                    else
-                    {
-                        MessageBox.Show("The IP address is incorrect. Leave it blank to connect locally.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        MainViewModel.IsConnectedToServer = false;
-                    }
-
-                }
-
-                // If the connection is successfull
+                // Initializes the packet reader using the network stream
                 PacketReader = new PacketReader(_client.GetStream());
 
+                // Sends initial connection packet with username
                 if (!string.IsNullOrEmpty(username))
                 {
                     var connectPacket = new PacketBuilder();
-                    
-                    // We use opcode 0 for "connection of a new user" packets
-                    connectPacket.WriteOpCode(0);
+                    connectPacket.WriteOpCode(0); // Opcode 0 = new user connection
                     connectPacket.WriteMessage(username);
-
-                    // We send the message packet through the Client socket,
-                    // in the TCPClient 
                     _client.Client.Send(connectPacket.GetPacketBytes());
                 }
+
+                // Starts listening for incoming packets
                 ReadPackets();
+
+                // Connection successful
+                return true;
+            }
+            catch
+            {
+                // Connection failed — return false to be handled by caller
+                return false;
             }
         }
+
 
         /// <summary>
         /// Closes the TCP connection and resets internal state
@@ -158,16 +163,7 @@ namespace chat_client.Net
                             Application.Current.Dispatcher.Invoke(() =>
                             {
                                 // Reset UI state
-                                mainWindow.cmdConnect.Content = "_Connect";
-                                mainWindow.txtUsername.IsEnabled = true;
-                                mainWindow.txtIPAddress.IsEnabled = true;
-
-                                mainViewModel.Users.Clear();
-                                mainViewModel.Messages.Clear();
-
-                                mainWindow.Title = "WPF Chat Server";
-                                mainWindow.spnCenter.Visibility = Visibility.Hidden;
-                                MainViewModel.IsConnectedToServer = false;
+                                mainViewModel.ReinitializeUI();
                             });
                         };
 

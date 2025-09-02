@@ -30,70 +30,9 @@ namespace chat_client
         }
 
 
-        public void cmdConnect_Click(object sender, RoutedEventArgs e)
+        public void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
         {
-            // Check if user is already connected
-            if (MainViewModel.IsConnectedToServer)
-            {
-                // --- DISCONNECT LOGIC ---
-                try
-                {
-                    // Close the connection to the server
-                    MainViewModel._server.DisconnectFromServer();
-
-                    // Reset UI state
-                    cmdConnect.Content = "_Connect"; // Button text back to "Connect"
-                    txtUsername.IsEnabled = true;
-                    txtIPAddress.IsEnabled = true;
-
-                    // Clear the bound collections instead of Items.Clear()
-                    ViewModel.Users.Clear();
-                    ViewModel.Messages.Clear();
-
-                    this.Title = "WPF Chat Server";
-                    spnCenter.Visibility = Visibility.Hidden;
-                    MainViewModel.IsConnectedToServer = false;
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error while disconnecting: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            else
-            {
-                // --- CONNECT LOGIC ---
-                if (!string.IsNullOrEmpty(MainViewModel.Username))
-                {
-                    try
-                    {
-                        txtUsername.IsEnabled = false;
-                        txtIPAddress.IsEnabled = false;
-
-                        // Attempt to connect to the server with the provided username and IP
-                        MainViewModel._server.ConnectToServer(MainViewModel.Username, txtIPAddress.Text);
-
-                        // Update UI to reflect connected state
-                        this.Title += " - Connected to the server.";
-                        MainViewModel.IsConnectedToServer = true;
-                        cmdConnect.Content = "_Disconnect"; // Button text changes to "Disconnect"
-
-                        // Save last used IP in settings
-                        chat_client.Properties.Settings.Default.LastIPAddressUsed = MainViewModel.IPAddressOfServer;
-                        chat_client.Properties.Settings.Default.Save();
-
-                        spnCenter.Visibility = Visibility.Visible;
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("The server is unreachable or has refused the connection.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                        cmdConnect.IsEnabled = true;
-                        txtUsername.IsEnabled = true;
-                        txtIPAddress.IsEnabled = true;
-                        this.Title = "WPF Chat Server";
-                        spnCenter.Visibility = Visibility.Hidden;
-                    }
-                }
-            }
+            ViewModel.ConnectDisconnect();
         }
 
 
@@ -188,7 +127,7 @@ namespace chat_client
             if (e.Key == Key.Enter)
             {
                 // Simulate the click on the cmdConnect button
-                cmdConnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
 
@@ -206,7 +145,7 @@ namespace chat_client
 
         private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (txtMessageToSend.Text == "" || MainViewModel.IsConnectedToServer == false)
+            if (txtMessageToSend.Text == "" || MainViewModel._server.IsConnected == false)
             {
                 cmdSend.IsEnabled = false;
             }
@@ -221,7 +160,7 @@ namespace chat_client
             if (e.Key == Key.Enter)
             {
                 // Simulate the click on the cmdConnect button
-                cmdConnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
 

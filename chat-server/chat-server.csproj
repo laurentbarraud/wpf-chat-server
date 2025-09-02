@@ -6,9 +6,9 @@
     <RootNamespace>chat_server</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyVersion>0.6</AssemblyVersion>
-    <Version>0.6</Version>
-    <FileVersion>0.6</FileVersion>
+    <AssemblyVersion>0.6.1</AssemblyVersion>
+    <Version>0.6.1</Version>
+    <FileVersion>0.6.1</FileVersion>
     <Company>Laurent Barraud</Company>
   </PropertyGroup>
 

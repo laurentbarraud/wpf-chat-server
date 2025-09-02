@@ -1,8 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.6</version>
-/// <date>September 1st, 2025</date>
-
+/// <version>0.6.1</version>
+/// <date>September 2nd, 2025</date>
 
 using chat_client.MVVM.Model;
 using chat_client.Net;
@@ -36,8 +35,6 @@ namespace chat_client.MVVM.ViewModel
 
         public static Server _server;
 
-        public static bool IsConnectedToServer { get; set; }
-
         public MainViewModel()
         {
             Users = new ObservableCollection<UserModel>();
@@ -47,6 +44,179 @@ namespace chat_client.MVVM.ViewModel
             _server.msgReceivedEvent += MessageReceived;
             _server.userDisconnectEvent += RemoveUser;
         }
+
+        /// <summary>
+        /// Attempts to connect the client to the server using the provided username and IP address.
+        /// Updates the UI accordingly and saves the last used IP.
+        /// </summary>
+        public void Connect()
+        {
+            // Abort if username is missing
+            if (string.IsNullOrEmpty(Username))
+                return;
+
+            try
+            {
+                // Disable input fields during connection attempt
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.txtUsername.IsEnabled = false;
+                        mainWindow.txtIPAddress.IsEnabled = false;
+                    }
+                });
+
+                // Attempt to connect to the server
+                bool connected = _server.ConnectToServer(Username, IPAddressOfServer);
+                if (!connected)
+                    throw new Exception("Connection failed.");
+
+                // Update UI to reflect connected state
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.Title += " - Connected";
+                        mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
+                        mainWindow.spnCenter.Visibility = Visibility.Visible;
+                    }
+                });
+
+                // Save last used IP for future sessions
+                chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
+                chat_client.Properties.Settings.Default.Save();
+            }
+            catch (Exception)
+            {
+                // Handle connection failure and reset UI
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        MessageBox.Show("The server is unreachable or has refused the connection.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                        ReinitializeUI();
+                    }
+                });
+            }
+        }
+
+
+        /// <summary>
+        /// Connect or disconnect the client, depending on the connection status
+        /// </summary>
+        public void ConnectDisconnect()
+        {
+            if (_server.IsConnected)
+            {
+                Disconnect();
+            }
+            else
+            {
+                Connect();
+            }
+        }
+
+        /// <summary>
+        /// Disconnects the client from the server and resets the UI state.
+        /// </summary>
+        public void Disconnect()
+        {
+            try
+            {
+                // Attempt to close the connection to the server
+                _server.DisconnectFromServer();
+
+                // Reset the UI and clear user/message data
+                ReinitializeUI();
+            }
+            catch (Exception ex)
+            {
+                // Display an error message if disconnection fails
+                MessageBox.Show($"Error while disconnecting: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// Clears user and message data and restores the UI to its initial state.
+        /// </summary>
+        public void ReinitializeUI()
+        {
+            // Clear the collections bound to the UI
+            Users.Clear();
+            Messages.Clear();
+
+            // Update UI elements on the main thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (Application.Current.MainWindow is MainWindow mainWindow)
+                {
+                    // Reset the connect/disconnect button
+                    mainWindow.cmdConnectDisconnect.Content = "_Connect";
+
+                    // Re-enable input fields
+                    mainWindow.txtUsername.IsEnabled = true;
+                    mainWindow.txtIPAddress.IsEnabled = true;
+
+                    // Reset window title
+                    mainWindow.Title = "WPF Chat Server";
+
+                    // Hide the central panel
+                    mainWindow.spnCenter.Visibility = Visibility.Hidden;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Reads the data incoming and handles disconnect command gracefully.
+        /// </summary>
+        /// <summary>
+        /// Handles incoming messages from the server. If a disconnect command is received,
+        /// the UI is reset after a short delay. Otherwise, the message is added to the chat.
+        /// </summary>
+        private void MessageReceived()
+        {
+            var msg = _server.PacketReader.ReadMessage();
+
+            // Check for server-issued disconnect command
+            if (msg == "/disconnect")
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    // Get reference to MainWindow and its ViewModel
+                    if (Application.Current.MainWindow is MainWindow mainWindow && mainWindow.ViewModel != null)
+                    {
+                        var viewModel = mainWindow.ViewModel;
+
+                        // Create a timer to delay UI reset
+                        var timer = new System.Timers.Timer(2000)
+                        {
+                            AutoReset = false // Trigger only once
+                        };
+
+                        timer.Elapsed += (s, e) =>
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                // Reset UI and clear data
+                                viewModel.ReinitializeUI();
+
+                                // Ensure socket is closed
+                                _server.DisconnectFromServer();
+                            });
+                        };
+
+                        timer.Start();
+                    }
+                });
+
+                return;
+            }
+
+            // Normal message — add to chat
+            Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+        }
+
 
         private void RemoveUser()
         {
@@ -58,63 +228,6 @@ namespace chat_client.MVVM.ViewModel
             Application.Current.Dispatcher.Invoke(() => Users.Remove(user));
 
         }
-
-        /// <summary>
-        /// Reads the data incoming and handles disconnect command gracefully.
-        /// </summary>
-        private void MessageReceived()
-        {
-            var msg = _server.PacketReader.ReadMessage();
-
-            // Checks for disconnect command from server
-            if (msg == "/disconnect")
-            {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    // Gets reference to MainWindow and ViewModel
-                    var mainWindow = Application.Current.MainWindow as MainWindow;
-                    if (mainWindow == null || mainWindow.ViewModel == null)
-                        return;
-
-                    var viewModel = mainWindow.ViewModel;
-
-                    // Creates a timer to delay UI reset
-                    var timer = new System.Timers.Timer(2000)
-                    {
-                        AutoReset = false // Fire only once
-                    };
-
-                    timer.Elapsed += (s, e) =>
-                    {
-                        Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            // Resets UI state
-                            mainWindow.cmdConnect.Content = "_Connect";
-                            mainWindow.txtUsername.IsEnabled = true;
-                            mainWindow.txtIPAddress.IsEnabled = true;
-
-                            viewModel.Users.Clear();
-                            viewModel.Messages.Clear();
-
-                            mainWindow.Title = "WPF Chat Server";
-                            mainWindow.spnCenter.Visibility = Visibility.Hidden;
-                            MainViewModel.IsConnectedToServer = false;
-
-                            // Closes socket if still open
-                            _server.DisconnectFromServer();
-                        });
-                    };
-
-                    timer.Start();
-                });
-
-                return;
-            }
-
-            // Normal message
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
-        }
-
 
 
         private void UserConnected()
