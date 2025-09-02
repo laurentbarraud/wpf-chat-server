@@ -46,5 +46,17 @@ namespace chat_client.Properties {
                 this["AppTheme"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("7123")]
+        public int PortNumber {
+            get {
+                return ((int)(this["PortNumber"]));
+            }
+            set {
+                this["PortNumber"] = value;
+            }
+        }
     }
 }

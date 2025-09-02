@@ -21,7 +21,7 @@ namespace chat_client
     public partial class MainWindow : Window
     {
         public MainViewModel ViewModel { get; set; }
-
+        
         public MainWindow()
         {
             InitializeComponent();
@@ -35,6 +35,10 @@ namespace chat_client
             ViewModel.ConnectDisconnect();
         }
 
+        private void cmdPortSetting_Click(object sender, RoutedEventArgs e)
+        {
+            ShowPortSetting();
+        }
 
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
@@ -100,6 +104,12 @@ namespace chat_client
                 txtbox.Background = null;
             }
         }
+        public void ShowPortSetting()
+        {
+            txtPortPopup.Text = ViewModel.GetCurrentPort().ToString();
+            popupPort.IsOpen = true;
+            txtPortPopup.Focus();
+        }
 
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
@@ -164,5 +174,41 @@ namespace chat_client
             }
         }
 
+        private void txtPortPopup_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                ValidateAndClosePopup();
+            }
+        }
+
+        private void txtPortPopup_LostFocus(object sender, RoutedEventArgs e)
+        {
+            // Close silently without saving changes
+            popupPort.IsOpen = false;
+        }
+
+        private void ValidateAndClosePopup()
+        {
+            string input = txtPortPopup.Text;
+
+            if (ViewModel.TrySavePort(input))
+            {
+                popupPort.IsOpen = false;
+            }
+            else
+            {
+                txtPortPopup.Text = ViewModel.GetCurrentPort().ToString();
+                txtPortPopup.ToolTip = "Port must be between 1000 and 65535";
+                ToolTipService.SetIsEnabled(txtPortPopup, true);
+                txtPortPopup.Focus();
+            }
+        }
+
+
+        private void cmdValidatePort_Click(object sender, RoutedEventArgs e)
+        {
+            ValidateAndClosePopup();
+        }
     }
 }

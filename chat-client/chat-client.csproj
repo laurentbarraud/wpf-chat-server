@@ -25,6 +25,7 @@
     <None Remove="Resources\txtIPAddress_background_dark.gif" />
     <None Remove="Resources\txtUsername_background.gif" />
     <None Remove="Resources\txtUsername_background_dark.gif" />
+    <None Remove="Resources\validate.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,6 +39,7 @@
     <Resource Include="Resources\txtIPAddress_background_dark.gif" />
     <Resource Include="Resources\txtUsername_background.gif" />
     <Resource Include="Resources\txtUsername_background_dark.gif" />
+    <Resource Include="Resources\validate.png" />
   </ItemGroup>
 
   <ItemGroup>

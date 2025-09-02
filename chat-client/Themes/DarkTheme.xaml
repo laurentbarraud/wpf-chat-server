@@ -8,11 +8,22 @@
     <!-- White text -->
     <Color x:Key="PrimaryColor">#FF2196F3</Color>
     <Color x:Key="DisabledButtonColor">#FF2C2C2C</Color>
-    
+
+    <!-- Deep black -->
+    <Color x:Key="PopupBackgroundColor">#FF1E1E1E</Color>
+    <!-- Sky blue -->
+    <Color x:Key="PopupForegroundColor">#6CB4EE</Color>
+    <!-- Dark grey -->
+    <Color x:Key="PopupTextboxBackgroundColor">#FF2A2A2A</Color>
+
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource DisabledButtonColor}" />
     <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background_dark.gif" />
     <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background_dark.gif" />
+    <SolidColorBrush x:Key="PopupBackgroundBrush" Color="{StaticResource PopupBackgroundColor}" />
+    <SolidColorBrush x:Key="PopupForegroundBrush" Color="{StaticResource PopupForegroundColor}" />
+    <SolidColorBrush x:Key="PopupTextboxBackgroundBrush" Color="{StaticResource PopupTextboxBackgroundColor}" />
+
 </ResourceDictionary>

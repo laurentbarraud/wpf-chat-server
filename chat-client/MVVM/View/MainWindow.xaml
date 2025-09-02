@@ -156,7 +156,7 @@
                               Background="Transparent"
                               BorderThickness="0"
                               VerticalAlignment="Center"
-                              ToolTip="Configure port settings">
+                              ToolTip="Configure port settings" Click="cmdPortSetting_Click">
                         <Image Source="/Resources/port-setting.png"
                                        Stretch="Uniform"
                                        VerticalAlignment="Center"
@@ -242,5 +242,56 @@
                 </Button>
             </StackPanel>
         </StackPanel>
+
+        <!-- Popup to choose port number -->
+        <Popup x:Name="popupPort"
+               PlacementTarget="{Binding ElementName=cmdPortSetting}"
+               Placement="Top"
+               HorizontalOffset="-40"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               PopupAnimation="Slide"
+               Width="160"
+               Height="80">
+
+            <Border Background="{DynamicResource PopupBackgroundBrush}"
+                    CornerRadius="6"
+                    Padding="10"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource PopupForegroundBrush}">
+                <StackPanel>
+                    <TextBlock Text="Use TCP port number:"
+                       Foreground="{DynamicResource PopupForegroundBrush}"
+                       FontWeight="SemiBold"
+                       FontSize="12"
+                       Margin="0,0,0,6" />
+
+                    <DockPanel>
+                        <TextBox x:Name="txtPortPopup"
+                         Width="100"
+                         Height="24"
+                         VerticalContentAlignment="Center"
+                         HorizontalContentAlignment="Center"
+                         Foreground="{DynamicResource PopupForegroundBrush}"
+                         Background="{DynamicResource PopupTextboxBackgroundBrush}"
+                         ToolTip="Port must be between 1000 and 65535"
+                         KeyDown="txtPortPopup_KeyDown"
+                         LostFocus="txtPortPopup_LostFocus" />
+
+                        <Button x:Name="cmdValidatePort"
+                        Width="20"
+                        Height="24"
+                        Margin="3,0,0,0"
+                        Click="cmdValidatePort_Click"
+                        ToolTip="Validate port">
+                            <Image Source="/Resources/validate.png"
+                           Stretch="Uniform"
+                           Width="14" Height="14" />
+                        </Button>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </Popup>
+
     </Grid>
 </Window>

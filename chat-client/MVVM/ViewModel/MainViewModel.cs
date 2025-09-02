@@ -138,6 +138,29 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Returns the current port number stored in application settings.
+        /// </summary>
+        public int GetCurrentPort()
+        {
+            return chat_client.Properties.Settings.Default.PortNumber;
+        }
+
+        /// <summary>
+        /// Validates and saves the port number if it's within the allowed range.
+        /// </summary>
+        public bool TrySavePort(string input)
+        {
+            if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
+            {
+                chat_client.Properties.Settings.Default.PortNumber = port;
+                chat_client.Properties.Settings.Default.Save();
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Clears user and message data and restores the UI to its initial state.
         /// </summary>
         public void ReinitializeUI()

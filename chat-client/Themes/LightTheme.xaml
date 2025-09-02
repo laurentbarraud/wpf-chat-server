@@ -10,10 +10,20 @@
     <!-- Light grey button -->
     <Color x:Key="DisabledButtonColor">#FFD3D3D3</Color>
 
+    <Color x:Key="PopupBackgroundColor">#FFFFFFFF</Color>
+    <!-- White -->
+    <Color x:Key="PopupForegroundColor">#FF000000</Color>
+    <!-- Black -->
+    <Color x:Key="PopupTextboxBackgroundColor">#FFF5F5F5</Color>
+    <!-- Very light grey -->
+
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource PrimaryColor}" />
     <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background.gif" />
     <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background.gif" />
+    <SolidColorBrush x:Key="PopupBackgroundBrush" Color="{StaticResource PopupBackgroundColor}" />
+    <SolidColorBrush x:Key="PopupForegroundBrush" Color="{StaticResource PopupForegroundColor}" />
+    <SolidColorBrush x:Key="PopupTextboxBackgroundBrush" Color="{StaticResource PopupTextboxBackgroundColor}" />
 </ResourceDictionary>
