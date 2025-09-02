@@ -17,8 +17,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\greendot.png" />
     <None Remove="Resources\moon.png" />
     <None Remove="Resources\port-setting.png" />
+    <None Remove="Resources\reddot.png" />
     <None Remove="Resources\send.png" />
     <None Remove="Resources\sun.png" />
     <None Remove="Resources\txtIPAddress_background.gif" />
@@ -29,8 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\moon.png" />
     <Resource Include="Resources\port-setting.png" />
+    <Resource Include="Resources\reddot.png" />
     <Resource Include="Resources\send.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>

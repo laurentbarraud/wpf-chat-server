@@ -1,16 +1,18 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.7</version>
-/// <date>September 2nd, 2025</date>
+/// <date>September 3rd, 2025</date>
 
+using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
 using System.Configuration;
+using System.Net.Sockets;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using chat_client.Helpers;
+using System.Windows.Media.Imaging;
 
 
 namespace chat_client
@@ -50,7 +52,12 @@ namespace chat_client
             }
         }
 
-        private void frmMainWindow_Loaded(object sender, RoutedEventArgs e)
+        private void cmdValidatePort_Click(object sender, RoutedEventArgs e)
+        {
+            ValidatePortInput();
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
             
@@ -106,9 +113,17 @@ namespace chat_client
         }
         public void ShowPortSetting()
         {
-            txtPortPopup.Text = ViewModel.GetCurrentPort().ToString();
-            popupPort.IsOpen = true;
-            txtPortPopup.Focus();
+            if (popupPort.IsOpen)
+            {
+                popupPort.IsOpen = false;
+
+            }
+            else
+            {
+                popupPort.IsOpen = true;
+                txtPortPopup.Text = ViewModel.GetCurrentPort().ToString();
+                txtPortPopup.Focus();
+            }
         }
 
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
@@ -178,7 +193,7 @@ namespace chat_client
         {
             if (e.Key == Key.Enter)
             {
-                ValidateAndClosePopup();
+                ValidatePortInput();
             }
         }
 
@@ -188,27 +203,31 @@ namespace chat_client
             popupPort.IsOpen = false;
         }
 
-        private void ValidateAndClosePopup()
+        private void ValidatePortInput()
         {
-            string input = txtPortPopup.Text;
+            int portChosen;
+            Int32.TryParse(txtPortPopup.Text, out portChosen);
 
-            if (ViewModel.TrySavePort(input))
+            string imagePath;
+            string tooltip;
+
+            if (ViewModel.TrySavePort(portChosen))
             {
-                popupPort.IsOpen = false;
+                imagePath = "/Resources/greendot.png";
+                tooltip = "Port number is valid.";
             }
             else
             {
+                imagePath = "/Resources/reddot.png";
+                tooltip = "Port number is not valid.\nPlease choose a number between 1000 and 65535.";
+
                 txtPortPopup.Text = ViewModel.GetCurrentPort().ToString();
-                txtPortPopup.ToolTip = "Port must be between 1000 and 65535";
-                ToolTipService.SetIsEnabled(txtPortPopup, true);
                 txtPortPopup.Focus();
             }
-        }
 
-
-        private void cmdValidatePort_Click(object sender, RoutedEventArgs e)
-        {
-            ValidateAndClosePopup();
+            imgPortStatus.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
+            imgPortStatus.ToolTip = tooltip;
+            imgPortStatus.Visibility = Visibility.Visible;
         }
     }
 }

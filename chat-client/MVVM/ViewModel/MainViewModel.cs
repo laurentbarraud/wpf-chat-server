@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.7</version>
-/// <date>September 2nd, 2025</date>
+/// <date>September 3rd, 2025</date>
 
 using chat_client.MVVM.Model;
 using chat_client.Net;
@@ -54,7 +54,7 @@ namespace chat_client.MVVM.ViewModel
             // Abort if username is missing
             if (string.IsNullOrEmpty(Username))
                 return;
-
+            
             try
             {
                 // Disable input fields during connection attempt
@@ -80,6 +80,7 @@ namespace chat_client.MVVM.ViewModel
                         mainWindow.Title += " - Connected";
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnCenter.Visibility = Visibility.Visible;
+                        mainWindow.cmdPortSetting.IsEnabled = false;
                     }
                 });
 
@@ -94,7 +95,7 @@ namespace chat_client.MVVM.ViewModel
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
-                        MessageBox.Show("The server is unreachable or has refused the connection.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show("The server is unreachable or has refused the connection.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                         ReinitializeUI();
                     }
                 });
@@ -148,11 +149,11 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Validates and saves the port number if it's within the allowed range.
         /// </summary>
-        public bool TrySavePort(string input)
+        public bool TrySavePort(int chosenPort)
         {
-            if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
+            if (chosenPort >= 1000 && chosenPort <= 65535)
             {
-                chat_client.Properties.Settings.Default.PortNumber = port;
+                chat_client.Properties.Settings.Default.PortNumber = chosenPort;
                 chat_client.Properties.Settings.Default.Save();
                 return true;
             }
@@ -186,6 +187,9 @@ namespace chat_client.MVVM.ViewModel
 
                     // Hide the central panel
                     mainWindow.spnCenter.Visibility = Visibility.Hidden;
+
+                    // Enable the port setting button
+                    mainWindow.cmdPortSetting.IsEnabled = true;
                 }
             });
         }

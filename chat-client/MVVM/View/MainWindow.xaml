@@ -1,11 +1,11 @@
-﻿<Window x:Name="frmMainWindow" x:Class="chat_client.MainWindow"
+﻿<Window x:Name="MainWindow1" x:Class="chat_client.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
         mc:Ignorable="d"
-        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="frmMainWindow_Loaded" ResizeMode="NoResize">
+        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" ResizeMode="NoResize">
     <Window.Resources>
         <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background.gif" AlignmentX="Left" Stretch="None" />
         <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background.gif" AlignmentX="Left" Stretch="None" />
@@ -251,7 +251,7 @@
                StaysOpen="False"
                AllowsTransparency="True"
                PopupAnimation="Slide"
-               Width="160"
+               Width="180"
                Height="80">
 
             <Border Background="{DynamicResource PopupBackgroundBrush}"
@@ -266,29 +266,47 @@
                        FontSize="12"
                        Margin="0,0,0,6" />
 
-                    <DockPanel>
+                    <DockPanel LastChildFill="False" VerticalAlignment="Center">
+                        <!-- Port input textbox -->
                         <TextBox x:Name="txtPortPopup"
-                         Width="100"
-                         Height="24"
-                         VerticalContentAlignment="Center"
-                         HorizontalContentAlignment="Center"
-                         Foreground="{DynamicResource PopupForegroundBrush}"
-                         Background="{DynamicResource PopupTextboxBackgroundBrush}"
-                         ToolTip="Port must be between 1000 and 65535"
-                         KeyDown="txtPortPopup_KeyDown"
-                         LostFocus="txtPortPopup_LostFocus" />
+                                 Width="80"
+                                 Height="24"
+                                 VerticalContentAlignment="Center"
+                                 HorizontalContentAlignment="Center"
+                                 Foreground="{DynamicResource PopupForegroundBrush}"
+                                 Background="{DynamicResource PopupBackgroundBrush}"
+                                 KeyDown="txtPortPopup_KeyDown"
+                                 DockPanel.Dock="Left" />
 
+                        <!-- Port validation button -->
                         <Button x:Name="cmdValidatePort"
-                        Width="20"
-                        Height="24"
-                        Margin="3,0,0,0"
-                        Click="cmdValidatePort_Click"
-                        ToolTip="Validate port">
+                                Width="24"
+                                Height="24"
+                                Margin="4,0,0,0"
+                            Background="{DynamicResource PopupBackgroundBrush}"
+                            BorderBrush="{DynamicResource PopupForegroundBrush}"
+                            BorderThickness="1"
+                            ToolTip="Validate port"
+                            Click="cmdValidatePort_Click"
+                            DockPanel.Dock="Left">
                             <Image Source="/Resources/validate.png"
-                           Stretch="Uniform"
-                           Width="14" Height="14" />
+                                   Stretch="Uniform"
+                                   Width="14" Height="14"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center" />
                         </Button>
+
+                        <!-- Port status indicator (green or red dot) -->
+                        <Image x:Name="imgPortStatus"
+                               Width="16"
+                               Height="16"
+                               Margin="4,0,0,0" 
+                               Visibility="Collapsed"
+                               VerticalAlignment="Center"
+                               DockPanel.Dock="Left"
+                               ToolTip="Port scan result" />
                     </DockPanel>
+
                 </StackPanel>
             </Border>
         </Popup>
