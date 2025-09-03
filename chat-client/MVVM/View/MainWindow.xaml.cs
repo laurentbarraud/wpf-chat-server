@@ -60,29 +60,31 @@ namespace chat_client
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Restores last used IP address
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
-            
-            // Synchronize the toggle button with the current theme
+
+            // Synchronizes the toggle button with the current theme
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
 
-            // Attach event handlers to save theme choice when toggled
+            // Attachs event handlers to save theme choice when toggled
             ThemeToggle.Checked += (s, _) =>
             {
-                // Save dark theme preference
+                // Saves dark theme preference
                 Properties.Settings.Default.AppTheme = "Dark";
                 Properties.Settings.Default.Save();
             };
 
             ThemeToggle.Unchecked += (s, _) =>
             {
-                // Save light theme preference
+                // Saves light theme preference
                 Properties.Settings.Default.AppTheme = "Light";
                 Properties.Settings.Default.Save();
             };
 
+            // Sets focus to username field
             txtUsername.Focus();
-
         }
+
 
         private void OnTextBoxTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -194,7 +196,7 @@ namespace chat_client
 
         private void txtMessageToSend_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            if (e.Key == Key.Enter)
             {
                 // Simulate the click on the cmdSend button
                 cmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

@@ -8,7 +8,7 @@
     <!-- Web blue buttons -->
     <Color x:Key="PrimaryColor">#FF2196F3</Color>
     <!-- Disabled buttons -->
-    <Color x:Key="DisabledButtonColor">#FF1E1E1E</Color>
+    <Color x:Key="DisabledButtonColor">#FF222222</Color>
     <!-- Sky blue accent -->
     <Color x:Key="AccentColor">#FFC9DEF5</Color>
     
