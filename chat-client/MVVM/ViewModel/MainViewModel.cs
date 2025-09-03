@@ -6,8 +6,10 @@
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 
@@ -53,10 +55,22 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public void Connect()
         {
-            // Abort if username is missing
-            if (string.IsNullOrEmpty(Username))
+            // Abort if username is missing or format is invalid
+            if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, @"^[a-zA-Z][a-zA-Z0-9_-]*$"))
+            {
+                // Highlight the textbox in crimson to indicate invalid input
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.txtUsername.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DC143C"));
+                        mainWindow.txtUsername.Focus();
+                    }
+                });
+
                 return;
-            
+            }
+
             try
             {
                 // Disable input fields during connection attempt

@@ -8,6 +8,7 @@ using chat_client.MVVM.ViewModel;
 using chat_client.Net;
 using System.Configuration;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -57,6 +58,22 @@ namespace chat_client
             ValidatePortInput();
         }
 
+        /// <summary>
+        /// This method checks that the nickname starts with a letter and contains 
+        /// only the allowed characters.
+        /// </summary>
+        /// <param name="username"></param>
+        /// <returns>boolean</returns>
+        private bool IsValidUsername(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+                return false;
+
+            // Regex: starts with a letter, then letters/digits/-/_
+            return Regex.IsMatch(username, @"^[a-zA-Z][a-zA-Z0-9_-]*$");
+        }
+
+
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
@@ -85,32 +102,44 @@ namespace chat_client
 
         private void OnTextBoxTextChanged(object sender, TextChangedEventArgs e)
         {
+            // Ensures the sender is a textbox before proceeding
             if (sender is not TextBox txtbox)
                 return;
 
-            // Determine which background resource to use based on TextBox name
-            string? resourceKey = txtbox.Name switch
-            {
-                "txtUsername" => "txtUsername_background",
-                "txtIPAddress" => "txtIPAddress_background",
-                _ => null
-            };
+            // Determines the appropriate background resource key based on the textbox's name
+            string? resourceKey = null;
 
-            if (string.IsNullOrEmpty(txtbox.Text))
+            if (txtbox.Name == "txtUsername")
+                resourceKey = "txtUsername_background";
+            else if (txtbox.Name == "txtIPAddress")
+                resourceKey = "txtIPAddress_background";
+
+            // Checks if the textbox is empty or contains only whitespace
+            bool isEmpty = string.IsNullOrWhiteSpace(txtbox.Text);
+
+            if (isEmpty)
             {
-                if (resourceKey != null)
+                // If the field is empty, apply the watermark background
+                if (resourceKey != null && TryFindResource(resourceKey) is ImageBrush watermarkBrush)
                 {
-                    if (TryFindResource(resourceKey) is ImageBrush brush)
-                    {
-                        txtbox.Background = brush;
-                    }
+                    txtbox.Background = watermarkBrush;
                 }
             }
             else
             {
-                txtbox.Background = null;
+                // If the field contains text, restore the themed background
+                if (resourceKey != null && TryFindResource("PopupTextboxBackgroundBrush") is Brush themeBrush)
+                {
+                    txtbox.Background = themeBrush;
+                }
+                else
+                {
+                    // If no theme brush is found, fallback to default background
+                    txtbox.Background = null;
+                }
             }
         }
+
         public void ShowPortSetting()
         {
             if (popupPort.IsOpen)

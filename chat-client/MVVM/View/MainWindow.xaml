@@ -26,7 +26,7 @@
                     DockPanel.Dock="Top"
                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
                     TextChanged="OnTextBoxTextChanged"
-                    Background="{DynamicResource txtUsername_background}" FontSize="14" PreviewKeyDown="txtUsername_PreviewKeyDown" MaxLines="1" TabIndex="0"/>
+                    Background="{DynamicResource txtUsername_background}" FontSize="14" PreviewKeyDown="txtUsername_PreviewKeyDown" MaxLines="1" TabIndex="0" MaxLength="50"/>
             <TextBox x:Name="txtIPAddress" Height="25"
                     Foreground="{DynamicResource ForegroundBrush}"
                     DockPanel.Dock="Top"
