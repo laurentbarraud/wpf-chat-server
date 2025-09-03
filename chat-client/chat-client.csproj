@@ -19,6 +19,7 @@
   <ItemGroup>
     <None Remove="Resources\greendot.png" />
     <None Remove="Resources\moon.png" />
+    <None Remove="Resources\port-setting-disabled.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
     <None Remove="Resources\send.png" />
@@ -33,6 +34,7 @@
   <ItemGroup>
     <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\moon.png" />
+    <Resource Include="Resources\port-setting-disabled.png" />
     <Resource Include="Resources\port-setting.png" />
     <Resource Include="Resources\reddot.png" />
     <Resource Include="Resources\send.png">

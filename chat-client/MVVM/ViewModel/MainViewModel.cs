@@ -7,6 +7,8 @@ using chat_client.MVVM.Model;
 using chat_client.Net;
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 
 
 namespace chat_client.MVVM.ViewModel
@@ -81,6 +83,9 @@ namespace chat_client.MVVM.ViewModel
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnCenter.Visibility = Visibility.Visible;
                         mainWindow.cmdPortSetting.IsEnabled = false;
+
+                        // Changes the button image to a B&W version to indicate that the button has been disabled.
+                        mainWindow.imgPortSetting.Source = new BitmapImage(new Uri("/Resources/port-setting-disabled.png", UriKind.Relative));
                     }
                 });
 
@@ -166,30 +171,27 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public void ReinitializeUI()
         {
-            // Clear the collections bound to the UI
+            // Clears the collections bound to the UI
             Users.Clear();
             Messages.Clear();
 
-            // Update UI elements on the main thread
+            // Updates UI elements on the main thread
             Application.Current.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mainWindow)
                 {
-                    // Reset the connect/disconnect button
                     mainWindow.cmdConnectDisconnect.Content = "_Connect";
 
-                    // Re-enable input fields
                     mainWindow.txtUsername.IsEnabled = true;
                     mainWindow.txtIPAddress.IsEnabled = true;
-
-                    // Reset window title
                     mainWindow.Title = "WPF Chat Server";
 
-                    // Hide the central panel
+                    // Hides the central panel
                     mainWindow.spnCenter.Visibility = Visibility.Hidden;
 
-                    // Enable the port setting button
+                    // Enables the port setting button
                     mainWindow.cmdPortSetting.IsEnabled = true;
+                    mainWindow.imgPortSetting.Source = new BitmapImage(new Uri("/Resources/port-setting.png", UriKind.Relative));
                 }
             });
         }
