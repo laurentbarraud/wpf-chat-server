@@ -1,29 +1,22 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-
-    <!-- Visual Studio Light Theme -->
+       
+    <!-- Almost white background -->
     <Color x:Key="BackgroundColor">#FFFDFDFD</Color>
-    <!-- almost white -->
+    <!-- Soft black text foreground -->
     <Color x:Key="ForegroundColor">#FF1E1E1E</Color>
-    <!-- Soft black text -->
+    <!-- Light grey buttons -->
     <Color x:Key="PrimaryColor">#FFD3D3D3</Color>
-    <!-- Light grey button -->
+    <!-- Disabled buttons -->
     <Color x:Key="DisabledButtonColor">#FFD3D3D3</Color>
-
-    <Color x:Key="PopupBackgroundColor">#FFFFFFFF</Color>
-    <!-- White -->
-    <Color x:Key="PopupForegroundColor">#FF000000</Color>
-    <!-- Black -->
-    <Color x:Key="PopupTextboxBackgroundColor">#FFF5F5F5</Color>
-    <!-- Very light grey -->
+    <!-- Sky blue accent -->
+    <Color x:Key="AccentColor">#FFC9DEF5</Color>
 
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
-    <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource PrimaryColor}" />
+    <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource DisabledButtonColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
     <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background.gif" />
     <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background.gif" />
-    <SolidColorBrush x:Key="PopupBackgroundBrush" Color="{StaticResource PopupBackgroundColor}" />
-    <SolidColorBrush x:Key="PopupForegroundBrush" Color="{StaticResource PopupForegroundColor}" />
-    <SolidColorBrush x:Key="PopupTextboxBackgroundBrush" Color="{StaticResource PopupTextboxBackgroundColor}" />
 </ResourceDictionary>

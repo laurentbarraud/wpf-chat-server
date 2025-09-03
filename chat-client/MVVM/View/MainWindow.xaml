@@ -37,7 +37,7 @@
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"
                     DockPanel.Dock="Top"
-                    Content="_Connect" Click="cmdConnectDisconnect_Click" TabIndex="-2"/>
+                    Content="_Connect" Click="cmdConnectDisconnect_Click" TabIndex="-2" IsEnabled="False"/>
             <StackPanel DockPanel.Dock="Top"
                 Orientation="Vertical"
                 Margin="0,0,0,0" Height="356">
@@ -256,14 +256,14 @@
                Width="180"
                Height="80">
 
-            <Border Background="{DynamicResource PopupBackgroundBrush}"
+            <Border Background="{DynamicResource BackgroundBrush}"
                     CornerRadius="6"
                     Padding="10"
                     BorderThickness="1"
-                    BorderBrush="{DynamicResource PopupForegroundBrush}">
+                    BorderBrush="{DynamicResource AccentBrush}">
                 <StackPanel>
                     <TextBlock Text="Use TCP port number:"
-                       Foreground="{DynamicResource PopupForegroundBrush}"
+                       Foreground="{DynamicResource ForegroundBrush}"
                        FontWeight="SemiBold"
                        FontSize="12"
                        Margin="0,0,0,6" />
@@ -275,8 +275,8 @@
                                  Height="24"
                                  VerticalContentAlignment="Center"
                                  HorizontalContentAlignment="Center"
-                                 Foreground="{DynamicResource PopupForegroundBrush}"
-                                 Background="{DynamicResource PopupBackgroundBrush}"
+                                 Foreground="{DynamicResource ForegroundBrush}"
+                                 Background="{DynamicResource BackgroundBrush}"
                                  KeyDown="txtPortPopup_KeyDown"
                                  DockPanel.Dock="Left" />
 
@@ -285,8 +285,8 @@
                                 Width="24"
                                 Height="24"
                                 Margin="4,0,0,0"
-                            Background="{DynamicResource PopupBackgroundBrush}"
-                            BorderBrush="{DynamicResource PopupForegroundBrush}"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
                             BorderThickness="1"
                             ToolTip="Validate port"
                             Click="cmdValidatePort_Click"

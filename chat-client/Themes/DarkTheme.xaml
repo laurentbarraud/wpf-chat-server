@@ -1,29 +1,22 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Google Material Dark Theme -->
-    <Color x:Key="BackgroundColor">#FF121212</Color>
     <!-- Very dark background -->
+    <Color x:Key="BackgroundColor">#FF121212</Color>
+    <!-- White text foreground -->
     <Color x:Key="ForegroundColor">#FFFFFFFF</Color>
-    <!-- White text -->
+    <!-- Web blue buttons -->
     <Color x:Key="PrimaryColor">#FF2196F3</Color>
-    <Color x:Key="DisabledButtonColor">#FF2C2C2C</Color>
-
-    <!-- Deep black -->
-    <Color x:Key="PopupBackgroundColor">#FF1E1E1E</Color>
-    <!-- Sky blue -->
-    <Color x:Key="PopupForegroundColor">#6CB4EE</Color>
-    <!-- Dark grey -->
-    <Color x:Key="PopupTextboxBackgroundColor">#FF2A2A2A</Color>
-
+    <!-- Disabled buttons -->
+    <Color x:Key="DisabledButtonColor">#FF1E1E1E</Color>
+    <!-- Sky blue accent -->
+    <Color x:Key="AccentColor">#FFC9DEF5</Color>
+    
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource DisabledButtonColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
     <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background_dark.gif" />
     <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background_dark.gif" />
-    <SolidColorBrush x:Key="PopupBackgroundBrush" Color="{StaticResource PopupBackgroundColor}" />
-    <SolidColorBrush x:Key="PopupForegroundBrush" Color="{StaticResource PopupForegroundColor}" />
-    <SolidColorBrush x:Key="PopupTextboxBackgroundBrush" Color="{StaticResource PopupTextboxBackgroundColor}" />
-
 </ResourceDictionary>

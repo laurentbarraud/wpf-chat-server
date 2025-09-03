@@ -58,22 +58,6 @@ namespace chat_client
             ValidatePortInput();
         }
 
-        /// <summary>
-        /// This method checks that the nickname starts with a letter and contains 
-        /// only the allowed characters.
-        /// </summary>
-        /// <param name="username"></param>
-        /// <returns>boolean</returns>
-        private bool IsValidUsername(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username))
-                return false;
-
-            // Regex: starts with a letter, then letters/digits/-/_
-            return Regex.IsMatch(username, @"^[a-zA-Z][a-zA-Z0-9_-]*$");
-        }
-
-
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
@@ -110,25 +94,43 @@ namespace chat_client
             string? resourceKey = null;
 
             if (txtbox.Name == "txtUsername")
+            {
                 resourceKey = "txtUsername_background";
+
+            }
             else if (txtbox.Name == "txtIPAddress")
+            {
                 resourceKey = "txtIPAddress_background";
+            }
+            
+            // If the dark mode is set
+            if (Properties.Settings.Default.AppTheme == "Dark")
+            {
+                resourceKey += "_dark";
+            }
 
             // Checks if the textbox is empty or contains only whitespace
-            bool isEmpty = string.IsNullOrWhiteSpace(txtbox.Text);
+            bool isTextBoxEmpty = string.IsNullOrWhiteSpace(txtbox.Text);
 
-            if (isEmpty)
+            if (isTextBoxEmpty)
             {
                 // If the field is empty, apply the watermark background
                 if (resourceKey != null && TryFindResource(resourceKey) is ImageBrush watermarkBrush)
                 {
                     txtbox.Background = watermarkBrush;
                 }
+
+                if (txtbox.Name == "txtUsername")
+                {
+                    cmdConnectDisconnect.IsEnabled = false;
+                }
             }
+
+            // the textbox is not empty
             else
             {
                 // If the field contains text, restore the themed background
-                if (resourceKey != null && TryFindResource("PopupTextboxBackgroundBrush") is Brush themeBrush)
+                if (resourceKey != null && TryFindResource("BackgroundColor") is Brush themeBrush)
                 {
                     txtbox.Background = themeBrush;
                 }
@@ -136,6 +138,11 @@ namespace chat_client
                 {
                     // If no theme brush is found, fallback to default background
                     txtbox.Background = null;
+                }
+
+                if (txtbox.Name == "txtUsername")
+                {
+                    cmdConnectDisconnect.IsEnabled = true;
                 }
             }
         }
@@ -209,15 +216,6 @@ namespace chat_client
             }
         }
 
-        private void txtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                // Simulate the click on the cmdConnect button
-                cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            }
-        }
-
         private void txtPortPopup_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -230,6 +228,16 @@ namespace chat_client
         {
             // Close silently without saving changes
             popupPort.IsOpen = false;
+        }
+
+
+        private void txtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                // Simulate the click on the cmdConnect button
+                cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
         }
 
         private void ValidatePortInput()
