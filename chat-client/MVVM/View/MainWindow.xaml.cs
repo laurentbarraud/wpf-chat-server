@@ -6,6 +6,7 @@
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
+using System.Collections.Specialized;
 using System.Configuration;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
@@ -24,12 +25,15 @@ namespace chat_client
     public partial class MainWindow : Window
     {
         public MainViewModel ViewModel { get; set; }
-        
+
         public MainWindow()
         {
             InitializeComponent();
             ViewModel = new MainViewModel();
             this.DataContext = ViewModel;
+
+            // Subscribe to message collection changes to trigger autoscroll
+            ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
         }
 
 
@@ -83,6 +87,15 @@ namespace chat_client
 
             // Sets focus to username field
             txtUsername.Focus();
+        }
+
+        private void Messages_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            // Scroll to the last message when a new one is added
+            if (e.Action == NotifyCollectionChangedAction.Add && lstMessagesReceived.Items.Count > 0)
+            {
+                lstMessagesReceived.ScrollIntoView(lstMessagesReceived.Items[lstMessagesReceived.Items.Count - 1]);
+            }
         }
 
 
