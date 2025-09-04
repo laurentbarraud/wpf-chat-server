@@ -278,8 +278,12 @@ namespace chat_client.MVVM.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Users.Add(user);
-
-                    Messages.Add($"# - {user.Username} has connected. #");
+                    
+                    // Avoids to be notified of who is connected at login time (user sees it in the list of users on left)
+                    if (Message != null)
+                    {
+                        Messages.Add($"# - {user.Username} has connected. #");
+                    }
                 });
             }
         }
