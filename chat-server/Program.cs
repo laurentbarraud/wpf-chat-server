@@ -172,8 +172,6 @@ namespace chat_server
                     broadcastPacket.WriteMessage(uidDisconnected);
                     user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
                 }
-
-                BroadcastMessage($"Server: {disconnectedUser.Username} disconnected!");
             }
         }
 

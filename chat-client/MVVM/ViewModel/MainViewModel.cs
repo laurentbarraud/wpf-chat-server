@@ -279,7 +279,7 @@ namespace chat_client.MVVM.ViewModel
                 {
                     Users.Add(user);
 
-                    Messages.Add($"{user.Username} has connected.");
+                    Messages.Add($"# - {user.Username} has connected. #");
                 });
             }
         }
@@ -298,7 +298,7 @@ namespace chat_client.MVVM.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Users.Remove(user);
-                    Messages.Add($"{user.Username} has disconnected.");
+                    Messages.Add($"# - {user.Username} has disconnected. #");
                 });
             }
         }
