@@ -1,17 +1,18 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.7</version>
-/// <date>September 3rd, 2025</date>
+/// <date>September 4th, 2025</date>
 
 using chat_client.MVVM.Model;
 using chat_client.Net;
+using System;
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-
+using System.Windows.Threading;
 
 namespace chat_client.MVVM.ViewModel
 {
@@ -46,7 +47,7 @@ namespace chat_client.MVVM.ViewModel
             _server = new Server();
             _server.connectedEvent += UserConnected;
             _server.msgReceivedEvent += MessageReceived;
-            _server.userDisconnectEvent += RemoveUser;
+            _server.userDisconnectEvent += UserDisconnected;
         }
 
         /// <summary>
@@ -261,18 +262,6 @@ namespace chat_client.MVVM.ViewModel
         }
 
 
-        private void RemoveUser()
-        {
-            // This is the first thing sent when a user disconnects
-            var uid = _server.PacketReader.ReadMessage();
-            var user = Users.Where(x => x.UID == uid).FirstOrDefault();
-
-            // Removes the user from the collection
-            Application.Current.Dispatcher.Invoke(() => Users.Remove(user));
-
-        }
-
-
         private void UserConnected()
         {
             var user = new UserModel
@@ -285,8 +274,32 @@ namespace chat_client.MVVM.ViewModel
             // contain any user that already has that UID
             if (!Users.Any(x => x.UID == user.UID))
             {
-                // We add data to the collection
-                Application.Current.Dispatcher.Invoke(() => Users.Add(user));
+                // Executes UI bound actions on the main application thread
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Users.Add(user);
+
+                    Messages.Add($"{user.Username} has connected.");
+                });
+            }
+        }
+
+        private void UserDisconnected()
+        {
+            // This is the first thing sent when a user disconnects
+            var uid = _server.PacketReader.ReadMessage();
+
+            // Executes UI bound actions on the main application thread
+            var user = Users.FirstOrDefault(x => x.UID == uid);
+
+            // Ensures user exists to avoid NullReferenceException
+            if (user != null)
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Users.Remove(user);
+                    Messages.Add($"{user.Username} has disconnected.");
+                });
             }
         }
     }
