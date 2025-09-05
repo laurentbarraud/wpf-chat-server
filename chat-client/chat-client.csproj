@@ -7,22 +7,24 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyVersion>0.7</AssemblyVersion>
-    <FileVersion>0.7</FileVersion>
+    <AssemblyVersion>0.7.1</AssemblyVersion>
+    <FileVersion>0.7.1</FileVersion>
     <Company></Company>
-    <Version>0.7</Version>
+    <Version>0.7.1</Version>
     <Title>chat-client</Title>
     <Authors>Laurent Barraud</Authors>
     <Description>chat-server app</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="MVVM\View\chat-client-icon.ico" />
     <None Remove="Resources\greendot.png" />
     <None Remove="Resources\moon.png" />
     <None Remove="Resources\port-setting-disabled.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
     <None Remove="Resources\send.png" />
+    <None Remove="Resources\settings.png" />
     <None Remove="Resources\sun.png" />
     <None Remove="Resources\txtIPAddress_background.gif" />
     <None Remove="Resources\txtIPAddress_background_dark.gif" />
@@ -32,6 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="MVVM\View\chat-client-icon.ico" />
     <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\moon.png" />
     <Resource Include="Resources\port-setting-disabled.png" />
@@ -40,6 +43,7 @@
     <Resource Include="Resources\send.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Resources\settings.png" />
     <Resource Include="Resources\sun.png" />
     <Resource Include="Resources\txtIPAddress_background.gif" />
     <Resource Include="Resources\txtIPAddress_background_dark.gif" />

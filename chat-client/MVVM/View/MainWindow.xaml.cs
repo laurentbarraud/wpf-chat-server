@@ -4,8 +4,8 @@
 // <date>September 4th, 2025</date>
 
 using chat_client.Helpers;
+using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
-using chat_client.Net;
 using System.Collections.Specialized;
 using System.Configuration;
 using System.Net.Sockets;
@@ -42,11 +42,6 @@ namespace chat_client
             ViewModel.ConnectDisconnect();
         }
 
-        private void cmdPortSetting_Click(object sender, RoutedEventArgs e)
-        {
-            ShowPortSetting();
-        }
-
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrEmpty(MainViewModel.Message))
@@ -57,10 +52,13 @@ namespace chat_client
             }
         }
 
-        private void cmdValidatePort_Click(object sender, RoutedEventArgs e)
+        private void cmdSettings_Click(object sender, RoutedEventArgs e)
         {
-            ValidatePortInput();
+            var settingsWindow = new SettingsWindow();
+            settingsWindow.Owner = this;
+            settingsWindow.Show();
         }
+        
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
@@ -161,22 +159,6 @@ namespace chat_client
                 }
             }
         }
-
-        public void ShowPortSetting()
-        {
-            if (popupPort.IsOpen)
-            {
-                popupPort.IsOpen = false;
-
-            }
-            else
-            {
-                popupPort.IsOpen = true;
-                txtPortPopup.Text = ViewModel.GetCurrentPort().ToString();
-                txtPortPopup.Focus();
-            }
-        }
-
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
             // Apply dark theme to this window with fade animation
@@ -231,21 +213,6 @@ namespace chat_client
             }
         }
 
-        private void txtPortPopup_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                ValidatePortInput();
-            }
-        }
-
-        private void txtPortPopup_LostFocus(object sender, RoutedEventArgs e)
-        {
-            // Close silently without saving changes
-            popupPort.IsOpen = false;
-        }
-
-
         private void txtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -253,33 +220,6 @@ namespace chat_client
                 // Simulate the click on the cmdConnect button
                 cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
-        }
-
-        private void ValidatePortInput()
-        {
-            int portChosen;
-            Int32.TryParse(txtPortPopup.Text, out portChosen);
-
-            string imagePath;
-            string tooltip;
-
-            if (ViewModel.TrySavePort(portChosen))
-            {
-                imagePath = "/Resources/greendot.png";
-                tooltip = "Port number is valid.";
-            }
-            else
-            {
-                imagePath = "/Resources/reddot.png";
-                tooltip = "Port number is not valid.\nPlease choose a number between 1000 and 65535.";
-
-                txtPortPopup.Text = ViewModel.GetCurrentPort().ToString();
-                txtPortPopup.Focus();
-            }
-
-            imgPortStatus.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
-            imgPortStatus.ToolTip = tooltip;
-            imgPortStatus.Visibility = Visibility.Visible;
         }
     }
 }

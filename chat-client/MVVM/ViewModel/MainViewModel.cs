@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.7</version>
-/// <date>September 4th, 2025</date>
+/// <version>0.7.1</version>
+/// <date>September 5th, 2025</date>
 
 using chat_client.MVVM.Model;
 using chat_client.Net;
@@ -97,10 +97,6 @@ namespace chat_client.MVVM.ViewModel
                         mainWindow.Title += " - Connected";
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnCenter.Visibility = Visibility.Visible;
-                        mainWindow.cmdPortSetting.IsEnabled = false;
-
-                        // Changes the button image to a B&W version to indicate that the button has been disabled.
-                        mainWindow.imgPortSetting.Source = new BitmapImage(new Uri("/Resources/port-setting-disabled.png", UriKind.Relative));
                     }
                 });
 
@@ -161,7 +157,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Returns the current port number stored in application settings.
         /// </summary>
-        public int GetCurrentPort()
+        public static int GetCurrentPort()
         {
             return chat_client.Properties.Settings.Default.PortNumber;
         }
@@ -169,7 +165,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Validates and saves the port number if it's within the allowed range.
         /// </summary>
-        public bool TrySavePort(int chosenPort)
+        public static bool TrySavePort(int chosenPort)
         {
             if (chosenPort >= 1000 && chosenPort <= 65535)
             {
@@ -203,10 +199,6 @@ namespace chat_client.MVVM.ViewModel
 
                     // Hides the central panel
                     mainWindow.spnCenter.Visibility = Visibility.Hidden;
-
-                    // Enables the port setting button
-                    mainWindow.cmdPortSetting.IsEnabled = true;
-                    mainWindow.imgPortSetting.Source = new BitmapImage(new Uri("/Resources/port-setting.png", UriKind.Relative));
                 }
             });
         }

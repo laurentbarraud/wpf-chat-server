@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
         mc:Ignorable="d"
-        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" ResizeMode="CanMinimize">
+        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/MVVM/View/chat-client-icon.ico">
     <Window.Resources>
         <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background.gif" AlignmentX="Left" Stretch="None" />
         <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background.gif" AlignmentX="Left" Stretch="None" />
@@ -15,7 +15,7 @@
     </Window.DataContext>
 
     <Grid x:Name="grdMain" Background="{DynamicResource BackgroundBrush}">
-            <Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200"/>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
@@ -37,21 +37,21 @@
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"
                     DockPanel.Dock="Top"
-                    Content="_Connect" Click="cmdConnectDisconnect_Click" TabIndex="-2" IsEnabled="False"/>
+                    Content="_Connect" Click="cmdConnectDisconnect_Click" TabIndex="2" IsEnabled="False"/>
             <StackPanel DockPanel.Dock="Top"
                 Orientation="Vertical"
                 Margin="0,0,0,0" Height="356">
 
                 <ListView x:Name="lstUsersConnected"
                     ItemsSource="{Binding Users}"
-                    TabIndex="5"
+                    TabIndex="7"
                     Height="324"
                     Margin="0,0,0,0"
                     Background="{DynamicResource BackgroundBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"
                     BorderBrush="{DynamicResource PrimaryBrush}"
                     BorderThickness="1"
-                    SelectionMode="Single">
+                    SelectionMode="Single" SelectedIndex="3">
 
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
@@ -94,7 +94,7 @@
                                   VerticalAlignment="Center"
                                   Margin="0,0,10,0"
                                   Checked="ThemeToggle_Checked"
-                                  Unchecked="ThemeToggle_Unchecked">
+                                  Unchecked="ThemeToggle_Unchecked" TabIndex="5">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Grid>
@@ -150,16 +150,15 @@
                     </ToggleButton>
 
                     <!-- Button to choose the port that will be used for connection -->
-                    <Button x:Name="cmdPortSetting"
+                    <Button x:Name="cmdSettings"
                               Width="32"
                               Height="32"
                               Background="Transparent"
                               BorderThickness="0"
                               VerticalAlignment="Center"
-                              ToolTip="Configure port settings" 
-                              Click="cmdPortSetting_Click">
-                        <Image x:Name="imgPortSetting" 
-                               Source="/Resources/port-setting.png"
+                              ToolTip="Configure port settings" TabIndex="6" Click="cmdSettings_Click">
+                        <Image x:Name="imgSettings" 
+                               Source="/Resources/settings.png"
                                Stretch="Uniform"
                                VerticalAlignment="Center"
                                HorizontalAlignment="Center" />
@@ -174,7 +173,7 @@
                             </Style>
                         </Button.Style>
                     </Button>
-                    
+
                 </StackPanel>
             </StackPanel>
         </DockPanel>
@@ -186,7 +185,7 @@
                         Background="{DynamicResource BackgroundBrush}"
                         Foreground="{DynamicResource ForegroundBrush}"
                         BorderThickness="0"
-                        Margin="0,0,0,0">
+                        Margin="0,0,0,0" TabIndex="6">
 
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
@@ -226,92 +225,23 @@
                         Click="cmdSend_Click"
                         IsEnabled="False"
                         Background="{DynamicResource PrimaryBrush}"
-                        Foreground="{DynamicResource ForegroundBrush}">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
-                                    <Style.Triggers>
-                                        <Trigger Property="IsEnabled" Value="False">
-                                            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                                            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
-                                            <Setter Property="Opacity" Value="0.6" />
-                                        </Trigger>
-                                    </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="4">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                                    <Setter Property="Opacity" Value="0.6" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
                     <Image Source="/Resources/send.png" Stretch="Uniform"/>
                 </Button>
             </StackPanel>
         </StackPanel>
-
-        <!-- Popup to choose port number -->
-        <Popup x:Name="popupPort"
-               PlacementTarget="{Binding ElementName=cmdPortSetting}"
-               Placement="Top"
-               HorizontalOffset="-40"
-               StaysOpen="False"
-               AllowsTransparency="True"
-               PopupAnimation="Slide"
-               Width="180"
-               Height="80">
-
-            <Border Background="{DynamicResource BackgroundBrush}"
-                    CornerRadius="6"
-                    Padding="10"
-                    BorderThickness="1"
-                    BorderBrush="{DynamicResource AccentBrush}">
-                <StackPanel>
-                    <TextBlock Text="Use TCP port number:"
-                       Foreground="{DynamicResource ForegroundBrush}"
-                       FontWeight="SemiBold"
-                       FontSize="12"
-                       Margin="0,0,0,6" />
-
-                    <DockPanel LastChildFill="False" VerticalAlignment="Center">
-                        <!-- Port input textbox -->
-                        <TextBox x:Name="txtPortPopup"
-                                 Width="80"
-                                 Height="24"
-                                 VerticalContentAlignment="Center"
-                                 HorizontalContentAlignment="Center"
-                                 Foreground="{DynamicResource ForegroundBrush}"
-                                 Background="{DynamicResource BackgroundBrush}"
-                                 KeyDown="txtPortPopup_KeyDown"
-                                 DockPanel.Dock="Left" />
-
-                        <!-- Port validation button -->
-                        <Button x:Name="cmdValidatePort"
-                                Width="24"
-                                Height="24"
-                                Margin="4,0,0,0"
-                            Background="Transparent"
-                            BorderBrush="Transparent"
-                            BorderThickness="1"
-                            ToolTip="Validate port"
-                            Click="cmdValidatePort_Click"
-                            DockPanel.Dock="Left">
-                            <Image Source="/Resources/validate.png"
-                                   Stretch="Uniform"
-                                   Width="14" Height="14"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center" />
-                        </Button>
-
-                        <!-- Port status indicator (green or red dot) -->
-                        <Image x:Name="imgPortStatus"
-                               Width="16"
-                               Height="16"
-                               Margin="4,0,0,0" 
-                               Visibility="Collapsed"
-                               VerticalAlignment="Center"
-                               DockPanel.Dock="Left"
-                               ToolTip="Port scan result" />
-                    </DockPanel>
-
-                </StackPanel>
-            </Border>
-        </Popup>
-
     </Grid>
 </Window>
