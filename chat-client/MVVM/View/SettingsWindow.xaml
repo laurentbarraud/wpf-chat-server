@@ -1,12 +1,139 @@
-﻿<Window x:Name="SettingsWindow1" x:Class="chat_client.MVVM.View.SettingsWindow"
+﻿<Window x:Class="chat_client.MVVM.View.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:chat_client.MVVM.View"
-        mc:Ignorable="d"
-        Title="Settings" Height="379" Width="426" ShowInTaskbar="False" ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
+        Title="Settings"
+        Height="379" Width="426"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BackgroundBrush}">
+
     <Grid>
-        
+        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,40,0,0">
+
+            <!-- Custom TCP Port Toggle -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,40">
+                <Label Content="Custom TCP port"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ForegroundBrush}" />
+
+                <ToggleButton x:Name="PortSettingToggle"
+                              Width="70" Height="34"
+                              Margin="10,0"
+                              Checked="PortSettingToggle_Checked"
+                              Unchecked="PortSettingToggle_Unchecked">
+                    <ToggleButton.Template>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Grid>
+                                <Border x:Name="SwitchBackground"
+                                        CornerRadius="16"
+                                        Background="{DynamicResource BackgroundBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}"
+                                        BorderThickness="1" />
+
+                                <Grid x:Name="ThumbContainer"
+                                      Width="34" Height="34"
+                                      VerticalAlignment="Center"
+                                      Margin="2,2,30,2">
+                                    <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+                                    <Image x:Name="SwitchIcon"
+                                           Source="/Resources/port-setting-disabled.png"
+                                           Width="18" Height="18"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                                </Grid>
+                            </Grid>
+
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/port-setting.png" />
+                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="30,2,2,2" />
+                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="False">
+                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/port-setting-disabled.png" />
+                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,30,2" />
+                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ToggleButton.Template>
+                </ToggleButton>
+
+                <Grid Width="110" Height="28" VerticalAlignment="Center">
+                    <TextBox x:Name="txtCustomPort"
+                                 Width="80" Height="20"
+                                 HorizontalAlignment="Left"
+                                 TextChanged="txtCustomPort_TextChanged"
+                                 HorizontalContentAlignment="Center"
+                                 ToolTip="Enter a port between 1000 and 65535" IsEnabled="False" />
+
+                    <Image x:Name="imgPortStatus"
+                           Width="18" Height="18"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed" />
+                </Grid>
+            </StackPanel>
+
+            <!-- Reduce to Tray Toggle -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Label Content="Reduce in system tray"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ForegroundBrush}" />
+
+                <ToggleButton x:Name="TrayToggle"
+                              Width="70" Height="34"
+                              Margin="10,0"
+                              Checked="TrayToggle_Checked"
+                              Unchecked="TrayToggle_Unchecked">
+                    <ToggleButton.Template>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Grid>
+                                <Border x:Name="SwitchBackground"
+                                        CornerRadius="16"
+                                        Background="{DynamicResource BackgroundBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}"
+                                        BorderThickness="1" />
+
+                                <Grid x:Name="ThumbContainer"
+                                      Width="34" Height="34"
+                                      VerticalAlignment="Center"
+                                      Margin="2,2,30,2">
+                                    <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+                                    <Image x:Name="SwitchIcon"
+                                           Source="/Resources/reduce-to-tray-disabled.png"
+                                           Width="18" Height="18"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                                </Grid>
+                            </Grid>
+
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/reduce-to-tray-calc-icon.png" />
+                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="30,2,2,2" />
+                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="False">
+                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/reduce-to-tray-disabled.png" />
+                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,30,2" />
+                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ToggleButton.Template>
+                </ToggleButton>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- About Label -->
+        <Label Content="About WPF Chat Server"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Bottom"
+               Margin="0,0,0,20"
+               Foreground="{DynamicResource ForegroundBrush}"
+               Cursor="Hand"
+               MouseDown="AboutLabel_MouseDown" />
     </Grid>
 </Window>

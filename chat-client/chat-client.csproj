@@ -23,6 +23,8 @@
     <None Remove="Resources\port-setting-disabled.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
+    <None Remove="Resources\reduce-to-tray-calc-icon.png" />
+    <None Remove="Resources\reduce-to-tray-disabled.png" />
     <None Remove="Resources\send.png" />
     <None Remove="Resources\settings.png" />
     <None Remove="Resources\sun.png" />
@@ -40,6 +42,8 @@
     <Resource Include="Resources\port-setting-disabled.png" />
     <Resource Include="Resources\port-setting.png" />
     <Resource Include="Resources\reddot.png" />
+    <Resource Include="Resources\reduce-to-tray-calc-icon.png" />
+    <Resource Include="Resources\reduce-to-tray-disabled.png" />
     <Resource Include="Resources\send.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>

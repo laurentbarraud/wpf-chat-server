@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
         mc:Ignorable="d"
-        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/MVVM/View/chat-client-icon.ico">
+        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/MVVM/View/chat-client-icon.ico" TabIndex="12">
     <Window.Resources>
         <ImageBrush x:Key="txtUsername_background" ImageSource="/Resources/txtUsername_background.gif" AlignmentX="Left" Stretch="None" />
         <ImageBrush x:Key="txtIPAddress_background" ImageSource="/Resources/txtIPAddress_background.gif" AlignmentX="Left" Stretch="None" />
