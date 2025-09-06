@@ -1,8 +1,8 @@
 ﻿/// <file>App.xaml.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.7</version>
-/// <date>September 3rd, 2025</date>
-
+/// <version>0.8</version>
+/// <date>September 7th, 2025</date>
+/// 
 using System.Configuration;
 using System.Data;
 using System.Windows;

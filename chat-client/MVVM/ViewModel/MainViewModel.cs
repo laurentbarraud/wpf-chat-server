@@ -1,8 +1,8 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.7.1</version>
-/// <date>September 5th, 2025</date>
-
+/// <version>0.8</version>
+/// <date>September 7th, 2025</date>
+ 
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using System;
@@ -159,7 +159,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public static int GetCurrentPort()
         {
-            return chat_client.Properties.Settings.Default.PortNumber;
+            return chat_client.Properties.Settings.Default.CustomPortNumber;
         }
 
         /// <summary>
@@ -169,7 +169,7 @@ namespace chat_client.MVVM.ViewModel
         {
             if (chosenPort >= 1000 && chosenPort <= 65535)
             {
-                chat_client.Properties.Settings.Default.PortNumber = chosenPort;
+                chat_client.Properties.Settings.Default.CustomPortNumber = chosenPort;
                 chat_client.Properties.Settings.Default.Save();
                 return true;
             }

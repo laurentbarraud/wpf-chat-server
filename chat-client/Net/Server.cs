@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.7.1</version>
-/// <date>September 5th, 2025</date>
+/// <version>0.8</version>
+/// <date>September 7th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
@@ -51,8 +51,15 @@ namespace chat_client.Net
                     throw new ArgumentException("The IP address is incorrect. Leave it blank to connect locally.");
                 }
 
-                // Attempts to connect to the server on port 7123
-                _client.Connect(ipToConnect, 7123);
+                int portToUse = 7123;
+
+                if (Properties.Settings.Default.UseCustomPort)
+                {
+                    portToUse = Properties.Settings.Default.CustomPortNumber;
+                }
+
+                _client.Connect(ipToConnect, portToUse);
+
 
                 // Initializes the packet reader using the network stream
                 PacketReader = new PacketReader(_client.GetStream());

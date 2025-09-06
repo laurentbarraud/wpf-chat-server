@@ -1,8 +1,8 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.7</version>
-// <date>September 4th, 2025</date>
-
+/// <version>0.8</version>
+/// <date>September 7th, 2025</date>
+/// 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
@@ -36,6 +36,18 @@ namespace chat_client
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
         }
 
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Restores last used IP address
+            txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
+
+            // Synchronizes the toggle button with the current theme
+            ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
+
+            // Sets focus to username field
+            txtUsername.Focus();
+        }
+
 
         public void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
         {
@@ -58,34 +70,7 @@ namespace chat_client
             settingsWindow.Owner = this;
             settingsWindow.Show();
         }
-        
-
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            // Restores last used IP address
-            txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
-
-            // Synchronizes the toggle button with the current theme
-            ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
-
-            // Attachs event handlers to save theme choice when toggled
-            ThemeToggle.Checked += (s, _) =>
-            {
-                // Saves dark theme preference
-                Properties.Settings.Default.AppTheme = "Dark";
-                Properties.Settings.Default.Save();
-            };
-
-            ThemeToggle.Unchecked += (s, _) =>
-            {
-                // Saves light theme preference
-                Properties.Settings.Default.AppTheme = "Light";
-                Properties.Settings.Default.Save();
-            };
-
-            // Sets focus to username field
-            txtUsername.Focus();
-        }
+       
 
         private void Messages_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {

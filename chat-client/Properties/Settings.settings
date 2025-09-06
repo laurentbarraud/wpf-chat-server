@@ -8,8 +8,11 @@
     <Setting Name="AppTheme" Type="System.String" Scope="User">
       <Value Profile="(Default)">Light</Value>
     </Setting>
-    <Setting Name="PortNumber" Type="System.Int32" Scope="User">
+    <Setting Name="CustomPortNumber" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">7123</Value>
+    </Setting>
+    <Setting Name="UseCustomPort" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>
 </SettingsFile>

@@ -50,12 +50,24 @@ namespace chat_client.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("7123")]
-        public int PortNumber {
+        public int CustomPortNumber {
             get {
-                return ((int)(this["PortNumber"]));
+                return ((int)(this["CustomPortNumber"]));
             }
             set {
-                this["PortNumber"] = value;
+                this["CustomPortNumber"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool UseCustomPort {
+            get {
+                return ((bool)(this["UseCustomPort"]));
+            }
+            set {
+                this["UseCustomPort"] = value;
             }
         }
     }

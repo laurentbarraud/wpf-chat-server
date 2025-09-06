@@ -1,4 +1,9 @@
-﻿using chat_client.MVVM.ViewModel;
+﻿/// <file>SettingsWindow.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>0.8</version>
+/// <date>September 7th, 2025</date>
+
+using chat_client.MVVM.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,16 +32,21 @@ namespace chat_client.MVVM.View
             InitializeComponent();
         }
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Synchronizes the toggle button with the "use custom port" setting
+            UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort e;
+        }
+
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
         {
             MessageBox.Show(
-            "The software is for education purposes only and is provided \"as is\", without any warranties.\n" +
-            "In no event shall the author be liable for any indirect, incidental, consequential, or special damages, " +
+            "This software is for education purposes only and is provided \"as is\", without any kind of warranty.\n" +
+            "In no event shall the author be liable for any indirect, incidental or consequential damages, " +
             "including loss of data, lost profits, or business interruption " +
-            "with the use or inability to use the software.\n\n" +
-            "Button images inspired by resources on flaticon.com.\n" +
-            "Original codebase as version 0.1 by YouTube user @_buffer.\n\n" +
-            "v0.7.1, sept. 2025 — by Laurent Barraud.",
+            "with the use of the software.\n\n" +
+            "Button images inspired by resources on flaticon.com.\n\n" +
+            "v0.8, sept. 2025 — by Laurent Barraud.",
             "About",
             MessageBoxButton.OK,
             MessageBoxImage.Information
@@ -47,12 +57,14 @@ namespace chat_client.MVVM.View
         {
             txtCustomPort.IsEnabled = true;
             txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
+            Properties.Settings.Default.UseCustomPort = true;
         }
 
         private void PortSettingToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             txtCustomPort.IsEnabled = false;
             imgPortStatus.Visibility = Visibility.Collapsed;
+            Properties.Settings.Default.UseCustomPort = false;
         }
 
         private void TrayToggle_Checked(object sender, RoutedEventArgs e)

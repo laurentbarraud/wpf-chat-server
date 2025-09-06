@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.7.1</version>
-/// <date>September 5th, 2025</date>
+/// <version>0.8</version>
+/// <date>September 7th, 2025</date>
 
 using chat_server.Net.IO;
 using System.Net;
@@ -59,7 +59,7 @@ namespace chat_server
         static void DisplayBanner()
         {
             Console.WriteLine("************************************");
-            Console.WriteLine("      WPF Chat Server v0.7");
+            Console.WriteLine("      WPF Chat Server v0.8");
             Console.WriteLine("                                    ");
             Console.WriteLine("************************************\n");
             Console.WriteLine("Press Ctrl + C to quit.\n");

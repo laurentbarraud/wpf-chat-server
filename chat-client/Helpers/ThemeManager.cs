@@ -1,8 +1,8 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.7.1</version>
-/// <date>September 5th, 2025</date>
-
+/// <version>0.8</version>
+/// <date>September 7th, 2025</date>
+/// 
 using System;
 using System.Linq;
 using System.Windows;

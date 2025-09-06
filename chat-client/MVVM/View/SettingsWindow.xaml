@@ -6,7 +6,7 @@
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource BackgroundBrush}" Loaded="Window_Loaded">
 
     <Grid>
         <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,40,0,0">
@@ -17,7 +17,7 @@
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" />
 
-                <ToggleButton x:Name="PortSettingToggle"
+                <ToggleButton x:Name="UseCustomPortToggle"
                               Width="70" Height="34"
                               Margin="10,0"
                               Checked="PortSettingToggle_Checked"
@@ -82,7 +82,7 @@
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" />
 
-                <ToggleButton x:Name="TrayToggle"
+                <ToggleButton x:Name="ReduceInTrayToggle"
                               Width="70" Height="34"
                               Margin="10,0"
                               Checked="TrayToggle_Checked"
