@@ -1,7 +1,7 @@
 ### WPF Chat app and server 
 
 [![Release](https://img.shields.io/badge/release-stable-1B4636)](https://github.com/laurentbarraud/wpf-chat-server/releases)
-[![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.8/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases/tag/v0.8)
+[![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.9/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases/tag/v0.9)
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server and client" >
@@ -13,7 +13,8 @@
 - The client also remembers the last IP address it successfully connected to, making reconnections faster and more convenient.
 - The client supports both light and dark themes, which can be switched seamlessly using a toggle button.
 - The TCP port used by the client can be changed before connecting.
-- The server supports custom port binding at startup, allowing it to listen on a user-specified port. 
+- The server supports custom port binding at startup, allowing it to listen on a user-specified port.
+- Emoji support in messages, with a dedicated panel to select them while the user is typing.
 
 ### How to Run
 
