@@ -13,15 +13,15 @@
 
             <!-- Custom TCP Port Toggle -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,40">
-                <Label Content="Custom TCP port"
+                <Label Content="Use custom TCP port"
                        VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}" />
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="4" />
 
                 <ToggleButton x:Name="UseCustomPortToggle"
                               Width="70" Height="34"
                               Margin="10,0"
-                              Checked="PortSettingToggle_Checked"
-                              Unchecked="PortSettingToggle_Unchecked">
+                              Checked="UseCustomPortToggle_Checked"
+                              Unchecked="UseCustomPortToggle_Unchecked" TabIndex="0">
                     <ToggleButton.Template>
                         <ControlTemplate TargetType="ToggleButton">
                             <Grid>
@@ -66,7 +66,7 @@
                                  HorizontalAlignment="Left"
                                  TextChanged="txtCustomPort_TextChanged"
                                  HorizontalContentAlignment="Center"
-                                 ToolTip="Enter a port between 1000 and 65535" IsEnabled="False" />
+                                 ToolTip="Enter a port between 1000 and 65535" IsEnabled="False" TabIndex="1" />
 
                     <Image x:Name="imgPortStatus"
                            Width="18" Height="18"
@@ -80,13 +80,13 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Label Content="Reduce in system tray"
                        VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}" />
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="5" />
 
                 <ToggleButton x:Name="ReduceInTrayToggle"
                               Width="70" Height="34"
                               Margin="10,0"
-                              Checked="TrayToggle_Checked"
-                              Unchecked="TrayToggle_Unchecked">
+                              Checked="ReduceInTrayToggle_Checked"
+                              Unchecked="ReduceInTrayToggle_Unchecked" TabIndex="2">
                     <ToggleButton.Template>
                         <ControlTemplate TargetType="ToggleButton">
                             <Grid>
@@ -130,10 +130,10 @@
         <!-- About Label -->
         <Label Content="About WPF Chat Server"
                HorizontalAlignment="Center"
-               VerticalAlignment="Bottom"
-               Margin="0,0,0,20"
+               VerticalAlignment="Top"
+               Margin="0,320,0,0"
                Foreground="{DynamicResource ForegroundBrush}"
                Cursor="Hand"
-               MouseDown="AboutLabel_MouseDown" />
+               MouseDown="AboutLabel_MouseDown" TabIndex="3" />
     </Grid>
 </Window>

@@ -35,7 +35,11 @@ namespace chat_client.MVVM.View
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             // Synchronizes the toggle button with the "use custom port" setting
-            UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort e;
+            UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
+            txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
+
+            // Synchronizes the toggle button with the "use custom port" setting
+            ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
         }
 
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
@@ -44,7 +48,7 @@ namespace chat_client.MVVM.View
             "This software is for education purposes only and is provided \"as is\", without any kind of warranty.\n" +
             "In no event shall the author be liable for any indirect, incidental or consequential damages, " +
             "including loss of data, lost profits, or business interruption " +
-            "with the use of the software.\n\n" +
+            "with the use of the software.\n" +
             "Button images inspired by resources on flaticon.com.\n\n" +
             "v0.8, sept. 2025 — by Laurent Barraud.",
             "About",
@@ -53,34 +57,40 @@ namespace chat_client.MVVM.View
             );
         }
 
-        private void PortSettingToggle_Checked(object sender, RoutedEventArgs e)
+        private void ReduceInTrayToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            Properties.Settings.Default.ReduceInTray = true;
+            Properties.Settings.Default.Save();
+        }
+
+        private void ReduceInTrayToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            Properties.Settings.Default.ReduceInTray = false;
+            Properties.Settings.Default.Save();
+        }
+
+
+        private void txtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (UseCustomPortToggle.IsChecked == true)
+            {
+                ValidatePortInput();
+            }
+        }
+
+        private void UseCustomPortToggle_Checked(object sender, RoutedEventArgs e)
         {
             txtCustomPort.IsEnabled = true;
-            txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
             Properties.Settings.Default.UseCustomPort = true;
         }
 
-        private void PortSettingToggle_Unchecked(object sender, RoutedEventArgs e)
+        private void UseCustomPortToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             txtCustomPort.IsEnabled = false;
             imgPortStatus.Visibility = Visibility.Collapsed;
             Properties.Settings.Default.UseCustomPort = false;
         }
 
-        private void TrayToggle_Checked(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        private void TrayToggle_Unchecked(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        private void txtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            ValidatePortInput();
-        }
 
         private void ValidatePortInput()
         {

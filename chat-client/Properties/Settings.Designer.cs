@@ -70,5 +70,17 @@ namespace chat_client.Properties {
                 this["UseCustomPort"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ReduceInTray {
+            get {
+                return ((bool)(this["ReduceInTray"]));
+            }
+            set {
+                this["ReduceInTray"] = value;
+            }
+        }
     }
 }
