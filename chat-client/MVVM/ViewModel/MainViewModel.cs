@@ -25,7 +25,7 @@ namespace chat_client.MVVM.ViewModel
 
         // What the user type in the first textbox on top left of
         // the MainWindow in View gets stored in this property
-        // (binded in xaml file)
+        // (binded in xaml file).
         public static string Username { get; set; }
 
         // What the user type in the second textbox on top left of
@@ -35,10 +35,20 @@ namespace chat_client.MVVM.ViewModel
 
         // What the user type in the textbox on bottom right
         // of the MainWindow in View gets stored in this property
-        // (binded in xaml file)
+        // (binded in xaml file).
         public static string Message { get; set; }
 
         public static Server _server;
+
+        // Declaring the list as public ensures it can be resolved by WPF's binding system,
+        // assuming the containing object is set as the DataContext.
+        public List<string> EmojiList { get; } = new()
+        {
+            "😀", "😁", "😂", "🤣", "😊", "😎", "😉", "😇",
+            "🙃", "😅", "😐", "😶", "😬", "🤔", "🤨", "😏",
+            "😤", "😢", "😭", "😡", "👍", "👎", "🙏", "💼"
+        };
+
 
         public MainViewModel()
         {

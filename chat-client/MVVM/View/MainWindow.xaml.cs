@@ -34,14 +34,7 @@ namespace chat_client
         // Tray icon variables
         private TaskbarIcon trayIcon;
         private System.Windows.Forms.Timer hoverTimer;
-
-        // List of commonly used workplace emojis
-        private readonly List<string> EmojiList = new()
-{
-            "😀", "😁", "😂", "🤣", "😊", "😎", "😉", "😇",
-            "🙃", "😅", "😐", "😶", "😬", "🤔", "🤨", "😏",
-            "😤", "😢", "😭", "😡", "👍", "👎", "🙏", "💼"
-};
+        
         // Scoll parameters
         private DispatcherTimer scrollTimer;
         private int scrollDirection = 0; // -1 = left, 1 = right
@@ -59,9 +52,6 @@ namespace chat_client
 
             // Subscribes to message collection changes to trigger autoscroll
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
-
-            // Initializes the emoji list
-            emojiItems.ItemsSource = EmojiList;
 
             // Initializes the scroll timer for emoji panel
             scrollTimer = new DispatcherTimer();
