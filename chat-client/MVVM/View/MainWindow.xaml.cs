@@ -6,16 +6,19 @@
 using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
+using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.Configuration;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
-using Hardcodet.Wpf.TaskbarNotification;
+using System.Windows.Threading;
 
 namespace chat_client
 {
@@ -39,6 +42,9 @@ namespace chat_client
             "🙃", "😅", "😐", "😶", "😬", "🤔", "🤨", "😏",
             "😤", "😢", "😭", "😡", "👍", "👎", "🙏", "💼"
 };
+        // Scoll parameters
+        private DispatcherTimer scrollTimer;
+        private int scrollDirection = 0; // -1 = left, 1 = right
 
         // Tracks popup state
         private bool isEmojiPanelOpen = false;
@@ -46,15 +52,23 @@ namespace chat_client
         public MainWindow()
         {
             InitializeComponent();
+
+            // ViewModel binding
             ViewModel = new MainViewModel();
             this.DataContext = ViewModel;
 
             // Subscribes to message collection changes to trigger autoscroll
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            // Initializes the list
+            // Initializes the emoji list
             emojiItems.ItemsSource = EmojiList;
+
+            // Initializes the scroll timer for emoji panel
+            scrollTimer = new DispatcherTimer();
+            scrollTimer.Interval = TimeSpan.FromMilliseconds(50);
+            scrollTimer.Tick += ScrollTimer_Tick;
         }
+
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
@@ -68,6 +82,28 @@ namespace chat_client
             txtUsername.Focus();
         }
 
+        private void btnScrollLeft_MouseEnter(object sender, MouseEventArgs e)
+        {
+            scrollDirection = -1;
+            scrollTimer.Start();
+        }
+
+        private void btnScrollLeft_MouseLeave(object sender, MouseEventArgs e)
+        {
+            scrollTimer.Stop();
+        }
+
+        private void btnScrollRight_MouseEnter(object sender, MouseEventArgs e)
+        {
+            scrollDirection = 1;
+            scrollTimer.Start();
+        }
+
+        private void btnScrollRight_MouseLeave(object sender, MouseEventArgs e)
+        {
+            scrollTimer.Stop();
+        }
+
         public void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
         {
             ViewModel.ConnectDisconnect();
@@ -76,17 +112,28 @@ namespace chat_client
         /// <summary>
         /// Toggles the emoji popup panel and updates the arrow icon.
         /// </summary>
-        private void cmdEmojiPanel_Click(object sender, RoutedEventArgs e)
+        private void cmdEmojiBar_Click(object sender, RoutedEventArgs e)
         {
             if (!isEmojiPanelOpen)
             {
+                popupEmojiPanel.VerticalOffset = -txtMessageToSend.ActualHeight / 2;
                 popupEmojiPanel.IsOpen = true;
+
+                var slideIn = (Storyboard)FindResource("SlideInStoryboard");
+                slideIn.Begin(popupEmojiPanel);
+
                 imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/left-arrow.png", UriKind.Relative));
                 isEmojiPanelOpen = true;
             }
             else
             {
-                popupEmojiPanel.IsOpen = false;
+                var slideOut = (Storyboard)FindResource("SlideOutStoryboard");
+                slideOut.Completed += (s, _) =>
+                {
+                    popupEmojiPanel.IsOpen = false;
+                };
+                slideOut.Begin(popupEmojiPanel);
+
                 imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
                 isEmojiPanelOpen = false;
             }
@@ -108,6 +155,30 @@ namespace chat_client
             var settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
             settingsWindow.Show();
+        }
+
+        /// <summary>
+        /// Calculates a custom placement for the emoji popup so that it appears
+        /// directly above the target control (in this case, the message input field).
+        /// This ensures precise vertical positioning regardless of layout or control size.
+        /// </summary>
+        /// <param name="popupSize">The measured size of the popup content.</param>
+        /// <param name="targetSize">The size of the control the popup is anchored to.</param>
+        /// <param name="offset">The default offset.</param>
+        /// <returns>A single CustomPopupPlacement that positions the popup above the target.</returns>
+        private CustomPopupPlacement[] OnCustomPopupPlacement(Size popupSize, Size targetSize, Point offset)
+        {
+            // Calculate horizontal offset (X): align left edge of popup with target
+            double x = 30;
+
+            // Calculate vertical offset (Y): place popup directly above the target control
+            double y = popupSize.Height - 80;
+
+            // Return a single placement option with the calculated position
+            return new[]
+            {
+               new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal)
+            };
         }
 
         /// <summary>
@@ -252,6 +323,17 @@ namespace chat_client
         }
 
         /// <summary>
+        /// Resets the arrow icon to point right when popup is closed
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void popupEmojiPanel_Closed(object sender, EventArgs e)
+        {
+            imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
+            isEmojiPanelOpen = false;
+        }
+
+        /// <summary>
         /// Restores the main window from the system tray and disposes the tray icon.
         /// </summary>
         private void RestoreFromTray()
@@ -266,6 +348,24 @@ namespace chat_client
             this.WindowState = WindowState.Normal;
             this.ShowInTaskbar = true;
         }
+
+        /// <summary>
+        /// Handles continuous scrolling of the emoji panel when arrow buttons are hovered.
+        /// </summary>
+        private void ScrollTimer_Tick(object sender, EventArgs e)
+        {
+            if (scrollDirection == -1)
+            {
+                // Scroll left
+                emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset - 10);
+            }
+            else if (scrollDirection == 1)
+            {
+                // Scroll right
+                emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset + 10);
+            }
+        }
+
 
         private void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
         {

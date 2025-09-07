@@ -23,11 +23,31 @@
                     MenuActivation="RightClick"
                     ContextMenu="{StaticResource TrayMenu}"
                     TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick" />
+
+        <!-- Slide animation for emoji popup -->
+        <Storyboard x:Key="SlideInStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupEmojiPanel"
+                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
+                     From="-200" To="0"
+                     Duration="0:0:0.3"
+                     AccelerationRatio="0.2"
+                     DecelerationRatio="0.8" />
+        </Storyboard>
+
+        <Storyboard x:Key="SlideOutStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupEmojiPanel"
+                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
+                     From="0" To="-480"
+                     Duration="0:0:0.4"
+                     AccelerationRatio="0.6"
+                     DecelerationRatio="0.4" />
+        </Storyboard>
+
     </Window.Resources>
     <Window.DataContext>
         <viewmodel:MainViewModel/>
     </Window.DataContext>
-    
+
     <Grid x:Name="grdMain" Background="{DynamicResource BackgroundBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200"/>
@@ -194,7 +214,7 @@
 
         <StackPanel x:Name="spnCenter" Grid.Column="1">
             <ListView x:Name="lstMessagesReceived"
-                        Height="388"
+                        Height="361"
                         ItemsSource="{Binding Messages}"
                         Background="{DynamicResource BackgroundBrush}"
                         Foreground="{DynamicResource ForegroundBrush}"
@@ -228,20 +248,19 @@
 
             </ListView>
 
-            <StackPanel x:Name="spnEmojiBar" Orientation="Horizontal"
-                          Height="15">
+            <StackPanel x:Name="spnEmojiBar" Orientation="Horizontal" Height="40">
                 <Button x:Name="cmdEmojiPanel"
                                    Width="12"
                                    Height="12"
                                    Background="Transparent"
                                    BorderThickness="0"
-                                   VerticalAlignment="Center"
-                                   ToolTip="Emoji bar" TabIndex="5" Click="cmdEmojiPanel_Click" Margin="4,0,4,0">
+                                   VerticalAlignment="Bottom"
+                                   ToolTip="Emoji bar" TabIndex="5" Click="cmdEmojiBar_Click" Margin="4,0,4,0">
                     <Image x:Name="imgEmojiPanel" 
                                             Source="/Resources/right-arrow.png"
                                             Stretch="Uniform"
-                                            VerticalAlignment="Center"
-                                            HorizontalAlignment="Center" Width="15" />
+                                            VerticalAlignment="Top"
+                                            HorizontalAlignment="Center" Width="14" />
                     <Button.Style>
                         <Style TargetType="Button">
                             <Setter Property="Background" Value="Transparent"/>
@@ -254,47 +273,137 @@
                     </Button.Style>
                 </Button>
 
-                <!-- This Popup is linked to the cmdEmojiPanel button and opens right with a slide animation.-->
-                <!-- The emojis are binded to an EmojiList list defined in code-behind. -->
+                <!-- This Popup is linked to the cmdEmojiPanel button and opens right with a slide animation. -->
+                <!-- The emojis are bound to an EmojiList list defined in code-behind. -->
                 <Popup x:Name="popupEmojiPanel"
-                       PlacementTarget="{Binding ElementName=cmdEmojiPanel}"
-                       Placement="Right"
+                       Placement="Custom"
+                       CustomPopupPlacementCallback="OnCustomPopupPlacement"
+                       PlacementTarget="{Binding ElementName=txtMessageToSend}"
                        StaysOpen="False"
                        AllowsTransparency="True"
                        PopupAnimation="Slide"
-                       HorizontalOffset="5"
-                       VerticalOffset="-12">
-                    <Border Background="{DynamicResource BackgroundBrush}"
-                    BorderBrush="{DynamicResource PrimaryBrush}"
-                    BorderThickness="1"
-                    Padding="4"
-                    CornerRadius="4">
+                       Closed="popupEmojiPanel_Closed">
 
-                        <StackPanel Orientation="Horizontal">
-                            <!-- Emoji buttons -->
-                            <ItemsControl x:Name="emojiItems"
-                                            ItemsSource="{Binding EmojiList}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <StackPanel Orientation="Horizontal" />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Button Width="32" Height="32"
-                                                                Margin="2"
-                                                                Background="{DynamicResource PrimaryBrush}"
-                                                                Foreground="{DynamicResource ForegroundBrush}"
-                                                                Click="EmojiButton_Click">
-                                                                    <TextBlock Text="{Binding}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                                        </Button>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
+                    <Popup.RenderTransform>
+                        <TranslateTransform X="0" />
+                    </Popup.RenderTransform>
+
+                    <Border Background="{DynamicResource BackgroundBrush}"
+                                                           BorderBrush="{DynamicResource PrimaryBrush}"
+                                                           BorderThickness="1"
+                                                           Padding="4"
+                                                           CornerRadius="6"
+                                                           Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
+                                                           Width="480">
+                        <!-- Adjusted layout for 13 emojis + arrows with vertical centering -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <!-- Left arrow -->
+                                <ColumnDefinition Width="*" />
+                                <!-- Emoji list -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- Right arrow -->
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left scroll button -->
+                            <Button x:Name="btnScrollLeft"
+                                    Grid.Column="0"
+                                    Width="20"
+                                    Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    MouseEnter="btnScrollLeft_MouseEnter"
+                                    MouseLeave="btnScrollLeft_MouseLeave"
+                                    ToolTip="Scroll left">
+                                <Image Source="/Resources/left-arrow.png" Stretch="Uniform" />
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <!-- Scrollable emoji panel -->
+                            <ScrollViewer x:Name="emojiScrollViewer"
+                                          Grid.Column="1"
+                                          VerticalAlignment="Center"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled"
+                                          CanContentScroll="True">
+                                <ItemsControl x:Name="emojiItems"
+                                                ItemsSource="{Binding EmojiList}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Width="28"
+                                                    Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
+                                                    Margin="2"
+                                                    Padding="0"
+                                                    Background="{DynamicResource PrimaryBrush}"
+                                                    Foreground="{DynamicResource ForegroundBrush}"
+                                                    BorderThickness="0"
+                                                    VerticalAlignment="Center"
+                                                    Click="EmojiButton_Click"
+                                                    ToolTip="{Binding}">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border Background="{TemplateBinding Background}"
+                                                                CornerRadius="4"
+                                                                VerticalAlignment="Stretch"
+                                                                HorizontalAlignment="Stretch">
+                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                                <TextBlock Text="{Binding}" FontSize="14"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- Right scroll button -->
+                            <Button x:Name="btnScrollRight"
+                                    Grid.Column="2"
+                                    Width="20"
+                                    Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    MouseEnter="btnScrollRight_MouseEnter"
+                                    MouseLeave="btnScrollRight_MouseLeave"
+                                    ToolTip="Scroll right">
+                                <Image Source="/Resources/right-arrow.png" Stretch="Uniform" />
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
                     </Border>
                 </Popup>
+
 
             </StackPanel>
             <StackPanel x:Name="spnDown" Orientation="Horizontal">
