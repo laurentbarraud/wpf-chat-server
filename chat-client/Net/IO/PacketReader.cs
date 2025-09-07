@@ -36,7 +36,7 @@ namespace chat_client.Net.IO
             // from the first byte to the length of the message
             _ns.ReadExactly(msgBuffer, 0, length);
 
-            var msg = Encoding.ASCII.GetString(msgBuffer);
+            var msg = Encoding.UTF8.GetString(msgBuffer);
             return msg;
         }
     }

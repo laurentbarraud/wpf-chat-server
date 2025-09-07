@@ -94,7 +94,8 @@ namespace chat_client
 
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
-            if (!string.IsNullOrEmpty(MainViewModel.Message))
+            // Prevent sending if message is empty or client is not connected
+            if (!string.IsNullOrEmpty(MainViewModel.Message) && MainViewModel._server.IsConnected)
             {
                 MainViewModel._server.SendMessageToServer(MainViewModel.Message);
                 txtMessageToSend.Text = "";

@@ -26,10 +26,17 @@ namespace chat_client.Net.IO
 
         public void WriteMessage(string msg)
         {
-            var msgLength = msg.Length;
+            // Convert the message to UTF-8 bytes (supports emojis and all Unicode characters)
+            var msgBytes = Encoding.UTF8.GetBytes(msg);
+
+            // Write the length of the byte array (not character count!)
+            var msgLength = msgBytes.Length;
             _ms.Write(BitConverter.GetBytes(msgLength));
-            _ms.Write(Encoding.ASCII.GetBytes(msg));
+
+            // Write the actual message bytes
+            _ms.Write(msgBytes);
         }
+
 
         public byte[] GetPacketBytes()
         {

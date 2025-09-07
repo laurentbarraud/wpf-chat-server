@@ -221,9 +221,11 @@
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding}"
-                                   TextWrapping="Wrap" />
+                                   TextWrapping="Wrap"
+                                   FontFamily="Segoe UI Emoji" />
                     </DataTemplate>
                 </ListView.ItemTemplate>
+
             </ListView>
 
             <StackPanel x:Name="spnEmojiBar" Orientation="Horizontal"
@@ -301,7 +303,7 @@
                          Background="{DynamicResource BackgroundBrush}"
                          Foreground="{DynamicResource ForegroundBrush}"
                          VerticalContentAlignment="Center"
-                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="txtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500" PreviewKeyDown="txtMessageToSend_PreviewKeyDown" TabIndex="3"/>
+                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="txtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500" PreviewKeyDown="txtMessageToSend_PreviewKeyDown" TabIndex="3" FontFamily="Segoe UI Emoji"/>
                 <Button x:Name="cmdSend"
                         Height="32"
                         Width="48"
