@@ -6,6 +6,7 @@
 using chat_server.Net.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace chat_server
 {
@@ -16,6 +17,8 @@ namespace chat_server
 
         public static void Main(string[] args)
         {
+            Console.OutputEncoding = Encoding.UTF8;
+
             // Handle Ctrl+C to gracefully shut down the server
             Console.CancelKeyPress += (sender, e) =>
             {
