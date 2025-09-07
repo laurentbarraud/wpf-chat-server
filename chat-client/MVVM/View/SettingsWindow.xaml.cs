@@ -1,6 +1,6 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.8</version>
+/// <version>0.9</version>
 /// <date>September 7th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
@@ -48,9 +48,9 @@ namespace chat_client.MVVM.View
             "This software is for education purposes only and is provided \"as is\", without any kind of warranty.\n" +
             "In no event shall the author be liable for any indirect, incidental or consequential damages, " +
             "including loss of data, lost profits, or business interruption " +
-            "with the use of the software.\n" +
-            "Button images inspired by resources on flaticon.com.\n\n" +
-            "v0.8, sept. 2025 — by Laurent Barraud.",
+            "with the use of this software.\n" +
+            "Button images inspired by resources available on flaticon.com.\n\n" +
+            "v0.9, sept. 2025 — by Laurent Barraud.",
             "About",
             MessageBoxButton.OK,
             MessageBoxImage.Information

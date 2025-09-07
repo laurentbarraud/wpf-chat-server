@@ -7,10 +7,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyVersion>0.8</AssemblyVersion>
-    <FileVersion>0.8</FileVersion>
+    <AssemblyVersion>0.9</AssemblyVersion>
+    <FileVersion>0.9</FileVersion>
     <Company></Company>
-    <Version>0.8</Version>
+    <Version>0.9</Version>
     <Title>chat-client</Title>
     <Authors>Laurent Barraud</Authors>
     <Description>chat-server app</Description>
@@ -21,6 +21,7 @@
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\greendot.png" />
     <None Remove="Resources\moon.png" />
+    <None Remove="Resources\plus-gradient-blue.png" />
     <None Remove="Resources\port-setting-disabled.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
@@ -45,6 +46,7 @@
     <Resource Include="Resources\calc-icon.ico" />
     <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\moon.png" />
+    <Resource Include="Resources\plus-gradient-blue.png" />
     <Resource Include="Resources\port-setting-disabled.png" />
     <Resource Include="Resources\port-setting.png" />
     <Resource Include="Resources\reddot.png" />

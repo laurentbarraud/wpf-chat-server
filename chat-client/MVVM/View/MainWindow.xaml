@@ -108,7 +108,7 @@
                                   VerticalAlignment="Center"
                                   Margin="0,0,10,0"
                                   Checked="ThemeToggle_Checked"
-                                  Unchecked="ThemeToggle_Unchecked" TabIndex="5">
+                                  Unchecked="ThemeToggle_Unchecked" TabIndex="6">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Grid>
@@ -163,14 +163,14 @@
                         </ToggleButton.Template>
                     </ToggleButton>
 
-                    <!-- Button to choose the port that will be used for connection -->
+                    <!-- Settings Button -->
                     <Button x:Name="cmdSettings"
                               Width="32"
                               Height="32"
                               Background="Transparent"
                               BorderThickness="0"
                               VerticalAlignment="Center"
-                              ToolTip="Configure port settings" TabIndex="6" Click="cmdSettings_Click">
+                              ToolTip="Settings" TabIndex="7" Click="cmdSettings_Click">
                         <Image x:Name="imgSettings" 
                                Source="/Resources/settings.png"
                                Stretch="Uniform"
@@ -192,7 +192,7 @@
             </StackPanel>
         </DockPanel>
 
-        <StackPanel x:Name="spnCenter" Grid.Column="1" Visibility="Hidden">
+        <StackPanel x:Name="spnCenter" Grid.Column="1">
             <ListView x:Name="lstMessagesReceived"
                         Height="401"
                         ItemsSource="{Binding Messages}"
@@ -227,6 +227,30 @@
             </ListView>
 
             <StackPanel x:Name="spnDown" Orientation="Horizontal">
+                <Button x:Name="cmdEmojiPanel"
+                           Width="32"
+                           Height="32"
+                           Background="Transparent"
+                           BorderThickness="0"
+                           VerticalAlignment="Center"
+                           ToolTip="" TabIndex="5" Click="cmdSettings_Click" Margin="4,0,4,0">
+                            <Image x:Name="imgEmojiPanel" 
+                                    Source="/Resources/plus-gradient-blue.png"
+                                    Stretch="Uniform"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Center" Width="24" />
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                </Button>
+
                 <TextBox x:Name="txtMessageToSend" Height="32"
                          Width="545"
                          Background="{DynamicResource BackgroundBrush}"

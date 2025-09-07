@@ -1,6 +1,6 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.8</version>
+/// <version>0.9</version>
 /// <date>September 7th, 2025</date>
 
 using chat_server.Net.IO;
@@ -59,11 +59,11 @@ namespace chat_server
         static void DisplayBanner()
         {
             Console.WriteLine("************************************");
-            Console.WriteLine("      WPF Chat Server v0.8");
+            Console.WriteLine("      WPF Chat Server v0.9");
             Console.WriteLine("                                    ");
             Console.WriteLine("************************************\n");
             Console.WriteLine("Press Ctrl + C to quit.\n");
-            Console.WriteLine("Change the TCP port used for listening or wait 5 seconds \n");
+            Console.WriteLine("Change the TCP port used for listening or wait 5 seconds\n");
         }
 
         /// <summary>

@@ -1,8 +1,8 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.8</version>
+/// <version>0.9</version>
 /// <date>September 7th, 2025</date>
- 
+
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using System;

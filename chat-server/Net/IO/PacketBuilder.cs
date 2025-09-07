@@ -1,7 +1,8 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.8</version>
+/// <version>0.9</version>
 /// <date>September 7th, 2025</date>
+
 using System.Text;
 
 namespace chat_server.Net.IO
