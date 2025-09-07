@@ -212,7 +212,7 @@
             </StackPanel>
         </DockPanel>
 
-        <StackPanel x:Name="spnCenter" Grid.Column="1">
+        <StackPanel x:Name="spnCenter" Grid.Column="1" Visibility="Collapsed">
             <ListView x:Name="lstMessagesReceived"
                         Height="361"
                         ItemsSource="{Binding Messages}"
