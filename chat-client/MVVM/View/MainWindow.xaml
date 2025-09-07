@@ -228,29 +228,71 @@
 
             <StackPanel x:Name="spnEmojiBar" Orientation="Horizontal"
                           Height="15">
-                        <Button x:Name="cmdEmojiPanel"
+                <Button x:Name="cmdEmojiPanel"
                                    Width="12"
                                    Height="12"
                                    Background="Transparent"
                                    BorderThickness="0"
                                    VerticalAlignment="Center"
                                    ToolTip="Emoji bar" TabIndex="5" Click="cmdEmojiPanel_Click" Margin="4,0,4,0">
-                                    <Image x:Name="imgEmojiPanel" 
+                    <Image x:Name="imgEmojiPanel" 
                                             Source="/Resources/right-arrow.png"
                                             Stretch="Uniform"
                                             VerticalAlignment="Center"
                                             HorizontalAlignment="Center" Width="15" />
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Opacity" Value="0.8"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                        </Button>
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- This Popup is linked to the cmdEmojiPanel button and opens right with a slide animation.-->
+                <!-- The emojis are binded to an EmojiList list defined in code-behind. -->
+                <Popup x:Name="popupEmojiPanel"
+                       PlacementTarget="{Binding ElementName=cmdEmojiPanel}"
+                       Placement="Right"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Slide"
+                       HorizontalOffset="5"
+                       VerticalOffset="-12">
+                    <Border Background="{DynamicResource BackgroundBrush}"
+                    BorderBrush="{DynamicResource PrimaryBrush}"
+                    BorderThickness="1"
+                    Padding="4"
+                    CornerRadius="4">
+
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Emoji buttons -->
+                            <ItemsControl x:Name="emojiItems"
+                                            ItemsSource="{Binding EmojiList}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Width="32" Height="32"
+                                                                Margin="2"
+                                                                Background="{DynamicResource PrimaryBrush}"
+                                                                Foreground="{DynamicResource ForegroundBrush}"
+                                                                Click="EmojiButton_Click">
+                                                                    <TextBlock Text="{Binding}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
             </StackPanel>
             <StackPanel x:Name="spnDown" Orientation="Horizontal">

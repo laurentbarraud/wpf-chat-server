@@ -27,8 +27,21 @@ namespace chat_client
         public MainViewModel ViewModel { get; set; }
 
         private DateTime lastCtrlPress = DateTime.MinValue;
+
+        // Tray icon variables
         private TaskbarIcon trayIcon;
         private System.Windows.Forms.Timer hoverTimer;
+
+        // List of commonly used workplace emojis
+        private readonly List<string> EmojiList = new()
+{
+            "😀", "😁", "😂", "🤣", "😊", "😎", "😉", "😇",
+            "🙃", "😅", "😐", "😶", "😬", "🤔", "🤨", "😏",
+            "😤", "😢", "😭", "😡", "👍", "👎", "🙏", "💼"
+};
+
+        // Tracks popup state
+        private bool isEmojiPanelOpen = false;
 
         public MainWindow()
         {
@@ -36,8 +49,11 @@ namespace chat_client
             ViewModel = new MainViewModel();
             this.DataContext = ViewModel;
 
-            // Subscribe to message collection changes to trigger autoscroll
+            // Subscribes to message collection changes to trigger autoscroll
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+
+            // Initializes the list
+            emojiItems.ItemsSource = EmojiList;
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -57,9 +73,23 @@ namespace chat_client
             ViewModel.ConnectDisconnect();
         }
 
+        /// <summary>
+        /// Toggles the emoji popup panel and updates the arrow icon.
+        /// </summary>
         private void cmdEmojiPanel_Click(object sender, RoutedEventArgs e)
         {
-
+            if (!isEmojiPanelOpen)
+            {
+                popupEmojiPanel.IsOpen = true;
+                imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/left-arrow.png", UriKind.Relative));
+                isEmojiPanelOpen = true;
+            }
+            else
+            {
+                popupEmojiPanel.IsOpen = false;
+                imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
+                isEmojiPanelOpen = false;
+            }
         }
 
         private void cmdSend_Click(object sender, RoutedEventArgs e)
@@ -77,6 +107,19 @@ namespace chat_client
             var settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
             settingsWindow.Show();
+        }
+
+        /// <summary>
+        /// Inserts the selected emoji into the message input field.
+        /// </summary>
+        private void EmojiButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Content is TextBlock tb)
+            {
+                txtMessageToSend.Text += tb.Text;
+                txtMessageToSend.Focus();
+                txtMessageToSend.CaretIndex = txtMessageToSend.Text.Length;
+            }
         }
 
         /// <summary>
