@@ -21,12 +21,12 @@
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\greendot.png" />
     <None Remove="Resources\moon.png" />
-    <None Remove="Resources\plus-gradient-blue.png" />
     <None Remove="Resources\port-setting-disabled.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
     <None Remove="Resources\reduce-to-tray-calc-icon.png" />
     <None Remove="Resources\reduce-to-tray-disabled.png" />
+    <None Remove="Resources\right-arrow.png" />
     <None Remove="Resources\send.png" />
     <None Remove="Resources\settings.png" />
     <None Remove="Resources\sun.png" />
@@ -46,12 +46,12 @@
     <Resource Include="Resources\calc-icon.ico" />
     <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\moon.png" />
-    <Resource Include="Resources\plus-gradient-blue.png" />
     <Resource Include="Resources\port-setting-disabled.png" />
     <Resource Include="Resources\port-setting.png" />
     <Resource Include="Resources\reddot.png" />
     <Resource Include="Resources\reduce-to-tray-calc-icon.png" />
     <Resource Include="Resources\reduce-to-tray-disabled.png" />
+    <Resource Include="Resources\right-arrow.png" />
     <Resource Include="Resources\send.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>

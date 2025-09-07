@@ -57,6 +57,11 @@ namespace chat_client
             ViewModel.ConnectDisconnect();
         }
 
+        private void cmdEmojiPanel_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrEmpty(MainViewModel.Message))

@@ -194,7 +194,7 @@
 
         <StackPanel x:Name="spnCenter" Grid.Column="1">
             <ListView x:Name="lstMessagesReceived"
-                        Height="401"
+                        Height="388"
                         ItemsSource="{Binding Messages}"
                         Background="{DynamicResource BackgroundBrush}"
                         Foreground="{DynamicResource ForegroundBrush}"
@@ -226,31 +226,34 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <StackPanel x:Name="spnDown" Orientation="Horizontal">
-                <Button x:Name="cmdEmojiPanel"
-                           Width="32"
-                           Height="32"
-                           Background="Transparent"
-                           BorderThickness="0"
-                           VerticalAlignment="Center"
-                           ToolTip="" TabIndex="5" Click="cmdSettings_Click" Margin="4,0,4,0">
-                            <Image x:Name="imgEmojiPanel" 
-                                    Source="/Resources/plus-gradient-blue.png"
-                                    Stretch="Uniform"
-                                    VerticalAlignment="Center"
-                                    HorizontalAlignment="Center" Width="24" />
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Opacity" Value="0.8"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                </Button>
+            <StackPanel x:Name="spnEmojiBar" Orientation="Horizontal"
+                          Height="15">
+                        <Button x:Name="cmdEmojiPanel"
+                                   Width="12"
+                                   Height="12"
+                                   Background="Transparent"
+                                   BorderThickness="0"
+                                   VerticalAlignment="Center"
+                                   ToolTip="Emoji bar" TabIndex="5" Click="cmdEmojiPanel_Click" Margin="4,0,4,0">
+                                    <Image x:Name="imgEmojiPanel" 
+                                            Source="/Resources/right-arrow.png"
+                                            Stretch="Uniform"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center" Width="15" />
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Opacity" Value="0.8"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                        </Button>
 
+            </StackPanel>
+            <StackPanel x:Name="spnDown" Orientation="Horizontal">
                 <TextBox x:Name="txtMessageToSend" Height="32"
                          Width="545"
                          Background="{DynamicResource BackgroundBrush}"
