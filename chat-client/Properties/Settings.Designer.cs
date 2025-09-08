@@ -82,5 +82,17 @@ namespace chat_client.Properties {
                 this["ReduceInTray"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool UseEncryption {
+            get {
+                return ((bool)(this["UseEncryption"]));
+            }
+            set {
+                this["UseEncryption"] = value;
+            }
+        }
     }
 }
