@@ -19,6 +19,8 @@
   <ItemGroup>
     <None Remove="MVVM\View\chat-client-icon.ico" />
     <None Remove="Resources\calc-icon.ico" />
+    <None Remove="Resources\encrypted-disabled.png" />
+    <None Remove="Resources\encrypted.png" />
     <None Remove="Resources\greendot.png" />
     <None Remove="Resources\left-arrow.png" />
     <None Remove="Resources\moon.png" />
@@ -46,6 +48,8 @@
   <ItemGroup>
     <Resource Include="MVVM\View\chat-client-icon.ico" />
     <Resource Include="Resources\calc-icon.ico" />
+    <Resource Include="Resources\encrypted-disabled.png" />
+    <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\left-arrow.png" />
     <Resource Include="Resources\moon.png" />

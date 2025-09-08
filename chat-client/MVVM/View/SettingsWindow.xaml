@@ -2,138 +2,158 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
-        Height="268" Width="426"
+        Height="330" Width="426"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource BackgroundBrush}" Loaded="Window_Loaded">
+        Background="{DynamicResource BackgroundBrush}"
+        Loaded="Window_Loaded">
 
-    <Grid>
+    <Window.Resources>
+        <!-- Reusable toggle style with dynamic icon -->
+        <Style x:Key="CustomToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Border x:Name="SwitchBackground"
+                                    CornerRadius="16"
+                                    Background="{DynamicResource BackgroundBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="1" />
+
+                            <Grid x:Name="ThumbContainer"
+                                  Width="30" Height="30"
+                                  VerticalAlignment="Center"
+                                  Margin="2,2,28,2">
+                                <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+                                <Image x:Name="SwitchIcon"
+                                       Width="16" Height="16"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="False">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="{Binding ToolTip, RelativeSource={RelativeSource TemplatedParent}}" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,28,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- Bottom docked About label -->
+        <Label Content="About WPF Chat Server"
+               DockPanel.Dock="Bottom"
+               HorizontalAlignment="Center"
+               Margin="0,12,0,12"
+               Foreground="{DynamicResource ForegroundBrush}"
+               Cursor="Hand"
+               MouseDown="AboutLabel_MouseDown"
+               TabIndex="3" />
+
+        <!-- Main vertical layout -->
         <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,40,0,0">
 
-            <!-- Custom TCP Port Toggle -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,40">
-                <Label Content="Use custom TCP port"
+            <!-- Row 1: Custom TCP Port -->
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Label Grid.Column="0" Content="Use custom TCP port"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="4" />
 
-                <ToggleButton x:Name="UseCustomPortToggle"
-                              Width="70" Height="34"
-                              Margin="10,0"
+                <ToggleButton Grid.Column="1"
+                              x:Name="UseCustomPortToggle"
+                              Width="60" Height="30"
+                              Margin="10,0,0,0"
+                              Style="{StaticResource CustomToggleStyle}"
                               Checked="UseCustomPortToggle_Checked"
-                              Unchecked="UseCustomPortToggle_Unchecked" TabIndex="0">
-                    <ToggleButton.Template>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <Grid>
-                                <Border x:Name="SwitchBackground"
-                                        CornerRadius="16"
-                                        Background="{DynamicResource BackgroundBrush}"
-                                        BorderBrush="{DynamicResource AccentBrush}"
-                                        BorderThickness="1" />
+                              Unchecked="UseCustomPortToggle_Unchecked"
+                              Tag="/Resources/port-setting.png"
+                              ToolTip="/Resources/port-setting-disabled.png"
+                              TabIndex="0" />
 
-                                <Grid x:Name="ThumbContainer"
-                                      Width="34" Height="34"
-                                      VerticalAlignment="Center"
-                                      Margin="2,2,30,2">
-                                    <Ellipse Fill="{DynamicResource PrimaryBrush}" />
-                                    <Image x:Name="SwitchIcon"
-                                           Source="/Resources/port-setting-disabled.png"
-                                           Width="18" Height="18"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" />
-                                </Grid>
-                            </Grid>
+                <TextBox Grid.Column="2"
+                         x:Name="txtCustomPort"
+                         Width="80" Height="20"
+                         Margin="20,0,0,0"
+                         HorizontalContentAlignment="Center"
+                         TextChanged="txtCustomPort_TextChanged"
+                         ToolTip="Enter a port between 1000 and 65535"
+                         IsEnabled="False"
+                         TabIndex="1" />
 
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/port-setting.png" />
-                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="30,2,2,2" />
-                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
-                                </Trigger>
-                                <Trigger Property="IsChecked" Value="False">
-                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/port-setting-disabled.png" />
-                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,30,2" />
-                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </ToggleButton.Template>
-                </ToggleButton>
+                <Image Grid.Column="3"
+                       x:Name="imgPortStatus"
+                       Width="18" Height="18"
+                       Margin="10,0,0,0"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Visibility="Collapsed" />
+            </Grid>
 
-                <Grid Width="110" Height="28" VerticalAlignment="Center">
-                    <TextBox x:Name="txtCustomPort"
-                                 Width="80" Height="20"
-                                 HorizontalAlignment="Left"
-                                 TextChanged="txtCustomPort_TextChanged"
-                                 HorizontalContentAlignment="Center"
-                                 ToolTip="Enter a port between 1000 and 65535" IsEnabled="False" TabIndex="1" />
+            <!-- Row 2: Reduce to Tray -->
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                    <Image x:Name="imgPortStatus"
-                           Width="18" Height="18"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Center"
-                           Visibility="Collapsed" />
-                </Grid>
-            </StackPanel>
-
-            <!-- Reduce to Tray Toggle -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Label Content="Reduce in system tray"
+                <Label Grid.Column="0" Content="Reduce in system tray"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="5" />
 
-                <ToggleButton x:Name="ReduceInTrayToggle"
-                              Width="70" Height="34"
-                              Margin="10,0"
+                <ToggleButton Grid.Column="1"
+                              x:Name="ReduceInTrayToggle"
+                              Width="60" Height="30"
+                              Margin="10,0,0,0"
+                              Style="{StaticResource CustomToggleStyle}"
                               Checked="ReduceInTrayToggle_Checked"
-                              Unchecked="ReduceInTrayToggle_Unchecked" TabIndex="2">
-                    <ToggleButton.Template>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <Grid>
-                                <Border x:Name="SwitchBackground"
-                                        CornerRadius="16"
-                                        Background="{DynamicResource BackgroundBrush}"
-                                        BorderBrush="{DynamicResource AccentBrush}"
-                                        BorderThickness="1" />
+                              Unchecked="ReduceInTrayToggle_Unchecked"
+                              Tag="/Resources/reduce-to-tray-calc-icon.png"
+                              ToolTip="/Resources/reduce-to-tray-disabled.png"
+                              TabIndex="2" />
+            </Grid>
 
-                                <Grid x:Name="ThumbContainer"
-                                      Width="34" Height="34"
-                                      VerticalAlignment="Center"
-                                      Margin="2,2,30,2">
-                                    <Ellipse Fill="{DynamicResource PrimaryBrush}" />
-                                    <Image x:Name="SwitchIcon"
-                                           Source="/Resources/reduce-to-tray-disabled.png"
-                                           Width="18" Height="18"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" />
-                                </Grid>
-                            </Grid>
+            <!-- Row 3: Use Encryption -->
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/reduce-to-tray-calc-icon.png" />
-                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="30,2,2,2" />
-                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
-                                </Trigger>
-                                <Trigger Property="IsChecked" Value="False">
-                                    <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/reduce-to-tray-disabled.png" />
-                                    <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,30,2" />
-                                    <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </ToggleButton.Template>
-                </ToggleButton>
-            </StackPanel>
+                <Label Grid.Column="0" Content="Use encryption for messages"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="6" />
+
+                <ToggleButton Grid.Column="1"
+                              x:Name="UseEncryptionToggle"
+                              Width="60" Height="30"
+                              Margin="10,0,0,0"
+                              Style="{StaticResource CustomToggleStyle}"
+                              Checked="UseEncryptionToggle_Checked"
+                              Unchecked="UseEncryptionToggle_Unchecked"
+                              Tag="/Resources/encrypted.png"
+                              ToolTip="/Resources/encrypted-disabled.png"
+                              TabIndex="7" />
+            </Grid>
         </StackPanel>
-
-        <!-- About Label -->
-        <Label Content="About WPF Chat Server"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Top"
-               Margin="0,203,0,0"
-               Foreground="{DynamicResource ForegroundBrush}"
-               Cursor="Hand"
-               MouseDown="AboutLabel_MouseDown" TabIndex="3" />
-    </Grid>
+    </DockPanel>
 </Window>

@@ -91,6 +91,16 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.UseCustomPort = false;
         }
 
+        private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+
+        }
+
 
         private void ValidatePortInput()
         {
