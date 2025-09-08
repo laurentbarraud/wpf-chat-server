@@ -38,8 +38,11 @@ namespace chat_client.MVVM.View
             UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
             txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
 
-            // Synchronizes the toggle button with the "use custom port" setting
+            // Synchronizes the toggle button with the "reduce in tray" setting
             ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
+
+            // Synchronizes the toggle button with the "use encryption" setting
+            UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseEncryption;
         }
 
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
@@ -93,14 +96,15 @@ namespace chat_client.MVVM.View
 
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-
+            Properties.Settings.Default.UseEncryption = true;
+            Properties.Settings.Default.Save();
         }
 
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-
+            Properties.Settings.Default.UseEncryption = false;
+            Properties.Settings.Default.Save();
         }
-
 
         private void ValidatePortInput()
         {
