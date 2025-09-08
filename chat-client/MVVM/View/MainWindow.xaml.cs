@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.9</version>
-/// <date>September 7th, 2025</date>
+/// <version>0.10</version>
+/// <date>September 8th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -35,12 +35,14 @@ namespace chat_client
         private TaskbarIcon trayIcon;
         private System.Windows.Forms.Timer hoverTimer;
         
-        // Scoll parameters
+        // Scoll variables
         private DispatcherTimer scrollTimer;
         private int scrollDirection = 0; // -1 = left, 1 = right
 
-        // Tracks popup state
+        // Popup variables
         private bool isEmojiPanelOpen = false;
+       
+        public double EmojiPanelHeight => 30;
 
         public MainWindow()
         {
@@ -100,32 +102,24 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Toggles the emoji popup panel and updates the arrow icon.
+        /// Toggles the emoji popup panel and updates the arrow icon based on its state.
         /// </summary>
-        private void cmdEmojiBar_Click(object sender, RoutedEventArgs e)
+        private void cmdEmojiPanel_Click(object sender, RoutedEventArgs e)
         {
-            if (!isEmojiPanelOpen)
+            // Disable the button immediately to prevent double clicks
+            cmdEmojiPanel.IsEnabled = false;
+            imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow-disabled.png", UriKind.Relative));
+
+            if (popupEmojiPanel.IsOpen)
             {
-                popupEmojiPanel.VerticalOffset = -txtMessageToSend.ActualHeight / 2;
-                popupEmojiPanel.IsOpen = true;
-
-                var slideIn = (Storyboard)FindResource("SlideInStoryboard");
-                slideIn.Begin(popupEmojiPanel);
-
-                imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/left-arrow.png", UriKind.Relative));
-                isEmojiPanelOpen = true;
+                popupEmojiPanel.IsOpen = false;
+                isEmojiPanelOpen = false;
             }
             else
             {
-                var slideOut = (Storyboard)FindResource("SlideOutStoryboard");
-                slideOut.Completed += (s, _) =>
-                {
-                    popupEmojiPanel.IsOpen = false;
-                };
-                slideOut.Begin(popupEmojiPanel);
-
-                imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
-                isEmojiPanelOpen = false;
+                popupEmojiPanel.VerticalOffset = -popupEmojiPanel.ActualHeight;
+                popupEmojiPanel.IsOpen = true;
+                isEmojiPanelOpen = true;
             }
         }
 
@@ -158,16 +152,14 @@ namespace chat_client
         /// <returns>A single CustomPopupPlacement that positions the popup above the target.</returns>
         private CustomPopupPlacement[] OnCustomPopupPlacement(Size popupSize, Size targetSize, Point offset)
         {
-            // Calculate horizontal offset (X): align left edge of popup with target
-            double x = 30;
-
-            // Calculate vertical offset (Y): place popup directly above the target control
-            double y = popupSize.Height - 80;
+            // Position the popup just above the input field
+            double x = 40; // horizontal offset to the right
+            double y = -popupSize.Height; // position above the target
 
             // Return a single placement option with the calculated position
-            return new[]
-            {
-               new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal)
+            return new[] 
+            { 
+                new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal) 
             };
         }
 
@@ -319,6 +311,8 @@ namespace chat_client
         /// <param name="e"></param>
         private void popupEmojiPanel_Closed(object sender, EventArgs e)
         {
+            // Re-enable the button and restore the default icon
+            cmdEmojiPanel.IsEnabled = true;
             imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
             isEmojiPanelOpen = false;
         }

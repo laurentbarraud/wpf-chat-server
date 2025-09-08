@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.9</version>
-/// <date>September 7th, 2025</date>
+/// <version>0.10</version>
+/// <date>September 8th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using System;
@@ -50,7 +50,7 @@ namespace chat_client.MVVM.View
             "including loss of data, lost profits, or business interruption " +
             "with the use of this software.\n" +
             "Button images inspired by resources available on flaticon.com.\n\n" +
-            "v0.9, sept. 2025 — by Laurent Barraud.",
+            "v0.10, sept. 2025 — by Laurent Barraud.",
             "About",
             MessageBoxButton.OK,
             MessageBoxImage.Information

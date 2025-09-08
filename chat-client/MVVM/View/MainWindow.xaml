@@ -248,19 +248,23 @@
 
             </ListView>
 
-            <StackPanel x:Name="spnEmojiBar" Orientation="Horizontal" Height="40">
+            <StackPanel x:Name="spnEmojiPanel" Orientation="Horizontal" Height="20">
                 <Button x:Name="cmdEmojiPanel"
-                                   Width="12"
-                                   Height="12"
-                                   Background="Transparent"
-                                   BorderThickness="0"
-                                   VerticalAlignment="Bottom"
-                                   ToolTip="Emoji bar" TabIndex="5" Click="cmdEmojiBar_Click" Margin="4,0,4,0">
+                        Height="{Binding ActualHeight, ElementName=spnEmojiPanel}"
+                        Width="{Binding ActualHeight, ElementName=spnEmojiPanel}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        VerticalAlignment="Center"
+                        ToolTip="Emoji bar"
+                        TabIndex="5"
+                        Click="cmdEmojiPanel_Click"
+                        Margin="4,0,4,0">
                     <Image x:Name="imgEmojiPanel" 
-                                            Source="/Resources/right-arrow.png"
-                                            Stretch="Uniform"
-                                            VerticalAlignment="Top"
-                                            HorizontalAlignment="Center" Width="14" />
+                           Source="/Resources/right-arrow.png"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Width="14" />
                     <Button.Style>
                         <Style TargetType="Button">
                             <Setter Property="Background" Value="Transparent"/>
@@ -272,7 +276,6 @@
                         </Style>
                     </Button.Style>
                 </Button>
-
                 <!-- This Popup is linked to the cmdEmojiPanel button and opens right with a slide animation. -->
                 <!-- The emojis are bound to an EmojiList list defined in code-behind. -->
                 <Popup x:Name="popupEmojiPanel"
@@ -289,12 +292,13 @@
                     </Popup.RenderTransform>
 
                     <Border Background="{DynamicResource BackgroundBrush}"
-                                                           BorderBrush="{DynamicResource PrimaryBrush}"
-                                                           BorderThickness="1"
-                                                           Padding="4"
-                                                           CornerRadius="6"
-                                                           Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
-                                                           Width="480">
+                            BorderBrush="{DynamicResource PrimaryBrush}"
+                            BorderThickness="1"
+                            Padding="4"
+                            CornerRadius="6"
+                            Height="{Binding EmojiPanelHeight, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Width="460">
+
                         <!-- Adjusted layout for 13 emojis + arrows with vertical centering -->
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -310,7 +314,7 @@
                             <Button x:Name="btnScrollLeft"
                                     Grid.Column="0"
                                     Width="20"
-                                    Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
+                                    Height="20"
                                     VerticalAlignment="Center"
                                     Background="Transparent"
                                     BorderThickness="0"
@@ -334,6 +338,7 @@
                             <ScrollViewer x:Name="emojiScrollViewer"
                                           Grid.Column="1"
                                           VerticalAlignment="Center"
+                                          MinHeight="48"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Disabled"
                                           CanContentScroll="True">
@@ -346,16 +351,15 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Button Width="28"
-                                                    Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
+                                            <Button Width="20"
+                                                    Height="{Binding ActualHeight, ElementName=spnEmojiPanel}"
                                                     Margin="2"
                                                     Padding="0"
                                                     Background="{DynamicResource PrimaryBrush}"
                                                     Foreground="{DynamicResource ForegroundBrush}"
                                                     BorderThickness="0"
                                                     VerticalAlignment="Center"
-                                                    Click="EmojiButton_Click"
-                                                    ToolTip="{Binding}">
+                                                    Click="EmojiButton_Click">
                                                 <Button.Template>
                                                     <ControlTemplate TargetType="Button">
                                                         <Border Background="{TemplateBinding Background}"
@@ -380,7 +384,7 @@
                             <Button x:Name="btnScrollRight"
                                     Grid.Column="2"
                                     Width="20"
-                                    Height="{Binding ActualHeight, ElementName=spnEmojiBar}"
+                                    Height="{Binding ActualHeight, ElementName=spnEmojiPanel}"
                                     VerticalAlignment="Center"
                                     Background="Transparent"
                                     BorderThickness="0"
