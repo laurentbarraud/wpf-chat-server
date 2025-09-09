@@ -9,18 +9,6 @@
         Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/MVVM/View/chat-client-icon.ico" TabIndex="12" StateChanged="MainWindow1_StateChanged" Closing="MainWindow1_Closing" PreviewKeyDown="MainWindow1_PreviewKeyDown">
     <Window.Resources>
         
-        <!-- Watermarks for txtUsername -->
-        <ImageBrush x:Key="txtUsername_background_en" ImageSource="/Resources/txtUsername_background_en.gif" AlignmentX="Left" Stretch="None" />
-        <ImageBrush x:Key="txtUsername_background_fr" ImageSource="/Resources/txtUsername_background_fr.gif" AlignmentX="Left" Stretch="None" />
-        <ImageBrush x:Key="txtUsername_background_en_dark" ImageSource="/Resources/txtUsername_background_en_dark.gif" AlignmentX="Left" Stretch="None" />
-        <ImageBrush x:Key="txtUsername_background_fr_dark" ImageSource="/Resources/txtUsername_background_fr_dark.gif" AlignmentX="Left" Stretch="None" />
-
-        <!-- Watermarks for txtIPAddress -->
-        <ImageBrush x:Key="txtIPAddress_background_en" ImageSource="/Resources/txtIPAddress_background_en.gif" AlignmentX="Left" Stretch="None" />
-        <ImageBrush x:Key="txtIPAddress_background_fr" ImageSource="/Resources/txtIPAddress_background_fr.gif" AlignmentX="Left" Stretch="None" />
-        <ImageBrush x:Key="txtIPAddress_background_en_dark" ImageSource="/Resources/txtIPAddress_background_en_dark.gif" AlignmentX="Left" Stretch="None" />
-        <ImageBrush x:Key="txtIPAddress_background_fr_dark" ImageSource="/Resources/txtIPAddress_background_fr_dark.gif" AlignmentX="Left" Stretch="None" />
-
         <!-- ContextMenu resource for tray icon -->
         <ContextMenu x:Key="TrayMenu">
             <MenuItem Header="Open" Click="TrayMenu_Open_Click" />
@@ -66,16 +54,58 @@
         </Grid.ColumnDefinitions>
 
         <DockPanel x:Name="dpnLeft">
-            <TextBox x:Name="txtUsername" Height="25"
-                    Foreground="{DynamicResource ForegroundBrush}" 
-                    DockPanel.Dock="Top"
-                    Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                    TextChanged="OnTextBoxTextChanged"/>
-            <TextBox x:Name="txtIPAddress" Height="25"
-                    Foreground="{DynamicResource ForegroundBrush}"
-                    DockPanel.Dock="Top"
-                    Text="{Binding IPAddressOfServer}"
-                    TextChanged="OnTextBoxTextChanged"/>
+            <Grid DockPanel.Dock="Top" Height="25">
+                <!-- Watermark image -->
+                <Image x:Name="imgUsernameWatermark"
+                       Stretch="Fill"
+                       IsHitTestVisible="False"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Width="{Binding ActualWidth, ElementName=txtUsername}"
+                       Height="{Binding ActualHeight, ElementName=txtUsername}" />
+
+                <!-- TextBox -->
+                <TextBox x:Name="txtUsername"
+                         Foreground="{DynamicResource ForegroundBrush}" 
+                         Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="OnTextBoxTextChanged"
+                         FontSize="14"
+                         MaxLines="1"
+                         MaxLength="50"
+                         TabIndex="0"
+                         PreviewKeyDown="txtUsername_PreviewKeyDown"
+                         VerticalAlignment="Center"
+                         HorizontalAlignment="Left"
+                         Width="200"
+                         Height="25"/>
+            </Grid>
+
+            <Grid DockPanel.Dock="Top" Height="25">
+                <!-- Watermark image -->
+                <Image x:Name="imgIPAddressWatermark"
+                       Stretch="Fill"
+                       IsHitTestVisible="False"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Width="{Binding ActualWidth, ElementName=txtIPAddress}"
+                       Height="{Binding ActualHeight, ElementName=txtIPAddress}" />
+
+                <!-- TextBox -->
+                <TextBox x:Name="txtIPAddress"
+                         Foreground="{DynamicResource ForegroundBrush}" 
+                         Text="{Binding IPAddressOfServer}"
+                         TextChanged="OnTextBoxTextChanged"
+                         FontSize="14"
+                         MaxLines="1"
+                         MaxLength="15"
+                         TabIndex="1"
+                         PreviewKeyDown="txtIPAddress_PreviewKeyDown"
+                         VerticalAlignment="Center"
+                         HorizontalAlignment="Left"
+                         Width="200"
+                         Height="25"/>
+            </Grid>
+            
             <Button x:Name="cmdConnectDisconnect" Height="25"
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"

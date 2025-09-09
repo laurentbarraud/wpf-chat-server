@@ -36,14 +36,10 @@
     <None Remove="Resources\send.png" />
     <None Remove="Resources\settings.png" />
     <None Remove="Resources\sun.png" />
-    <None Remove="Resources\txtIPAddress_background.gif" />
-    <None Remove="Resources\txtIPAddress_background_dark.gif" />
     <None Remove="Resources\txtIPAddress_background_en.gif" />
     <None Remove="Resources\txtIPAddress_background_en_dark.gif" />
     <None Remove="Resources\txtIPAddress_background_fr.gif" />
     <None Remove="Resources\txtIPAddress_background_fr_dark.gif" />
-    <None Remove="Resources\txtUsername_background.gif" />
-    <None Remove="Resources\txtUsername_background_dark.gif" />
     <None Remove="Resources\txtUsername_background_en.gif" />
     <None Remove="Resources\txtUsername_background_en_dark.gif" />
     <None Remove="Resources\txtUsername_background_fr.gif" />
@@ -77,14 +73,10 @@
     </Resource>
     <Resource Include="Resources\settings.png" />
     <Resource Include="Resources\sun.png" />
-    <Resource Include="Resources\txtIPAddress_background.gif" />
-    <Resource Include="Resources\txtIPAddress_background_dark.gif" />
     <Resource Include="Resources\txtIPAddress_background_en.gif" />
     <Resource Include="Resources\txtIPAddress_background_en_dark.gif" />
     <Resource Include="Resources\txtIPAddress_background_fr.gif" />
     <Resource Include="Resources\txtIPAddress_background_fr_dark.gif" />
-    <Resource Include="Resources\txtUsername_background.gif" />
-    <Resource Include="Resources\txtUsername_background_dark.gif" />
     <Resource Include="Resources\txtUsername_background_en.gif" />
     <Resource Include="Resources\txtUsername_background_en_dark.gif" />
     <Resource Include="Resources\txtUsername_background_fr.gif" />

@@ -69,25 +69,5 @@ namespace chat_client.Properties {
                 return ((byte[])(obj));
             }
         }
-        
-        /// <summary>
-        ///   Recherche une ressource localisée de type System.Byte[].
-        /// </summary>
-        internal static byte[] txtIPAddress_background {
-            get {
-                object obj = ResourceManager.GetObject("txtIPAddress_background", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une ressource localisée de type System.Byte[].
-        /// </summary>
-        internal static byte[] txtUsername_background {
-            get {
-                object obj = ResourceManager.GetObject("txtUsername_background", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
     }
 }

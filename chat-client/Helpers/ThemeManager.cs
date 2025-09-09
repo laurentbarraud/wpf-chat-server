@@ -51,12 +51,31 @@ namespace chat_client.Helpers
                 // Add the new theme dictionary
                 Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
 
-                // Refreshes TextBox backgrounds manually to reflect new theme
+                // Refreshes TextBox backgrounds manually to reflect the current theme and language.
+                // Note: Application.Current.Resources only works for globally defined resources (in App.xaml).
+                // Since ImageBrush resources are defined in <Window.Resources>, we must use TryFindResource on the window instance.
+
                 if (targetWindow.FindName("txtUsername") is TextBox txtUsername)
                 {
-                    txtUsername.Background = (Brush)Application.Current.Resources["txtUsername_background"];
-                    
-                    if (!string.IsNullOrEmpty(txtUsername.Text))
+                    // Retrieve current language and theme from application context
+                    string currentLanguage = Properties.Settings.Default.AppLanguage;   // "en" or "fr"
+                    string currentTheme = Properties.Settings.Default.AppTheme;         // "light" or "dark"
+
+                    // Construct the resource key dynamically based on field name, language, and theme
+                    string usernameResourceKey = $"txtUsername_background_{currentLanguage}";
+                    if (currentTheme == "dark")
+                    {
+                        usernameResourceKey += "_dark";
+                    }
+
+                    // Attempt to retrieve the ImageBrush resource from the window's resource dictionary
+                    if (targetWindow.TryFindResource(usernameResourceKey) is Brush usernameBrush)
+                    {
+                        txtUsername.Background = usernameBrush;
+                    }
+
+                    // If the TextBox contains text, remove the watermark by clearing the background
+                    if (!string.IsNullOrWhiteSpace(txtUsername.Text))
                     {
                         txtUsername.Background = null;
                     }
@@ -64,9 +83,25 @@ namespace chat_client.Helpers
 
                 if (targetWindow.FindName("txtIPAddress") is TextBox txtIPAddress)
                 {
-                    txtIPAddress.Background = (Brush)Application.Current.Resources["txtIPAddress_background"];
-                    
-                    if (!string.IsNullOrEmpty(txtIPAddress.Text))
+                    // Retrieve current language and theme
+                    string currentLanguage = Properties.Settings.Default.AppLanguage;
+                    string currentTheme = Properties.Settings.Default.AppTheme;
+
+                    // Construct the resource key for IP address watermark
+                    string ipResourceKey = $"txtIPAddress_background_{currentLanguage}";
+                    if (currentTheme == "dark")
+                    {
+                        ipResourceKey += "_dark";
+                    }
+
+                    // Retrieve and apply the watermark brush
+                    if (targetWindow.TryFindResource(ipResourceKey) is Brush ipBrush)
+                    {
+                        txtIPAddress.Background = ipBrush;
+                    }
+
+                    // Remove watermark if the field is not empty
+                    if (!string.IsNullOrWhiteSpace(txtIPAddress.Text))
                     {
                         txtIPAddress.Background = null;
                     }

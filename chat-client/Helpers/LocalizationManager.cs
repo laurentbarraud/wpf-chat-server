@@ -1,4 +1,9 @@
-﻿using System;
+﻿/// <file>LocalizationManager.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>1.0</version>
+/// <date>September 9th, 2025</date>
+
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;

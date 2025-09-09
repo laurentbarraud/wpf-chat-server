@@ -4,9 +4,12 @@
 /// <date>September 9th, 2025</date>
 
 using chat_server.Net.IO;
+using ChatServer.Helpers;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Channels;
 
 namespace chat_server
 {
@@ -14,6 +17,9 @@ namespace chat_server
     {
         static List<Client> _users; // List to store all connected clients
         static TcpListener _listener; // TCP listener for incoming connections
+
+        // Global language code used throughout the app
+        public static string AppLanguage = "en";
 
         public static void Main(string[] args)
         {
@@ -27,15 +33,28 @@ namespace chat_server
                 Environment.Exit(0);
             };
 
-            DisplayBanner(); // Show server title and instructions
+            // Detect system culture (e.g. "fr", "en", "de")
+            string systemCulture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
 
-            int port = GetPortFromUser(); // Ask user for TCP port or use default
+            // Apply "fr" if system language is French, otherwise default to "en"
+            AppLanguage = systemCulture == "fr" ? "fr" : "en";
+
+            // Initialize localization manager with selected language
+            LocalizationManager.Initialize(AppLanguage);
+
+            // Display localized banner
+            DisplayBanner();
+
+            // Ask user for TCP port or use default
+            int port = GetPortFromUser(); 
 
             try
             {
                 _users = new List<Client>();
                 _listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
-                _listener.Start(); // Start listening on the selected port
+                
+                // Start listening on the selected port
+                _listener.Start(); 
                 Console.WriteLine($"\n Server started on port {port}.\n");
 
                 // Main loop: accept incoming clients and broadcast their connection
@@ -57,17 +76,44 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Displays the server banner and usage instructions.
+        /// Displays the appropriate server banner based on current language.
         /// </summary>
-        static void DisplayBanner()
+        private static void DisplayBanner()
         {
-            Console.WriteLine("****************************************");
-            Console.WriteLine("        WPF Chat Server v1.0");
-            Console.WriteLine("                                        ");
-            Console.WriteLine("****************************************\n");
-            Console.WriteLine("Press Ctrl + C to quit.\n");
-            Console.WriteLine("Change the TCP port used for listening or wait 8 seconds\n");
+            if (Program.AppLanguage == "fr")
+            {
+                DisplayBanner_Fr();
+            }
+            else
+            {
+                DisplayBanner_En();
+            }
         }
+
+        /// <summary>
+        /// Displays the server banner in English.
+        /// </summary>
+        private static void DisplayBanner_En()
+        {
+            Console.WriteLine("╔══════════════════════════════════════════╗");
+            Console.WriteLine("║         WPF Chat Server v1.0             ║");
+            Console.WriteLine("╚══════════════════════════════════════════╝");
+            Console.WriteLine("Press Ctrl+C to stop the server.");
+            Console.WriteLine("Change the TCP port used for listening or wait 8 seconds.\n");
+        }
+
+        /// <summary>
+        /// Displays the server banner in French.
+        /// </summary>
+        private static void DisplayBanner_Fr()
+        {
+            Console.WriteLine("╔══════════════════════════════════════════╗");
+            Console.WriteLine("║         Serveur de Chat WPF v1.0         ║");
+            Console.WriteLine("╚══════════════════════════════════════════╝");
+            Console.WriteLine("Appuyez sur Ctrl+C pour arrêter le serveur.");
+            Console.WriteLine("Changez le port TCP utilisé pour l’écoute ou attendez 8 secondes.\n");
+        }
+
 
         /// <summary>
         /// Prompts the user to enter a valid TCP port or fallback to default.

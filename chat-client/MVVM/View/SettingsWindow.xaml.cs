@@ -16,12 +16,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
-using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace chat_client.MVVM.View
 {
@@ -62,7 +60,7 @@ namespace chat_client.MVVM.View
             // -> Application.Current.MainWindow gives access to the currently open instance of MainWindow.
             // -> A check with "is MainWindow mainWindow" is done to avoid an exception if the window is not
             // yet loaded or has been replaced.
-            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
+            if (Application.Current.MainWindow is MainWindow mainWindow)
             {
                 WatermarksManager.ApplyWatermark(mainWindow.imgUsernameWatermark, "txtUsername");
                 WatermarksManager.ApplyWatermark(mainWindow.imgIPAddressWatermark, "txtIPAddress");

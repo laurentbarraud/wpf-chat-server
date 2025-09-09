@@ -256,49 +256,47 @@ namespace chat_client
         /// <param name="e"></param>
         private void OnTextBoxTextChanged(object sender, TextChangedEventArgs e)
         {
-            // Ensures the sender is a TextBox
             if (sender is not TextBox currentTextBox)
                 return;
 
-            // Identifies which field is being edited
+            // fieldKey is a dynamic selector tied to the resource naming convention
+            // established for localized watermarks.
             string fieldKey = null;
 
             if (currentTextBox.Name == "txtUsername")
+            {
                 fieldKey = "txtUsername";
+            }
             else if (currentTextBox.Name == "txtIPAddress")
+            {
                 fieldKey = "txtIPAddress";
+            }
 
             if (fieldKey == null)
-                return;
-
-            // Gets current language and theme from settings
-            string currentLanguage = Properties.Settings.Default.AppLanguage; // "en", "fr"
-            string currentTheme = Properties.Settings.Default.AppTheme;       // "light", "dark"
-
-            // Builds the resource key for the watermark brush
-            string themeSuffix = currentTheme == "dark" ? "_dark" : "";
-            string watermarkKey = $"{fieldKey}_background_{currentLanguage}{themeSuffix}";
-
-            // Checks if the textbox is empty
-            bool isTextBoxEmpty = string.IsNullOrWhiteSpace(currentTextBox.Text);
-
-            if (isTextBoxEmpty)
             {
-                // Applies watermark brush if found
-                if (TryFindResource(watermarkKey) is ImageBrush watermarkBrush)
+                return;
+            }
+
+            string currentLanguage = Properties.Settings.Default.AppLanguage;   // "en" or "fr"
+            string currentTheme = Properties.Settings.Default.AppTheme;         // "light" or "dark"
+            string suffix = currentTheme == "dark" ? "_dark" : "";
+
+            string resourceKey = $"{fieldKey}_background_{currentLanguage}{suffix}";
+
+            bool isTextboxEmpty = string.IsNullOrWhiteSpace(currentTextBox.Text);
+
+            if (isTextboxEmpty)
+            {
+                if (TryFindResource(resourceKey) is ImageBrush watermarkBrush)
                 {
                     currentTextBox.Background = watermarkBrush;
                 }
 
-                // Disables connect button if username is empty
                 if (currentTextBox.Name == "txtUsername")
-                {
                     cmdConnectDisconnect.IsEnabled = false;
-                }
             }
             else
             {
-                // Restores themed background
                 if (TryFindResource("BackgroundColor") is Brush themeBrush)
                 {
                     currentTextBox.Background = themeBrush;
@@ -308,11 +306,8 @@ namespace chat_client
                     currentTextBox.Background = null;
                 }
 
-                // Enables connect button if username is filled
                 if (currentTextBox.Name == "txtUsername")
-                {
                     cmdConnectDisconnect.IsEnabled = true;
-                }
             }
         }
 
