@@ -293,17 +293,20 @@ namespace chat_client.MVVM.ViewModel
             {
                 try
                 {
-                    // Extract sender prefix before the encryption marker
+                    // Extracts sender prefix before the encryption marker
                     int markerIndex = msg.IndexOf("[ENC]");
                     string senderPrefix = msg.Substring(0, markerIndex).Trim();
 
-                    // Extract the encrypted payload after the marker
+                    // Extracts the encrypted payload after the marker
                     string encryptedPayload = msg.Substring(markerIndex + "[ENC]".Length).Trim();
 
-                    // Decrypt the payload
+                    // Cleaning the encrypted chain 
+                    encryptedPayload = encryptedPayload.Replace("\0", "").Replace("\r", "").Replace("\n", "");
+
+                    // Decrypts the payload
                     string decryptedContent = EncryptionHelper.DecryptMessage(encryptedPayload);
 
-                    // Reconstruct the full message with sender prefix
+                    // Reconstructs the full message with sender prefix
                     msg = $"{senderPrefix} {decryptedContent}";
                 }
                 catch
@@ -311,7 +314,6 @@ namespace chat_client.MVVM.ViewModel
                     msg = "[Decryption failed]";
                 }
             }
-
 
             // Normal message — add to chat
             Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
