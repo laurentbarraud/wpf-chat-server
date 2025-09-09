@@ -70,6 +70,10 @@ namespace chat_client
             // Synchronizes the toggle button with the current theme
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
 
+            // Synchronizes the encrypted image visibilty with the current setting
+            imgEncryptionStatus.Visibility = Properties.Settings.Default.UseEncryption 
+                ? Visibility.Visible : Visibility.Collapsed;
+        
             // Sets focus to username field
             txtUsername.Focus();
         }

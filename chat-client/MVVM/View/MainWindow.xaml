@@ -212,17 +212,17 @@
             </StackPanel>
         </DockPanel>
 
-        <StackPanel x:Name="spnCenter" Grid.Column="1" Visibility="Collapsed">
+        <StackPanel x:Name="spnCenter" Grid.Column="1">
+
             <ListView x:Name="lstMessagesReceived"
-                        Height="361"
+                        Height="382"
                         ItemsSource="{Binding Messages}"
                         Background="{DynamicResource BackgroundBrush}"
                         Foreground="{DynamicResource ForegroundBrush}"
-                        BorderThickness="0"
-                        Margin="0,0,0,0" TabIndex="6">
+                        BorderThickness="0" TabIndex="6">
 
                 <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
+                    <Style TargetType="{x:Type ListViewItem}">
                         <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
                         <Setter Property="Padding" Value="4" />
                         <Setter Property="Margin" Value="1" />
@@ -259,14 +259,8 @@
                         TabIndex="5"
                         Click="cmdEmojiPanel_Click"
                         Margin="4,0,4,0">
-                    <Image x:Name="imgEmojiPanel" 
-                           Source="/Resources/right-arrow.png"
-                           Stretch="Uniform"
-                           VerticalAlignment="Center"
-                           HorizontalAlignment="Center"
-                           Width="14" />
                     <Button.Style>
-                        <Style TargetType="Button">
+                        <Style TargetType="{x:Type Button}">
                             <Setter Property="Background" Value="Transparent"/>
                             <Style.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
@@ -275,7 +269,23 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
+                    <Image x:Name="imgEmojiPanel" 
+                           Source="/Resources/right-arrow.png"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Width="14" />
                 </Button>
+
+                <Image x:Name="imgEncryptionStatus"
+                       Source="/Resources/encrypted.png"
+                       Width="15" Height="15"
+                       DockPanel.Dock="Left"
+                       Margin="0,0,0,0"
+                       VerticalAlignment="Center"
+                       Visibility="Collapsed"
+                       ToolTip="Encryption enabled" />
+
                 <!-- This Popup is linked to the cmdEmojiPanel button and opens right with a slide animation. -->
                 <!-- The emojis are bound to an EmojiList list defined in code-behind. -->
                 <Popup x:Name="popupEmojiPanel"
@@ -296,7 +306,7 @@
                             BorderThickness="1"
                             Padding="4"
                             CornerRadius="6"
-                            Height="{Binding EmojiPanelHeight, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Height="{Binding EmojiPanelHeight, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                             Width="460">
 
                         <!-- Adjusted layout for 13 emojis + arrows with vertical centering -->
@@ -321,9 +331,8 @@
                                     MouseEnter="btnScrollLeft_MouseEnter"
                                     MouseLeave="btnScrollLeft_MouseLeave"
                                     ToolTip="Scroll left">
-                                <Image Source="/Resources/left-arrow.png" Stretch="Uniform" />
                                 <Button.Style>
-                                    <Style TargetType="Button">
+                                    <Style TargetType="{x:Type Button}">
                                         <Setter Property="Background" Value="Transparent" />
                                         <Setter Property="BorderThickness" Value="0" />
                                         <Style.Triggers>
@@ -333,6 +342,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
+                                <Image Source="/Resources/left-arrow.png" Stretch="Uniform" />
                             </Button>
                             <!-- Scrollable emoji panel -->
                             <ScrollViewer x:Name="emojiScrollViewer"
@@ -361,7 +371,7 @@
                                                     VerticalAlignment="Center"
                                                     Click="EmojiButton_Click">
                                                 <Button.Template>
-                                                    <ControlTemplate TargetType="Button">
+                                                    <ControlTemplate TargetType="{x:Type Button}">
                                                         <Border Background="{TemplateBinding Background}"
                                                                 CornerRadius="4"
                                                                 VerticalAlignment="Stretch"
@@ -391,9 +401,8 @@
                                     MouseEnter="btnScrollRight_MouseEnter"
                                     MouseLeave="btnScrollRight_MouseLeave"
                                     ToolTip="Scroll right">
-                                <Image Source="/Resources/right-arrow.png" Stretch="Uniform" />
                                 <Button.Style>
-                                    <Style TargetType="Button">
+                                    <Style TargetType="{x:Type Button}">
                                         <Setter Property="Background" Value="Transparent" />
                                         <Setter Property="BorderThickness" Value="0" />
                                         <Style.Triggers>
@@ -403,13 +412,14 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
+                                <Image Source="/Resources/right-arrow.png" Stretch="Uniform" />
                             </Button>
                         </Grid>
                     </Border>
                 </Popup>
-
-
+                
             </StackPanel>
+            
             <StackPanel x:Name="spnDown" Orientation="Horizontal">
                 <TextBox x:Name="txtMessageToSend" Height="32"
                          Width="545"
@@ -425,7 +435,7 @@
                         Background="{DynamicResource PrimaryBrush}"
                         Foreground="{DynamicResource ForegroundBrush}" TabIndex="4">
                     <Button.Style>
-                        <Style TargetType="Button">
+                        <Style TargetType="{x:Type Button}">
                             <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
                             <Style.Triggers>

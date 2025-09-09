@@ -3,16 +3,22 @@
 /// <version>0.10</version>
 /// <date>September 8th, 2025</date>
 
+using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.Net;
+using chat_client.Net.IO;
 using System;
 using System.Collections.ObjectModel;
+using System.Reflection.Metadata;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Documents;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.ComponentModel;
+
 
 namespace chat_client.MVVM.ViewModel
 {
@@ -51,6 +57,10 @@ namespace chat_client.MVVM.ViewModel
             "😷", "👋", "🍺", "🍻", "🍾", "☀️", "⭐",
             "🌧️", "🔥", "✨"
         };
+
+        // Exposes the current encryption setting (UseEncryption) as a read-only property.
+        // Uses expression-bodied syntax (=>) for clarity and ensures the value is always up-to-date.
+        public bool IsEncryptionEnabled => chat_client.Properties.Settings.Default.UseEncryption;
 
         public MainViewModel()
         {
@@ -109,6 +119,23 @@ namespace chat_client.MVVM.ViewModel
                         mainWindow.Title += " - Connected";
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnCenter.Visibility = Visibility.Visible;
+
+                        // If encryption is enabled, send public key to server
+                        if (chat_client.Properties.Settings.Default.UseEncryption)
+                        {
+                            // Get the public key in Base64 format
+                            string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
+
+                            // Send the public key to the server using opcode 6 (example)
+                            var keyPacket = new PacketBuilder();
+                            keyPacket.WriteOpCode(6); // Define opcode 6 for public key exchange
+                            keyPacket.WriteMessage(publicKeyBase64);
+
+                            // Send the packet using the server's raw packet method,
+                            // which is designed for binary payloads like key exchange.
+                            _server.SendRawPacket(keyPacket.GetPacketBytes());
+                        }
+
                     }
                 });
 
@@ -217,11 +244,11 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Reads the data incoming and handles disconnect command gracefully.
-        /// </summary>
-        /// <summary>
         /// Handles incoming messages from the server. If a disconnect command is received,
-        /// the UI is reset after a short delay. Otherwise, the message is added to the chat.
+        /// the UI is reset after a short delay. Otherwise, the message is optionally decrypted
+        /// (if encryption is enabled) and added to the chat.
         /// </summary>
+
         private void MessageReceived()
         {
             var msg = _server.PacketReader.ReadMessage();
@@ -261,10 +288,34 @@ namespace chat_client.MVVM.ViewModel
                 return;
             }
 
+            // If message contains an encryption marker, attempt to decrypt
+            if (msg.Contains("[ENC]"))
+            {
+                try
+                {
+                    // Extract sender prefix before the encryption marker
+                    int markerIndex = msg.IndexOf("[ENC]");
+                    string senderPrefix = msg.Substring(0, markerIndex).Trim();
+
+                    // Extract the encrypted payload after the marker
+                    string encryptedPayload = msg.Substring(markerIndex + "[ENC]".Length).Trim();
+
+                    // Decrypt the payload
+                    string decryptedContent = EncryptionHelper.DecryptMessage(encryptedPayload);
+
+                    // Reconstruct the full message with sender prefix
+                    msg = $"{senderPrefix} {decryptedContent}";
+                }
+                catch
+                {
+                    msg = "[Decryption failed]";
+                }
+            }
+
+
             // Normal message — add to chat
             Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
         }
-
 
         private void UserConnected()
         {

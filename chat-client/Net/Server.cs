@@ -1,10 +1,12 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>0.10</version>
-/// <date>September 8th, 2025</date>
+/// <date>September 9th, 2025</date>
 
+using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
+using Microsoft.VisualBasic.Logging;
 using System.Net;
 using System.Net.Sockets;
 using System.Windows;
@@ -180,18 +182,51 @@ namespace chat_client.Net
             });
         }
 
+        /// <summary>
+        /// Sends a message to the server using the standard message packet format.
+        /// If encryption is enabled via application settings, the message is encrypted
+        /// using the client's public key before transmission. Otherwise, it is sent as plain text.
+        /// </summary>
 
         public void SendMessageToServer(string message)
         {
+            // If encryption is enabled in application settings, encrypt the message before sending
+            bool encryptionEnabled = chat_client.Properties.Settings.Default.UseEncryption;
+
+            if (encryptionEnabled)
+            {
+                // Prefix the encrypted message with a marker to indicate its format.
+                // This allows receiving clients to detect whether the message should be decrypted.
+                // Without this, clients may attempt to decrypt plain text, causing failures.
+                message = "[ENC]" + EncryptionHelper.EncryptMessage(message);
+            }
+
             var messagePacket = new PacketBuilder();
 
             // We use opcode 5 for messages packets
             messagePacket.WriteOpCode(5);
             messagePacket.WriteMessage(message);
-
-            // We send the message packet through the Client socket,
-            // in the TCPClient 
+            
+            // This avoids silently failed shipments
+            if (_client == null || !_client.Connected)
+            {
+                Console.WriteLine("Client socket is not connected.");
+                return;
+            }
+            // Send the message packet through the TCP client socket
             _client.Client.Send(messagePacket.GetPacketBytes());
+        }
+
+        /// <summary>
+        /// Sends a raw packet directly to the server using the TCP client socket.
+        /// This is useful for non-standard packets such as public key exchange.
+        /// </summary>
+        public void SendRawPacket(byte[] data)
+        {
+            if (_client?.Client != null && _client.Connected)
+            {
+                _client.Client.Send(data);
+            }
         }
     }
 }

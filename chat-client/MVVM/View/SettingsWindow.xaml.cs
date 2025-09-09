@@ -42,7 +42,7 @@ namespace chat_client.MVVM.View
             ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
 
             // Synchronizes the toggle button with the "use encryption" setting
-            UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseEncryption;
+            UseEncryptionToggle.IsChecked = Properties.Settings.Default.UseEncryption;
         }
 
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
@@ -58,6 +58,11 @@ namespace chat_client.MVVM.View
             MessageBoxButton.OK,
             MessageBoxImage.Information
             );
+        }
+
+        private void btnValidate_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
         }
 
         private void ReduceInTrayToggle_Checked(object sender, RoutedEventArgs e)
@@ -85,6 +90,13 @@ namespace chat_client.MVVM.View
         {
             txtCustomPort.IsEnabled = true;
             Properties.Settings.Default.UseCustomPort = true;
+            Properties.Settings.Default.Save();
+
+            // Shows the encryption icon
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
+            }
         }
 
         private void UseCustomPortToggle_Unchecked(object sender, RoutedEventArgs e)
@@ -92,18 +104,37 @@ namespace chat_client.MVVM.View
             txtCustomPort.IsEnabled = false;
             imgPortStatus.Visibility = Visibility.Collapsed;
             Properties.Settings.Default.UseCustomPort = false;
+            Properties.Settings.Default.Save();
+
+            // Hides the encryption icon
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.imgEncryptionStatus.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
+
+            // Shows the encryption icon in MainWindow
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
+            }
         }
 
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
+
+            // Hides the encryption icon in MainWindow
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.imgEncryptionStatus.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void ValidatePortInput()
