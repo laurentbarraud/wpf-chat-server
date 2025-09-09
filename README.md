@@ -6,21 +6,21 @@
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server and client" >
 </p>
-
-- The client can run locally if no IP address is provided.
+- A real-time list of connected users is included, which updates automatically when users log in or out.
 - Both the server and client use a custom packet builder that adds an opcode to each packet, allowing the receiver to identify its type.
-- The application includes a real-time list of connected users, which updates automatically when users log in or out.
-- The client also remembers the last IP address it successfully connected to, making reconnections faster and more convenient.
+- End-to-end message encryption is available. 
 - The client supports both light and dark themes, which can be switched seamlessly using a toggle button.
 - The TCP port used by the client can be changed before connecting.
+- The client can run locally if no IP address is provided.
+- The client also remembers the last IP address it successfully connected to, making reconnections faster and more convenient.
 - The server supports custom port binding at startup, allowing it to listen on a user-specified port.
 - Emoji support featuring a dedicated selection toolbar, accessible during text input.
-- End-to-end message encryption.
-
+  
 ### How to Run
 
 - Clone the repository
 - Open in Visual Studio 2022
 - Build and run the solution to test the two projects in local connection.
 
-Or go to the [Release](https://github.com/laurentbarraud/wpf-chat-server/releases) section to download a zip archive, containing the compiled executable (for x64 systems, starting from Windows 7 and upwards)
+### Download
+Compiled executables (for x64 systems, starting from Windows 7 and upwards) are available at the [Releases section](https://github.com/laurentbarraud/wpf-chat-server/releases).
