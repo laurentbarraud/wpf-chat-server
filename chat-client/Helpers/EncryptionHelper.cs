@@ -1,6 +1,6 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.10</version>
+/// <version>1.0</version>
 /// <date>September 9th, 2025</date>
 
 using System.Security.Cryptography;

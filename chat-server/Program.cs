@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>0.10</version>
-/// <date>September 8th, 2025</date>
+/// <version>1.0</version>
+/// <date>September 9th, 2025</date>
 
 using chat_server.Net.IO;
 using System.Net;
@@ -61,12 +61,12 @@ namespace chat_server
         /// </summary>
         static void DisplayBanner()
         {
-            Console.WriteLine("************************************");
-            Console.WriteLine("      WPF Chat Server v0.10");
-            Console.WriteLine("                                    ");
-            Console.WriteLine("************************************\n");
+            Console.WriteLine("****************************************");
+            Console.WriteLine("        WPF Chat Server v1.0");
+            Console.WriteLine("                                        ");
+            Console.WriteLine("****************************************\n");
             Console.WriteLine("Press Ctrl + C to quit.\n");
-            Console.WriteLine("Change the TCP port used for listening or wait 5 seconds\n");
+            Console.WriteLine("Change the TCP port used for listening or wait 8 seconds\n");
         }
 
         /// <summary>
@@ -79,7 +79,7 @@ namespace chat_server
             int chosenPort = defaultPort;
 
             Console.Write("Enter a port number between 1000 and 65535 [default: 7123]: ");
-            string input = ReadLineWithTimeout(5000); // Wait for user input for 5 seconds
+            string input = ReadLineWithTimeout(8000); // Wait for user input for 8 seconds
 
             if (!string.IsNullOrWhiteSpace(input))
             {
