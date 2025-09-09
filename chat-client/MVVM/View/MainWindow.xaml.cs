@@ -68,8 +68,7 @@ namespace chat_client
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
             // Apply watermarks on startup
-            OnTextBoxTextChanged(txtUsername, null);
-            OnTextBoxTextChanged(txtIPAddress, null);
+            WatermarksManager.RefreshWatermarks(this);
 
             // Synchronizes the toggle button with the current theme
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
@@ -357,11 +356,24 @@ namespace chat_client
             }
         }
 
-
-        private void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
+        private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Simulates clicking "Open" from the tray menu
-            TrayMenu_Open_Click(sender, e);
+            // Apply dark theme to this window with fade animation
+            ThemeManager.ApplyTheme(true);
+
+            // Save user preference
+            Properties.Settings.Default.AppTheme = "Dark";
+            Properties.Settings.Default.Save();
+        }
+
+        private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // Apply light theme to this window with fade animation
+            ThemeManager.ApplyTheme(false);
+
+            // Save user preference
+            Properties.Settings.Default.AppTheme = "Light";
+            Properties.Settings.Default.Save();
         }
 
         /// <summary>
@@ -390,32 +402,17 @@ namespace chat_client
             this.ShowInTaskbar = true;
         }
 
+        private void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
+        {
+            // Simulates clicking "Open" from the tray menu
+            TrayMenu_Open_Click(sender, e);
+        }
+
+
         private void TrayMenu_Quit_Click(object sender, RoutedEventArgs e)
         {
             Application.Current.Shutdown();
         }
-
-
-        private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
-        {
-            // Apply dark theme to this window with fade animation
-            ThemeManager.ApplyTheme(true);
-
-            // Save user preference
-            Properties.Settings.Default.AppTheme = "Dark";
-            Properties.Settings.Default.Save();
-        }
-
-        private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
-        {
-            // Apply light theme to this window with fade animation
-            ThemeManager.ApplyTheme(false);
-
-            // Save user preference
-            Properties.Settings.Default.AppTheme = "Light";
-            Properties.Settings.Default.Save();
-        }
-
 
         private void txtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
         {

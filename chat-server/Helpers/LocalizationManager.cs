@@ -6,7 +6,7 @@
 using System.Globalization;
 using System.Resources;
 
-namespace ChatServer.Helpers
+namespace chat_server.Helpers
 {
     /// <summary>
     /// Manages localized strings for the console server.
@@ -19,7 +19,7 @@ namespace ChatServer.Helpers
         public static void Initialize(string languageCode)
         {
             _culture = new CultureInfo(languageCode);
-            _resourceManager = new ResourceManager("ChatServer.Resources.Strings", typeof(LocalizationManager).Assembly);
+            _resourceManager = new ResourceManager("chat_server.Resources.Strings", typeof(LocalizationManager).Assembly);
         }
 
         public static string GetString(string key)

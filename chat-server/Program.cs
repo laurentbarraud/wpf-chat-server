@@ -4,28 +4,31 @@
 /// <date>September 9th, 2025</date>
 
 using chat_server.Net.IO;
-using ChatServer.Helpers;
+using chat_server.Helpers;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Channels;
 
 namespace chat_server
 {
+    /// <summary>
+    /// Entry point for the WPF Chat Server application.
+    /// Handles client connections, message broadcasting, and localization.
+    /// </summary>
     public class Program
     {
-        static List<Client> _users; // List to store all connected clients
+        static List<Client> _users; // Stores all connected clients
         static TcpListener _listener; // TCP listener for incoming connections
 
-        // Global language code used throughout the app
+        // Global language code used throughout the server ("en" or "fr")
         public static string AppLanguage = "en";
 
         public static void Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
 
-            // Handle Ctrl+C to gracefully shut down the server
+            // Gracefully handle Ctrl+C to shut down the server
             Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
@@ -33,29 +36,25 @@ namespace chat_server
                 Environment.Exit(0);
             };
 
-            // Detect system culture (e.g. "fr", "en", "de")
+            // Detect system language and initialize localization
             string systemCulture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-
-            // Apply "fr" if system language is French, otherwise default to "en"
             AppLanguage = systemCulture == "fr" ? "fr" : "en";
-
-            // Initialize localization manager with selected language
             LocalizationManager.Initialize(AppLanguage);
 
             // Display localized banner
             DisplayBanner();
 
-            // Ask user for TCP port or use default
-            int port = GetPortFromUser(); 
+            // Prompt user for TCP port or use default
+            int port = GetPortFromUser();
 
             try
             {
                 _users = new List<Client>();
                 _listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
-                
+
                 // Start listening on the selected port
-                _listener.Start(); 
-                Console.WriteLine($"\n Server started on port {port}.\n");
+                _listener.Start();
+                Console.WriteLine($"\n{LocalizationManager.GetString("ServerStartedOnPort")} {port}.\n");
 
                 // Main loop: accept incoming clients and broadcast their connection
                 while (true)
@@ -68,52 +67,24 @@ namespace chat_server
             }
             catch (Exception ex)
             {
-                // If server fails to start, display error and exit
-                Console.WriteLine($"\n Failed to start server on port {port}: {ex.Message}");
-                Console.WriteLine("Exiting...");
+                // Display error if server fails to start
+                Console.WriteLine($"\n{LocalizationManager.GetString("ServerStartFailed")} {port}: {ex.Message}");
+                Console.WriteLine(LocalizationManager.GetString("Exiting"));
                 Environment.Exit(1);
             }
         }
 
         /// <summary>
-        /// Displays the appropriate server banner based on current language.
+        /// Displays the server banner using localized strings.
         /// </summary>
         private static void DisplayBanner()
         {
-            if (Program.AppLanguage == "fr")
-            {
-                DisplayBanner_Fr();
-            }
-            else
-            {
-                DisplayBanner_En();
-            }
-        }
-
-        /// <summary>
-        /// Displays the server banner in English.
-        /// </summary>
-        private static void DisplayBanner_En()
-        {
             Console.WriteLine("╔══════════════════════════════════════════╗");
-            Console.WriteLine("║         WPF Chat Server v1.0             ║");
+            Console.WriteLine($"║         {LocalizationManager.GetString("BannerTitle")}         ║");
             Console.WriteLine("╚══════════════════════════════════════════╝");
-            Console.WriteLine("Press Ctrl+C to stop the server.");
-            Console.WriteLine("Change the TCP port used for listening or wait 8 seconds.\n");
+            Console.WriteLine(LocalizationManager.GetString("BannerLine1"));
+            Console.WriteLine(LocalizationManager.GetString("BannerLine2") + "\n");
         }
-
-        /// <summary>
-        /// Displays the server banner in French.
-        /// </summary>
-        private static void DisplayBanner_Fr()
-        {
-            Console.WriteLine("╔══════════════════════════════════════════╗");
-            Console.WriteLine("║         Serveur de Chat WPF v1.0         ║");
-            Console.WriteLine("╚══════════════════════════════════════════╝");
-            Console.WriteLine("Appuyez sur Ctrl+C pour arrêter le serveur.");
-            Console.WriteLine("Changez le port TCP utilisé pour l’écoute ou attendez 8 secondes.\n");
-        }
-
 
         /// <summary>
         /// Prompts the user to enter a valid TCP port or fallback to default.
@@ -124,7 +95,7 @@ namespace chat_server
             int defaultPort = 7123;
             int chosenPort = defaultPort;
 
-            Console.Write("Enter a port number between 1000 and 65535 [default: 7123]: ");
+            Console.Write(LocalizationManager.GetString("PortPrompt"));
             string input = ReadLineWithTimeout(8000); // Wait for user input for 8 seconds
 
             if (!string.IsNullOrWhiteSpace(input))
@@ -136,17 +107,16 @@ namespace chat_server
                 }
                 else
                 {
-                    // Ask user if they want to use default port
-                    Console.Write("Invalid port, would you like to use default port (7123)? (y/n): ");
+                    Console.Write(LocalizationManager.GetString("InvalidPortPrompt"));
                     string confirm = Console.ReadLine()?.Trim().ToLower();
 
-                    if (confirm == "y")
+                    if (confirm == "y" || confirm == "o") // "o" for "oui" in French
                     {
                         chosenPort = defaultPort;
                     }
                     else
                     {
-                        Console.WriteLine("Exiting...");
+                        Console.WriteLine(LocalizationManager.GetString("Exiting"));
                         Environment.Exit(0);
                     }
                 }
@@ -208,7 +178,7 @@ namespace chat_server
         /// </summary>
         public static void BroadcastDisconnect(string uidDisconnected)
         {
-            var disconnectedUser = _users.Where(x => x.UID.ToString() == uidDisconnected).FirstOrDefault();
+            var disconnectedUser = _users.FirstOrDefault(x => x.UID.ToString() == uidDisconnected);
 
             if (disconnectedUser != null)
             {
@@ -229,9 +199,9 @@ namespace chat_server
         /// </summary>
         public static void Shutdown()
         {
-            Console.WriteLine("Shutting down server...");
+            Console.WriteLine(LocalizationManager.GetString("ShutdownStart"));
             BroadcastMessage("/disconnect"); // Special command for client to disconnect
-            Console.WriteLine("Server shutdown complete.");
+            Console.WriteLine(LocalizationManager.GetString("ShutdownComplete"));
         }
     }
 }

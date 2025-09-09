@@ -37,13 +37,13 @@ namespace chat_client.MVVM.View
 
         private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // Retrieve saved language from application settings
+            // Retrieves saved language from application settings
             string AppLanguageSaved = Properties.Settings.Default.AppLanguage;
 
-            // Initialize the localization manager with the saved language
+            // Initializes the localization manager with the saved language
             LocalizationManager.Initialize(AppLanguageSaved);
 
-            // Select the corresponding ComboBox item based on the saved language
+            // Selects the corresponding ComboBox item based on the saved language
             foreach (ComboBoxItem item in LanguageComboBox.Items)
             {
                 if ((string)item.Tag == AppLanguageSaved)
@@ -53,20 +53,17 @@ namespace chat_client.MVVM.View
                 }
             }
 
-            // Apply localized strings to UI elements in SettingsWindow
+            // Applies localized strings to UI elements in SettingsWindow
             UpdateUIStrings();
 
-            // Applies watermarks directly to the Image controls defined in MainWindow.xaml
-            // -> Application.Current.MainWindow gives access to the currently open instance of MainWindow.
-            // -> A check with "is MainWindow mainWindow" is done to avoid an exception if the window is not
-            // yet loaded or has been replaced.
+            // Refreshes watermarks
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
-                WatermarksManager.ApplyWatermark(mainWindow.imgUsernameWatermark, "txtUsername");
-                WatermarksManager.ApplyWatermark(mainWindow.imgIPAddressWatermark, "txtIPAddress");
+                WatermarksManager.RefreshWatermarks(mainWindow);
             }
 
-            // Synchronize toggle buttons and port field with saved settings
+
+            // Synchronizes toggle buttons and port field with saved settings
             UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
             txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
             ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;

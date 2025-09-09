@@ -201,54 +201,7 @@ namespace chat_client.MVVM.ViewModel
             return chat_client.Properties.Settings.Default.CustomPortNumber;
         }
 
-        /// <summary>
-        /// Validates and saves the port number if it's within the allowed range.
-        /// </summary>
-        public static bool TrySavePort(int chosenPort)
-        {
-            if (chosenPort >= 1000 && chosenPort <= 65535)
-            {
-                chat_client.Properties.Settings.Default.CustomPortNumber = chosenPort;
-                chat_client.Properties.Settings.Default.Save();
-                return true;
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Clears user and message data and restores the UI to its initial state.
-        /// </summary>
-        public void ReinitializeUI()
-        {
-            // Clears the collections bound to the UI
-            Users.Clear();
-            Messages.Clear();
-
-            // Updates UI elements on the main thread
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                if (Application.Current.MainWindow is MainWindow mainWindow)
-                {
-                    mainWindow.cmdConnectDisconnect.Content = "_Connect";
-
-                    mainWindow.txtUsername.IsEnabled = true;
-                    mainWindow.txtIPAddress.IsEnabled = true;
-                    mainWindow.Title = "WPF Chat Server";
-
-                    // Hides the central panel
-                    mainWindow.spnCenter.Visibility = Visibility.Hidden;
-                }
-            });
-        }
-
-        /// <summary>
-        /// Reads the data incoming and handles disconnect command gracefully.
-        /// Handles incoming messages from the server. If a disconnect command is received,
-        /// the UI is reset after a short delay. Otherwise, the message is optionally decrypted
-        /// (if encryption is enabled) and added to the chat.
-        /// </summary>
-
+        
         private void MessageReceived()
         {
             var msg = _server.PacketReader.ReadMessage();
@@ -323,6 +276,55 @@ namespace chat_client.MVVM.ViewModel
         Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
         }
 
+
+        /// <summary>
+        /// Clears user and message data and restores the UI to its initial state.
+        /// </summary>
+        public void ReinitializeUI()
+        {
+            // Clears the collections bound to the UI
+            Users.Clear();
+            Messages.Clear();
+
+            // Updates UI elements on the main thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (Application.Current.MainWindow is MainWindow mainWindow)
+                {
+                    mainWindow.cmdConnectDisconnect.Content = "_Connect";
+
+                    mainWindow.txtUsername.IsEnabled = true;
+                    mainWindow.txtIPAddress.IsEnabled = true;
+                    mainWindow.Title = "WPF Chat Server";
+
+                    // Hides the central panel
+                    mainWindow.spnCenter.Visibility = Visibility.Hidden;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Reads the data incoming and handles disconnect command gracefully.
+        /// Handles incoming messages from the server. If a disconnect command is received,
+        /// the UI is reset after a short delay. Otherwise, the message is optionally decrypted
+        /// (if encryption is enabled) and added to the chat.
+        /// </summary>
+
+
+        /// <summary>
+        /// Validates and saves the port number if it's within the allowed range.
+        /// </summary>
+        public static bool TrySavePort(int chosenPort)
+        {
+            if (chosenPort >= 1000 && chosenPort <= 65535)
+            {
+                chat_client.Properties.Settings.Default.CustomPortNumber = chosenPort;
+                chat_client.Properties.Settings.Default.Save();
+                return true;
+            }
+
+            return false;
+        }
         private void UserConnected()
         {
             var user = new UserModel

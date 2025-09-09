@@ -4,6 +4,7 @@
 /// <date>September 9th, 2025</date>
 
 using chat_server.Net.IO;
+using chat_server.Helpers;
 using System.Net.Sockets;
 
 namespace chat_server
@@ -14,24 +15,26 @@ namespace chat_server
         public Guid UID { get; set; }
         public TcpClient ClientSocket { get; set; }
 
-        PacketReader _packetReader;
+        private readonly PacketReader _packetReader;
+
         public Client(TcpClient client)
         {
             ClientSocket = client;
             UID = Guid.NewGuid();
             _packetReader = new PacketReader(ClientSocket.GetStream());
-            
+
             var opcode = _packetReader.ReadByte();
             Username = _packetReader.ReadMessage();
 
-            Console.WriteLine($"[{DateTime.Now}]: Client has connected with the username: {Username}");
+            // Localized connection message
+            Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientConnected")} {Username}");
 
             Task.Run(() => Process());
         }
 
         void Process()
         {
-            while(true)
+            while (true)
             {
                 try
                 {
@@ -40,20 +43,23 @@ namespace chat_server
                     {
                         case 5:
                             var messageReceived = _packetReader.ReadMessage();
-                            Console.WriteLine($"[{DateTime.Now}]: Message received from {Username}: {messageReceived}");
-                            Program.BroadcastMessage($"{Username}: " + $"{messageReceived}");
+
+                            // Localized message received log
+                            Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("MessageReceived")} {Username}: {messageReceived}");
+
+                            Program.BroadcastMessage($"{Username}: {messageReceived}");
                             break;
+
                         default:
                             break;
                     }
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine($"[{DateTime.Now}]: {Username.ToString()} disconnected!");
+                    // Localized disconnect message
+                    Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientDisconnected")} {Username}");
 
-                    // Will dispose the actual object as well and then closes it.
                     ClientSocket.Close();
-
                     Program.BroadcastDisconnect(UID.ToString());
                     break;
                 }
@@ -61,3 +67,4 @@ namespace chat_server
         }
     }
 }
+
