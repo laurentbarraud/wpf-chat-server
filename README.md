@@ -6,6 +6,7 @@
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server and client" >
 </p>
+
 - A real-time list of connected users is included, which updates automatically when users log in or out.
 - Both the server and client use a custom packet builder that adds an opcode to each packet, allowing the receiver to identify its type.
 - End-to-end message encryption is available. 
