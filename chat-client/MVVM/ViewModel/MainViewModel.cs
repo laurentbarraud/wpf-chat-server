@@ -288,35 +288,39 @@ namespace chat_client.MVVM.ViewModel
                 return;
             }
 
-            // If message contains an encryption marker, attempt to decrypt
+            // Checks if the incoming message contains the encryption marker
             if (msg.Contains("[ENC]"))
             {
                 try
                 {
-                    // Extracts sender prefix before the encryption marker
+                    // Extracts the sender's prefix before the encryption marker
                     int markerIndex = msg.IndexOf("[ENC]");
                     string senderPrefix = msg.Substring(0, markerIndex).Trim();
 
                     // Extracts the encrypted payload after the marker
                     string encryptedPayload = msg.Substring(markerIndex + "[ENC]".Length).Trim();
 
-                    // Cleaning the encrypted chain 
-                    encryptedPayload = encryptedPayload.Replace("\0", "").Replace("\r", "").Replace("\n", "");
+                    // Cleans up any invisible or invalid characters that may break decryption
+                    encryptedPayload = encryptedPayload
+                        .Replace("\0", "")
+                        .Replace("\r", "")
+                        .Replace("\n", "");
 
-                    // Decrypts the payload
+                    // Attempts to decrypt the payload
                     string decryptedContent = EncryptionHelper.DecryptMessage(encryptedPayload);
 
-                    // Reconstructs the full message with sender prefix
+                    // Reconstructs the full message with sender and decrypted content
                     msg = $"{senderPrefix} {decryptedContent}";
                 }
-                catch
+                catch (Exception ex)
                 {
+                    // Replaces the message with a failure notice
                     msg = "[Decryption failed]";
                 }
             }
 
-            // Normal message — add to chat
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+        // Normal message — add to chat
+        Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
         }
 
         private void UserConnected()
