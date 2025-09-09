@@ -3,6 +3,7 @@
 /// <version>1.0</version>
 /// <date>September 9th, 2025</date>
 
+using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -32,16 +33,31 @@ namespace chat_client.MVVM.View
             InitializeComponent();
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // Synchronizes the toggle button with the "use custom port" setting
+            // Retrieve saved language from application settings
+            string AppLanguageSaved = Properties.Settings.Default.AppLanguage;
+
+            // Initialize the localization manager with the saved language
+            LocalizationManager.Initialize(AppLanguageSaved);
+
+            // Select the corresponding ComboBox item based on the saved language
+            foreach (ComboBoxItem item in LanguageComboBox.Items)
+            {
+                if ((string)item.Tag == AppLanguageSaved)
+                {
+                    LanguageComboBox.SelectedItem = item;
+                    break;
+                }
+            }
+
+            // Apply localized strings to UI elements
+            UpdateUIStrings();
+
+            // Synchronize toggle buttons and port field with saved settings
             UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
             txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
-
-            // Synchronizes the toggle button with the "reduce in tray" setting
             ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
-
-            // Synchronizes the toggle button with the "use encryption" setting
             UseEncryptionToggle.IsChecked = Properties.Settings.Default.UseEncryption;
         }
 
@@ -65,6 +81,37 @@ namespace chat_client.MVVM.View
             this.Close();
         }
 
+        /// <summary>
+        /// Handles language selection change from the ComboBox.
+        /// Updates the application language only if the selected language is different,
+        /// then reinitializes localization and refreshes UI texts.
+        /// </summary>
+        private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (LanguageComboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                // Get the newly selected language code
+                string selectedLang = (string)selectedItem.Tag;
+
+                // Get the currently saved language
+                string AppLanguageSaved = Properties.Settings.Default.AppLanguage;
+
+                // Only proceed if the selected language is different from the saved one
+                if (selectedLang != AppLanguageSaved)
+                {
+                    // Save the new language to application settings
+                    Properties.Settings.Default.AppLanguage = selectedLang;
+                    Properties.Settings.Default.Save();
+
+                    // Reinitialize localization manager with the new language
+                    LocalizationManager.Initialize(selectedLang);
+
+                    // Refresh all UI labels and texts with localized strings
+                    UpdateUIStrings();
+                }
+            }
+        }
+
         private void ReduceInTrayToggle_Checked(object sender, RoutedEventArgs e)
         {
             Properties.Settings.Default.ReduceInTray = true;
@@ -85,6 +132,23 @@ namespace chat_client.MVVM.View
                 ValidatePortInput();
             }
         }
+
+        /// <summary>
+        /// Updates all visible UI elements with localized strings
+        /// based on the current language set in the localization manager.
+        /// </summary>
+        private void UpdateUIStrings()
+        {
+            // Settings window
+            UseCustomPortLabel.Content = LocalizationManager.GetString("UseCustomPortLabel");
+            ReduceInTrayLabel.Content = LocalizationManager.GetString("ReduceInTrayLabel");
+            UseEncryptionLabel.Content = LocalizationManager.GetString("UseEncryptionLabel");
+            AppLanguageLabel.Content = LocalizationManager.GetString("AppLanguageLabel");
+        
+            // Main window
+
+        }
+
 
         private void UseCustomPortToggle_Checked(object sender, RoutedEventArgs e)
         {
