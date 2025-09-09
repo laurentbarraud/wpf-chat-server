@@ -67,6 +67,10 @@ namespace chat_client
             // Restores last used IP address
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
+            // Apply watermarks on startup
+            OnTextBoxTextChanged(txtUsername, null);
+            OnTextBoxTextChanged(txtIPAddress, null);
+
             // Synchronizes the toggle button with the current theme
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
 
@@ -244,7 +248,12 @@ namespace chat_client
             }
         }
 
-
+        /// <summary>
+        /// This method dynamically applies the correct watermark according to field,
+        /// language and theme. It restores the background if the field is filled in.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnTextBoxTextChanged(object sender, TextChangedEventArgs e)
         {
             // Ensures the sender is a TextBox
