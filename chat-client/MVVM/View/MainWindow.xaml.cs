@@ -247,61 +247,60 @@ namespace chat_client
 
         private void OnTextBoxTextChanged(object sender, TextChangedEventArgs e)
         {
-            // Ensures the sender is a textbox before proceeding
-            if (sender is not TextBox txtbox)
+            // Ensures the sender is a TextBox
+            if (sender is not TextBox currentTextBox)
                 return;
 
-            // Determines the appropriate background resource key based on the textbox's name
-            string? resourceKey = null;
+            // Identifies which field is being edited
+            string fieldKey = null;
 
-            if (txtbox.Name == "txtUsername")
-            {
-                resourceKey = "txtUsername_background";
+            if (currentTextBox.Name == "txtUsername")
+                fieldKey = "txtUsername";
+            else if (currentTextBox.Name == "txtIPAddress")
+                fieldKey = "txtIPAddress";
 
-            }
-            else if (txtbox.Name == "txtIPAddress")
-            {
-                resourceKey = "txtIPAddress_background";
-            }
-            
-            // If the dark mode is set
-            if (Properties.Settings.Default.AppTheme == "Dark")
-            {
-                resourceKey += "_dark";
-            }
+            if (fieldKey == null)
+                return;
 
-            // Checks if the textbox is empty or contains only whitespace
-            bool isTextBoxEmpty = string.IsNullOrWhiteSpace(txtbox.Text);
+            // Gets current language and theme from settings
+            string currentLanguage = Properties.Settings.Default.AppLanguage; // "en", "fr"
+            string currentTheme = Properties.Settings.Default.AppTheme;       // "light", "dark"
+
+            // Builds the resource key for the watermark brush
+            string themeSuffix = currentTheme == "dark" ? "_dark" : "";
+            string watermarkKey = $"{fieldKey}_background_{currentLanguage}{themeSuffix}";
+
+            // Checks if the textbox is empty
+            bool isTextBoxEmpty = string.IsNullOrWhiteSpace(currentTextBox.Text);
 
             if (isTextBoxEmpty)
             {
-                // If the field is empty, apply the watermark background
-                if (resourceKey != null && TryFindResource(resourceKey) is ImageBrush watermarkBrush)
+                // Applies watermark brush if found
+                if (TryFindResource(watermarkKey) is ImageBrush watermarkBrush)
                 {
-                    txtbox.Background = watermarkBrush;
+                    currentTextBox.Background = watermarkBrush;
                 }
 
-                if (txtbox.Name == "txtUsername")
+                // Disables connect button if username is empty
+                if (currentTextBox.Name == "txtUsername")
                 {
                     cmdConnectDisconnect.IsEnabled = false;
                 }
             }
-
-            // the textbox is not empty
             else
             {
-                // If the field contains text, restore the themed background
-                if (resourceKey != null && TryFindResource("BackgroundColor") is Brush themeBrush)
+                // Restores themed background
+                if (TryFindResource("BackgroundColor") is Brush themeBrush)
                 {
-                    txtbox.Background = themeBrush;
+                    currentTextBox.Background = themeBrush;
                 }
                 else
                 {
-                    // If no theme brush is found, fallback to default background
-                    txtbox.Background = null;
+                    currentTextBox.Background = null;
                 }
 
-                if (txtbox.Name == "txtUsername")
+                // Enables connect button if username is filled
+                if (currentTextBox.Name == "txtUsername")
                 {
                     cmdConnectDisconnect.IsEnabled = true;
                 }

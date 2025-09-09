@@ -7,17 +7,21 @@ using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
+using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace chat_client.MVVM.View
 {
@@ -51,8 +55,18 @@ namespace chat_client.MVVM.View
                 }
             }
 
-            // Apply localized strings to UI elements
+            // Apply localized strings to UI elements in SettingsWindow
             UpdateUIStrings();
+
+            // Applies watermarks directly to the Image controls defined in MainWindow.xaml
+            // -> Application.Current.MainWindow gives access to the currently open instance of MainWindow.
+            // -> A check with "is MainWindow mainWindow" is done to avoid an exception if the window is not
+            // yet loaded or has been replaced.
+            if (System.Windows.Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                WatermarksManager.ApplyWatermark(mainWindow.imgUsernameWatermark, "txtUsername");
+                WatermarksManager.ApplyWatermark(mainWindow.imgIPAddressWatermark, "txtIPAddress");
+            }
 
             // Synchronize toggle buttons and port field with saved settings
             UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
@@ -60,6 +74,7 @@ namespace chat_client.MVVM.View
             ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
             UseEncryptionToggle.IsChecked = Properties.Settings.Default.UseEncryption;
         }
+
 
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
         {
