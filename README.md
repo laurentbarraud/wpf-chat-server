@@ -24,4 +24,4 @@
 - Build and run the solution to test the two projects in local connection.
 
 ### Download
-Compiled executables (for x64 systems, starting from Windows 7 and upwards) are available at the [Releases section](https://github.com/laurentbarraud/wpf-chat-server/releases).
+Go to the [Releases](../../releases) section to download a ZIP archive containing the compiled executables (compatible with x64 systems running Windows 7 or later).
