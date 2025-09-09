@@ -94,5 +94,17 @@ namespace chat_client.Properties {
                 this["UseEncryption"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("en")]
+        public string AppLanguage {
+            get {
+                return ((string)(this["AppLanguage"]));
+            }
+            set {
+                this["AppLanguage"] = value;
+            }
+        }
     }
 }
