@@ -37,26 +37,22 @@ namespace chat_client.Helpers
             return ResourceManager.GetString(key, CurrentCulture);
         }
 
-        public static void UpdateLocalizedUI(Window targetWindow)
+        public static void UpdateLocalizedUI()
         {
-            if (targetWindow == null)
+            foreach (Window window in Application.Current.Windows)
             {
-                return;
-            }
-
-            // SettingsWindow
-            if (targetWindow is SettingsWindow settings)
-            {
-                settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
-                settings.ReduceInTrayLabel.Content = GetString("ReduceInTrayLabel");
-                settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
-                settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
-            }
-
-            // MainWindow
-            else if (targetWindow is MainWindow main)
-            {
-                main.cmdConnectDisconnect.Content = GetString("ConnectButton");
+                if (window is SettingsWindow settings)
+                {
+                    settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
+                    settings.ReduceInTrayLabel.Content = GetString("ReduceInTrayLabel");
+                    settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
+                    settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
+                }
+                else if (window is MainWindow mainWindow)
+                {
+                    mainWindow.cmdConnectDisconnect.Content = GetString("ConnectButton");
+                    mainWindow.ApplyWatermarkImages();
+                }
             }
         }
     }

@@ -67,13 +67,14 @@ namespace chat_client
             // Restores last used IP address
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
-            // Apply watermarks on startup
-            ApplyWatermarkImages();
-
-            // Refresh all UI labels and texts with localized strings
             string lang = Properties.Settings.Default.AppLanguage;
-            LocalizationManager.Initialize(lang);
-            LocalizationManager.UpdateLocalizedUI(this);
+
+            // If the language is different from English, we apply the localization
+            if (lang != "en")
+            {
+                LocalizationManager.Initialize(lang);
+                LocalizationManager.UpdateLocalizedUI();
+            }
 
             // Synchronizes the toggle button with the current theme
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
@@ -81,8 +82,10 @@ namespace chat_client
             // Synchronizes the encrypted image visibilty with the current setting
             imgEncryptionStatus.Visibility = Properties.Settings.Default.UseEncryption 
                 ? Visibility.Visible : Visibility.Collapsed;
-        
-            // Sets focus to username field
+
+            // Apply watermarks on startup
+            ApplyWatermarkImages();
+
             txtUsername.Focus();
         }
 
@@ -95,26 +98,26 @@ namespace chat_client
             {
                 if (theme == "dark")
                 {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr_dark.gif", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr_dark.gif", UriKind.Relative));
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr_dark.png", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr_dark.png", UriKind.Relative));
                 }
                 else // light
                 {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr.gif", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr.gif", UriKind.Relative));
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr.png", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr.png", UriKind.Relative));
                 }
             }
             else if (lang == "en")
             {
                 if (theme == "dark")
                 {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en_dark.gif", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en_dark.gif", UriKind.Relative));
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en_dark.png", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en_dark.png", UriKind.Relative));
                 }
                 else // light
                 {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en.gif", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en.gif", UriKind.Relative));
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en.png", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en.png", UriKind.Relative));
                 }
             }
         }
@@ -333,25 +336,28 @@ namespace chat_client
 
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Apply dark theme to this window with fade animation
-            ThemeManager.ApplyTheme(true);
-
-            // Refresh all UI labels and texts with localized strings
-            LocalizationManager.UpdateLocalizedUI(this);
-
             // Save user preference
             Properties.Settings.Default.AppTheme = "Dark";
             Properties.Settings.Default.Save();
+            
+            // Apply dark theme to this window with fade animation
+            ThemeManager.ApplyTheme(true);       
+
+            // Apply dark theme watermarks
+            ApplyWatermarkImages();
         }
 
         private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            // Apply light theme to this window with fade animation
-            ThemeManager.ApplyTheme(false);
-
             // Save user preference
             Properties.Settings.Default.AppTheme = "Light";
             Properties.Settings.Default.Save();
+            
+            // Apply light theme to this window with fade animation
+            ThemeManager.ApplyTheme(false);
+
+            // Apply light theme watermarks
+            ApplyWatermarkImages();
         }
 
         /// <summary>
@@ -441,17 +447,17 @@ namespace chat_client
 
         private void txtUsername_TextChanged(object sender, TextChangedEventArgs e)
         {
-            bool isEmpty = string.IsNullOrWhiteSpace(txtUsername.Text);
+            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(txtUsername.Text);
 
-            imgUsernameWatermark.Visibility = isEmpty ? Visibility.Visible : Visibility.Hidden;
-            cmdConnectDisconnect.IsEnabled = !isEmpty;
+            imgUsernameWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
+            cmdConnectDisconnect.IsEnabled = !textBoxIsEmpty;
         }
 
         private void txtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
         {
-            bool isEmpty = string.IsNullOrWhiteSpace(txtIPAddress.Text);
+            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(txtIPAddress.Text);
 
-            imgIPAddressWatermark.Visibility = isEmpty ? Visibility.Visible : Visibility.Hidden;
+            imgIPAddressWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
         }
     }
 }

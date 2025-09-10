@@ -58,6 +58,7 @@
 
                 <!-- TextBox -->
                 <TextBox x:Name="txtUsername"
+                         Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
                          TextChanged="txtUsername_TextChanged"
@@ -70,8 +71,6 @@
                          HorizontalAlignment="Left"
                          Width="200"
                          Height="25"/>
-                
-                <!-- Watermark -->
                 <Image x:Name="imgUsernameWatermark"
                        Stretch="Uniform"
                        IsHitTestVisible="False"
@@ -79,12 +78,15 @@
                        HorizontalAlignment="Left"
                        Width="{Binding ActualWidth, ElementName=txtUsername}"
                        Height="{Binding ActualHeight, ElementName=txtUsername}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+
+                <!-- Watermark -->
             </Grid>
 
             <Grid DockPanel.Dock="Top" Height="25">
 
                 <!-- TextBox -->
                 <TextBox x:Name="txtIPAddress"
+                         Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding IPAddressOfServer}"
                          TextChanged="txtIPAddress_TextChanged"
@@ -97,7 +99,6 @@
                          HorizontalAlignment="Left"
                          Width="200"
                          Height="25"/>
-                <!-- Watermark -->
                 <Image x:Name="imgIPAddressWatermark"
                        Stretch="Uniform"
                        IsHitTestVisible="False"
@@ -105,6 +106,7 @@
                        HorizontalAlignment="Left"
                        Width="{Binding ActualWidth, ElementName=txtIPAddress}"
                        Height="{Binding ActualHeight, ElementName=txtIPAddress}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+                <!-- Watermark -->
             </Grid>
 
             <Button x:Name="cmdConnectDisconnect" Height="25"

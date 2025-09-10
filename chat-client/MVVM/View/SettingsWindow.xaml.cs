@@ -46,7 +46,7 @@ namespace chat_client.MVVM.View
                  LocalizationManager.Initialize(appLanguage);
 
                 // Refresh all UI labels and texts with localized strings
-                LocalizationManager.UpdateLocalizedUI(this);
+                LocalizationManager.UpdateLocalizedUI();
 
                 // Select the corresponding ComboBox item based on the saved app language
                 foreach (ComboBoxItem item in LanguageComboBox.Items)
@@ -120,8 +120,7 @@ namespace chat_client.MVVM.View
                     LocalizationManager.Initialize(selectedLang);
 
                     // Refresh all UI labels and texts with localized strings
-                    LocalizationManager.UpdateLocalizedUI(this);
-                    LocalizationManager.UpdateLocalizedUI(Application.Current.MainWindow);
+                    LocalizationManager.UpdateLocalizedUI();
                 }
             }
         }

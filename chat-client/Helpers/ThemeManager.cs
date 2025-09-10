@@ -25,6 +25,9 @@ namespace chat_client.Helpers
         /// <param name="useDarkTheme">True to apply dark theme, false for light theme.</param>
         public static void ApplyTheme(bool useDarkTheme)
         {
+            Properties.Settings.Default.AppTheme = useDarkTheme ? "dark" : "light";
+            Properties.Settings.Default.Save();
+
             var targetWindow = Application.Current.MainWindow;
             if (targetWindow == null)
             {
@@ -37,7 +40,7 @@ namespace chat_client.Helpers
             var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150));
             fadeOut.Completed += (_, _) =>
             {
-                // Removes old theme dictionaries from Application-level resources
+                // Remove old theme dictionaries
                 var existingThemes = Application.Current.Resources.MergedDictionaries
                     .Where(d => d.Source != null &&
                                 (d.Source.Equals(LightThemeUri) || d.Source.Equals(DarkThemeUri)))
@@ -46,28 +49,31 @@ namespace chat_client.Helpers
                 foreach (var dict in existingThemes)
                     Application.Current.Resources.MergedDictionaries.Remove(dict);
 
-                // Adds new theme dictionary to Application-level resources
+                // Add new theme dictionary
                 Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
 
-                // Fades in and refreshes watermark images
+                // Prepare fade-in animation
                 var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
+
+                // Apply watermark only after fade-in is fully completed
                 fadeIn.Completed += (_, _) =>
                 {
-                    if (targetWindow is MainWindow mainWindow)
+                    targetWindow.Dispatcher.Invoke(() =>
                     {
-                        mainWindow.ApplyWatermarkImages();
-                    }
+                        if (targetWindow is MainWindow mainWindow)
+                        {
+                            mainWindow.ApplyWatermarkImages();
+                        }
+                    });
                 };
 
-
+                // Start fade-in
                 targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeIn);
-                targetWindow.InvalidateVisual();
-                targetWindow.UpdateLayout();
             };
 
+            // Start fade-out
             targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeOut);
         }
-
 
         /// <summary>
         /// Applies the selected theme immediately, without animation.
