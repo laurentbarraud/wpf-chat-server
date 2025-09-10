@@ -68,7 +68,7 @@ namespace chat_client.MVVM.View
             {
                 // Log the error to console to help diagnose crashes
                 Console.WriteLine($"[ERROR] SettingsWindow_Loaded failed: {ex.Message}");
-                MessageBox.Show("An error occurred while loading settings. Please check your theme resources.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(LocalizationManager.GetString("ErrorLoadingThemeResources"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -77,13 +77,11 @@ namespace chat_client.MVVM.View
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
         {
             MessageBox.Show(
-            "This software is for education purposes only and is provided \"as is\", without any kind of warranty.\n" +
-            "In no event shall the author be liable for any indirect, incidental or consequential damages, " +
-            "including loss of data, lost profits, or business interruption " +
-            "with the use of this software.\n" +
-            "Button images inspired by resources available on flaticon.com.\n\n" +
-            "v1.0, sept. 2025 — by Laurent Barraud.",
-            "About",
+            LocalizationManager.GetString("LicenceInfo1") + "\n" +
+            LocalizationManager.GetString("LicenceInfo2") + "\n" +
+            LocalizationManager.GetString("LicenceInfoResources") + "\n\n" +
+            LocalizationManager.GetString("LicenceFinal"),
+            LocalizationManager.GetString("About"),
             MessageBoxButton.OK,
             MessageBoxImage.Information
             );
@@ -213,12 +211,12 @@ namespace chat_client.MVVM.View
             if (MainViewModel.TrySavePort(portChosen))
             {
                 imagePath = "/Resources/greendot.png";
-                tooltip = "Port number is valid.";
+                tooltip = LocalizationManager.GetString("PortNumberValid");
             }
             else
             {
                 imagePath = "/Resources/reddot.png";
-                tooltip = "Port number is not valid.\nPlease choose a number between 1000 and 65535.";
+                tooltip = LocalizationManager.GetString("PortNumberInvalid") + "\n" + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
             }
 
             imgPortStatus.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));

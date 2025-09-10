@@ -117,14 +117,80 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="About" xml:space="preserve">
+    <value>A propos de ce logiciel</value>
+  </data>
   <data name="AppLanguageLabel" xml:space="preserve">
     <value>Langue de l'application</value>
+  </data>
+  <data name="ChooseAnAppropriatePortNumber" xml:space="preserve">
+    <value>Veuillez choisir un nombre entre 1000 et 65535.</value>
+  </data>
+  <data name="ClientSocketNotConnected" xml:space="preserve">
+    <value>Le socket du client n’est pas connecté.</value>
   </data>
   <data name="ConnectButton" xml:space="preserve">
     <value>_Connecter</value>
   </data>
+  <data name="Connected" xml:space="preserve">
+    <value>Connecté</value>
+  </data>
+  <data name="ConnectionFailed" xml:space="preserve">
+    <value>La connexion a échoué.</value>
+  </data>
+  <data name="DecryptionFailed" xml:space="preserve">
+    <value>[Le déchiffrage a échoué]</value>
+  </data>
+  <data name="DisconnectButton" xml:space="preserve">
+    <value>_Déconnecter</value>
+  </data>
+  <data name="DisconnectError" xml:space="preserve">
+    <value>Erreur de déconnexion</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Erreur</value>
+  </data>
+  <data name="ErrorLoadingThemeResources" xml:space="preserve">
+    <value>Une erreur s’est produite lors du chargement des paramètres. Veuillez vérifier les ressources de votre thème.</value>
+  </data>
+  <data name="ErrorWhileDisconnecting" xml:space="preserve">
+    <value>Erreur pendant la déconnexion : </value>
+  </data>
+  <data name="HasConnected" xml:space="preserve">
+    <value>s'est connecté</value>
+  </data>
+  <data name="HasDisconnected" xml:space="preserve">
+    <value>s'est déconnecté</value>
+  </data>
+  <data name="IPAddressInvalid" xml:space="preserve">
+    <value>L’adresse IP est incorrecte. Laissez-la vide pour vous connecter localement.</value>
+  </data>
+  <data name="LicenceFinal" xml:space="preserve">
+    <value>v1.0, sept. 2025 — par Laurent Barraud.</value>
+  </data>
+  <data name="LicenceInfo1" xml:space="preserve">
+    <value>Ce logiciel est uniquement destiné à des fins éducatives et est fourni tel quel, sans aucune garantie.</value>
+  </data>
+  <data name="LicenceInfo2" xml:space="preserve">
+    <value>En aucun cas, l’auteur ne sera tenu responsable des dommages indirects, accessoires ou consécutifs, y compris la perte de données, le manque à gagner ou l’interruption d’activité liée à l’utilisation de ce logiciel.</value>
+  </data>
+  <data name="LicenceInfoResources" xml:space="preserve">
+    <value>Images de boutons inspirées par les ressources disponibles sur flaticon.com.</value>
+  </data>
+  <data name="PortNumberInvalid" xml:space="preserve">
+    <value>Numéro de port erroné.</value>
+  </data>
+  <data name="PortNumberValid" xml:space="preserve">
+    <value>Numéro de port valide.</value>
+  </data>
   <data name="ReduceInTrayLabel" xml:space="preserve">
     <value>Réduire dans la zone de notification</value>
+  </data>
+  <data name="ServerHasClosed" xml:space="preserve">
+    <value>Le serveur a fermé. Vous serez déconnecté sous peu...</value>
+  </data>
+  <data name="ServerUnreachable" xml:space="preserve">
+    <value>Le serveur est inaccessible ou a refusé la connexion.</value>
   </data>
   <data name="UseCustomPortLabel" xml:space="preserve">
     <value>Utiliser un port TCP personnalisé</value>

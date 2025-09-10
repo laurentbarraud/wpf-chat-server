@@ -44,14 +44,16 @@ namespace chat_server
                         case 5:
                             var messageReceived = _packetReader.ReadMessage();
 
-                            // Localized message received log
-                            Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("MessageReceived")} {Username}: {messageReceived}");
+                            // Check if the message starts with [ENC]
+                            string logMessage = messageReceived.StartsWith("[ENC]") ? "[ENC]" : messageReceived;
 
+                            // Localized message received log
+                            Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("MessageReceived")} {Username}: {logMessage}");
+
+                            // Broadcast the full message to other clients
                             Program.BroadcastMessage($"{Username}: {messageReceived}");
                             break;
 
-                        default:
-                            break;
                     }
                 }
                 catch (Exception)

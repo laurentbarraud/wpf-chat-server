@@ -117,14 +117,80 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="About" xml:space="preserve">
+    <value>About this software</value>
+  </data>
   <data name="AppLanguageLabel" xml:space="preserve">
     <value>App language</value>
+  </data>
+  <data name="ChooseAnAppropriatePortNumber" xml:space="preserve">
+    <value>Please choose a number between 1000 and 65535.</value>
+  </data>
+  <data name="ClientSocketNotConnected" xml:space="preserve">
+    <value>Client socket is not connected.</value>
   </data>
   <data name="ConnectButton" xml:space="preserve">
     <value>_Connect</value>
   </data>
+  <data name="Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="ConnectionFailed" xml:space="preserve">
+    <value>Connection failed.</value>
+  </data>
+  <data name="DecryptionFailed" xml:space="preserve">
+    <value>[Decryption failed]</value>
+  </data>
+  <data name="DisconnectButton" xml:space="preserve">
+    <value>_Disconnect</value>
+  </data>
+  <data name="DisconnectError" xml:space="preserve">
+    <value>Disconnect error</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="ErrorLoadingThemeResources" xml:space="preserve">
+    <value>An error occurred while loading settings. Please check your theme resources.</value>
+  </data>
+  <data name="ErrorWhileDisconnecting" xml:space="preserve">
+    <value>Error while disconnecting : </value>
+  </data>
+  <data name="HasConnected" xml:space="preserve">
+    <value>has connected</value>
+  </data>
+  <data name="HasDisconnected" xml:space="preserve">
+    <value>has disconnected</value>
+  </data>
+  <data name="IPAddressInvalid" xml:space="preserve">
+    <value>The IP address is incorrect. Leave it blank to connect locally.</value>
+  </data>
+  <data name="LicenceFinal" xml:space="preserve">
+    <value>v1.0, sept. 2025 — by Laurent Barraud.</value>
+  </data>
+  <data name="LicenceInfo1" xml:space="preserve">
+    <value>This software is for education purposes only and is provided "as is", without any kind of warranty.</value>
+  </data>
+  <data name="LicenceInfo2" xml:space="preserve">
+    <value>In no event shall the author be liable for any indirect, incidental or consequential damages, including loss of data, lost profits, or business interruption with the use of this software.</value>
+  </data>
+  <data name="LicenceInfoResources" xml:space="preserve">
+    <value>Button images inspired by resources available on flaticon.com.</value>
+  </data>
+  <data name="PortNumberInvalid" xml:space="preserve">
+    <value>Port number is not valid.</value>
+  </data>
+  <data name="PortNumberValid" xml:space="preserve">
+    <value>Port number is valid.</value>
+  </data>
   <data name="ReduceInTrayLabel" xml:space="preserve">
     <value>Reduce in system tray</value>
+  </data>
+  <data name="ServerHasClosed" xml:space="preserve">
+    <value>Server has closed. You will be disconnected shortly...</value>
+  </data>
+  <data name="ServerUnreachable" xml:space="preserve">
+    <value>The server is unreachable or has refused the connection.</value>
   </data>
   <data name="UseCustomPortLabel" xml:space="preserve">
     <value>Use custom TCP port</value>

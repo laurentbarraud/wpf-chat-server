@@ -50,7 +50,7 @@ namespace chat_client.Net
                 if (ipToConnect != "127.0.0.1" && !IPAddress.TryParse(ipToConnect, out _))
                 {
                     // Invalid IP format — throw exception to be caught by caller
-                    throw new ArgumentException("The IP address is incorrect. Leave it blank to connect locally.");
+                    throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
                 }
 
                 int portToUse = 7123;
@@ -111,7 +111,7 @@ namespace chat_client.Net
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error while disconnecting: {ex.Message}", "Disconnect Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message, LocalizationManager.GetString("DisconnectError"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -162,7 +162,7 @@ namespace chat_client.Net
                         if (mainViewModel == null) return;
 
                         // Notify user in chat
-                        mainViewModel.Messages.Add("Server has closed. You will be disconnected shortly...");
+                        mainViewModel.Messages.Add(LocalizationManager.GetString("ServerHasClosed"));
 
                         // Create a timer to delay UI reset
                         var timer = new System.Timers.Timer(2000);
@@ -210,7 +210,7 @@ namespace chat_client.Net
             // This avoids silently failed shipments
             if (_client == null || !_client.Connected)
             {
-                Console.WriteLine("Client socket is not connected.");
+                Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
             // Send the message packet through the TCP client socket

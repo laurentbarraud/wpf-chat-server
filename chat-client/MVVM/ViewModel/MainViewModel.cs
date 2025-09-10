@@ -109,14 +109,14 @@ namespace chat_client.MVVM.ViewModel
                 // Attempt to connect to the server
                 bool connected = _server.ConnectToServer(Username, IPAddressOfServer);
                 if (!connected)
-                    throw new Exception("Connection failed.");
+                    throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
 
                 // Update UI to reflect connected state
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
-                        mainWindow.Title += " - Connected";
+                        mainWindow.Title += " - " + LocalizationManager.GetString("Connected");
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnCenter.Visibility = Visibility.Visible;
 
@@ -150,7 +150,7 @@ namespace chat_client.MVVM.ViewModel
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
-                        MessageBox.Show("The server is unreachable or has refused the connection.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                         ReinitializeUI();
                     }
                 });
@@ -189,7 +189,7 @@ namespace chat_client.MVVM.ViewModel
             catch (Exception ex)
             {
                 // Display an error message if disconnection fails
-                MessageBox.Show($"Error while disconnecting: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message, LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -268,7 +268,7 @@ namespace chat_client.MVVM.ViewModel
                 catch (Exception ex)
                 {
                     // Replaces the message with a failure notice
-                    msg = "[Decryption failed]";
+                    msg = LocalizationManager.GetString("DecryptionFailed");
                 }
             }
 
@@ -291,7 +291,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (Application.Current.MainWindow is MainWindow mainWindow)
                 {
-                    mainWindow.cmdConnectDisconnect.Content = "_Connect";
+                    mainWindow.cmdConnectDisconnect.Content = LocalizationManager.GetString("ConnectButton");
 
                     mainWindow.txtUsername.IsEnabled = true;
                     mainWindow.txtIPAddress.IsEnabled = true;
@@ -345,7 +345,7 @@ namespace chat_client.MVVM.ViewModel
                     // Avoids to be notified of who is connected at login time (user sees it in the list of users on left)
                     if (Message != null)
                     {
-                        Messages.Add($"# - {user.Username} has connected. #");
+                        Messages.Add("# - " + user.Username + LocalizationManager.GetString("HasConnected") + ". #");
                     }
                 });
             }
@@ -365,7 +365,7 @@ namespace chat_client.MVVM.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Users.Remove(user);
-                    Messages.Add($"# - {user.Username} has disconnected. #");
+                    Messages.Add("# - " + user.Username + LocalizationManager.GetString("HasDisconnected") + ". #");
                 });
             }
         }
