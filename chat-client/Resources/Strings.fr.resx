@@ -175,7 +175,7 @@
     <value>En aucun cas, l’auteur ne sera tenu responsable des dommages indirects, accessoires ou consécutifs, y compris la perte de données, le manque à gagner ou l’interruption d’activité liée à l’utilisation de ce logiciel.</value>
   </data>
   <data name="LicenceInfoResources" xml:space="preserve">
-    <value>Images de boutons inspirées par les ressources disponibles sur flaticon.com.</value>
+    <value>Images de boutons inspirées par des ressources disponibles sur Flaticon.com.</value>
   </data>
   <data name="PortNumberInvalid" xml:space="preserve">
     <value>Numéro de port erroné.</value>
@@ -187,7 +187,7 @@
     <value>Réduire dans la zone de notification</value>
   </data>
   <data name="ServerHasClosed" xml:space="preserve">
-    <value>Le serveur a fermé. Vous serez déconnecté sous peu...</value>
+    <value>Le serveur a fermé. Vous allez être bientôt déconnecté...</value>
   </data>
   <data name="ServerUnreachable" xml:space="preserve">
     <value>Le serveur est inaccessible ou a refusé la connexion.</value>
