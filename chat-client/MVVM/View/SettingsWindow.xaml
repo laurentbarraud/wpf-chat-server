@@ -300,7 +300,7 @@
         <Label Grid.Row="2"
                Content="About WPF Chat Server"
                HorizontalAlignment="Center"
-               Margin="0,24,0,-12"
+               Margin="0,28,0,-16"
                Foreground="{DynamicResource ForegroundBrush}"
                Background="{DynamicResource BackgroundBrush}"
                Cursor="Hand"
