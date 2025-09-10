@@ -1,4 +1,4 @@
-﻿ <Window x:Name="MainWindow1" x:Class="chat_client.MainWindow"
+﻿<Window x:Name="MainWindow1" x:Class="chat_client.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -8,7 +8,7 @@
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/MVVM/View/chat-client-icon.ico" TabIndex="12" StateChanged="MainWindow1_StateChanged" Closing="MainWindow1_Closing" PreviewKeyDown="MainWindow1_PreviewKeyDown">
     <Window.Resources>
-        
+
         <!-- ContextMenu resource for tray icon -->
         <ContextMenu x:Key="TrayMenu">
             <MenuItem Header="Open" Click="TrayMenu_Open_Click" />
@@ -55,20 +55,12 @@
 
         <DockPanel x:Name="dpnLeft">
             <Grid DockPanel.Dock="Top" Height="25">
-                <!-- Watermark image -->
-                <Image x:Name="imgUsernameWatermark"
-                       Stretch="Fill"
-                       IsHitTestVisible="False"
-                       VerticalAlignment="Center"
-                       HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=txtUsername}"
-                       Height="{Binding ActualHeight, ElementName=txtUsername}" />
 
                 <!-- TextBox -->
                 <TextBox x:Name="txtUsername"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="OnTextBoxTextChanged"
+                         TextChanged="txtUsername_TextChanged"
                          FontSize="14"
                          MaxLines="1"
                          MaxLength="50"
@@ -78,23 +70,24 @@
                          HorizontalAlignment="Left"
                          Width="200"
                          Height="25"/>
-            </Grid>
-
-            <Grid DockPanel.Dock="Top" Height="25">
-                <!-- Watermark image -->
-                <Image x:Name="imgIPAddressWatermark"
-                       Stretch="Fill"
+                
+                <!-- Watermark -->
+                <Image x:Name="imgUsernameWatermark"
+                       Stretch="Uniform"
                        IsHitTestVisible="False"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=txtIPAddress}"
-                       Height="{Binding ActualHeight, ElementName=txtIPAddress}" />
+                       Width="{Binding ActualWidth, ElementName=txtUsername}"
+                       Height="{Binding ActualHeight, ElementName=txtUsername}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+            </Grid>
+
+            <Grid DockPanel.Dock="Top" Height="25">
 
                 <!-- TextBox -->
                 <TextBox x:Name="txtIPAddress"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding IPAddressOfServer}"
-                         TextChanged="OnTextBoxTextChanged"
+                         TextChanged="txtIPAddress_TextChanged"
                          FontSize="14"
                          MaxLines="1"
                          MaxLength="15"
@@ -104,8 +97,16 @@
                          HorizontalAlignment="Left"
                          Width="200"
                          Height="25"/>
+                <!-- Watermark -->
+                <Image x:Name="imgIPAddressWatermark"
+                       Stretch="Uniform"
+                       IsHitTestVisible="False"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Width="{Binding ActualWidth, ElementName=txtIPAddress}"
+                       Height="{Binding ActualHeight, ElementName=txtIPAddress}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
             </Grid>
-            
+
             <Button x:Name="cmdConnectDisconnect" Height="25"
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"
@@ -334,7 +335,7 @@
                        StaysOpen="False"
                        AllowsTransparency="True"
                        PopupAnimation="Slide"
-                       Closed="popupEmojiPanel_Closed">
+                       Closed="PopupEmojiPanel_Closed">
 
                     <Popup.RenderTransform>
                         <TranslateTransform X="0" />
@@ -456,9 +457,9 @@
                         </Grid>
                     </Border>
                 </Popup>
-                
+
             </StackPanel>
-            
+
             <StackPanel x:Name="spnDown" Orientation="Horizontal">
                 <TextBox x:Name="txtMessageToSend" Height="32"
                          Width="545"

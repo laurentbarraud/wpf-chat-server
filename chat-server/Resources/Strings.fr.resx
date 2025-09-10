@@ -129,9 +129,6 @@
   <data name="ServerStartFailed" xml:space="preserve">
     <value>Échec du démarrage du serveur sur le port</value>
   </data>
-  <data name="BannerTitle" xml:space="preserve">
-    <value>WPF Chat Server v1.0</value>
-  </data>
   <data name="BannerLine1" xml:space="preserve">
     <value>Appuyez sur Ctrl+C pour arrêter le serveur.</value>
   </data>

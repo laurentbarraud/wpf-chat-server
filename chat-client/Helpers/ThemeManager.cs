@@ -1,8 +1,9 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 8th, 2025</date>
+/// <date>September 10th, 2025</date>
 
+using chat_client.Helpers;
 using System;
 using System.Linq;
 using System.Windows;
@@ -25,8 +26,6 @@ namespace chat_client.Helpers
         public static void ApplyTheme(bool useDarkTheme)
         {
             var targetWindow = Application.Current.MainWindow;
-
-            // If the window is not yet available, applies theme without animation
             if (targetWindow == null)
             {
                 ApplyThemeWithoutAnimation(useDarkTheme);
@@ -35,11 +34,10 @@ namespace chat_client.Helpers
 
             var themeUri = useDarkTheme ? DarkThemeUri : LightThemeUri;
 
-            // Fades out animation before switching theme
             var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150));
             fadeOut.Completed += (_, _) =>
             {
-                // Removes any existing theme dictionaries
+                // Removes old theme dictionaries from Application-level resources
                 var existingThemes = Application.Current.Resources.MergedDictionaries
                     .Where(d => d.Source != null &&
                                 (d.Source.Equals(LightThemeUri) || d.Source.Equals(DarkThemeUri)))
@@ -48,24 +46,28 @@ namespace chat_client.Helpers
                 foreach (var dict in existingThemes)
                     Application.Current.Resources.MergedDictionaries.Remove(dict);
 
-                // Add the new theme dictionary
+                // Adds new theme dictionary to Application-level resources
                 Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
 
-                // Apply watermarks after theme switch
-                WatermarksManager.RefreshWatermarks(targetWindow);
-
-                // Fades in animation after theme switch
+                // Fades in and refreshes watermark images
                 var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
-                targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+                fadeIn.Completed += (_, _) =>
+                {
+                    if (targetWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.ApplyWatermarkImages();
+                    }
+                };
 
-                // Forces redraw of the window
+
+                targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeIn);
                 targetWindow.InvalidateVisual();
                 targetWindow.UpdateLayout();
             };
 
-            // Starts fade out
             targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeOut);
         }
+
 
         /// <summary>
         /// Applies the selected theme immediately, without animation.
@@ -90,31 +92,11 @@ namespace chat_client.Helpers
             // Refreshes textBox backgrounds manually to reflect new theme
             var targetWindow = Application.Current.MainWindow;
 
-            if (targetWindow != null)
+            if (targetWindow is MainWindow mainWindow)
             {
-                string currentLanguageCode = Properties.Settings.Default.AppLanguage;
-                string theme = useDarkTheme ? "dark" : "light";
-
-                string usernameKey = $"txtUsername_background_{currentLanguageCode}" + (theme == "dark" ? "_dark" : "");
-                string ipKey = $"txtIPAddress_background_{currentLanguageCode}" + (theme == "dark" ? "_dark" : "");
-
-                if (targetWindow.FindName("txtUsername") is TextBox txtUsername &&
-                    Application.Current.TryFindResource(usernameKey) is Brush usernameBrush)
-                {
-                    txtUsername.Background = usernameBrush;
-                    if (!string.IsNullOrWhiteSpace(txtUsername.Text))
-                        txtUsername.Background = null;
-                }
-
-                if (targetWindow.FindName("txtIPAddress") is TextBox txtIPAddress &&
-                    Application.Current.TryFindResource(ipKey) is Brush ipBrush)
-                {
-                    txtIPAddress.Background = ipBrush;
-                    if (!string.IsNullOrWhiteSpace(txtIPAddress.Text))
-                        txtIPAddress.Background = null;
-                }
+                mainWindow.ApplyWatermarkImages();
             }
-
         }
     }
 }
+

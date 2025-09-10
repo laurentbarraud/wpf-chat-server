@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 9th, 2025</date>
+/// <date>September 10th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -37,38 +37,41 @@ namespace chat_client.MVVM.View
 
         private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // Retrieves saved language from application settings
-            string AppLanguageSaved = Properties.Settings.Default.AppLanguage;
-
-            // Initializes the localization manager with the saved language
-            LocalizationManager.Initialize(AppLanguageSaved);
-
-            // Selects the corresponding ComboBox item based on the saved language
-            foreach (ComboBoxItem item in LanguageComboBox.Items)
+            try
             {
-                if ((string)item.Tag == AppLanguageSaved)
+                // Retrieve saved language from application settings
+                string appLanguage = Properties.Settings.Default.AppLanguage;
+
+                // Initialize the localization manager with the saved language
+                 LocalizationManager.Initialize(appLanguage);
+
+                // Refresh all UI labels and texts with localized strings
+                LocalizationManager.UpdateLocalizedUI(this);
+
+                // Select the corresponding ComboBox item based on the saved app language
+                foreach (ComboBoxItem item in LanguageComboBox.Items)
                 {
-                    LanguageComboBox.SelectedItem = item;
-                    break;
+                    if ((string)item.Tag == appLanguage)
+                    {
+                        LanguageComboBox.SelectedItem = item;
+                        break;
+                    }
                 }
+
+                // Synchronize toggle buttons and port field with saved settings
+                UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
+                txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
+                ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
+                UseEncryptionToggle.IsChecked = Properties.Settings.Default.UseEncryption;
             }
-
-            // Applies localized strings to UI elements in SettingsWindow
-            UpdateUIStrings();
-
-            // Refreshes watermarks
-            if (Application.Current.MainWindow is MainWindow mainWindow)
+            catch (Exception ex)
             {
-                WatermarksManager.RefreshWatermarks(mainWindow);
+                // Log the error to console to help diagnose crashes
+                Console.WriteLine($"[ERROR] SettingsWindow_Loaded failed: {ex.Message}");
+                MessageBox.Show("An error occurred while loading settings. Please check your theme resources.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-
-
-            // Synchronizes toggle buttons and port field with saved settings
-            UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
-            txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
-            ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
-            UseEncryptionToggle.IsChecked = Properties.Settings.Default.UseEncryption;
         }
+
 
 
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
@@ -117,7 +120,8 @@ namespace chat_client.MVVM.View
                     LocalizationManager.Initialize(selectedLang);
 
                     // Refresh all UI labels and texts with localized strings
-                    UpdateUIStrings();
+                    LocalizationManager.UpdateLocalizedUI(this);
+                    LocalizationManager.UpdateLocalizedUI(Application.Current.MainWindow);
                 }
             }
         }
@@ -132,6 +136,11 @@ namespace chat_client.MVVM.View
         {
             Properties.Settings.Default.ReduceInTray = false;
             Properties.Settings.Default.Save();
+
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.DisposeTrayIcon();
+            }
         }
 
 
@@ -142,23 +151,6 @@ namespace chat_client.MVVM.View
                 ValidatePortInput();
             }
         }
-
-        /// <summary>
-        /// Updates all visible UI elements with localized strings
-        /// based on the current language set in the localization manager.
-        /// </summary>
-        private void UpdateUIStrings()
-        {
-            // Settings window
-            UseCustomPortLabel.Content = LocalizationManager.GetString("UseCustomPortLabel");
-            ReduceInTrayLabel.Content = LocalizationManager.GetString("ReduceInTrayLabel");
-            UseEncryptionLabel.Content = LocalizationManager.GetString("UseEncryptionLabel");
-            AppLanguageLabel.Content = LocalizationManager.GetString("AppLanguageLabel");
-        
-            // Main window
-
-        }
-
 
         private void UseCustomPortToggle_Checked(object sender, RoutedEventArgs e)
         {

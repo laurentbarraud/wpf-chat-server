@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 9th, 2025</date>
+/// <date>September 10th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -80,7 +80,7 @@ namespace chat_server
         private static void DisplayBanner()
         {
             Console.WriteLine("╔══════════════════════════════════════════╗");
-            Console.WriteLine($"║         {LocalizationManager.GetString("BannerTitle")}         ║");
+            Console.WriteLine("║          WPF Chat Server v1.0            ║");
             Console.WriteLine("╚══════════════════════════════════════════╝");
             Console.WriteLine(LocalizationManager.GetString("BannerLine1"));
             Console.WriteLine(LocalizationManager.GetString("BannerLine2") + "\n");

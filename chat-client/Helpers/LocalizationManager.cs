@@ -1,8 +1,9 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 9th, 2025</date>
+/// <date>September 10th, 2025</date>
 
+using chat_client.MVVM.View;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,6 +11,7 @@ using System.Linq;
 using System.Resources;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace chat_client.Helpers
 {
@@ -33,6 +35,29 @@ namespace chat_client.Helpers
         public static string GetString(string key)
         {
             return ResourceManager.GetString(key, CurrentCulture);
+        }
+
+        public static void UpdateLocalizedUI(Window targetWindow)
+        {
+            if (targetWindow == null)
+            {
+                return;
+            }
+
+            // SettingsWindow
+            if (targetWindow is SettingsWindow settings)
+            {
+                settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
+                settings.ReduceInTrayLabel.Content = GetString("ReduceInTrayLabel");
+                settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
+                settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
+            }
+
+            // MainWindow
+            else if (targetWindow is MainWindow main)
+            {
+                main.cmdConnectDisconnect.Content = GetString("ConnectButton");
+            }
         }
     }
 }

@@ -157,7 +157,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Label x:Name="AppLanguageLabel" Grid.Column="0" Content="App language :"
+                <Label x:Name="AppLanguageLabel" Grid.Column="0" Content="App language"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="8" />
 

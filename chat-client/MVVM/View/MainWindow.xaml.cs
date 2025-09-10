@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 8th, 2025</date>
+/// <date>September 10th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -68,7 +68,12 @@ namespace chat_client
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
             // Apply watermarks on startup
-            WatermarksManager.RefreshWatermarks(this);
+            ApplyWatermarkImages();
+
+            // Refresh all UI labels and texts with localized strings
+            string lang = Properties.Settings.Default.AppLanguage;
+            LocalizationManager.Initialize(lang);
+            LocalizationManager.UpdateLocalizedUI(this);
 
             // Synchronizes the toggle button with the current theme
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
@@ -79,6 +84,39 @@ namespace chat_client
         
             // Sets focus to username field
             txtUsername.Focus();
+        }
+
+        public void ApplyWatermarkImages()
+        {
+            string lang = Properties.Settings.Default.AppLanguage;   // "fr" or "en"
+            string theme = Properties.Settings.Default.AppTheme;     // "light" or "dark"
+
+            if (lang == "fr")
+            {
+                if (theme == "dark")
+                {
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr_dark.gif", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr_dark.gif", UriKind.Relative));
+                }
+                else // light
+                {
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr.gif", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr.gif", UriKind.Relative));
+                }
+            }
+            else if (lang == "en")
+            {
+                if (theme == "dark")
+                {
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en_dark.gif", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en_dark.gif", UriKind.Relative));
+                }
+                else // light
+                {
+                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en.gif", UriKind.Relative));
+                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en.gif", UriKind.Relative));
+                }
+            }
         }
 
         private void btnScrollLeft_MouseEnter(object sender, MouseEventArgs e)
@@ -170,6 +208,12 @@ namespace chat_client
             };
         }
 
+        public void DisposeTrayIcon()
+        {
+            trayIcon?.Dispose();
+            trayIcon = null;
+        }
+
         /// <summary>
         /// Inserts the selected emoji into the message input field.
         /// </summary>
@@ -182,6 +226,16 @@ namespace chat_client
                 txtMessageToSend.CaretIndex = txtMessageToSend.Text.Length;
             }
         }
+
+        public static string GetWatermarkPath(string fieldKey)
+        {
+            string lang = Properties.Settings.Default.AppLanguage;   // "fr" or "en"
+            string theme = Properties.Settings.Default.AppTheme;     // "light" or "dark"
+            string suffix = theme == "dark" ? "_dark" : "";
+
+            return $"/Resources/{fieldKey}_background_{lang}{suffix}.gif";
+        }
+
 
         /// <summary>
         /// Minimizes the application to the system tray and hides it from the taskbar.
@@ -248,95 +302,16 @@ namespace chat_client
         }
 
         /// <summary>
-        /// This method dynamically applies the correct watermark according to field,
-        /// language and theme. It restores the background if the field is filled in.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OnTextBoxTextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (sender is not TextBox currentTextBox)
-                return;
-
-            // fieldKey is a dynamic selector tied to the resource naming convention
-            // established for localized watermarks.
-            string fieldKey = null;
-
-            if (currentTextBox.Name == "txtUsername")
-            {
-                fieldKey = "txtUsername";
-            }
-            else if (currentTextBox.Name == "txtIPAddress")
-            {
-                fieldKey = "txtIPAddress";
-            }
-
-            if (fieldKey == null)
-            {
-                return;
-            }
-
-            string currentLanguage = Properties.Settings.Default.AppLanguage;   // "en" or "fr"
-            string currentTheme = Properties.Settings.Default.AppTheme;         // "light" or "dark"
-            string suffix = currentTheme == "dark" ? "_dark" : "";
-
-            string resourceKey = $"{fieldKey}_background_{currentLanguage}{suffix}";
-
-            bool isTextboxEmpty = string.IsNullOrWhiteSpace(currentTextBox.Text);
-
-            if (isTextboxEmpty)
-            {
-                if (TryFindResource(resourceKey) is ImageBrush watermarkBrush)
-                {
-                    currentTextBox.Background = watermarkBrush;
-                }
-
-                if (currentTextBox.Name == "txtUsername")
-                    cmdConnectDisconnect.IsEnabled = false;
-            }
-            else
-            {
-                if (TryFindResource("BackgroundColor") is Brush themeBrush)
-                {
-                    currentTextBox.Background = themeBrush;
-                }
-                else
-                {
-                    currentTextBox.Background = null;
-                }
-
-                if (currentTextBox.Name == "txtUsername")
-                    cmdConnectDisconnect.IsEnabled = true;
-            }
-        }
-
-        /// <summary>
         /// Resets the arrow icon to point right when popup is closed
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void popupEmojiPanel_Closed(object sender, EventArgs e)
+        private void PopupEmojiPanel_Closed(object sender, EventArgs e)
         {
             // Re-enable the button and restore the default icon
             cmdEmojiPanel.IsEnabled = true;
             imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
             isEmojiPanelOpen = false;
-        }
-
-        /// <summary>
-        /// Restores the main window from the system tray and disposes the tray icon.
-        /// </summary>
-        private void RestoreFromTray()
-        {
-            if (trayIcon != null)
-            {
-                trayIcon.Dispose();
-                trayIcon = null;
-            }
-
-            this.Show();
-            this.WindowState = WindowState.Normal;
-            this.ShowInTaskbar = true;
         }
 
         /// <summary>
@@ -360,6 +335,9 @@ namespace chat_client
         {
             // Apply dark theme to this window with fade animation
             ThemeManager.ApplyTheme(true);
+
+            // Refresh all UI labels and texts with localized strings
+            LocalizationManager.UpdateLocalizedUI(this);
 
             // Save user preference
             Properties.Settings.Default.AppTheme = "Dark";
@@ -397,6 +375,11 @@ namespace chat_client
 
         private void TrayMenu_Open_Click(object sender, RoutedEventArgs e)
         {
+            if (trayIcon != null)
+            {
+                trayIcon.Dispose();
+            }
+
             this.Show();
             this.WindowState = WindowState.Normal;
             this.ShowInTaskbar = true;
@@ -454,6 +437,21 @@ namespace chat_client
                 // Simulate the click on the cmdConnect button
                 cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
+        }
+
+        private void txtUsername_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            bool isEmpty = string.IsNullOrWhiteSpace(txtUsername.Text);
+
+            imgUsernameWatermark.Visibility = isEmpty ? Visibility.Visible : Visibility.Hidden;
+            cmdConnectDisconnect.IsEnabled = !isEmpty;
+        }
+
+        private void txtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            bool isEmpty = string.IsNullOrWhiteSpace(txtIPAddress.Text);
+
+            imgIPAddressWatermark.Visibility = isEmpty ? Visibility.Visible : Visibility.Hidden;
         }
     }
 }

@@ -18,12 +18,4 @@
     <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource DisabledButtonColor}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
    
-    <!-- English watermarks -->
-    <ImageBrush x:Key="txtUsername_background_en" ImageSource="/Resources/txtUsername_background_en.gif" AlignmentX="Left" Stretch="None" />
-    <ImageBrush x:Key="txtIPAddress_background_en" ImageSource="/Resources/txtIPAddress_background_en.gif" AlignmentX="Left" Stretch="None" />
-
-    <!-- French watermarks -->
-    <ImageBrush x:Key="txtUsername_background_fr" ImageSource="/Resources/txtUsername_background_fr.gif" AlignmentX="Left" Stretch="None" />
-    <ImageBrush x:Key="txtIPAddress_background_fr" ImageSource="/Resources/txtIPAddress_background_fr.gif" AlignmentX="Left" Stretch="None" />
-
 </ResourceDictionary>
