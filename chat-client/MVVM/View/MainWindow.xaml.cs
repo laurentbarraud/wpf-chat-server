@@ -560,6 +560,18 @@ namespace chat_client
 
             imgUsernameWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
             cmdConnectDisconnect.IsEnabled = !textBoxIsEmpty;
+
+            if (txtUsername.Background is SolidColorBrush brush &&
+                brush.Color == (Color)ColorConverter.ConvertFromString("#DC143C"))
+            {
+                // Restores the themed background brush from resources
+                var defaultBrush = TryFindResource("BackgroundBrush") as Brush;
+                if (defaultBrush != null)
+                {
+                    txtUsername.Background = defaultBrush;
+                }
+            }
+
         }
 
         private void txtIPAddress_TextChanged(object sender, TextChangedEventArgs e)

@@ -53,13 +53,6 @@
             <Grid DockPanel.Dock="Top" Height="25">
 
                 <!-- TextBox -->
-                <Image x:Name="imgUsernameWatermark"
-                       Stretch="Uniform"
-                       IsHitTestVisible="False"
-                       VerticalAlignment="Center"
-                       HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=txtUsername}"
-                       Height="{Binding ActualHeight, ElementName=txtUsername}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
                 <TextBox x:Name="txtUsername"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
@@ -74,6 +67,13 @@
                          HorizontalAlignment="Left"
                          Width="200"
                          Height="25"/>
+                <Image x:Name="imgUsernameWatermark"
+                       Stretch="Uniform"
+                       IsHitTestVisible="False"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Width="{Binding ActualWidth, ElementName=txtUsername}"
+                       Height="{Binding ActualHeight, ElementName=txtUsername}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
 
                 <!-- Watermark -->
             </Grid>
@@ -81,13 +81,6 @@
             <Grid DockPanel.Dock="Top" Height="25">
 
                 <!-- TextBox -->
-                <Image x:Name="imgIPAddressWatermark"
-                       Stretch="Uniform"
-                       IsHitTestVisible="False"
-                       VerticalAlignment="Center"
-                       HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=txtIPAddress}"
-                       Height="{Binding ActualHeight, ElementName=txtIPAddress}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
                 <TextBox x:Name="txtIPAddress"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
@@ -102,6 +95,13 @@
                          HorizontalAlignment="Left"
                          Width="200"
                          Height="25"/>
+                <Image x:Name="imgIPAddressWatermark"
+                       Stretch="Uniform"
+                       IsHitTestVisible="False"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Width="{Binding ActualWidth, ElementName=txtIPAddress}"
+                       Height="{Binding ActualHeight, ElementName=txtIPAddress}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
                 <!-- Watermark -->
             </Grid>
 
