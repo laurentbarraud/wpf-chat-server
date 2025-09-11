@@ -1,12 +1,21 @@
 ﻿<Application x:Class="chat_client.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tb="http://www.hardcodet.net/taskbar">
+
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!-- Load default theme for design-time -->
                 <ResourceDictionary Source="Themes/LightTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Persistent tray icon, hidden by default -->
+            <tb:TaskbarIcon x:Key="TrayIcon"
+                            Visibility="Collapsed"
+                            IconSource="pack://application:,,,/Resources/calc-icon.ico"
+                            ToolTipText="WPF Chat Client"
+                            MenuActivation="RightClick" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

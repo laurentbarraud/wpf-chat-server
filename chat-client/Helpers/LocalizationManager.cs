@@ -100,6 +100,13 @@ namespace chat_client.Helpers
                 {
                     mainWindow.UpdateConnectButtonText();
                     mainWindow.ApplyWatermarkImages();
+
+                    // Update tray menu labels
+                    if (mainWindow.TrayMenuOpen != null)
+                        mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
+
+                    if (mainWindow.TrayMenuQuit != null)
+                        mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
                 }
             }
         }

@@ -12,18 +12,11 @@
         PreviewKeyDown="MainWindow1_PreviewKeyDown">
     <Window.Resources>
 
-        <!-- ContextMenu resource for tray icon -->
-        <ContextMenu x:Key="TrayMenu">
-            <MenuItem Header="Open" Click="TrayMenu_Open_Click" />
-            <MenuItem Header="Quit" Click="TrayMenu_Quit_Click" />
-        </ContextMenu>
-
         <!-- TaskbarIcon declaration -->
         <tb:TaskbarIcon x:Key="TrayIcon"
                     IconSource="/Resources/calc-icon.ico"
                     ToolTipText="Windows Calculator"
                     MenuActivation="RightClick"
-                    ContextMenu="{StaticResource TrayMenu}"
                     TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick" />
 
         <!-- Slide animation for emoji popup -->

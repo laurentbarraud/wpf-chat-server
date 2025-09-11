@@ -192,6 +192,12 @@
   <data name="ServerUnreachable" xml:space="preserve">
     <value>Le serveur est inaccessible ou a refusé la connexion.</value>
   </data>
+  <data name="TrayOpen" xml:space="preserve">
+    <value>Ouvrir</value>
+  </data>
+  <data name="TrayQuit" xml:space="preserve">
+    <value>Quitter</value>
+  </data>
   <data name="UseCustomPortLabel" xml:space="preserve">
     <value>Utiliser un port TCP personnalisé</value>
   </data>

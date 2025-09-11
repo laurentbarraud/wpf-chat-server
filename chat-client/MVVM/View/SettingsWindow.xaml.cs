@@ -127,16 +127,23 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.Save();
         }
 
+        /// <summary>
+        /// Handles the unchecking of the "Reduce in tray" toggle.
+        /// Updates user settings and disposes the tray icon if active.
+        /// </summary>
         private void ReduceInTrayToggle_Unchecked(object sender, RoutedEventArgs e)
         {
+            // Update user preference to disable tray minimization
             Properties.Settings.Default.ReduceInTray = false;
             Properties.Settings.Default.Save();
 
+            // Dispose tray icon if it exists
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
                 mainWindow.DisposeTrayIcon();
             }
         }
+
 
 
         private void txtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
