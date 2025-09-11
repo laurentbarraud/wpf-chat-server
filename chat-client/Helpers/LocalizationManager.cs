@@ -16,13 +16,18 @@ using System.Windows;
 namespace chat_client.Helpers
 {
     /// <summary>
-    /// Manages localization by loading resource files based on selected language.
+    /// Provides centralized localization support for the application.
+    /// Loads resource strings based on the selected language and updates UI elements accordingly.
     /// </summary>
     public static class LocalizationManager
     {
         public static ResourceManager ResourceManager { get; private set; }
         public static CultureInfo CurrentCulture { get; private set; }
 
+        /// <summary>
+        /// Initializes the localization system with the specified language code.
+        /// </summary>
+        /// <param name="languageCode">A valid language code ("en" or "fr").</param>
         public static void Initialize(string languageCode)
         {
             CurrentCulture = new CultureInfo(languageCode);
@@ -30,13 +35,19 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Returns the localized string for the given key.
+        /// Retrieves a localized string from the resource file using the specified key.
         /// </summary>
+        /// <param name="key">The resource key to look up.</param>
+        /// <returns>The localized string corresponding to the key, or null if not found.</returns>
         public static string GetString(string key)
         {
             return ResourceManager.GetString(key, CurrentCulture);
         }
 
+        /// <summary>
+        /// Applies localized strings to UI elements across all open windows.
+        /// This method updates labels and buttons based on the current language setting.
+        /// </summary>
         public static void UpdateLocalizedUI()
         {
             foreach (Window window in Application.Current.Windows)
