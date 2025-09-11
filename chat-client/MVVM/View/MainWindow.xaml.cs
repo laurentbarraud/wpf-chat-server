@@ -230,15 +230,6 @@ namespace chat_client
             }
         }
 
-        public static string GetWatermarkPath(string fieldKey)
-        {
-            string lang = Properties.Settings.Default.AppLanguage;   // "fr" or "en"
-            string theme = Properties.Settings.Default.AppTheme;     // "light" or "dark"
-            string suffix = theme == "dark" ? "_dark" : "";
-
-            return $"/Resources/{fieldKey}_background_{lang}{suffix}.gif";
-        }
-
 
         /// <summary>
         /// Minimizes the application to the system tray and hides it from the taskbar.
@@ -383,7 +374,7 @@ namespace chat_client
         {
             if (trayIcon != null)
             {
-                trayIcon.Dispose();
+                DisposeTrayIcon();
             }
 
             this.Show();
