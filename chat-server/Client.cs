@@ -17,6 +17,13 @@ namespace chat_server
 
         private readonly PacketReader _packetReader;
 
+        /// <summary>
+        /// RSA public key of the client, used for end-to-end encryption.
+        /// This key is received from the client after connection and used by others to encrypt messages.
+        /// </summary>
+        public string PublicKeyBase64 { get; set; }
+
+
         public Client(TcpClient client)
         {
             ClientSocket = client;
@@ -53,7 +60,11 @@ namespace chat_server
                             // Broadcasts the full message to other clients
                             Program.BroadcastMessage($"{Username}: {messageReceived}");
                             break;
-
+                        
+                        case 6: // Public key exchange
+                            string publicKeyBase64 = _packetReader.ReadMessage();
+                            this.PublicKeyBase64 = publicKeyBase64;
+                            break;
                     }
                 }
                 catch (Exception)

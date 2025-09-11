@@ -120,7 +120,7 @@ namespace chat_client.Net
 
         /// <summary>
         /// Continuously reads incoming packets from the server.
-        /// Handles known opcodes and manages disconnection on failure.
+        /// Dispatches known opcodes and handles disconnection gracefully.
         /// </summary>
         private void ReadPackets()
         {
@@ -130,50 +130,69 @@ namespace chat_client.Net
                 {
                     while (_client.Connected)
                     {
-                        // Read the first byte (opcode)
+                        // Reads the first byte from the stream — this is the opcode
                         var opcode = PacketReader.ReadByte();
 
-                        // Dispatch based on opcode
+                        // Dispatches logic based on opcode value
                         switch (opcode)
                         {
                             case 1:
+                                // Triggers connection event (e.g., user joined)
                                 connectedEvent?.Invoke();
                                 break;
 
                             case 5:
+                                // Triggers message received event
                                 msgReceivedEvent?.Invoke();
                                 break;
 
-                            case 10:
-                                userDisconnectEvent?.Invoke();
+                            case 6:
+                                // Handles public key exchange from another client
+                                string senderUID = PacketReader.ReadMessage();
+                                string publicKeyBase64 = PacketReader.ReadMessage();
+
+                                // Registers the received public key in the ViewModel
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    if (Application.Current.MainWindow is MainWindow mainWindow &&
+                                        mainWindow.ViewModel != null)
+                                    {
+                                        mainWindow.ViewModel.KnownPublicKeys[senderUID] = publicKeyBase64;
+                                        Console.WriteLine($"Received public key from {senderUID}");
+                                    }
+                                });
                                 break;
 
-                                // Add more opcodes as needed
+                            case 10:
+                                // Triggers user disconnect event
+                                userDisconnectEvent?.Invoke();
+                                break;
                         }
                     }
                 }
                 catch (Exception)
                 {
-                    // Handle disconnection or stream failure
+                    // Handles disconnection or stream failure gracefully
                     Application.Current.Dispatcher.Invoke(() =>
                     {
-                        var mainWindow = Application.Current.MainWindow as MainWindow;
-                        if (mainWindow == null) return;
+                        if (Application.Current.MainWindow is not MainWindow mainWindow ||
+                            mainWindow.ViewModel is not MainViewModel mainViewModel)
+                            return;
 
-                        var mainViewModel = mainWindow.ViewModel;
-                        if (mainViewModel == null) return;
-
-                        // Notify user in chat
+                        // Notifies user in chat
                         mainViewModel.Messages.Add(LocalizationManager.GetString("ServerHasClosed"));
 
-                        // Create a timer to delay UI reset
-                        var timer = new System.Timers.Timer(2000);
-                        timer.AutoReset = false; // Only fire once
+                        // Delays UI reset to allow user to read the message
+                        var timer = new System.Timers.Timer(2000)
+                        {
+                            AutoReset = false // Fire only once
+                        };
+
                         timer.Elapsed += (s, e) =>
                         {
                             Application.Current.Dispatcher.Invoke(() =>
                             {
-                                // Reset UI state
+                                // Resets UI state (e.g., reconnect button, input fields)
                                 mainViewModel.ReinitializeUI();
                             });
                         };
@@ -184,38 +203,39 @@ namespace chat_client.Net
             });
         }
 
+
         /// <summary>
         /// Sends a message to the server using the standard message packet format.
         /// If encryption is enabled via application settings, the message is encrypted
-        /// using the client's public key before transmission. Otherwise, it is sent as plain text.
+        /// using the recipient's public key before transmission. Otherwise, it is sent as plain text.
         /// </summary>
-
+        /// <param name="message">The plain text message to send.</param>
         public void SendMessageToServer(string message)
         {
-            // If encryption is enabled in application settings, encrypt the message before sending
             bool encryptionEnabled = chat_client.Properties.Settings.Default.UseEncryption;
 
             if (encryptionEnabled)
             {
-                // Prefix the encrypted message with a marker to indicate its format.
-                // This allows receiving clients to detect whether the message should be decrypted.
-                // Without this, clients may attempt to decrypt plain text, causing failures.
-                message = "[ENC]" + EncryptionHelper.EncryptMessage(message);
+                // Encrypt the message with the sender's own public key
+                string encrypted = EncryptionHelper.EncryptMessage(message, EncryptionHelper.GetPublicKeyBase64());
+
+
+                // Prefix with marker so receivers know it's encrypted
+                message = "[ENC]" + encrypted;
             }
 
             var messagePacket = new PacketBuilder();
-
-            // We use opcode 5 for messages packets
-            messagePacket.WriteOpCode(5);
+            messagePacket.WriteOpCode(5); // OpCode for public chat message
             messagePacket.WriteMessage(message);
-            
-            // This avoids silently failed shipments
+            var uid = (Application.Current.MainWindow as MainWindow)?.ViewModel?.LocalUser?.UID;
+            messagePacket.WriteMessage(uid ?? "unknown");   // Include sender UID so others can decrypt
+
             if (_client == null || !_client.Connected)
             {
                 Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
-            // Send the message packet through the TCP client socket
+
             _client.Client.Send(messagePacket.GetPacketBytes());
         }
 

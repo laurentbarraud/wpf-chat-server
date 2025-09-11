@@ -5,6 +5,8 @@
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
+using chat_client.Net;
+using chat_client.Net.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -186,11 +188,24 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // Shows the encryption icon in MainWindow
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
                 mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
+
+                var server = mainWindow.Server;
+                if (server != null && Properties.Settings.Default.UseEncryption)
+                {
+                    string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
+
+                    var keyPacket = new PacketBuilder();
+                    keyPacket.WriteOpCode(6);
+                    keyPacket.WriteMessage(publicKeyBase64);
+
+                    server.SendRawPacket(keyPacket.GetPacketBytes());
+                }
             }
+
+
         }
 
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)

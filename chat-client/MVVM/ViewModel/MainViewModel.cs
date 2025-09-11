@@ -22,6 +22,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 
 
@@ -48,6 +49,9 @@ namespace chat_client.MVVM.ViewModel
         // of the MainWindow in View gets stored in this property
         // (binded in xaml file).
         public static string Message { get; set; }
+
+        public UserModel LocalUser { get; set; }
+
 
         public Server _server = new Server();
 
@@ -94,6 +98,13 @@ namespace chat_client.MVVM.ViewModel
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
+        /// <summary>
+        /// Stores public keys of other connected users, indexed by their UID.
+        /// Used for encrypting messages to specific recipients.
+        /// </summary>
+        public Dictionary<string, string> KnownPublicKeys { get; } = new();
+
+
         public MainViewModel()
         {
             Users = new ObservableCollection<UserModel>();
@@ -128,6 +139,11 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
+                LocalUser = new UserModel
+                {
+                    Username = Username.Trim(),
+                };
+
                 // Attempt to connect to the server
                 IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
                 if (!IsConnected)
@@ -375,7 +391,7 @@ namespace chat_client.MVVM.ViewModel
                     // Avoids to be notified of who is connected at login time (user sees it in the list of users on left)
                     if (Message != null)
                     {
-                        Messages.Add("# - " + user.Username + LocalizationManager.GetString("HasConnected") + ". #");
+                        Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasConnected") + ". #");
                     }
                 });
             }
@@ -395,7 +411,7 @@ namespace chat_client.MVVM.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Users.Remove(user);
-                    Messages.Add("# - " + user.Username + LocalizationManager.GetString("HasDisconnected") + ". #");
+                    Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasDisconnected") + ". #");
                 });
             }
         }

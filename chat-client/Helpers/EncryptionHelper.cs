@@ -46,25 +46,26 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Encrypts a plain text message using the RSA public key.
+        /// Encrypts a plain text message using the recipient's RSA public key.
         /// This ensures that only the holder of the corresponding private key can decrypt the message.
         /// </summary>
         /// <param name="plainMessage">The UTF-8 encoded message to encrypt.</param>
-        /// <returns>Base64-encoded encrypted string safe for transmission over text protocols.</returns>
-        public static string EncryptMessage(string plainMessage)
+        /// <param name="recipientPublicKeyXmlBase64">Base64-encoded XML public key of the recipient.</param>
+        /// <returns>Base64-encoded encrypted string safe for transmission over text protocols..</returns>
+        public static string EncryptMessage(string plainMessage, string recipientPublicKeyXmlBase64)
         {
             using var rsa = RSA.Create();
-            rsa.ImportParameters(publicKey); // Load the public key into the RSA instance
 
-            var data = Encoding.UTF8.GetBytes(plainMessage); // Convert message to byte array
+            // Decode and import the recipient's public key
+            string xmlKey = Encoding.UTF8.GetString(Convert.FromBase64String(recipientPublicKeyXmlBase64));
+            rsa.FromXmlString(xmlKey);
 
-            // Encrypt using OAEP padding with SHA-256 hash algorithm.
-            // OAEP (Optimal Asymmetric Encryption Padding) provides semantic security and prevents deterministic encryption.
+            var data = Encoding.UTF8.GetBytes(plainMessage);
             var encrypted = rsa.Encrypt(data, RSAEncryptionPadding.OaepSHA256);
 
-            // Convert encrypted byte array to Base64 string for safe transmission (e.g., over TCP or text-based protocols)
             return Convert.ToBase64String(encrypted);
         }
+
 
         /// <summary>
         /// Decrypts a Base64-encoded encrypted message using the RSA private key.

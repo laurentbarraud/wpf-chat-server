@@ -56,6 +56,8 @@ namespace chat_client
         public MenuItem TrayMenuOpen { get; private set; }
         public MenuItem TrayMenuQuit { get; private set; }
 
+        public Server Server => ViewModel?.Server;
+
         public MainWindow()
         {
             InitializeComponent();

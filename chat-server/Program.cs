@@ -157,6 +157,25 @@ namespace chat_server
             }
         }
 
+        public static void BroadcastPublicKeys()
+        {
+            foreach (var sender in _users)
+            {
+                foreach (var receiver in _users)
+                {
+                    if (sender != receiver)
+                    {
+                        var keyPacket = new PacketBuilder();
+                        keyPacket.WriteOpCode(6); // OpCode for public key exchange
+                        keyPacket.WriteMessage(sender.UID.ToString());
+                        keyPacket.WriteMessage(sender.PublicKeyBase64);
+                        receiver.ClientSocket.Client.Send(keyPacket.GetPacketBytes());
+                    }
+                }
+            }
+        }
+
+
         /// <summary>
         /// Sends a message to all connected users.
         /// Opcode 5 is used for general messages.
