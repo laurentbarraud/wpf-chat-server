@@ -31,8 +31,12 @@ namespace chat_client
     {
         public MainViewModel ViewModel { get; set; }
 
+        // Indicates whether the client is currently connected to the server.
+        // Uses null-conditional access to safely evaluate connection state.
         public bool IsConnected => ViewModel?.Server != null && ViewModel.Server.IsConnected;
 
+        // Stores the timestamp of the last Ctrl key press.
+        // Used for detecting double-press or timing-based shortcuts.
         private DateTime lastCtrlPress = DateTime.MinValue;
 
         // Tray icon variables
@@ -106,6 +110,9 @@ namespace chat_client
             txtUsername.Focus();
         }
 
+        /// <summary>
+        /// Changes the watermark images
+        /// </summary>
         public void ApplyWatermarkImages()
         {
             string lang = Properties.Settings.Default.AppLanguage;   // "fr" or "en"
@@ -188,6 +195,11 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Sends a message to the server
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
             // Prevent sending if message is empty or client is not connected
