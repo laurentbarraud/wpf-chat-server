@@ -297,8 +297,10 @@
                 IsDefault="True" TabIndex="10">
             <Image Source="/Resources/validate.png" Stretch="Uniform"/>
         </Button>
-        <Label Grid.Row="2"
-               Content="About WPF Chat Server"
+        
+        <!-- Label About -->
+        <Label x:Name="lblAbout"
+               Grid.Row="2"
                HorizontalAlignment="Center"
                Margin="0,28,0,-16"
                Foreground="{DynamicResource ForegroundBrush}"
@@ -307,6 +309,5 @@
                MouseDown="AboutLabel_MouseDown"
                TabIndex="11" />
 
-        <!-- Label About -->
     </Grid>
 </Window>

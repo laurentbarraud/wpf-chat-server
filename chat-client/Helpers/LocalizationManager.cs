@@ -95,6 +95,7 @@ namespace chat_client.Helpers
                     settings.ReduceInTrayLabel.Content = GetString("ReduceInTrayLabel");
                     settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
                     settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
+                    settings.lblAbout.Content = GetString("About");
                 }
                 else if (window is MainWindow mainWindow)
                 {

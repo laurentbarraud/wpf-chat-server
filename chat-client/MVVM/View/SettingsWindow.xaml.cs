@@ -39,16 +39,16 @@ namespace chat_client.MVVM.View
         {
             try
             {
-                // Retrieve saved language from application settings
+                // Retrieves saved language from application settings
                 string appLanguage = Properties.Settings.Default.AppLanguage;
 
-                // Initialize the localization manager with the saved language
+                // Initializes the localization manager with the saved language
                  LocalizationManager.Initialize(appLanguage);
 
-                // Refresh all UI labels and texts with localized strings
+                // Refreshes all UI labels and texts with localized strings
                 LocalizationManager.UpdateLocalizedUI();
 
-                // Select the corresponding ComboBox item based on the saved app language
+                // Selects the corresponding ComboBox item based on the saved app language
                 foreach (ComboBoxItem item in LanguageComboBox.Items)
                 {
                     if ((string)item.Tag == appLanguage)
@@ -58,7 +58,7 @@ namespace chat_client.MVVM.View
                     }
                 }
 
-                // Synchronize toggle buttons and port field with saved settings
+                // Synchronizes toggle buttons and port field with saved settings
                 UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
                 txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
                 ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
@@ -66,7 +66,7 @@ namespace chat_client.MVVM.View
             }
             catch (Exception ex)
             {
-                // Log the error to console to help diagnose crashes
+                // Logs the error to console to help diagnose crashes
                 Console.WriteLine($"[ERROR] SettingsWindow_Loaded failed: {ex.Message}");
                 MessageBox.Show(LocalizationManager.GetString("ErrorLoadingThemeResources"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
