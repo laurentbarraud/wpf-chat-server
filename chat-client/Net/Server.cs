@@ -34,39 +34,44 @@ namespace chat_client.Net
             _client = new TcpClient();
         }
 
-        // We're calling this from the MainViewModel
+        /// <summary>
+        /// Establishes a TCP connection to the chat server using the specified IP address and username.
+        /// This method is invoked from the MainViewModel during client initialization.
+        /// It handles IP validation, port selection (default or custom), and initiates the handshake protocol.
+        /// Upon successful connection, it initializes the packet reader and begins listening for incoming packets.
+        /// Returns true if the connection succeeds; false otherwise.
+        /// </summary>
+        /// <param name="username">The display name of the user initiating the connection.</param>
+        /// <param name="IPAddressOfServer">The target server IP address. If null or empty, defaults to localhost.</param>
+        /// <returns>True if the connection is successfully established; false if an error occurs.</returns>
         public bool ConnectToServer(string username, string IPAddressOfServer)
         {
             // If already connected, no need to reconnect
             if (_client.Connected)
                 return true;
-
             try
             {
-                // Determines which IP to connect to: localhost or user-provided
+                // Determine target IP: use localhost if no IP is provided
                 string ipToConnect = string.IsNullOrWhiteSpace(IPAddressOfServer) ? "127.0.0.1" : IPAddressOfServer;
 
-                // Validates IP format if not localhost
+                // Validate IP format if not localhost
                 if (ipToConnect != "127.0.0.1" && !IPAddress.TryParse(ipToConnect, out _))
                 {
-                    // Invalid IP format — throw exception to be caught by caller
                     throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
                 }
 
-                int portToUse = 7123;
+                // Select port: use custom if enabled, otherwise default to 7123
+                int portToUse = Properties.Settings.Default.UseCustomPort
+                    ? Properties.Settings.Default.CustomPortNumber
+                    : 7123;
 
-                if (Properties.Settings.Default.UseCustomPort)
-                {
-                    portToUse = Properties.Settings.Default.CustomPortNumber;
-                }
-
+                // Connect to server
                 _client.Connect(ipToConnect, portToUse);
 
-
-                // Initializes the packet reader using the network stream
+                // Initialize packet reader from network stream
                 PacketReader = new PacketReader(_client.GetStream());
 
-                // Sends initial connection packet with username
+                // Send initial connection packet with username
                 if (!string.IsNullOrEmpty(username))
                 {
                     var connectPacket = new PacketBuilder();
@@ -75,19 +80,16 @@ namespace chat_client.Net
                     _client.Client.Send(connectPacket.GetPacketBytes());
                 }
 
-                // Starts listening for incoming packets
+                // Start listening for incoming packets
                 ReadPackets();
 
-                // Connection successful
-                return true;
+                return true; // Connection successful
             }
             catch
             {
-                // Connection failed — return false to be handled by caller
-                return false;
+                return false; // Connection failed
             }
         }
-
 
         /// <summary>
         /// Closes the TCP connection and resets internal state

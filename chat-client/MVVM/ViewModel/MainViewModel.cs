@@ -9,7 +9,12 @@ using chat_client.Net;
 using chat_client.Net.IO;
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.ComponentModel;
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Security.Policy;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
@@ -17,9 +22,6 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using System.ComponentModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 
 
 
@@ -355,8 +357,14 @@ namespace chat_client.MVVM.ViewModel
                 UID = _server.PacketReader.ReadMessage(),
             };
 
-            // If the users collection doesn't
-            // contain any user that already has that UID
+            // Checks whether the user is already present in the Users collection,
+            // by verifying that no existing user has the same UID.
+            // Uses LINQ's .Any() to efficiently scan the collection.
+            // The! in front means that no existing user has this UID
+            // So we add the new user only if he is not already in the list
+            // This prevents duplicate entries when multiple connection events are received.
+
+
             if (!Users.Any(x => x.UID == user.UID))
             {
                 // Executes UI bound actions on the main application thread
