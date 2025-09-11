@@ -18,11 +18,14 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.ComponentModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
 
 
 namespace chat_client.MVVM.ViewModel
 {
-    public class MainViewModel
+    public class MainViewModel : INotifyPropertyChanged
     {
         // Represents a dynamic data collection that provides notification
         // when items are added or removed, or when the full list is refreshed.
@@ -44,7 +47,9 @@ namespace chat_client.MVVM.ViewModel
         // (binded in xaml file).
         public static string Message { get; set; }
 
-        public static Server _server;
+        public Server _server = new Server();
+
+        public Server Server => _server;
 
         // Declaring the list as public ensures it can be resolved by WPF's binding system,
         // assuming the containing object is set as the DataContext.
@@ -61,6 +66,31 @@ namespace chat_client.MVVM.ViewModel
         // Exposes the current encryption setting (UseEncryption) as a read-only property.
         // Uses expression-bodied syntax (=>) for clarity and ensures the value is always up-to-date.
         public bool IsEncryptionEnabled => chat_client.Properties.Settings.Default.UseEncryption;
+
+        private bool _isConnected;
+
+        public bool IsConnected
+        {
+            get => _isConnected;
+            set
+            {
+                if (_isConnected != value)
+                {
+                    _isConnected = value;
+
+                    // Warns the interface that the value has changed
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         public MainViewModel()
         {
@@ -96,56 +126,48 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Disable input fields during connection attempt
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
-                    {
-                        mainWindow.txtUsername.IsEnabled = false;
-                        mainWindow.txtIPAddress.IsEnabled = false;
-                    }
-                });
-
                 // Attempt to connect to the server
-                bool connected = _server.ConnectToServer(Username, IPAddressOfServer);
-                if (!connected)
+                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
+                if (!IsConnected)
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
 
-                // Update UI to reflect connected state
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
+                        // Disable input fields
+                        mainWindow.txtUsername.IsEnabled = false;
+                        mainWindow.txtIPAddress.IsEnabled = false;
+
+                        // Update localized UI
+                        LocalizationManager.UpdateLocalizedUI();
+
+                        // Update title and visibility
                         mainWindow.Title += " - " + LocalizationManager.GetString("Connected");
-                        mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnCenter.Visibility = Visibility.Visible;
-
-                        // If encryption is enabled, send public key to server
-                        if (chat_client.Properties.Settings.Default.UseEncryption)
-                        {
-                            // Get the public key in Base64 format
-                            string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
-
-                            // Send the public key to the server using opcode 6 (example)
-                            var keyPacket = new PacketBuilder();
-                            keyPacket.WriteOpCode(6); // Define opcode 6 for public key exchange
-                            keyPacket.WriteMessage(publicKeyBase64);
-
-                            // Send the packet using the server's raw packet method,
-                            // which is designed for binary payloads like key exchange.
-                            _server.SendRawPacket(keyPacket.GetPacketBytes());
-                        }
-
                     }
                 });
+
 
                 // Save last used IP for future sessions
                 chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
                 chat_client.Properties.Settings.Default.Save();
+
+                // If encryption is enabled, send public key to server
+                if (chat_client.Properties.Settings.Default.UseEncryption)
+                {
+                    string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
+
+                    var keyPacket = new PacketBuilder();
+                    keyPacket.WriteOpCode(6);
+                    keyPacket.WriteMessage(publicKeyBase64);
+
+                    _server.SendRawPacket(keyPacket.GetPacketBytes());
+                }
             }
             catch (Exception)
             {
-                // Handle connection failure and reset UI
+                // Handles connection failure and reset UI
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)

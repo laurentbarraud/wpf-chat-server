@@ -130,7 +130,7 @@
     <value>Le socket du client n’est pas connecté.</value>
   </data>
   <data name="ConnectButton" xml:space="preserve">
-    <value>_Connecter</value>
+    <value>Connecter</value>
   </data>
   <data name="Connected" xml:space="preserve">
     <value>Connecté</value>
@@ -142,7 +142,7 @@
     <value>[Le déchiffrage a échoué]</value>
   </data>
   <data name="DisconnectButton" xml:space="preserve">
-    <value>_Déconnecter</value>
+    <value>Déconnecter</value>
   </data>
   <data name="DisconnectError" xml:space="preserve">
     <value>Erreur de déconnexion</value>
@@ -194,7 +194,6 @@
   </data>
   <data name="UseCustomPortLabel" xml:space="preserve">
     <value>Utiliser un port TCP personnalisé</value>
-    <comment>Use custom port</comment>
   </data>
   <data name="UseEncryptionLabel" xml:space="preserve">
     <value>Utiliser le chiffrage des messages</value>

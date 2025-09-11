@@ -133,7 +133,7 @@
     <value>Appuyez sur Ctrl+C pour arrêter le serveur.</value>
   </data>
   <data name="BannerLine2" xml:space="preserve">
-    <value>Changez le port TCP utilisé pour l’écoute ou attendez 8 secondes.</value>
+    <value>Changez le port TCP utilisé pour l’écoute ou attendez 7 secondes.</value>
   </data>
   <data name="PortPrompt" xml:space="preserve">
     <value>Entrez un numéro de port entre 1000 et 65535 [défaut : 7123] :</value>

@@ -4,8 +4,10 @@
 /// <date>September 11th, 2025</date>
 
 using chat_client.MVVM.View;
+using chat_client.Net;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Resources;
@@ -21,7 +23,8 @@ namespace chat_client.Helpers
     /// </summary>
     public static class LocalizationManager
     {
-        public static ResourceManager ResourceManager { get; private set; }
+        public static ResourceManager _ResourceManager { get; private set; }
+
         public static CultureInfo CurrentCulture { get; private set; }
 
         /// <summary>
@@ -31,17 +34,51 @@ namespace chat_client.Helpers
         public static void Initialize(string languageCode)
         {
             CurrentCulture = new CultureInfo(languageCode);
-            ResourceManager = new ResourceManager("chat_client.Resources.Strings", typeof(LocalizationManager).Assembly);
-        }
 
+            // Force thread culture
+            Thread.CurrentThread.CurrentUICulture = CurrentCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = CurrentCulture;
+
+            _ResourceManager = new ResourceManager("chat_client.Resources.Strings", typeof(LocalizationManager).Assembly);
+
+
+            // Force UI refresh
+            UpdateLocalizedUI();
+        }
         /// <summary>
         /// Retrieves a localized string from the resource file using the specified key.
+        /// Returns the key itself if the resource manager is not initialized,
+        /// the culture is missing, or the key is not found.
         /// </summary>
         /// <param name="key">The resource key to look up.</param>
-        /// <returns>The localized string corresponding to the key, or null if not found.</returns>
+        /// <returns>The localized string corresponding to the key, or the key itself if not found.</returns>
         public static string GetString(string key)
         {
-            return ResourceManager.GetString(key, CurrentCulture);
+            // Validate input
+            if (string.IsNullOrWhiteSpace(key))
+                return string.Empty;
+
+            // Ensure localization system is initialized
+            if (_ResourceManager == null || CurrentCulture == null)
+                return $"[[{key}]]"; // Fallback marker for debugging
+
+            try
+            {
+                string value = _ResourceManager.GetString(key, CurrentCulture);
+
+                // Return fallback if value is missing or empty
+                return string.IsNullOrWhiteSpace(value) ? $"[[{key}]]" : value;
+            }
+            catch (MissingManifestResourceException ex)
+            {
+                Debug.WriteLine($"Localization error: missing resource for key '{key}' — {ex.Message}");
+                return $"[[{key}]]";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Unexpected localization error for key '{key}' — {ex.Message}");
+                return $"[[{key}]]";
+            }
         }
 
         /// <summary>
@@ -61,7 +98,7 @@ namespace chat_client.Helpers
                 }
                 else if (window is MainWindow mainWindow)
                 {
-                    mainWindow.cmdConnectDisconnect.Content = GetString("ConnectButton");
+                    mainWindow.UpdateConnectButtonText();
                     mainWindow.ApplyWatermarkImages();
                 }
             }

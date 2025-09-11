@@ -13,18 +13,18 @@ namespace chat_server.Helpers
     /// </summary>
     public static class LocalizationManager
     {
-        private static ResourceManager _resourceManager;
+        private static ResourceManager __ResourceManager;
         private static CultureInfo _culture;
 
         public static void Initialize(string languageCode)
         {
             _culture = new CultureInfo(languageCode);
-            _resourceManager = new ResourceManager("chat_server.Resources.Strings", typeof(LocalizationManager).Assembly);
+            __ResourceManager = new ResourceManager("chat_server.Resources.Strings", typeof(LocalizationManager).Assembly);
         }
 
         public static string GetString(string key)
         {
-            return _resourceManager.GetString(key, _culture);
+            return __ResourceManager.GetString(key, _culture);
         }
     }
 }

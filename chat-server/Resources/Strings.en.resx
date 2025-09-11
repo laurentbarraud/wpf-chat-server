@@ -133,7 +133,7 @@
     <value>Press Ctrl+C to stop the server.</value>
   </data>
   <data name="BannerLine2" xml:space="preserve">
-    <value>Change the TCP port used for listening or wait 8 seconds.</value>
+    <value>Change the TCP port used for listening or wait 7 seconds.</value>
   </data>
   <data name="PortPrompt" xml:space="preserve">
     <value>Enter a port number between 1000 and 65535 [default: 7123]:</value>

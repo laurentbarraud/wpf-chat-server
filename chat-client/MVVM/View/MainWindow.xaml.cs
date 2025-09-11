@@ -6,11 +6,13 @@
 using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
+using chat_client.Net;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.Configuration;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -28,6 +30,8 @@ namespace chat_client
     public partial class MainWindow : Window
     {
         public MainViewModel ViewModel { get; set; }
+
+        public bool IsConnected => ViewModel?.Server != null && ViewModel.Server.IsConnected;
 
         private DateTime lastCtrlPress = DateTime.MinValue;
 
@@ -54,6 +58,19 @@ namespace chat_client
 
             // Subscribes to message collection changes to trigger autoscroll
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+
+            // Subscribes to the property change.
+            // This ensures that the button is updated automatically
+            // as soon as IsConnected changes, without having
+            // to call it manually in Connect() or cmdConnectDisconnect_Click.
+            ViewModel.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(ViewModel.IsConnected))
+                {
+                    UpdateConnectButtonText();
+                }
+            };
+
 
             // Initializes the scroll timer for emoji panel
             scrollTimer = new DispatcherTimer();
@@ -174,9 +191,9 @@ namespace chat_client
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
             // Prevent sending if message is empty or client is not connected
-            if (!string.IsNullOrEmpty(MainViewModel.Message) && MainViewModel._server.IsConnected)
+            if (!string.IsNullOrEmpty(MainViewModel.Message) && ViewModel.Server?.IsConnected == true)
             {
-                MainViewModel._server.SendMessageToServer(MainViewModel.Message);
+                ViewModel.Server.SendMessageToServer(MainViewModel.Message);
                 txtMessageToSend.Text = "";
                 txtMessageToSend.Focus();
             }
@@ -288,11 +305,19 @@ namespace chat_client
 
         private void Messages_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            // Scroll to the last message when a new one is added
+            // Scrolls to the last message when a new one is added
             if (e.Action == NotifyCollectionChangedAction.Add && lstMessagesReceived.Items.Count > 0)
             {
                 lstMessagesReceived.ScrollIntoView(lstMessagesReceived.Items[lstMessagesReceived.Items.Count - 1]);
             }
+        }
+
+        protected override void OnContentRendered(EventArgs e)
+        {
+            base.OnContentRendered(e);
+
+            // Forces refresh after full UI load
+            UpdateConnectButtonText();
         }
 
         /// <summary>
@@ -302,7 +327,7 @@ namespace chat_client
         /// <param name="e"></param>
         private void PopupEmojiPanel_Closed(object sender, EventArgs e)
         {
-            // Re-enable the button and restore the default icon
+            // Re-enables the button and restores the default icon
             cmdEmojiPanel.IsEnabled = true;
             imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
             isEmojiPanelOpen = false;
@@ -417,7 +442,7 @@ namespace chat_client
 
         private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (txtMessageToSend.Text == "" || MainViewModel._server.IsConnected == false)
+            if (txtMessageToSend.Text == "" || ViewModel._server.IsConnected == false)
             {
                 cmdSend.IsEnabled = false;
             }
@@ -450,5 +475,13 @@ namespace chat_client
 
             imgIPAddressWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
         }
+
+        public void UpdateConnectButtonText()
+        {
+            cmdConnectDisconnect.Content = ViewModel.IsConnected
+                ? LocalizationManager.GetString("DisconnectButton")
+                : LocalizationManager.GetString("ConnectButton");
+        }
+
     }
 }

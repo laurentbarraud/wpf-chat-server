@@ -96,7 +96,7 @@ namespace chat_server
             int chosenPort = defaultPort;
 
             Console.Write(LocalizationManager.GetString("PortPrompt"));
-            string input = ReadLineWithTimeout(8000); // Wait for user input for 8 seconds
+            string input = ReadLineWithTimeout(7000); // Wait for user input for 7 seconds
 
             if (!string.IsNullOrWhiteSpace(input))
             {

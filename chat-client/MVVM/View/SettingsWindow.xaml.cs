@@ -102,26 +102,24 @@ namespace chat_client.MVVM.View
             if (LanguageComboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 // Get the newly selected language code
-                string selectedLang = (string)selectedItem.Tag;
+                string languageCodeSelected = selectedItem.Tag.ToString(); // "en" or "fr"
 
                 // Get the currently saved language
                 string AppLanguageSaved = Properties.Settings.Default.AppLanguage;
 
                 // Only proceed if the selected language is different from the saved one
-                if (selectedLang != AppLanguageSaved)
+                if (languageCodeSelected != AppLanguageSaved)
                 {
                     // Save the new language to application settings
-                    Properties.Settings.Default.AppLanguage = selectedLang;
+                    Properties.Settings.Default.AppLanguage = languageCodeSelected;
                     Properties.Settings.Default.Save();
 
                     // Reinitialize localization manager with the new language
-                    LocalizationManager.Initialize(selectedLang);
-
-                    // Refresh all UI labels and texts with localized strings
-                    LocalizationManager.UpdateLocalizedUI();
+                    LocalizationManager.Initialize(languageCodeSelected);
                 }
             }
         }
+
 
         private void ReduceInTrayToggle_Checked(object sender, RoutedEventArgs e)
         {

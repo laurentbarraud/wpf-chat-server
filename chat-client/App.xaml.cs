@@ -3,11 +3,13 @@
 /// <version>1.0</version>
 /// <date>September 11th, 2025</date>
 
-using System.Configuration;
-using System.Data;
-using System.Windows;
 using chat_client.Helpers;
 using chat_client.Properties;
+using System.Configuration;
+using System.Data;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Markup;
 
 namespace chat_client
 {
@@ -16,6 +18,10 @@ namespace chat_client
     /// </summary>
     public partial class App : Application
     {
+        /// <summary>
+        /// Application startup logic.
+        /// Applies saved theme and language preferences before loading the main window.
+        /// </summary>
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -25,6 +31,21 @@ namespace chat_client
 
             // Apply the selected theme with fade animation
             ThemeManager.ApplyTheme(useDarkTheme);
+
+            // Get saved language preference from settings
+            string savedLanguage = Settings.Default.AppLanguage ?? "en";
+
+            // Apply culture globally before any window loads
+            var culture = new CultureInfo(savedLanguage);
+            Thread.CurrentThread.CurrentUICulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+
+            // Initialize localization system
+            LocalizationManager.Initialize(savedLanguage);
+
+            // Launch the main window
+            var mainWindow = new MainWindow();
+            mainWindow.Show();
         }
     }
 
