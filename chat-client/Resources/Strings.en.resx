@@ -168,6 +168,9 @@
   <data name="HasDisconnected" xml:space="preserve">
     <value>has disconnected</value>
   </data>
+  <data name="InvalidPublicKey" xml:space="preserve">
+    <value>Invalid public key. Encryption was not enabled.</value>
+  </data>
   <data name="IPAddressInvalid" xml:space="preserve">
     <value>The IP address is incorrect. Leave it blank to connect locally.</value>
   </data>
@@ -188,6 +191,9 @@
   </data>
   <data name="PortNumberValid" xml:space="preserve">
     <value>Port number is valid.</value>
+  </data>
+  <data name="PublicKeyRejected" xml:space="preserve">
+    <value>The public key was rejected by the server. Encryption was not enabled.</value>
   </data>
   <data name="ReduceInTrayLabel" xml:space="preserve">
     <value>Reduce in system tray</value>

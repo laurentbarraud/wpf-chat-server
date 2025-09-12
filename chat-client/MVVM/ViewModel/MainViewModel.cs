@@ -5,6 +5,7 @@
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
+using chat_client.MVVM.View;
 using chat_client.Net;
 using chat_client.Net.IO;
 using System;
@@ -250,27 +251,63 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Initializes encryption if enabled in application settings.
-        /// Generates the public key, stores it in LocalUser, sends it to the server,
-        /// and updates the encryption status icon in the UI.
+        /// Attempts to initialize encryption if the toggle was activated.
+        /// Validates the public key format before applying settings.
+        /// If the key is invalid or rejected by the server, the toggle is reverted and no encryption is enabled.
+        /// Updates the encryption icon and sends the public key to the server if successful.
         /// </summary>
         public void InitializeEncryptionIfEnabled()
         {
-            // Abort if encryption is disabled or required objects are missing
-            if (!Properties.Settings.Default.UseEncryption || LocalUser == null || Server == null)
+            // Aborts if required objects are missing
+            if (LocalUser == null || Server == null)
                 return;
 
-            // Generate and store public key
-            LocalUser.PublicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
+            // Generates public key
+            string publicKey = EncryptionHelper.GetPublicKeyBase64();
 
-            // Send public key to server
-            Server.SendPublicKeyToServer(
-                LocalUser.UID,
-                LocalUser.Username,
-                LocalUser.PublicKeyBase64
-            );
+            // Validates public key format (must be well-formed Base64)
+            if (!EncryptionHelper.IsValidBase64(publicKey))
+            {
+                (Application.Current.MainWindow as MainWindow)?.ShowBanner("InvalidPublicKey");
 
-            // Update encryption icon and trigger animation
+                if (Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault() is SettingsWindow settings)
+                {
+                    settings.UseEncryptionToggle.IsChecked = false;
+                }
+
+                return;
+            }
+
+            // Attempts to send public key to server
+            try
+            {
+                Server.SendPublicKeyToServer(
+                    LocalUser.UID,
+                    LocalUser.Username,
+                    publicKey
+                );
+            }
+            catch
+            {
+                // Show banner if server rejects the key
+                (Application.Current.MainWindow as MainWindow)?.ShowBanner("PublicKeyRejected");
+
+                if (Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault() is SettingsWindow settings)
+                {
+                    settings.UseEncryptionToggle.IsChecked = false;
+                }
+
+                return;
+            }
+
+            // Applies encryption setting only after successful transmission
+            Properties.Settings.Default.UseEncryption = true;
+            Properties.Settings.Default.Save();
+
+            // Stores public key in LocalUser
+            LocalUser.PublicKeyBase64 = publicKey;
+
+            // Updates encryption icon and trigger animation
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
 

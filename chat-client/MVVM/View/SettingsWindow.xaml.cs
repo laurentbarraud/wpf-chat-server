@@ -188,14 +188,12 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles activation of the encryption toggle.
-        /// Updates application settings, shows the encryption icon,
-        /// and triggers key generation, transmission to the server, and UI update.
+        /// Triggers encryption setup only if prerequisites are met.
+        /// The application setting is updated only after successful key validation.
+        /// Displays the encryption icon and initiates key generation and transmission.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            Properties.Settings.Default.UseEncryption = true;
-            Properties.Settings.Default.Save();
-
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
                 mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
@@ -207,6 +205,7 @@ namespace chat_client.MVVM.View
                 }
             }
         }
+
 
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {

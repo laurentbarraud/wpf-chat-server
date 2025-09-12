@@ -102,6 +102,25 @@ namespace chat_client.Helpers
             // Encode the XML string in Base64 for safe transmission
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(xmlKey));
         }
+
+        /// <summary>
+        /// Validates that a string is a well-formed Base64-encoded value.
+        /// </summary>
+        public static bool IsValidBase64(string base64)
+        {
+            if (string.IsNullOrWhiteSpace(base64))
+                return false;
+
+            try
+            {
+                Convert.FromBase64String(base64);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }
 
