@@ -39,6 +39,7 @@ namespace chat_client.Net
         /// This method is invoked from the MainViewModel during client initialization.
         /// It handles IP validation, port selection (default or custom), and initiates the handshake protocol.
         /// Upon successful connection, it initializes the packet reader and begins listening for incoming packets.
+        /// If encryption is enabled and LocalUser is initialized, it triggers key exchange setup.
         /// Returns true if the connection succeeds; false otherwise.
         /// </summary>
         /// <param name="username">The display name of the user initiating the connection.</param>
@@ -49,6 +50,7 @@ namespace chat_client.Net
             // If already connected, no need to reconnect
             if (_client.Connected)
                 return true;
+
             try
             {
                 // Determine target IP: use localhost if no IP is provided
@@ -83,6 +85,13 @@ namespace chat_client.Net
                 // Start listening for incoming packets
                 ReadPackets();
 
+                // Trigger encryption setup only if enabled and LocalUser is initialized
+                if (Properties.Settings.Default.UseEncryption &&
+                    (Application.Current.MainWindow as MainWindow)?.ViewModel?.LocalUser != null)
+                {
+                    (Application.Current.MainWindow as MainWindow)?.ViewModel?.InitializeEncryptionIfEnabled();
+                }
+
                 return true; // Connection successful
             }
             catch
@@ -90,6 +99,7 @@ namespace chat_client.Net
                 return false; // Connection failed
             }
         }
+
 
         /// <summary>
         /// Closes the TCP connection and resets internal state
@@ -203,6 +213,25 @@ namespace chat_client.Net
             });
         }
 
+        /// <summary>
+        /// Sends the client's public key to the server for distribution to other clients.
+        /// </summary>
+        /// <param name="uid">The UID of the sender.</param>
+        /// <param name="username">The username of the sender.</param>
+        /// <param name="publicKeyBase64">The public key in Base64 format.</param>
+        public void SendPublicKeyToServer(string uid, string username, string publicKeyBase64)
+        {
+            var packet = new PacketBuilder();
+            packet.WriteOpCode(6); // OpCode for public key exchange
+            packet.WriteMessage(uid);
+            packet.WriteMessage(username);
+            packet.WriteMessage(publicKeyBase64);
+
+            if (_client?.Client != null && _client.Connected)
+            {
+                _client.Client.Send(packet.GetPacketBytes());
+            }
+        }
 
         /// <summary>
         /// Sends a message to the server using the standard message packet format.
@@ -212,23 +241,38 @@ namespace chat_client.Net
         /// <param name="message">The plain text message to send.</param>
         public void SendMessageToServer(string message)
         {
-            bool encryptionEnabled = chat_client.Properties.Settings.Default.UseEncryption;
-
-            if (encryptionEnabled)
+            // Retrieve ViewModel safely and exit if unavailable
+            if (Application.Current.MainWindow is not MainWindow mainWindow || mainWindow.ViewModel is not MainViewModel viewModel)
             {
-                // Encrypt the message with the sender's own public key
-                string encrypted = EncryptionHelper.EncryptMessage(message, EncryptionHelper.GetPublicKeyBase64());
-
-
-                // Prefix with marker so receivers know it's encrypted
-                message = "[ENC]" + encrypted;
+                Console.WriteLine("[ERROR] ViewModel is null. Cannot send message.");
+                return;
             }
 
+            // Retrieve sender UID
+            string senderUID = viewModel.LocalUser?.UID ?? "unknown";
+
+            // Retrieve recipient UID
+            string? recipientUID = viewModel.SelectedUser?.UID;
+
+            // Encrypt the message if encryption is enabled and recipient UID is valid
+            if (viewModel.IsEncryptionEnabled && !string.IsNullOrEmpty(recipientUID))
+            {
+                if (viewModel.KnownPublicKeys.TryGetValue(recipientUID, out string? publicKeyBase64) && !string.IsNullOrEmpty(publicKeyBase64))
+                {
+                    string encrypted = EncryptionHelper.EncryptMessage(message, publicKeyBase64);
+                    message = "[ENC]" + encrypted;
+                }
+                else
+                {
+                    Console.WriteLine($"[WARN] Public key for UID {recipientUID} not found or invalid. Message sent as plain text.");
+                }
+            }
+
+            // Build and send the message packet
             var messagePacket = new PacketBuilder();
-            messagePacket.WriteOpCode(5); // OpCode for public chat message
+            messagePacket.WriteOpCode(5); // Public chat message
             messagePacket.WriteMessage(message);
-            var uid = (Application.Current.MainWindow as MainWindow)?.ViewModel?.LocalUser?.UID;
-            messagePacket.WriteMessage(uid ?? "unknown");   // Include sender UID so others can decrypt
+            messagePacket.WriteMessage(senderUID);
 
             if (_client == null || !_client.Connected)
             {
@@ -237,18 +281,6 @@ namespace chat_client.Net
             }
 
             _client.Client.Send(messagePacket.GetPacketBytes());
-        }
-
-        /// <summary>
-        /// Sends a raw packet directly to the server using the TCP client socket.
-        /// This is useful for non-standard packets such as public key exchange.
-        /// </summary>
-        public void SendRawPacket(byte[] data)
-        {
-            if (_client?.Client != null && _client.Connected)
-            {
-                _client.Client.Send(data);
-            }
         }
     }
 }

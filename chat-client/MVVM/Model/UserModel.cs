@@ -15,5 +15,10 @@ namespace chat_client.MVVM.Model
     {
         public string Username { get; set; }
         public string UID { get; set; }
+
+        /// <summary>
+        /// Stores the user's public key in Base64 format, used for encryption.
+        /// </summary>
+        public string? PublicKeyBase64 { get; set; }
     }
 }

@@ -29,6 +29,8 @@
                      DecelerationRatio="0.8" />
         </Storyboard>
 
+        <!-- Slide-out animation for the emoji panel.
+        Moves the panel horizontally off-screen to the left with smooth acceleration and deceleration. -->
         <Storyboard x:Key="SlideOutStoryboard">
             <DoubleAnimation Storyboard.TargetName="popupEmojiPanel"
                      Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
@@ -36,6 +38,19 @@
                      Duration="0:0:0.4"
                      AccelerationRatio="0.6"
                      DecelerationRatio="0.4" />
+        </Storyboard>
+
+        <!-- Pulse animation triggered when a public key is transmitted.
+        Provides subtle visual feedback on encryption activation or refresh. -->
+        <Storyboard x:Key="EncryptionPulseAnimation">
+            <DoubleAnimation
+            Storyboard.TargetName="imgEncryptionStatus"
+            Storyboard.TargetProperty="RenderTransform.ScaleX"
+            From="1.0" To="1.2" Duration="0:0:0.15" AutoReverse="True" />
+            <DoubleAnimation
+            Storyboard.TargetName="imgEncryptionStatus"
+            Storyboard.TargetProperty="RenderTransform.ScaleY"
+            From="1.0" To="1.2" Duration="0:0:0.15" AutoReverse="True" />
         </Storyboard>
 
     </Window.Resources>
@@ -316,13 +331,17 @@
                 </Button>
 
                 <Image x:Name="imgEncryptionStatus"
-                       Source="/Resources/encrypted.png"
+                       Source="/Resources/encrypted-disabled.png"
                        Width="15" Height="15"
                        DockPanel.Dock="Left"
                        Margin="0,0,0,0"
                        VerticalAlignment="Center"
                        Visibility="Collapsed"
-                       ToolTip="Encryption enabled" />
+                       ToolTip="Encryption enabled">
+                    <Image.RenderTransform>
+                        <ScaleTransform ScaleX="1" ScaleY="1" />
+                    </Image.RenderTransform>
+                </Image>
 
                 <!-- This Popup is linked to the cmdEmojiPanel button and opens right with a slide animation. -->
                 <!-- The emojis are bound to an EmojiList list defined in code-behind. -->

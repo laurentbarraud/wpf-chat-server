@@ -9,7 +9,7 @@ using System.Net.Sockets;
 
 namespace chat_server
 {
-    class Client
+    public class Client
     {
         public string Username { get; set; }
         public Guid UID { get; set; }
@@ -36,10 +36,10 @@ namespace chat_server
             // Localized connection message
             Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientConnected")} {Username}");
 
-            Task.Run(() => Process());
+            Task.Run(() => ListenForMessagesProcess());
         }
 
-        void Process()
+        void ListenForMessagesProcess()
         {
             while (true)
             {
@@ -49,6 +49,7 @@ namespace chat_server
                     switch (opcode)
                     {
                         case 5:
+                            // Read the incoming message from the client
                             var messageReceived = _packetReader.ReadMessage();
 
                             // Checks if the message starts with [ENC]
@@ -57,13 +58,16 @@ namespace chat_server
                             // Localized message received log
                             Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("MessageReceived")} {Username}: {logMessage}");
 
-                            // Broadcasts the full message to other clients
-                            Program.BroadcastMessage($"{Username}: {messageReceived}");
+                            // Broadcasts the raw message and sender UID to other clients
+                            Program.BroadcastMessage(messageReceived, this.UID);
                             break;
-                        
+
                         case 6: // Public key exchange
                             string publicKeyBase64 = _packetReader.ReadMessage();
                             this.PublicKeyBase64 = publicKeyBase64;
+
+                            // Broadcast to other clients
+                            Program.BroadcastPublicKeyToOthers(this);
                             break;
                     }
                 }

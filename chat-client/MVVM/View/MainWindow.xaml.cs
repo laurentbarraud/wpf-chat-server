@@ -43,14 +43,14 @@ namespace chat_client
         // Tray icon variables
         private TaskbarIcon trayIcon;
         private System.Windows.Forms.Timer hoverTimer;
-        
+
         // Scoll variables
         private DispatcherTimer scrollTimer;
         private int scrollDirection = 0; // -1 = left, 1 = right
 
         // Popup variables
         private bool isEmojiPanelOpen = false;
-       
+
         public double EmojiPanelHeight => 30;
 
         public MenuItem TrayMenuOpen { get; private set; }
@@ -124,7 +124,7 @@ namespace chat_client
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
 
             // Synchronizes the encrypted image visibilty with the current setting
-            imgEncryptionStatus.Visibility = Properties.Settings.Default.UseEncryption 
+            imgEncryptionStatus.Visibility = Properties.Settings.Default.UseEncryption
                 ? Visibility.Visible : Visibility.Collapsed;
 
             // Apply watermarks on startup
@@ -257,19 +257,19 @@ namespace chat_client
             double y = -popupSize.Height; // position above the target
 
             // Return a single placement option with the calculated position
-            return new[] 
-            { 
-                new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal) 
+            return new[]
+            {
+                new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal)
             };
         }
 
         public void DisposeTrayIcon()
         {
-               var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
-    if (trayIcon != null)
-    {
-        trayIcon.Dispose();
-    }
+            var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
+            if (trayIcon != null)
+            {
+                trayIcon.Dispose();
+            }
         }
 
         /// <summary>
@@ -448,9 +448,9 @@ namespace chat_client
             // Save user preference
             Properties.Settings.Default.AppTheme = "Dark";
             Properties.Settings.Default.Save();
-            
+
             // Apply dark theme to this window with fade animation
-            ThemeManager.ApplyTheme(true);       
+            ThemeManager.ApplyTheme(true);
 
             // Apply dark theme watermarks
             ApplyWatermarkImages();
@@ -461,7 +461,7 @@ namespace chat_client
             // Save user preference
             Properties.Settings.Default.AppTheme = "Light";
             Properties.Settings.Default.Save();
-            
+
             // Apply light theme to this window with fade animation
             ThemeManager.ApplyTheme(false);
 
@@ -477,7 +477,7 @@ namespace chat_client
         {
             if (hoverTimer == null)
             {
- 
+
                 hoverTimer = new System.Windows.Forms.Timer() { Interval = 2000 };
                 hoverTimer.Tick += (s, args) =>
                 {
@@ -583,6 +583,10 @@ namespace chat_client
             imgIPAddressWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
         }
 
+        /// <summary>
+        /// Updates the text label of the connect/disconnect button based on the current connection state.
+        /// Displays a localized "Connect" or "Disconnect" string depending on whether the client is connected.
+        /// </summary>
         public void UpdateConnectButtonText()
         {
             cmdConnectDisconnect.Content = ViewModel.IsConnected
@@ -590,5 +594,48 @@ namespace chat_client
                 : LocalizationManager.GetString("ConnectButton");
         }
 
+        /// <summary>
+        /// Updates the encryption status icon based on current encryption state and key exchange status.
+        /// Sets the icon source and tooltip dynamically based on whether the public key has been exchanged.
+        /// Triggers a subtle pulse animation only when the key exchange is confirmed.
+        /// </summary>
+        public void UpdateEncryptionStatusIcon()
+        {
+            var viewModel = DataContext as MainViewModel;
+            if (viewModel == null)
+                return;
+
+            // If encryption is disabled, hide the icon entirely
+            if (!viewModel.IsEncryptionEnabled)
+            {
+                imgEncryptionStatus.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Show the icon since encryption is enabled
+            imgEncryptionStatus.Visibility = Visibility.Visible;
+
+            // Check if the local public key has been successfully generated and stored
+            bool keySent = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
+
+            // Update the icon source
+            imgEncryptionStatus.Source = new BitmapImage(new Uri(
+                keySent
+                    ? "/Resources/encrypted.png"
+                    : "/Resources/encrypted-disabled.png",
+                UriKind.Relative));
+
+            // Update the tooltip based on encryption status
+            imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
+                keySent ? "EncryptionEnabled" : "GetPublicKey"
+            );
+
+            // Trigger pulse animation only if the key exchange was successful
+            if (keySent)
+            {
+                var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
+                storyboard.Begin();
+            }
+        }
     }
 }

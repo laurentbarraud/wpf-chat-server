@@ -73,8 +73,25 @@ namespace chat_client.MVVM.ViewModel
         // Uses expression-bodied syntax (=>) for clarity and ensures the value is always up-to-date.
         public bool IsEncryptionEnabled => chat_client.Properties.Settings.Default.UseEncryption;
 
+        /// <summary>
+        /// Represents the currently selected user in the chat interface.
+        /// Used to determine the intended recipient of outgoing messages,
+        /// especially when encryption is enabled and the correct public key must be applied.
+        /// </summary>
+        public UserModel SelectedUser { get; set; }
+
+        /// <summary>
+        /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
+        /// This allows clients to verify message authenticity and prevent spoofed disconnects or control signals.
+        /// </summary>
+        public static readonly Guid SystemUID = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
         private bool _isConnected;
 
+        /// <summary>
+        /// Indicates whether the client is currently connected to the server.
+        /// Triggers a property change notification to update any bound UI elements when the connection state changes.
+        /// </summary>
         public bool IsConnected
         {
             get => _isConnected;
@@ -90,7 +107,10 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
+        /// <summary>
+        /// Event triggered when a property value changes, used to notify bound UI elements in data-binding scenarios.
+        /// Implements the INotifyPropertyChanged interface to support reactive updates in WPF.
+        /// </summary>
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -170,18 +190,6 @@ namespace chat_client.MVVM.ViewModel
                 // Save last used IP for future sessions
                 chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
                 chat_client.Properties.Settings.Default.Save();
-
-                // If encryption is enabled, send public key to server
-                if (chat_client.Properties.Settings.Default.UseEncryption)
-                {
-                    string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
-
-                    var keyPacket = new PacketBuilder();
-                    keyPacket.WriteOpCode(6);
-                    keyPacket.WriteMessage(publicKeyBase64);
-
-                    _server.SendRawPacket(keyPacket.GetPacketBytes());
-                }
             }
             catch (Exception)
             {
@@ -241,17 +249,54 @@ namespace chat_client.MVVM.ViewModel
             return chat_client.Properties.Settings.Default.CustomPortNumber;
         }
 
-        
+        /// <summary>
+        /// Initializes encryption if enabled in application settings.
+        /// Generates the public key, stores it in LocalUser, sends it to the server,
+        /// and updates the encryption status icon in the UI.
+        /// </summary>
+        public void InitializeEncryptionIfEnabled()
+        {
+            // Checks if encryption is enabled
+            if (!chat_client.Properties.Settings.Default.UseEncryption)
+                return;
+
+            // Ensures LocalUser is initialized before proceeding
+            if (LocalUser == null)
+            {
+                Console.WriteLine("[WARN] LocalUser is not initialized. Encryption setup aborted.");
+                return;
+            }
+
+            // Generates and stores public key
+            LocalUser.PublicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
+
+            // Sends public key to server
+            Server.SendPublicKeyToServer(
+                LocalUser.UID,
+                LocalUser.Username,
+                LocalUser.PublicKeyBase64
+            );
+
+            // Updates encryption icon and trigger animation
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
+        }
+
+        /// <summary>
+        /// Handles incoming messages from the server.
+        /// Supports encrypted messages, system-issued disconnect commands, and standard chat messages.
+        /// </summary>
         private void MessageReceived()
         {
-            var msg = _server.PacketReader.ReadMessage();
+            // Reads the message content and sender UID from the incoming packet
+            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC] marker
+            string senderUID = _server.PacketReader.ReadMessage();  // UID of the message sender
 
-            // Check for server-issued disconnect command
-            if (msg == "/disconnect")
+            // Checks for server-issued disconnect command
+            // Only triggers disconnect if the message comes from the system UID to prevent spoofing
+            if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    // Get reference to MainWindow and its ViewModel
                     if (Application.Current.MainWindow is MainWindow mainWindow && mainWindow.ViewModel != null)
                     {
                         var viewModel = mainWindow.ViewModel;
@@ -266,10 +311,8 @@ namespace chat_client.MVVM.ViewModel
                         {
                             Application.Current.Dispatcher.Invoke(() =>
                             {
-                                // Reset UI and clear data
+                                // Reset UI and disconnect from server
                                 viewModel.ReinitializeUI();
-
-                                // Ensure socket is closed
                                 _server.DisconnectFromServer();
                             });
                         };
@@ -281,17 +324,19 @@ namespace chat_client.MVVM.ViewModel
                 return;
             }
 
+            string displayName = Users.FirstOrDefault(u => u.UID == senderUID)?.Username ?? senderUID;
+
             // Checks if the incoming message contains the encryption marker
-            if (msg.Contains("[ENC]"))
+            if (rawMessage.Contains("[ENC]"))
             {
+                // Predeclare decrypted content to ensure visibility in both try and catch blocks
+                string decryptedContent = string.Empty;
+
                 try
                 {
-                    // Extracts the sender's prefix before the encryption marker
-                    int markerIndex = msg.IndexOf("[ENC]");
-                    string senderPrefix = msg.Substring(0, markerIndex).Trim();
-
-                    // Extracts the encrypted payload after the marker
-                    string encryptedPayload = msg.Substring(markerIndex + "[ENC]".Length).Trim();
+                    // Locate the encryption marker and extract the encrypted payload
+                    int markerIndex = rawMessage.IndexOf("[ENC]");
+                    string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
 
                     // Cleans up any invisible or invalid characters that may break decryption
                     encryptedPayload = encryptedPayload
@@ -299,23 +344,28 @@ namespace chat_client.MVVM.ViewModel
                         .Replace("\r", "")
                         .Replace("\n", "");
 
-                    // Attempts to decrypt the payload
-                    string decryptedContent = EncryptionHelper.DecryptMessage(encryptedPayload);
+                    // Attempts to decrypt the payload using the local private key
+                    decryptedContent = EncryptionHelper.DecryptMessage(encryptedPayload);
 
-                    // Reconstructs the full message with sender and decrypted content
-                    msg = $"{senderPrefix} {decryptedContent}";
+                    // Reconstructs the full message with sender display name and decrypted content
+                    rawMessage = $"{displayName}: {decryptedContent}";
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // Replaces the message with a failure notice
-                    msg = LocalizationManager.GetString("DecryptionFailed");
+                    // Replaces the message with a localized failure notice if decryption fails
+                    rawMessage = $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")}";
                 }
             }
+            else
+            {
+                // Reconstructs the full message with sender display name and plain text content
+                rawMessage = $"{displayName}: {rawMessage}";
+            }
 
-        // Normal message — add to chat
-        Application.Current.Dispatcher.Invoke(() => Messages.Add(msg));
+            // Adds the final message to the chat interface
+            Application.Current.Dispatcher.Invoke(() => Messages.Add(rawMessage));
+
         }
-
 
         /// <summary>
         /// Clears user and message data and restores the UI to its initial state.

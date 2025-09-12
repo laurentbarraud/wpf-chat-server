@@ -21,8 +21,17 @@ namespace chat_server
         static List<Client> _users; // Stores all connected clients
         static TcpListener _listener; // TCP listener for incoming connections
 
-        // Global language code used throughout the server ("en" or "fr")
+        /// <summary>
+        /// Global language code used throughout the server ("en" or "fr")
+        /// </summary>
         public static string AppLanguage = "en";
+
+        /// <summary>
+        /// Static UID used to represent system-originated messages (shutdown or server notices).
+        /// This allows clients to distinguish between user and server messages.
+        /// </summary>
+        public static readonly Guid SystemUID = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
 
         public static void Main(string[] args)
         {
@@ -72,6 +81,96 @@ namespace chat_server
                 Console.WriteLine(LocalizationManager.GetString("Exiting"));
                 Environment.Exit(1);
             }
+        }
+
+        /// <summary>
+        /// Notifies all users of a disconnection and removes the user from the list.
+        /// Opcode 10 is used for disconnection notification.
+        /// </summary>
+        public static void BroadcastDisconnect(string uidDisconnected)
+        {
+            var disconnectedUser = _users.FirstOrDefault(x => x.UID.ToString() == uidDisconnected);
+
+            if (disconnectedUser != null)
+            {
+                _users.Remove(disconnectedUser);
+
+                foreach (var user in _users)
+                {
+                    var broadcastPacket = new PacketBuilder();
+                    broadcastPacket.WriteOpCode(10); // Opcode for user disconnect
+                    broadcastPacket.WriteMessage(uidDisconnected);
+                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sends a message to all connected users.
+        /// Opcode 5 is used for general messages.
+        /// Each packet includes the message content and the sender's UID
+        /// so that clients can identify the sender and decrypt if needed.
+        /// </summary>
+        public static void BroadcastMessage(string messageToBroadcast, Guid senderUID)
+        {
+            foreach (var user in _users)
+            {
+                var msgPacket = new PacketBuilder();
+                msgPacket.WriteOpCode(5); // Opcode for chat message
+
+                // Write the message content (may be encrypted or plain text)
+                msgPacket.WriteMessage(messageToBroadcast);
+
+                // Write the sender's UID so clients can identify the sender
+                msgPacket.WriteMessage(senderUID.ToString());
+
+                // Send the packet to the connected client
+                user.ClientSocket.Client.Send(msgPacket.GetPacketBytes());
+            }
+        }
+
+        /// <summary>
+        /// Sends a packet to each connected user to notify them of all current users.
+        /// Opcode 1 indicates a user connection broadcast.
+        /// </summary>
+        public static void BroadcastConnection()
+        {
+            foreach (var user in _users)
+            {
+                foreach (var usr in _users)
+                {
+                    var broadcastPacket = new PacketBuilder();
+                    broadcastPacket.WriteOpCode(1); // Opcode for user connection
+                    broadcastPacket.WriteMessage(usr.Username);
+                    broadcastPacket.WriteMessage(usr.UID.ToString());
+                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+                }
+            }
+        }
+
+        /// <summary>
+        /// Broadcasts the public key of a newly connected client to all other clients.
+        /// Opcode 6 is used for public key exchange.
+        /// </summary>
+        /// <param name="sender">The client who submitted their public key.</param>
+        public static void BroadcastPublicKeyToOthers(Client sender)
+        {
+            foreach (var receiver in _users)
+            {
+                // Skip the sender — no need to send their own key back
+                if (receiver == sender)
+                    continue;
+
+                var keyPacket = new PacketBuilder();
+                keyPacket.WriteOpCode(6); // Opcode for public key exchange
+                keyPacket.WriteMessage(sender.UID.ToString()); // UID of the sender
+                keyPacket.WriteMessage(sender.PublicKeyBase64); // Public key in Base64
+
+                receiver.ClientSocket.Client.Send(keyPacket.GetPacketBytes());
+            }
+
+            // Log the broadcast event
+            Console.WriteLine($"[{DateTime.Now}]: Public key received from: {sender.Username} — transmitted to other clients.");
         }
 
         /// <summary>
@@ -139,87 +238,14 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Sends a packet to each connected user to notify them of all current users.
-        /// Opcode 1 indicates a user connection broadcast.
-        /// </summary>
-        public static void BroadcastConnection()
-        {
-            foreach (var user in _users)
-            {
-                foreach (var usr in _users)
-                {
-                    var broadcastPacket = new PacketBuilder();
-                    broadcastPacket.WriteOpCode(1); // Opcode for user connection
-                    broadcastPacket.WriteMessage(usr.Username);
-                    broadcastPacket.WriteMessage(usr.UID.ToString());
-                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
-                }
-            }
-        }
-
-        public static void BroadcastPublicKeys()
-        {
-            foreach (var sender in _users)
-            {
-                foreach (var receiver in _users)
-                {
-                    if (sender != receiver)
-                    {
-                        var keyPacket = new PacketBuilder();
-                        keyPacket.WriteOpCode(6); // OpCode for public key exchange
-                        keyPacket.WriteMessage(sender.UID.ToString());
-                        keyPacket.WriteMessage(sender.PublicKeyBase64);
-                        receiver.ClientSocket.Client.Send(keyPacket.GetPacketBytes());
-                    }
-                }
-            }
-        }
-
-
-        /// <summary>
-        /// Sends a message to all connected users.
-        /// Opcode 5 is used for general messages.
-        /// </summary>
-        public static void BroadcastMessage(string messageToBroadcast)
-        {
-            foreach (var user in _users)
-            {
-                var msgPacket = new PacketBuilder();
-                msgPacket.WriteOpCode(5); // Opcode for chat message
-                msgPacket.WriteMessage(messageToBroadcast);
-                user.ClientSocket.Client.Send(msgPacket.GetPacketBytes());
-            }
-        }
-
-        /// <summary>
-        /// Notifies all users of a disconnection and removes the user from the list.
-        /// Opcode 10 is used for disconnection notification.
-        /// </summary>
-        public static void BroadcastDisconnect(string uidDisconnected)
-        {
-            var disconnectedUser = _users.FirstOrDefault(x => x.UID.ToString() == uidDisconnected);
-
-            if (disconnectedUser != null)
-            {
-                _users.Remove(disconnectedUser);
-
-                foreach (var user in _users)
-                {
-                    var broadcastPacket = new PacketBuilder();
-                    broadcastPacket.WriteOpCode(10); // Opcode for user disconnect
-                    broadcastPacket.WriteMessage(uidDisconnected);
-                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gracefully shuts down the server and notifies clients to disconnect.
+        /// Graceful shutdown of the server, notifying all connected clients to disconnect.
+        /// Sends a special disconnect command using the system UID to clearly indicate
+        /// that the message originates from the server itself.
         /// </summary>
         public static void Shutdown()
         {
             Console.WriteLine(LocalizationManager.GetString("ShutdownStart"));
-            BroadcastMessage("/disconnect"); // Special command for client to disconnect
+            BroadcastMessage("/disconnect", SystemUID); // Special command for client to disconnect
             Console.WriteLine(LocalizationManager.GetString("ShutdownComplete"));
         }
     }

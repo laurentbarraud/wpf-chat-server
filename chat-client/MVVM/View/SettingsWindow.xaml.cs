@@ -167,6 +167,9 @@ namespace chat_client.MVVM.View
             {
                 mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
             }
+
+            // If encryption is enabled, initialize key exchange and update UI
+            (Application.Current.MainWindow as MainWindow)?.ViewModel?.InitializeEncryptionIfEnabled();
         }
 
         private void UseCustomPortToggle_Unchecked(object sender, RoutedEventArgs e)
@@ -183,6 +186,11 @@ namespace chat_client.MVVM.View
             }
         }
 
+        /// <summary>
+        /// Handles activation of the encryption toggle.
+        /// Updates application settings, shows the encryption icon,
+        /// and triggers key generation, transmission to the server, and UI update.
+        /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
             Properties.Settings.Default.UseEncryption = true;
@@ -192,20 +200,12 @@ namespace chat_client.MVVM.View
             {
                 mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
 
-                var server = mainWindow.Server;
-                if (server != null && Properties.Settings.Default.UseEncryption)
+                // Only trigger encryption setup if LocalUser is initialized
+                if (mainWindow.ViewModel?.LocalUser != null)
                 {
-                    string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
-
-                    var keyPacket = new PacketBuilder();
-                    keyPacket.WriteOpCode(6);
-                    keyPacket.WriteMessage(publicKeyBase64);
-
-                    server.SendRawPacket(keyPacket.GetPacketBytes());
+                    mainWindow.ViewModel.InitializeEncryptionIfEnabled();
                 }
             }
-
-
         }
 
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)

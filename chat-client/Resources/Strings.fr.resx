@@ -147,6 +147,9 @@
   <data name="DisconnectError" xml:space="preserve">
     <value>Erreur de déconnexion</value>
   </data>
+  <data name="EncryptionEnabled" xml:space="preserve">
+    <value>Chiffrage des messages activé.</value>
+  </data>
   <data name="Error" xml:space="preserve">
     <value>Erreur</value>
   </data>
@@ -155,6 +158,9 @@
   </data>
   <data name="ErrorWhileDisconnecting" xml:space="preserve">
     <value>Erreur pendant la déconnexion : </value>
+  </data>
+  <data name="GetPublicKey" xml:space="preserve">
+    <value>Obtention de la clé publique</value>
   </data>
   <data name="HasConnected" xml:space="preserve">
     <value>s'est connecté</value>
