@@ -26,7 +26,6 @@ using System.Windows.Threading;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 
-
 namespace chat_client.MVVM.ViewModel
 {
     public class MainViewModel : INotifyPropertyChanged

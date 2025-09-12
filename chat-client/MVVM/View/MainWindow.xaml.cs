@@ -630,9 +630,9 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Updates the encryption status icon based on current encryption state and key exchange status.
-        /// Sets the icon source and tooltip dynamically based on whether the public key has been exchanged.
-        /// Triggers a subtle pulse animation only when the key exchange is confirmed.
+        /// Updates the encryption status icon based on the current encryption setting and key exchange state.
+        /// Displays the icon only if encryption is enabled, and adjusts its appearance depending on whether the public key was successfully exchanged.
+        /// Sets the tooltip using localized strings and triggers a pulse animation only when encryption is fully active.
         /// </summary>
         public void UpdateEncryptionStatusIcon()
         {
@@ -640,32 +640,32 @@ namespace chat_client
             if (viewModel == null)
                 return;
 
-            // If encryption is disabled, hide the icon entirely
+            // Hide the icon if encryption is disabled in settings
             if (!viewModel.IsEncryptionEnabled)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
                 return;
             }
 
+            // Determine whether the public key has been successfully generated and stored
+            bool keySent = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
+
             // Show the icon since encryption is enabled
             imgEncryptionStatus.Visibility = Visibility.Visible;
 
-            // Check if the local public key has been successfully generated and stored
-            bool keySent = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
-
-            // Update the icon source
+            // Set the icon source depending on key exchange status
             imgEncryptionStatus.Source = new BitmapImage(new Uri(
                 keySent
                     ? "/Resources/encrypted.png"
                     : "/Resources/encrypted-disabled.png",
                 UriKind.Relative));
 
-            // Update the tooltip based on encryption status
+            // Set the tooltip using localized string
             imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
                 keySent ? "EncryptionEnabled" : "GetPublicKey"
             );
 
-            // Trigger pulse animation only if the key exchange was successful
+            // Trigger pulse animation and show banner only if key exchange was successful
             if (keySent)
             {
                 var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");

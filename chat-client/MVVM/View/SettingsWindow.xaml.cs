@@ -161,15 +161,6 @@ namespace chat_client.MVVM.View
             txtCustomPort.IsEnabled = true;
             Properties.Settings.Default.UseCustomPort = true;
             Properties.Settings.Default.Save();
-
-            // Shows the encryption icon
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
-            }
-
-            // If encryption is enabled, initialize key exchange and update UI
-            (Application.Current.MainWindow as MainWindow)?.ViewModel?.InitializeEncryptionIfEnabled();
         }
 
         private void UseCustomPortToggle_Unchecked(object sender, RoutedEventArgs e)
@@ -178,12 +169,6 @@ namespace chat_client.MVVM.View
             imgPortStatus.Visibility = Visibility.Collapsed;
             Properties.Settings.Default.UseCustomPort = false;
             Properties.Settings.Default.Save();
-
-            // Hides the encryption icon
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.imgEncryptionStatus.Visibility = Visibility.Collapsed;
-            }
         }
 
         /// <summary>
@@ -196,8 +181,6 @@ namespace chat_client.MVVM.View
         {
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
-                mainWindow.imgEncryptionStatus.Visibility = Visibility.Visible;
-
                 // Only trigger encryption setup if LocalUser is initialized
                 if (mainWindow.ViewModel?.LocalUser != null)
                 {
