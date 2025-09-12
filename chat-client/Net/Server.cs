@@ -192,22 +192,11 @@ namespace chat_client.Net
                         // Notifies user in chat
                         mainViewModel.Messages.Add(LocalizationManager.GetString("ServerHasClosed"));
 
-                        // Delays UI reset to allow user to read the message
-                        var timer = new System.Timers.Timer(2000)
-                        {
-                            AutoReset = false // Fire only once
-                        };
+                        // Show banner without icon
+                        mainWindow.ShowBanner("ServerHasClosed");
 
-                        timer.Elapsed += (s, e) =>
-                        {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                // Resets UI state (e.g., reconnect button, input fields)
-                                mainViewModel.ReinitializeUI();
-                            });
-                        };
-
-                        timer.Start();
+                        // Immediately reset UI state
+                        mainViewModel.ReinitializeUI();
                     });
                 }
             });

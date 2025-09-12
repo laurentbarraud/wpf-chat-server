@@ -54,23 +54,23 @@
         </Storyboard>
 
         <!-- Slide-in and fade-out animation for encryption banner -->
-        <Storyboard x:Key="ShowEncryptionBannerStoryboard">
-            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+        <Storyboard x:Key="ShowPopupBannerStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupBanner"
                      Storyboard.TargetProperty="Opacity"
                      From="0" To="1"
                      Duration="0:0:0.3" />
-            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+            <DoubleAnimation Storyboard.TargetName="popupBanner"
                      Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
                      From="-20" To="0"
                      Duration="0:0:0.3" />
         </Storyboard>
 
-        <Storyboard x:Key="HideEncryptionBannerStoryboard">
-            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+        <Storyboard x:Key="HidePopupBannerStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupBanner"
                      Storyboard.TargetProperty="Opacity"
                      From="1" To="0"
                      Duration="0:0:0.3" BeginTime="0:0:2" />
-            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+            <DoubleAnimation Storyboard.TargetName="popupBanner"
                      Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
                      From="0" To="-20"
                      Duration="0:0:0.3" BeginTime="0:0:2" />
@@ -89,30 +89,31 @@
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
 
-        <!-- Popup banner for encryption status -->
-        <Border x:Name="popupEncryptionBanner"
-        Background="#FF2E8B57"
-        Height="20"
-        VerticalAlignment="Top"
-        HorizontalAlignment="Stretch"
-        Opacity="0"
-        Visibility="Collapsed"
-        RenderTransformOrigin="0.5,0.0"
-        Panel.ZIndex="99">
+        <!-- Reusable popup banner for status messages -->
+        <Border x:Name="popupBanner"
+                Background="#FF2E8B57"
+                Height="20"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Stretch"
+                Opacity="0"
+                Visibility="Collapsed"
+                RenderTransformOrigin="0.5,0.0"
+                Panel.ZIndex="99">
             <Border.RenderTransform>
                 <TranslateTransform Y="-20" />
             </Border.RenderTransform>
 
             <DockPanel LastChildFill="True" VerticalAlignment="Center" Margin="5,0">
-                <Image Source="/Resources/encrypted.png"
-               Width="14" Height="14"
-               Margin="0,0,6,0"
-               VerticalAlignment="Center" />
-
-                <TextBlock x:Name="popupEncryptionText"
-                   Foreground="White"
-                   FontSize="12"
-                   VerticalAlignment="Center" />
+                <Image x:Name="popupIcon"
+                       Width="14" Height="14"
+                       Margin="0,0,6,0"
+                       VerticalAlignment="Center"
+                       Visibility="Collapsed" />
+                
+                <TextBlock x:Name="popupText"
+                           Foreground="White"
+                           FontSize="12"
+                           VerticalAlignment="Center" />
             </DockPanel>
         </Border>
 

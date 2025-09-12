@@ -108,6 +108,9 @@ namespace chat_client.Helpers
 
                     if (mainWindow.TrayMenuQuit != null)
                         mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
+
+                    // Update encryption banner text
+                    mainWindow.popupText.Text = GetString("EncryptionEnabled");
                 }
             }
         }

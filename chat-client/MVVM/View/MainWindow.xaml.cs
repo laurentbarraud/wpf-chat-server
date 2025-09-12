@@ -427,25 +427,37 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Displays a temporary encryption status banner at the top of the window.
-        /// Slides in and fades out automatically after 2 seconds.
+        /// Displays a temporary banner at the top of the window with a localized message.
+        /// Optionally shows an icon. Slides in and fades out automatically after 2 seconds.
         /// </summary>
-        public void ShowEncryptionBanner()
+        /// <param name="resourceKey">The localization key to display in the banner.</param>
+        /// <param name="showIcon">Whether to show the encryption icon.</param>
+        public void ShowBanner(string resourceKey, bool showIcon = false)
         {
-            // Set localized text dynamically
-            popupEncryptionText.Text = LocalizationManager.GetString("EncryptionEnabled");
+            string localizedText = LocalizationManager.GetString(resourceKey);
+            if (string.IsNullOrEmpty(localizedText))
+                localizedText = $"[{resourceKey}]";
 
-            popupEncryptionBanner.Visibility = Visibility.Visible;
+            popupText.Text = localizedText;
 
-            var showStoryboard = (Storyboard)FindResource("ShowEncryptionBannerStoryboard");
-            var hideStoryboard = (Storyboard)FindResource("HideEncryptionBannerStoryboard");
+            // Show or hide the icon based on context
+            popupIcon.Visibility = showIcon ? Visibility.Visible : Visibility.Collapsed;
+            if (showIcon)
+            {
+                popupIcon.Source = new BitmapImage(new Uri("/Resources/encrypted.png", UriKind.Relative));
+            }
+
+            popupBanner.Visibility = Visibility.Visible;
+
+            var showStoryboard = (Storyboard)FindResource("ShowPopupBannerStoryboard");
+            var hideStoryboard = (Storyboard)FindResource("HidePopupBannerStoryboard");
 
             showStoryboard.Begin();
             hideStoryboard.Begin();
 
             hideStoryboard.Completed += (s, e) =>
             {
-                popupEncryptionBanner.Visibility = Visibility.Collapsed;
+                popupBanner.Visibility = Visibility.Collapsed;
             };
         }
 
@@ -659,7 +671,7 @@ namespace chat_client
                 var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
                 storyboard.Begin();
 
-                ShowEncryptionBanner();
+                ShowBanner("EncryptionEnabled", showIcon: true);
             }
         }
     }
