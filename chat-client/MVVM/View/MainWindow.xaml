@@ -53,12 +53,63 @@
             From="1.0" To="1.2" Duration="0:0:0.15" AutoReverse="True" />
         </Storyboard>
 
+        <!-- Slide-in and fade-out animation for encryption banner -->
+        <Storyboard x:Key="ShowEncryptionBannerStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+                     Storyboard.TargetProperty="Opacity"
+                     From="0" To="1"
+                     Duration="0:0:0.3" />
+            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
+                     From="-20" To="0"
+                     Duration="0:0:0.3" />
+        </Storyboard>
+
+        <Storyboard x:Key="HideEncryptionBannerStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+                     Storyboard.TargetProperty="Opacity"
+                     From="1" To="0"
+                     Duration="0:0:0.3" BeginTime="0:0:2" />
+            <DoubleAnimation Storyboard.TargetName="popupEncryptionBanner"
+                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)"
+                     From="0" To="-20"
+                     Duration="0:0:0.3" BeginTime="0:0:2" />
+        </Storyboard>
+
     </Window.Resources>
     <Window.DataContext>
         <viewmodel:MainViewModel/>
     </Window.DataContext>
 
     <Grid x:Name="grdMain" Background="{DynamicResource BackgroundBrush}">
+
+        <!-- Popup banner for encryption status -->
+        <Border x:Name="popupEncryptionBanner"
+        Background="#FF2E8B57"
+        Height="20"
+        VerticalAlignment="Top"
+        HorizontalAlignment="Stretch"
+        Opacity="0"
+        Visibility="Collapsed"
+        RenderTransformOrigin="0.5,0.0"
+        Panel.ZIndex="99">
+            <Border.RenderTransform>
+                <TranslateTransform Y="-20" />
+            </Border.RenderTransform>
+
+            <DockPanel LastChildFill="True" VerticalAlignment="Center" Margin="5,0">
+                <Image Source="/Resources/encrypted.png"
+               Width="14" Height="14"
+               Margin="0,0,6,0"
+               VerticalAlignment="Center" />
+
+                <TextBlock x:Name="popupEncryptionText"
+                   Foreground="White"
+                   FontSize="12"
+                   VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200"/>
             <ColumnDefinition/>

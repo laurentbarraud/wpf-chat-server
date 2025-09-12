@@ -427,6 +427,29 @@ namespace chat_client
         }
 
         /// <summary>
+        /// Displays a temporary encryption status banner at the top of the window.
+        /// Slides in and fades out automatically after 2 seconds.
+        /// </summary>
+        public void ShowEncryptionBanner()
+        {
+            // Set localized text dynamically
+            popupEncryptionText.Text = LocalizationManager.GetString("EncryptionEnabled");
+
+            popupEncryptionBanner.Visibility = Visibility.Visible;
+
+            var showStoryboard = (Storyboard)FindResource("ShowEncryptionBannerStoryboard");
+            var hideStoryboard = (Storyboard)FindResource("HideEncryptionBannerStoryboard");
+
+            showStoryboard.Begin();
+            hideStoryboard.Begin();
+
+            hideStoryboard.Completed += (s, e) =>
+            {
+                popupEncryptionBanner.Visibility = Visibility.Collapsed;
+            };
+        }
+
+        /// <summary>
         /// Handles continuous scrolling of the emoji panel when arrow buttons are hovered.
         /// </summary>
         private void ScrollTimer_Tick(object sender, EventArgs e)
@@ -635,6 +658,8 @@ namespace chat_client
             {
                 var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
                 storyboard.Begin();
+
+                ShowEncryptionBanner();
             }
         }
     }
