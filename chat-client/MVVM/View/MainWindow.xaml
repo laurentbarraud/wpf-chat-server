@@ -83,6 +83,12 @@
 
     <Grid x:Name="grdMain" Background="{DynamicResource BackgroundBrush}">
 
+        <!-- Always start with structural definitions -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
         <!-- Popup banner for encryption status -->
         <Border x:Name="popupEncryptionBanner"
         Background="#FF2E8B57"
@@ -109,11 +115,6 @@
                    VerticalAlignment="Center" />
             </DockPanel>
         </Border>
-
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200"/>
-            <ColumnDefinition/>
-        </Grid.ColumnDefinitions>
 
         <DockPanel x:Name="dpnLeft">
             <Grid DockPanel.Dock="Top" Height="25">
