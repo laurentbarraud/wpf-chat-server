@@ -256,28 +256,21 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public void InitializeEncryptionIfEnabled()
         {
-            // Checks if encryption is enabled
-            if (!chat_client.Properties.Settings.Default.UseEncryption)
+            // Abort if encryption is disabled or required objects are missing
+            if (!Properties.Settings.Default.UseEncryption || LocalUser == null || Server == null)
                 return;
 
-            // Ensures LocalUser is initialized before proceeding
-            if (LocalUser == null)
-            {
-                Console.WriteLine("[WARN] LocalUser is not initialized. Encryption setup aborted.");
-                return;
-            }
-
-            // Generates and stores public key
+            // Generate and store public key
             LocalUser.PublicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
 
-            // Sends public key to server
+            // Send public key to server
             Server.SendPublicKeyToServer(
                 LocalUser.UID,
                 LocalUser.Username,
                 LocalUser.PublicKeyBase64
             );
 
-            // Updates encryption icon and trigger animation
+            // Update encryption icon and trigger animation
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
 
