@@ -313,11 +313,13 @@ namespace chat_client
 
         /// <summary>
         /// Initializes the tray icon's context menu with localized labels.
+        /// Attaches mouse hover and leave events for timed shutdown.
+        /// Manually displays the context menu on right-click using WPF placement logic.
         /// Stores menu items in public properties for dynamic updates.
         /// </summary>
         private void InitializeTrayMenu()
         {
-            // Create a new context menu for the tray icon
+            // Create a new WPF context menu for the tray icon
             var trayMenu = new ContextMenu();
 
             // Create and localize the "Open" menu item
@@ -343,8 +345,17 @@ namespace chat_client
 
             if (trayIcon != null)
             {
-                // Assign the context menu to the tray icon
-                trayIcon.ContextMenu = trayMenu;
+                // Attach mouse hover and leave events for timed shutdown
+                trayIcon.MouseMove += TrayIcon_MouseMove;
+                trayIcon.MouseLeave += TrayIcon_MouseLeave;
+
+                // Manually display the context menu on right-click
+                trayIcon.TrayRightMouseUp += (s, e) =>
+                {
+                    trayMenu.PlacementTarget = this;
+                    trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+                    trayMenu.IsOpen = true;
+                };
             }
         }
 
@@ -504,19 +515,34 @@ namespace chat_client
             ApplyWatermarkImages();
         }
 
+        private void TrayIcon_MouseLeave(object sender, EventArgs e)
+
+        {
+            if (hoverTimer != null)
+            {
+                hoverTimer.Stop();
+                hoverTimer.Dispose();
+                hoverTimer = null;
+            }
+        }
+
         /// <summary>
         /// Starts a timer when the mouse hovers over the tray icon.
-        /// If the cursor remains for more than 2 seconds, the application shuts down.
+        /// If the cursor remains over the icon for 2 seconds without interruption,
+        /// the timer triggers application shutdown.
+        /// Prevents multiple timers from stacking by checking for null.
         /// </summary>
-        private void TrayIcon_MouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
+        private void TrayIcon_MouseMove(object sender, EventArgs e)
+
         {
             if (hoverTimer == null)
             {
-
-                hoverTimer = new System.Windows.Forms.Timer() { Interval = 2000 };
+                hoverTimer = new System.Windows.Forms.Timer { Interval = 2000 };
                 hoverTimer.Tick += (s, args) =>
                 {
                     hoverTimer.Stop();
+                    hoverTimer.Dispose();
+                    hoverTimer = null;
                     Application.Current.Shutdown();
                 };
                 hoverTimer.Start();

@@ -272,6 +272,7 @@ namespace chat_client.MVVM.ViewModel
                 if (Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault() is SettingsWindow settings)
                 {
                     settings.UseEncryptionToggle.IsChecked = false;
+                    settings.UseEncryptionToggle.IsEnabled = true;
                 }
 
                 return;

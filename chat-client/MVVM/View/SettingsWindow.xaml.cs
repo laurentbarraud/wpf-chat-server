@@ -122,7 +122,6 @@ namespace chat_client.MVVM.View
             }
         }
 
-
         private void ReduceInTrayToggle_Checked(object sender, RoutedEventArgs e)
         {
             Properties.Settings.Default.ReduceInTray = true;
@@ -145,8 +144,6 @@ namespace chat_client.MVVM.View
                 mainWindow.DisposeTrayIcon();
             }
         }
-
-
 
         private void txtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
         {

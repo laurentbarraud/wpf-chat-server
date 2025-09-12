@@ -245,8 +245,8 @@
                               Checked="UseEncryptionToggle_Checked"
                               Unchecked="UseEncryptionToggle_Unchecked"
                               Tag="/Resources/encrypted.png"
-                              ToolTip="/Resources/encrypted-disabled.png"
-                              TabIndex="7" />
+                              TabIndex="7"
+                              IsEnabled="True" />
             </Grid>
 
             <!-- Row 4: App Language -->
