@@ -153,6 +153,9 @@
   <data name="Error" xml:space="preserve">
     <value>Error</value>
   </data>
+  <data name="ErrorInActivatingEncryption" xml:space="preserve">
+    <value>Encryption could not be activated.</value>
+  </data>
   <data name="ErrorLoadingThemeResources" xml:space="preserve">
     <value>An error occurred while loading settings. Please check your theme resources.</value>
   </data>

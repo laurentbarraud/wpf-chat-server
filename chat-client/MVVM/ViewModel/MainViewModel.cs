@@ -252,7 +252,8 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Attempts to initialize encryption if the toggle was activated.
         /// Validates the public key format before applying settings.
-        /// If the key is invalid or rejected by the server, the toggle is reverted and no encryption is enabled.
+        /// If the key is invalid or rejected by the server, a localized error message is shown,
+        /// and the toggle is reverted after user confirmation.
         /// Updates the encryption icon and sends the public key to the server if successful.
         /// </summary>
         public void InitializeEncryptionIfEnabled()
@@ -269,10 +270,22 @@ namespace chat_client.MVVM.ViewModel
             {
                 (Application.Current.MainWindow as MainWindow)?.ShowBanner("InvalidPublicKey");
 
+                // Show localized error message
+                MessageBox.Show(
+                    LocalizationManager.GetString("ErrorInActivatingEncryption"),
+                    LocalizationManager.GetString("Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+
+                // Revert toggle after user confirms
                 if (Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault() is SettingsWindow settings)
                 {
-                    settings.UseEncryptionToggle.IsChecked = false;
-                    settings.UseEncryptionToggle.IsEnabled = true;
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        settings.UseEncryptionToggle.IsChecked = false;
+                        settings.UseEncryptionToggle.IsEnabled = true;
+                    }));
                 }
 
                 return;
@@ -292,9 +305,21 @@ namespace chat_client.MVVM.ViewModel
                 // Show banner if server rejects the key
                 (Application.Current.MainWindow as MainWindow)?.ShowBanner("PublicKeyRejected");
 
+                // Show localized error message
+                MessageBox.Show(
+                    LocalizationManager.GetString("ErrorInActivatingEncryption"),
+                    LocalizationManager.GetString("Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+
+                // Revert toggle after user confirms
                 if (Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault() is SettingsWindow settings)
                 {
-                    settings.UseEncryptionToggle.IsChecked = false;
+                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        settings.UseEncryptionToggle.IsChecked = false;
+                    }));
                 }
 
                 return;
@@ -310,6 +335,7 @@ namespace chat_client.MVVM.ViewModel
             // Updates encryption icon and trigger animation
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
+
 
         /// <summary>
         /// Handles incoming messages from the server.

@@ -153,6 +153,9 @@
   <data name="Error" xml:space="preserve">
     <value>Erreur</value>
   </data>
+  <data name="ErrorInActivatingEncryption" xml:space="preserve">
+    <value>Le chiffrement n'a pas pu être activé.</value>
+  </data>
   <data name="ErrorLoadingThemeResources" xml:space="preserve">
     <value>Une erreur s’est produite lors du chargement des paramètres. Veuillez vérifier les ressources de votre thème.</value>
   </data>
