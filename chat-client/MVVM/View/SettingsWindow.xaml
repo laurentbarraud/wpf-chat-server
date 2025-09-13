@@ -288,33 +288,47 @@
         <StackPanel Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Top">
 
             <!-- Row 1: Custom TCP Port -->
+            <!-- 
+            Aligns label, toggle, textbox, and status icon using a 4-column grid.
+            Ensures consistent spacing and visual alignment with other rows.
+            -->
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
+                    <!-- Label -->
                     <ColumnDefinition Width="Auto"/>
+                    <!-- Toggle -->
                     <ColumnDefinition Width="Auto"/>
+                    <!-- TextBox -->
                     <ColumnDefinition Width="Auto"/>
+                    <!-- Status Icon -->
                 </Grid.ColumnDefinitions>
 
-                <Label x:Name="UseCustomPortLabel" Grid.Column="0" Content="Use custom TCP port"
+                <!-- Label for custom TCP port -->
+                <Label x:Name="UseCustomPortLabel"
+                       Grid.Column="0"
+                       Content="Use custom TCP port"
                        VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="4" />
+                       Foreground="{DynamicResource ForegroundBrush}"
+                       Margin="0,0,10,0"
+                       TabIndex="4" />
 
                 <!-- Toggle for enabling custom TCP port -->
                 <ToggleButton x:Name="UseCustomPortToggle"
+                              Grid.Column="1"
                               Style="{StaticResource CustomPortToggleStyle}"
                               IsChecked="{Binding UseCustomPort, Mode=TwoWay}"
                               Width="60" Height="30"
-                              Margin="10,0,0,0"
+                              Margin="0,0,10,0"
                               Checked="UseCustomPortToggle_Checked"
                               Unchecked="UseCustomPortToggle_Unchecked"
                               TabIndex="0" />
 
                 <!-- Port input field -->
-                <TextBox Grid.Column="2"
-                         x:Name="txtCustomPort"
+                <TextBox x:Name="txtCustomPort"
+                         Grid.Column="2"
                          Width="80" Height="20"
-                         Margin="20,0,0,0"
+                         Margin="0,0,10,0"
                          HorizontalContentAlignment="Center"
                          TextChanged="txtCustomPort_TextChanged"
                          ToolTip="Enter a port between 1000 and 65535"
@@ -322,10 +336,10 @@
                          TabIndex="1" />
 
                 <!-- Port status icon -->
-                <Image Grid.Column="3"
-                       x:Name="imgPortStatus"
+                <Image x:Name="imgPortStatus"
+                       Grid.Column="3"
                        Width="18" Height="18"
-                       Margin="10,0,0,0"
+                       Margin="0,0,0,0"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Left"
                        Visibility="Collapsed" />
