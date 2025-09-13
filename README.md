@@ -1,22 +1,21 @@
 ### WPF Chat app and server 
 
 [![Release](https://img.shields.io/badge/release-stable-1B4636)](https://github.com/laurentbarraud/wpf-chat-server/releases)
-[![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.10/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases/tag/v0.10)
+[![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.9/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases/tag/v0.9)
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server and client" >
 </p>
 
 - A real-time list of connected users is included, which updates automatically when users log in or out.
-- Both the server and client use a custom packet builder that adds an opcode to each packet, allowing the receiver to identify its type.
-- End-to-end message encryption is available. 
+- Both the server and client use a custom packet builder that adds an opcode to each packet, allowing the receiver to identify its type. 
 - The client supports both light and dark themes, which can be switched seamlessly using a toggle button.
 - The TCP port used by the client can be changed before connecting.
 - The client can run locally if no IP address is provided.
 - The client also remembers the last IP address it successfully connected to, making reconnections faster and more convenient.
 - The server supports custom port binding at startup, allowing it to listen on a user-specified port.
 - Emoji support featuring a dedicated selection toolbar, accessible during text input.
-  
+
 ### How to Run
 
 - Clone the repository
