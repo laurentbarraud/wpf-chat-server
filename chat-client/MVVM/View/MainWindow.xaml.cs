@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 12th, 2025</date>
+/// <date>September 13th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -515,6 +515,10 @@ namespace chat_client
             ApplyWatermarkImages();
         }
 
+        /// <summary>
+        /// Handles the mouse leave event on the tray icon.
+        /// Stops and disposes the hover timer to prevent delayed UI actions or tooltip display.
+        /// </summary>
         private void TrayIcon_MouseLeave(object sender, EventArgs e)
 
         {
@@ -549,6 +553,11 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Handles the "Open" action from the tray context menu.
+        /// Hides the tray icon and restores the main window to its normal state.
+        /// Ensures the window is visible and reappears in the taskbar.
+        /// </summary>
         private void TrayMenu_Open_Click(object sender, RoutedEventArgs e)
         {
             var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
@@ -574,6 +583,20 @@ namespace chat_client
         {
             Application.Current.Shutdown();
         }
+
+        /// <summary>
+        /// Triggers encryption setup after connection if conditions are met.
+        /// Called from Server.cs after successful connection.
+        /// </summary>
+        public void TriggerEncryptionIfNeeded()
+        {
+            if (ViewModel?.LocalUser != null &&
+                Properties.Settings.Default.UseEncryption)
+            {
+                ViewModel.InitializeEncryptionIfEnabled();
+            }
+        }
+
 
         private void txtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
         {

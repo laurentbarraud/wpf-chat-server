@@ -150,6 +150,9 @@
   <data name="EncryptionEnabled" xml:space="preserve">
     <value>Encryption is enabled.</value>
   </data>
+  <data name="EncryptionRequiresConnection" xml:space="preserve">
+    <value>You must be connected to the server to enable encryption.</value>
+  </data>
   <data name="Error" xml:space="preserve">
     <value>Error</value>
   </data>

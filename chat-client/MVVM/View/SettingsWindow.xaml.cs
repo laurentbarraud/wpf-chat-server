@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 12th, 2025</date>
+/// <date>September 13th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -170,38 +170,49 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles activation of the encryption toggle.
-        /// Attempts to initialize encryption via the ViewModel.
-        /// If encryption setup fails, shows a localized error message and reverts the toggle.
+        /// Prevents activation if the user is not connected (LocalUser is null).
+        /// Displays a localized warning and reverts the toggle if necessary.
+        /// Otherwise, proceeds with encryption setup.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Retrieves the main window and its ViewModel
-            if (Application.Current.MainWindow is MainWindow mainWindow)
+            // Retrieve the main window and its ViewModel
+            var mainWindow = Application.Current.MainWindow as MainWindow;
+            var viewModel = mainWindow?.ViewModel;
+
+            // Check if user is connected (LocalUser must be initialized)
+            if (viewModel?.LocalUser == null)
             {
-                var viewModel = mainWindow.ViewModel;
+                // Show warning message and revert toggle
+                MessageBox.Show(
+                    LocalizationManager.GetString("EncryptionRequiresConnection"),
+                    LocalizationManager.GetString("Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning
+                );
 
-                // Proceeds only if LocalUser is initialized
-                if (viewModel?.LocalUser != null)
-                {
-                    // Attempts to initialize encryption
-                    bool success = viewModel.InitializeEncryptionIfEnabled();
+                // Revert toggle to unchecked state
+                UseEncryptionToggle.IsChecked = false;
+                return;
+            }
 
-                    // If encryption setup failed, show error and revert toggle
-                    if (!success)
-                    {
-                        MessageBox.Show(
-                            LocalizationManager.GetString("ErrorInActivatingEncryption"),
-                            LocalizationManager.GetString("Error"),
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error
-                        );
+            // Proceed with encryption setup
+            bool success = viewModel.InitializeEncryptionIfEnabled();
 
-                        // Reverts toggle to unchecked state
-                        UseEncryptionToggle.IsChecked = false;
-                    }
-                }
+            // If encryption setup fails, show error and revert toggle
+            if (!success)
+            {
+                MessageBox.Show(
+                    LocalizationManager.GetString("ErrorInActivatingEncryption"),
+                    LocalizationManager.GetString("Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+
+                UseEncryptionToggle.IsChecked = false;
             }
         }
+
 
         /// <summary>
         /// Handles deactivation of the encryption toggle.

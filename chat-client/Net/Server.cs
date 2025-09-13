@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 12th, 2025</date>
+/// <date>September 13th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -85,12 +85,8 @@ namespace chat_client.Net
                 // Start listening for incoming packets
                 ReadPackets();
 
-                // Trigger encryption setup only if enabled and LocalUser is initialized
-                if (Properties.Settings.Default.UseEncryption &&
-                    (Application.Current.MainWindow as MainWindow)?.ViewModel?.LocalUser != null)
-                {
-                    (Application.Current.MainWindow as MainWindow)?.ViewModel?.InitializeEncryptionIfEnabled();
-                }
+                // Trigger encryption setup if enabled and LocalUser is initialized
+                (Application.Current.MainWindow as MainWindow)?.TriggerEncryptionIfNeeded();
 
                 return true; // Connection successful
             }
@@ -126,7 +122,6 @@ namespace chat_client.Net
                 MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message, LocalizationManager.GetString("DisconnectError"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
 
         /// <summary>
         /// Continuously reads incoming packets from the server.

@@ -150,6 +150,9 @@
   <data name="EncryptionEnabled" xml:space="preserve">
     <value>Chiffrage des messages activé.</value>
   </data>
+  <data name="EncryptionRequiresConnection" xml:space="preserve">
+    <value>Vous devez être connecté au serveur pour activer le chiffrement.</value>
+  </data>
   <data name="Error" xml:space="preserve">
     <value>Erreur</value>
   </data>
