@@ -531,27 +531,46 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Starts a timer when the mouse hovers over the tray icon.
-        /// If the cursor remains over the icon for 2 seconds without interruption,
-        /// the timer triggers application shutdown.
+        /// Starts a hover timer when the mouse moves over the tray icon.
+        /// If the cursor remains over the icon for 4000 ms without interruption,
+        /// the timer triggers a clean application shutdown and hides the tray icon.
         /// Prevents multiple timers from stacking by checking for null.
+        /// The 4000 ms delay is calculated as follows:
+        /// OS tooltip delay (~500 ms) + human reading time (~600 ms) + margin for right-click or double-click interaction (~2500 ms).
         /// </summary>
         private void TrayIcon_MouseMove(object sender, EventArgs e)
-
         {
+            // Prevent multiple timers from stacking
             if (hoverTimer == null)
             {
-                hoverTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+                // Create a timer with 4000 ms delay
+                hoverTimer = new System.Windows.Forms.Timer { Interval = 4000 };
+
+                // Define what happens when the timer elapses
                 hoverTimer.Tick += (s, args) =>
                 {
+                    // Stop and dispose the timer
                     hoverTimer.Stop();
                     hoverTimer.Dispose();
                     hoverTimer = null;
+
+                    // Hide and dispose the tray icon before shutdown
+                    var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
+                    if (trayIcon != null)
+                    {
+                        trayIcon.Visibility = Visibility.Collapsed;
+                        trayIcon.Dispose();
+                    }
+
+                    // Cleanly shut down the application
                     Application.Current.Shutdown();
                 };
+
+                // Start the timer
                 hoverTimer.Start();
             }
         }
+
 
         /// <summary>
         /// Handles the "Open" action from the tray context menu.
