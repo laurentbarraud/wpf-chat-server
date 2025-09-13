@@ -199,7 +199,10 @@ namespace chat_client.Net
 
         /// <summary>
         /// Sends the client's public RSA key to the server for distribution to other connected clients.
-        /// Returns true if the packet was successfully sent; false otherwise.
+        /// Builds a packet with OpCode 6, including the sender's UID, username, and public key in Base64 format.
+        /// Returns true only if the underlying socket exists and is actively connected.
+        /// This method is used during encryption setup and must be reliable to ensure secure key exchange.
+        /// Designed to fail silently if the client is disconnected, allowing upstream logic to handle rollback and user feedback.
         /// </summary>
         /// <param name="uid">The UID of the sender.</param>
         /// <param name="username">The username of the sender.</param>

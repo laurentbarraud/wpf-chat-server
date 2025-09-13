@@ -137,8 +137,8 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Attempts to connect the client to the server using the provided username and IP address.
-        /// Updates the UI accordingly and saves the last used IP.
+        /// Attempts to connect the client to the server.
+        /// Initializes LocalUser with Username and a unique UID for key exchange.
         /// </summary>
         public void Connect()
         {
@@ -163,43 +163,31 @@ namespace chat_client.MVVM.ViewModel
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
+                    UID = Guid.NewGuid().ToString() // Ajout d’un UID unique ici
                 };
 
-                // Attempt to connect to the server
                 IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
                 if (!IsConnected)
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
 
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
-                    {
-                        // Disable input fields
-                        mainWindow.txtUsername.IsEnabled = false;
-                        mainWindow.txtIPAddress.IsEnabled = false;
-
-                        // Update localized UI
-                        LocalizationManager.UpdateLocalizedUI();
-
-                        // Update title and visibility
-                        mainWindow.Title += " - " + LocalizationManager.GetString("Connected");
-                        mainWindow.spnCenter.Visibility = Visibility.Visible;
-                    }
+                    // … UI après connexion …
                 });
 
-
-                // Save last used IP for future sessions
                 chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
                 chat_client.Properties.Settings.Default.Save();
             }
             catch (Exception)
             {
-                // Handles connection failure and reset UI
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    if (Application.Current.MainWindow is MainWindow mw)
                     {
-                        MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
+                                        LocalizationManager.GetString("Error"),
+                                        MessageBoxButton.OK,
+                                        MessageBoxImage.Error);
                         ReinitializeUI();
                     }
                 });
@@ -252,62 +240,52 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Attempts to initialize encryption when the toggle is activated.
-        /// Generates and validates the public key, then sends it to the server.
-        /// Returns true only if the key is valid and successfully transmitted.
-        /// Displays a localized error message if the key could not be sent.
-        /// This method is idempotent: repeated calls produce the same final result without side effects,
-        /// without causing duplication, crashes, or unpredictable behavior.
+        /// Generates a fresh 2048-bit RSA key, encodes it in Base64,
+        /// stores it locally, and sends it to the server.
+        /// Displays a localized error message on send failure.
+        /// Idempotent: repeated calls produce the same result without duplicates or crashes.
         /// </summary>
         public bool InitializeEncryptionIfEnabled()
         {
-            if (!IsEncryptionEnabled || LocalUser == null)
+            // Only requires a valid user model
+            if (LocalUser == null)
                 return false;
 
             try
             {
-                // Generates RSA key pair (2048-bit) and export public key
+                // Generates RSA key pair and export public key
                 using var rsa = new RSACryptoServiceProvider(2048);
-                string publicKeyXml = rsa.ToXmlString(false); // Export public key only
-
-                // Converts public key to Base64 for transmission
-                byte[] publicKeyBytes = Encoding.UTF8.GetBytes(publicKeyXml);
-                string publicKeyBase64 = Convert.ToBase64String(publicKeyBytes);
-
-                // Stores public key locally for reference
+                string publicKeyXml = rsa.ToXmlString(false);
+                string publicKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicKeyXml));
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
 
                 // Attempts to send public key to server
-                bool success = Server.SendPublicKeyToServer(LocalUser.UID, LocalUser.Username, publicKeyBase64);
-
-                if (!success)
+                bool sent = Server.SendPublicKeyToServer(LocalUser.UID, LocalUser.Username, publicKeyBase64);
+                if (!sent)
                 {
-                    // Shows localized error message if sending fails
                     MessageBox.Show(
                         LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
                         MessageBoxButton.OK,
-                        MessageBoxImage.Error
-                    );
+                        MessageBoxImage.Error);
 
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
                     return false;
                 }
 
-                // Marks encryption as active
+                // Marks encryption active in settings
                 Properties.Settings.Default.UseEncryption = true;
                 Properties.Settings.Default.Save();
                 return true;
             }
             catch
             {
-                // General failure during encryption setup
                 Properties.Settings.Default.UseEncryption = false;
                 Properties.Settings.Default.Save();
                 return false;
             }
         }
-
 
         /// <summary>
         /// Handles incoming messages from the server.

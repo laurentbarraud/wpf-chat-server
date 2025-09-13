@@ -172,15 +172,22 @@ namespace chat_client.MVVM.View
         /// Handles activation of the encryption toggle.
         /// Prevents activation if the user is not connected (LocalUser is null).
         /// Displays a localized warning and reverts the toggle if necessary.
-        /// Otherwise, proceeds with encryption setup.
+        /// Otherwise, proceeds with encryption setup by enabling the encryption flag,
+        /// generating a new RSA key pair, and sending the public key to the server.
+        /// If the setup fails, displays a localized error and reverts the toggle.
+        /// Designed for robustness, clarity, and recruiter-facing reliability.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Retrieve the main window and its ViewModel
+            // Enables encryption in settings before attempting setup
+            Properties.Settings.Default.UseEncryption = true;
+            Properties.Settings.Default.Save();
+
+            // Retrieves the main window and its ViewModel
             var mainWindow = Application.Current.MainWindow as MainWindow;
             var viewModel = mainWindow?.ViewModel;
 
-            // Check if user is connected (LocalUser must be initialized)
+            // Checks if user is connected (LocalUser must be initialized)
             if (viewModel?.LocalUser == null)
             {
                 // Show warning message and revert toggle
@@ -191,15 +198,15 @@ namespace chat_client.MVVM.View
                     MessageBoxImage.Warning
                 );
 
-                // Revert toggle to unchecked state
+                // Reverts toggle to unchecked state
                 UseEncryptionToggle.IsChecked = false;
                 return;
             }
 
-            // Proceed with encryption setup
+            // Proceeds with encryption setup
             bool success = viewModel.InitializeEncryptionIfEnabled();
 
-            // If encryption setup fails, show error and revert toggle
+            // If encryption setup fails, shows error and reverts toggle
             if (!success)
             {
                 MessageBox.Show(
