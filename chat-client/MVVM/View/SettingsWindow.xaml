@@ -16,32 +16,36 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Grid>
+                            <!-- Background of the switch -->
                             <Border x:Name="SwitchBackground"
-                                    CornerRadius="16"
-                                    Background="{DynamicResource BackgroundBrush}"
-                                    BorderBrush="{DynamicResource AccentBrush}"
-                                    BorderThickness="1" />
+                            CornerRadius="16"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1" />
 
+                            <!-- Thumb container with icon -->
                             <Grid x:Name="ThumbContainer"
-                                  Width="30" Height="30"
-                                  VerticalAlignment="Center"
-                                  Margin="2,2,28,2">
+                          Width="30" Height="30"
+                          VerticalAlignment="Center"
+                          Margin="2,2,28,2">
                                 <Ellipse Fill="{DynamicResource PrimaryBrush}" />
                                 <Image x:Name="SwitchIcon"
-                                       Width="16" Height="16"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
+                               Width="16" Height="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Source="/Resources/encrypted-disabled.png" />
                             </Grid>
                         </Grid>
 
+                        <!-- Triggers to update icon and layout based on toggle state -->
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="SwitchIcon" Property="Source" Value="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" />
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/encrypted.png" />
                                 <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
                                 <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="False">
-                                <Setter TargetName="SwitchIcon" Property="Source" Value="{Binding ToolTip, RelativeSource={RelativeSource TemplatedParent}}" />
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/encrypted-disabled.png" />
                                 <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,28,2" />
                                 <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
                             </Trigger>
@@ -51,7 +55,130 @@
             </Setter>
         </Style>
 
-        <!-- combobox style -->
+        <!-- 
+        Custom style for the "Use Custom TCP Port" toggle.
+        Displays a port icon when enabled, and a grayed-out version when disabled.
+        Also shifts the thumb position and changes background color on toggle.
+        -->
+        <Style x:Key="CustomPortToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Border x:Name="SwitchBackground"
+                            CornerRadius="16"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1" />
+
+                            <Grid x:Name="ThumbContainer"
+                          Width="30" Height="30"
+                          VerticalAlignment="Center"
+                          Margin="2,2,28,2">
+                                <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+                                <Image x:Name="SwitchIcon"
+                               Width="16" Height="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Source="/Resources/port-setting-disabled.png" />
+                            </Grid>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/port-setting.png" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 
+        Custom style for the "Reduce to Tray" toggle.
+        Shows a calculator icon when enabled, and a disabled version when off.
+        Thumb slides and background updates accordingly.
+        -->
+        <Style x:Key="ReduceTrayToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Border x:Name="SwitchBackground"
+                            CornerRadius="16"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1" />
+
+                            <Grid x:Name="ThumbContainer"
+                          Width="30" Height="30"
+                          VerticalAlignment="Center"
+                          Margin="2,2,28,2">
+                                <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+                                <Image x:Name="SwitchIcon"
+                               Width="16" Height="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Source="/Resources/reduce-to-tray-disabled.png" />
+                            </Grid>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/reduce-to-tray-calc-icon.png" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 
+        Custom style for the "Use Encryption" toggle.
+        Displays a padlock icon when enabled, and a grayed-out padlock when disabled.
+        Thumb slides and background changes to indicate encryption status.
+        -->
+        <Style x:Key="EncryptionToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Border x:Name="SwitchBackground"
+                            CornerRadius="16"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1" />
+
+                            <Grid x:Name="ThumbContainer"
+                          Width="30" Height="30"
+                          VerticalAlignment="Center"
+                          Margin="2,2,28,2">
+                                <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+                                <Image x:Name="SwitchIcon"
+                               Width="16" Height="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Source="/Resources/encrypted-disabled.png" />
+                            </Grid>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/encrypted.png" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Combobox style -->
         <Style TargetType="ComboBox">
             <Setter Property="SnapsToDevicePixels" Value="True" />
             <Setter Property="OverridesDefaultStyle" Value="True" />
@@ -78,7 +205,7 @@
                                         <ColumnDefinition Width="20" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- displayed field -->
+                                    <!-- Displayed field -->
                                     <Border Grid.Column="0" Background="{TemplateBinding Background}" Padding="4,2">
                                         <ContentPresenter
                                                             Name="ContentSite"
@@ -90,7 +217,7 @@
                                                             HorizontalAlignment="Left" />
                                     </Border>
 
-                                    <!-- right arrow -->
+                                    <!-- Right arrow -->
                                     <Path Grid.Column="1"
                                           VerticalAlignment="Center"
                                           HorizontalAlignment="Right"
@@ -125,7 +252,7 @@
             </Setter>
         </Style>
 
-        <!-- combobox items style -->
+        <!-- Combobox items style -->
         <Style TargetType="ComboBoxItem">
             <Setter Property="Background" Value="{DynamicResource BackgroundBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
@@ -173,17 +300,17 @@
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="4" />
 
-                <ToggleButton Grid.Column="1"
-                              x:Name="UseCustomPortToggle"
+                <!-- Toggle for enabling custom TCP port -->
+                <ToggleButton x:Name="UseCustomPortToggle"
+                              Style="{StaticResource CustomPortToggleStyle}"
+                              IsChecked="{Binding UseCustomPort, Mode=TwoWay}"
                               Width="60" Height="30"
                               Margin="10,0,0,0"
-                              Style="{StaticResource CustomToggleStyle}"
                               Checked="UseCustomPortToggle_Checked"
                               Unchecked="UseCustomPortToggle_Unchecked"
-                              Tag="/Resources/port-setting.png"
-                              ToolTip="/Resources/port-setting-disabled.png"
                               TabIndex="0" />
 
+                <!-- Port input field -->
                 <TextBox Grid.Column="2"
                          x:Name="txtCustomPort"
                          Width="80" Height="20"
@@ -194,6 +321,7 @@
                          IsEnabled="False"
                          TabIndex="1" />
 
+                <!-- Port status icon -->
                 <Image Grid.Column="3"
                        x:Name="imgPortStatus"
                        Width="18" Height="18"
@@ -214,15 +342,15 @@
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="5" />
 
+                <!-- Toggle for minimizing app to system tray -->
                 <ToggleButton Grid.Column="1"
                               x:Name="ReduceInTrayToggle"
+                              Style="{StaticResource ReduceTrayToggleStyle}"
+                              IsChecked="{Binding ReduceInTray, Mode=TwoWay}"
                               Width="60" Height="30"
                               Margin="10,0,0,0"
-                              Style="{StaticResource CustomToggleStyle}"
                               Checked="ReduceInTrayToggle_Checked"
                               Unchecked="ReduceInTrayToggle_Unchecked"
-                              Tag="/Resources/reduce-to-tray-calc-icon.png"
-                              ToolTip="/Resources/reduce-to-tray-disabled.png"
                               TabIndex="2" />
             </Grid>
 
@@ -237,14 +365,15 @@
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="6" />
 
+                <!-- Toggle for enabling message encryption -->
                 <ToggleButton Grid.Column="1"
                               x:Name="UseEncryptionToggle"
+                              Style="{StaticResource EncryptionToggleStyle}"
+                              IsChecked="{Binding UseEncryption, Mode=TwoWay}"
                               Width="60" Height="30"
                               Margin="10,0,0,0"
-                              Style="{StaticResource CustomToggleStyle}"
                               Checked="UseEncryptionToggle_Checked"
                               Unchecked="UseEncryptionToggle_Unchecked"
-                              Tag="/Resources/encrypted.png"
                               TabIndex="7"
                               IsEnabled="True" />
             </Grid>

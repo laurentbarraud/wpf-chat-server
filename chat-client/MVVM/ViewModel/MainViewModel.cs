@@ -250,48 +250,30 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Attempts to initialize encryption if the toggle was activated.
-        /// Validates the public key format before applying settings.
-        /// If the key is invalid or rejected by the server, a localized error message is shown,
-        /// and the toggle is reverted after user confirmation.
-        /// Updates the encryption icon and sends the public key to the server if successful.
+        /// Attempts to initialize encryption when the toggle is activated.
+        /// Generates and validates the public key, then sends it to the server.
+        /// Returns true only if the key is valid and successfully transmitted.
+        /// Stores the key locally and switches the encryption status icon to its colored version on success.
+        /// Does not modify UI elements directly; caller handles rollback and feedback.
         /// </summary>
-        public void InitializeEncryptionIfEnabled()
+        public bool InitializeEncryptionIfEnabled()
         {
-            // Aborts if required objects are missing
+            // Abort if required objects are missing
             if (LocalUser == null || Server == null)
-                return;
+                return false;
 
-            // Generates public key
+            // Generate a new public key
             string publicKey = EncryptionHelper.GetPublicKeyBase64();
 
-            // Validates public key format (must be well-formed Base64)
+            // Validate the public key format (must be well-formed Base64)
             if (!EncryptionHelper.IsValidBase64(publicKey))
             {
+                // Show banner for invalid key
                 (Application.Current.MainWindow as MainWindow)?.ShowBanner("InvalidPublicKey");
-
-                // Show localized error message
-                MessageBox.Show(
-                    LocalizationManager.GetString("ErrorInActivatingEncryption"),
-                    LocalizationManager.GetString("Error"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-
-                // Revert toggle after user confirms
-                if (Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault() is SettingsWindow settings)
-                {
-                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        settings.UseEncryptionToggle.IsChecked = false;
-                        settings.UseEncryptionToggle.IsEnabled = true;
-                    }));
-                }
-
-                return;
+                return false;
             }
 
-            // Attempts to send public key to server
+            // Attempt to send the public key to the server
             try
             {
                 Server.SendPublicKeyToServer(
@@ -302,40 +284,23 @@ namespace chat_client.MVVM.ViewModel
             }
             catch
             {
-                // Show banner if server rejects the key
+                // Show banner if the server rejects the key
                 (Application.Current.MainWindow as MainWindow)?.ShowBanner("PublicKeyRejected");
-
-                // Show localized error message
-                MessageBox.Show(
-                    LocalizationManager.GetString("ErrorInActivatingEncryption"),
-                    LocalizationManager.GetString("Error"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-
-                // Revert toggle after user confirms
-                if (Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault() is SettingsWindow settings)
-                {
-                    Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        settings.UseEncryptionToggle.IsChecked = false;
-                    }));
-                }
-
-                return;
+                return false;
             }
 
-            // Applies encryption setting only after successful transmission
+            // Apply encryption setting only after successful transmission
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // Stores public key in LocalUser
+            // Store the public key locally
             LocalUser.PublicKeyBase64 = publicKey;
 
-            // Updates encryption icon and trigger animation
+            // Switch encryption status icon to colored version and trigger animation
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
-        }
 
+            return true;
+        }
 
         /// <summary>
         /// Handles incoming messages from the server.

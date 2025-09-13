@@ -170,34 +170,53 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles activation of the encryption toggle.
-        /// Triggers encryption setup only if prerequisites are met.
-        /// The application setting is updated only after successful key validation.
-        /// Displays the encryption icon and initiates key generation and transmission.
+        /// Attempts to initialize encryption via the ViewModel.
+        /// If encryption setup fails, shows a localized error message and reverts the toggle.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
+            // Retrieves the main window and its ViewModel
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
-                // Only trigger encryption setup if LocalUser is initialized
-                if (mainWindow.ViewModel?.LocalUser != null)
+                var viewModel = mainWindow.ViewModel;
+
+                // Proceeds only if LocalUser is initialized
+                if (viewModel?.LocalUser != null)
                 {
-                    mainWindow.ViewModel.InitializeEncryptionIfEnabled();
+                    // Attempts to initialize encryption
+                    bool success = viewModel.InitializeEncryptionIfEnabled();
+
+                    // If encryption setup failed, show error and revert toggle
+                    if (!success)
+                    {
+                        MessageBox.Show(
+                            LocalizationManager.GetString("ErrorInActivatingEncryption"),
+                            LocalizationManager.GetString("Error"),
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error
+                        );
+
+                        // Reverts toggle to unchecked state
+                        UseEncryptionToggle.IsChecked = false;
+                    }
                 }
             }
         }
 
-
+        /// <summary>
+        /// Handles deactivation of the encryption toggle.
+        /// Clears the encryption setting and updates the encryption status icon.
+        /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
+            // Disables encryption in application settings
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // Hides the encryption icon in MainWindow
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.imgEncryptionStatus.Visibility = Visibility.Collapsed;
-            }
+            // Updates the encryption icon to reflect disabled state
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
+
 
         private void ValidatePortInput()
         {
