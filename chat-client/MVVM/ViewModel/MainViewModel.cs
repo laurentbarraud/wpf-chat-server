@@ -166,13 +166,19 @@ namespace chat_client.MVVM.ViewModel
                     UID = Guid.NewGuid().ToString() // Ajout d’un UID unique ici
                 };
 
-                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
+                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer); // Returns a bool
                 if (!IsConnected)
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
 
+                // Updates UI to reflect connected state
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    // … UI après connexion …
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.Title += " - Connected";
+                        mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
+                        mainWindow.spnCenter.Visibility = Visibility.Visible;
+                    }
                 });
 
                 chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
