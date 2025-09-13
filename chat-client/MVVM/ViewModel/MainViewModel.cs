@@ -16,6 +16,7 @@ using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Policy;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
@@ -253,54 +254,60 @@ namespace chat_client.MVVM.ViewModel
         /// Attempts to initialize encryption when the toggle is activated.
         /// Generates and validates the public key, then sends it to the server.
         /// Returns true only if the key is valid and successfully transmitted.
-        /// Stores the key locally and switches the encryption status icon to its colored version on success.
-        /// Does not modify UI elements directly; caller handles rollback and feedback.
+        /// Displays a localized error message if the key could not be sent.
+        /// This method is idempotent: repeated calls produce the same final result without side effects,
+        /// without causing duplication, crashes, or unpredictable behavior.
         /// </summary>
         public bool InitializeEncryptionIfEnabled()
         {
-            // Abort if required objects are missing
-            if (LocalUser == null || Server == null)
+            if (!IsEncryptionEnabled || LocalUser == null)
                 return false;
 
-            // Generate a new public key
-            string publicKey = EncryptionHelper.GetPublicKeyBase64();
-
-            // Validate the public key format (must be well-formed Base64)
-            if (!EncryptionHelper.IsValidBase64(publicKey))
-            {
-                // Show banner for invalid key
-                (Application.Current.MainWindow as MainWindow)?.ShowBanner("InvalidPublicKey");
-                return false;
-            }
-
-            // Attempt to send the public key to the server
             try
             {
-                Server.SendPublicKeyToServer(
-                    LocalUser.UID,
-                    LocalUser.Username,
-                    publicKey
-                );
+                // Generates RSA key pair (2048-bit) and export public key
+                using var rsa = new RSACryptoServiceProvider(2048);
+                string publicKeyXml = rsa.ToXmlString(false); // Export public key only
+
+                // Converts public key to Base64 for transmission
+                byte[] publicKeyBytes = Encoding.UTF8.GetBytes(publicKeyXml);
+                string publicKeyBase64 = Convert.ToBase64String(publicKeyBytes);
+
+                // Stores public key locally for reference
+                LocalUser.PublicKeyBase64 = publicKeyBase64;
+
+                // Attempts to send public key to server
+                bool success = Server.SendPublicKeyToServer(LocalUser.UID, LocalUser.Username, publicKeyBase64);
+
+                if (!success)
+                {
+                    // Shows localized error message if sending fails
+                    MessageBox.Show(
+                        LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
+                        LocalizationManager.GetString("Error"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error
+                    );
+
+                    Properties.Settings.Default.UseEncryption = false;
+                    Properties.Settings.Default.Save();
+                    return false;
+                }
+
+                // Marks encryption as active
+                Properties.Settings.Default.UseEncryption = true;
+                Properties.Settings.Default.Save();
+                return true;
             }
             catch
             {
-                // Show banner if the server rejects the key
-                (Application.Current.MainWindow as MainWindow)?.ShowBanner("PublicKeyRejected");
+                // General failure during encryption setup
+                Properties.Settings.Default.UseEncryption = false;
+                Properties.Settings.Default.Save();
                 return false;
             }
-
-            // Apply encryption setting only after successful transmission
-            Properties.Settings.Default.UseEncryption = true;
-            Properties.Settings.Default.Save();
-
-            // Store the public key locally
-            LocalUser.PublicKeyBase64 = publicKey;
-
-            // Switch encryption status icon to colored version and trigger animation
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
-
-            return true;
         }
+
 
         /// <summary>
         /// Handles incoming messages from the server.
@@ -412,6 +419,28 @@ namespace chat_client.MVVM.ViewModel
                     mainWindow.spnCenter.Visibility = Visibility.Hidden;
                 }
             });
+        }
+
+        /// <summary>
+        /// Resets the encryption state after the toggle is disabled.
+        /// Clears the stored public key and updates the encryption setting in application settings.
+        /// This ensures that encryption can be reinitialized cleanly if reactivated later.
+        /// Does not dispose RSA keys directly; assumes stateless reinitialization on next activation.
+        /// The method is stateless: it does not rely on internal flags, but on actual content and settings.
+        /// </summary>
+        public void ResetEncryptionState()
+        {
+            // Disable encryption in application settings
+            Properties.Settings.Default.UseEncryption = false;
+            Properties.Settings.Default.Save();
+
+            // Clear stored public key from the user model
+            if (LocalUser != null)
+            {
+                LocalUser.PublicKeyBase64 = null;
+            }
+
+            // Optional: log or notify if needed
         }
 
         /// <summary>

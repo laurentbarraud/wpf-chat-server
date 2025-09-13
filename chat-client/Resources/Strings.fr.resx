@@ -204,6 +204,9 @@
   <data name="ReduceInTrayLabel" xml:space="preserve">
     <value>Réduire dans la zone de notification</value>
   </data>
+  <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
+    <value>Échec de l’envoi de la clé RSA publique au serveur. Veuillez vérifier votre connexion.</value>
+  </data>
   <data name="ServerHasClosed" xml:space="preserve">
     <value>Le serveur a fermé. Vous allez être bientôt déconnecté...</value>
   </data>

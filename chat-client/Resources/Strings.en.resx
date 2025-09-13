@@ -204,6 +204,9 @@
   <data name="ReduceInTrayLabel" xml:space="preserve">
     <value>Reduce in system tray</value>
   </data>
+  <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
+    <value>Failed to send the public RSA key to the server. Please check your connection.</value>
+  </data>
   <data name="ServerHasClosed" xml:space="preserve">
     <value>Server has closed. You will be disconnected shortly...</value>
   </data>

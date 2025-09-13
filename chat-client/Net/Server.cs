@@ -198,23 +198,31 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends the client's public key to the server for distribution to other clients.
+        /// Sends the client's public RSA key to the server for distribution to other connected clients.
+        /// Returns true if the packet was successfully sent; false otherwise.
         /// </summary>
         /// <param name="uid">The UID of the sender.</param>
         /// <param name="username">The username of the sender.</param>
-        /// <param name="publicKeyBase64">The public key in Base64 format.</param>
-        public void SendPublicKeyToServer(string uid, string username, string publicKeyBase64)
+        /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
+        /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
+        public bool SendPublicKeyToServer(string uid, string username, string publicKeyBase64)
         {
+            // Builds encryption packet with OpCode 6 (public key exchange)
             var packet = new PacketBuilder();
             packet.WriteOpCode(6); // OpCode for public key exchange
-            packet.WriteMessage(uid);
-            packet.WriteMessage(username);
-            packet.WriteMessage(publicKeyBase64);
+            packet.WriteMessage(uid); // Sender UID
+            packet.WriteMessage(username); // Sender username
+            packet.WriteMessage(publicKeyBase64); // Public key in Base64
 
+            // Sends packet only if client is connected
             if (_client?.Client != null && _client.Connected)
             {
                 _client.Client.Send(packet.GetPacketBytes());
+                return true;
             }
+
+            // Failed to send (client not connected)
+            return false;
         }
 
         /// <summary>

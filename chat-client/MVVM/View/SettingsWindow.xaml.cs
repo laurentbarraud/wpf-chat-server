@@ -213,21 +213,25 @@ namespace chat_client.MVVM.View
             }
         }
 
-
         /// <summary>
         /// Handles deactivation of the encryption toggle.
-        /// Clears the encryption setting and updates the encryption status icon.
+        /// Updates application settings, clears the stored public key,
+        /// resets the encryption state, and updates the encryption status icon.
+        /// This ensures the system is ready for clean reactivation without residual state.
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            // Disables encryption in application settings
+            // Disable encryption in application settings
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // Updates the encryption icon to reflect disabled state
+            // Reset encryption state in the ViewModel
+            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
+            viewModel?.ResetEncryptionState();
+
+            // Update encryption icon to reflect disabled state
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
-
 
         private void ValidatePortInput()
         {

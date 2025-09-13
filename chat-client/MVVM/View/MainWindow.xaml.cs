@@ -679,9 +679,12 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Updates the encryption status icon based on the current encryption setting and key exchange state.
-        /// Displays the icon only if encryption is enabled, and adjusts its appearance depending on whether the public key was successfully exchanged.
-        /// Sets the tooltip using localized strings and triggers a pulse animation only when encryption is fully active.
+        /// Updates the encryption status icon and tooltip above the message input field.
+        /// Reflects the current encryption state based on key exchange success and application settings.
+        /// Displays the colored icon if encryption is active and the public key is present; otherwise shows the default icon.
+        /// Ensures visual feedback remains consistent across toggle changes, connection events, and localization.
+        /// Designed for modular UI updates without direct dependency on toggle logic or connection flow.
+        /// Autonomous, reliable, and seamlessly integrated into the application's lifecycle.
         /// </summary>
         public void UpdateEncryptionStatusIcon()
         {
