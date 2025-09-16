@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 13th, 2025</date>
+/// <date>September 15th, 2025</date>
 
 using chat_client.MVVM.View;
 using chat_client.Net;
@@ -92,7 +92,7 @@ namespace chat_client.Helpers
                 if (window is SettingsWindow settings)
                 {
                     settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
-                    settings.ReduceInTrayLabel.Content = GetString("ReduceInTrayLabel");
+                    settings.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
                     settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
                     settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
                     settings.lblAbout.Content = GetString("About");

@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 13th, 2025</date>
+/// <date>September 15th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -42,7 +42,6 @@ namespace chat_client
 
         // Tray icon variables
         private TaskbarIcon trayIcon;
-        private System.Windows.Forms.Timer hoverTimer;
 
         // Scoll variables
         private DispatcherTimer scrollTimer;
@@ -69,10 +68,7 @@ namespace chat_client
             // Subscribes to message collection changes to trigger autoscroll
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            // Subscribes to the property change.
-            // This ensures that the button is updated automatically
-            // as soon as IsConnected changes, without having
-            // to call it manually in Connect() or cmdConnectDisconnect_Click.
+            // Subscribes to property changes to update UI dynamically
             ViewModel.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(ViewModel.IsConnected))
@@ -81,29 +77,12 @@ namespace chat_client
                 }
             };
 
-            // Initialize tray icon and context menu only if "ReduceInTray" setting is enabled
-            if (chat_client.Properties.Settings.Default.ReduceInTray)
-            {
-                // Assign localized context menu to tray icon
-                InitializeTrayMenu();
-
-                // Attempt to retrieve the tray icon from application resources
-                var trayIcon = TryFindResource("TrayIcon") as TaskbarIcon;
-
-                if (trayIcon != null)
-                {
-                    // Ensure the tray icon is hidden initially until minimized
-                    trayIcon.Visibility = Visibility.Collapsed;
-                }
-            }
-
             // Initialize the scroll timer used for emoji panel auto-scrolling
             scrollTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(50)
             };
             scrollTimer.Tick += ScrollTimer_Tick;
-
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -285,71 +264,41 @@ namespace chat_client
             }
         }
 
-
         /// <summary>
-        /// Minimizes the application to the system tray and hides it from the taskbar.
-        /// Assumes the tray icon is already defined in App.xaml and initialized at startup.
+        /// Ensures the tray icon is initialized with its context menu and all required event handlers.
+        /// Attaches localized menu items, hover-based shutdown logic, and restore behavior.
+        /// Safe to call multiple times; prevents duplicate event bindings.
+        /// Designed for modular tray lifecycle management in WPF.
         /// </summary>
-        private void HideToTray()
+        public void EnsureTrayIconReady()
         {
-            // Attempt to retrieve the tray icon from application resources
             var trayIcon = TryFindResource("TrayIcon") as TaskbarIcon;
+            if (trayIcon == null) return;
 
-            if (trayIcon != null)
+            // Attach context menu only once
+            if (trayIcon.ContextMenu == null)
             {
-                // Make the tray icon visible in the system tray
-                trayIcon.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                // Optional: log or handle missing tray icon (should not happen if properly initialized)
-                Debug.WriteLine("TrayIcon resource not found. Ensure it is declared in App.xaml.");
-            }
+                var trayMenu = new ContextMenu();
 
-            // Hide the main window and remove it from the taskbar
-            this.Hide();
-            this.ShowInTaskbar = false;
-        }
+                // Create and localize "Open" menu item
+                TrayMenuOpen = new MenuItem
+                {
+                    Header = LocalizationManager.GetString("TrayOpen")
+                };
+                TrayMenuOpen.Click += TrayMenu_Open_Click;
 
-        /// <summary>
-        /// Initializes the tray icon's context menu with localized labels.
-        /// Attaches mouse hover and leave events for timed shutdown.
-        /// Manually displays the context menu on right-click using WPF placement logic.
-        /// Stores menu items in public properties for dynamic updates.
-        /// </summary>
-        private void InitializeTrayMenu()
-        {
-            // Create a new WPF context menu for the tray icon
-            var trayMenu = new ContextMenu();
+                // Create and localize "Quit" menu item
+                TrayMenuQuit = new MenuItem
+                {
+                    Header = LocalizationManager.GetString("TrayQuit")
+                };
+                TrayMenuQuit.Click += TrayMenu_Quit_Click;
 
-            // Create and localize the "Open" menu item
-            TrayMenuOpen = new MenuItem
-            {
-                Header = LocalizationManager.GetString("TrayOpen")
-            };
-            TrayMenuOpen.Click += TrayMenu_Open_Click;
+                trayMenu.Items.Add(TrayMenuOpen);
+                trayMenu.Items.Add(TrayMenuQuit);
+                trayIcon.ContextMenu = trayMenu;
 
-            // Create and localize the "Quit" menu item
-            TrayMenuQuit = new MenuItem
-            {
-                Header = LocalizationManager.GetString("TrayQuit")
-            };
-            TrayMenuQuit.Click += TrayMenu_Quit_Click;
-
-            // Add both items to the context menu
-            trayMenu.Items.Add(TrayMenuOpen);
-            trayMenu.Items.Add(TrayMenuQuit);
-
-            // Retrieve the tray icon resource defined in App.xaml
-            var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
-
-            if (trayIcon != null)
-            {
-                // Attach mouse hover and leave events for timed shutdown
-                trayIcon.MouseMove += TrayIcon_MouseMove;
-                trayIcon.MouseLeave += TrayIcon_MouseLeave;
-
-                // Manually display the context menu on right-click
+                // Display context menu on right-click
                 trayIcon.TrayRightMouseUp += (s, e) =>
                 {
                     trayMenu.PlacementTarget = this;
@@ -359,41 +308,38 @@ namespace chat_client
             }
         }
 
-
         private void MainWindow1_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (Properties.Settings.Default.ReduceInTray)
+            if (Properties.Settings.Default.ReduceToTray)
             {
                 e.Cancel = true;
-                HideToTray();
+                ReduceToTray();
             }
         }
         /// <summary>
-        /// Handles global key press events to trigger behavior
-        /// when "reduce in tray" mode is enabled via the settings. 
+        /// Handles global key press events to trigger tray reduction behavior
+        /// when "ReduceToTray" mode is enabled via application settings.
+        /// Supports Escape key and double Ctrl press within one second.
         /// </summary>
         private void MainWindow1_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (!Properties.Settings.Default.ReduceInTray) return;
+            if (!chat_client.Properties.Settings.Default.ReduceToTray)
+                return;
 
-            // Ensures tray icon is initialized before hiding
-            var trayIcon = TryFindResource("TrayIcon") as TaskbarIcon;
-            if (trayIcon == null)
-            {
-                InitializeTrayMenu();
-            }
-
+            // Reduce to tray on Escape key
             if (e.Key == Key.Escape)
             {
-                HideToTray();
+                ReduceToTray();
+                return;
             }
-            // If the Ctrl key is pressed twice within one second
-            else if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
+
+            // Reduce to tray if Ctrl is pressed twice within one second
+            if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
             {
                 var now = DateTime.Now;
                 if ((now - lastCtrlPress).TotalMilliseconds < 1000)
                 {
-                    HideToTray();
+                    ReduceToTray();
                 }
                 lastCtrlPress = now;
             }
@@ -401,9 +347,9 @@ namespace chat_client
 
         private void MainWindow1_StateChanged(object sender, EventArgs e)
         {
-            if (Properties.Settings.Default.ReduceInTray && WindowState == WindowState.Minimized)
+            if (Properties.Settings.Default.ReduceToTray && WindowState == WindowState.Minimized)
             {
-                HideToTray();
+                ReduceToTray();
             }
         }
 
@@ -436,6 +382,30 @@ namespace chat_client
             imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
             isEmojiPanelOpen = false;
         }
+
+        /// <summary>
+        /// Reduces the application to the system tray if the "ReduceToTray" setting is enabled.
+        /// Ensures the tray icon is initialized and visible, and hides the main window from the taskbar.
+        /// Safe to call from multiple triggers (minimize, Escape, Ctrl+Ctrl, closing).
+        /// </summary>
+        private void ReduceToTray()
+        {
+            // Check if tray mode is enabled in settings
+            if (!chat_client.Properties.Settings.Default.ReduceToTray)
+                return;
+
+            // Retrieve tray icon from resources
+            var trayIcon = TryFindResource("TrayIcon") as TaskbarIcon;
+            if (trayIcon != null)
+            {
+                trayIcon.Visibility = Visibility.Visible;
+            }
+
+            // Hide main window and remove from taskbar
+            this.Hide();
+            this.ShowInTaskbar = false;
+        }
+
 
         /// <summary>
         /// Displays a temporary banner at the top of the window with a localized message.
@@ -516,68 +486,11 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Handles the mouse leave event on the tray icon.
-        /// Stops and disposes the hover timer to prevent delayed UI actions or tooltip display.
-        /// </summary>
-        private void TrayIcon_MouseLeave(object sender, EventArgs e)
-
-        {
-            if (hoverTimer != null)
-            {
-                hoverTimer.Stop();
-                hoverTimer.Dispose();
-                hoverTimer = null;
-            }
-        }
-
-        /// <summary>
-        /// Starts a hover timer when the mouse moves over the tray icon.
-        /// If the cursor remains over the icon for 4000 ms without interruption,
-        /// the timer triggers a clean application shutdown and hides the tray icon.
-        /// Prevents multiple timers from stacking by checking for null.
-        /// The 4000 ms delay is calculated as follows:
-        /// OS tooltip delay (~500 ms) + human reading time (~600 ms) + margin for right-click or double-click interaction (~2500 ms).
-        /// </summary>
-        private void TrayIcon_MouseMove(object sender, EventArgs e)
-        {
-            // Prevent multiple timers from stacking
-            if (hoverTimer == null)
-            {
-                // Create a timer with 4000 ms delay
-                hoverTimer = new System.Windows.Forms.Timer { Interval = 4000 };
-
-                // Define what happens when the timer elapses
-                hoverTimer.Tick += (s, args) =>
-                {
-                    // Stop and dispose the timer
-                    hoverTimer.Stop();
-                    hoverTimer.Dispose();
-                    hoverTimer = null;
-
-                    // Hide and dispose the tray icon before shutdown
-                    var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
-                    if (trayIcon != null)
-                    {
-                        trayIcon.Visibility = Visibility.Collapsed;
-                        trayIcon.Dispose();
-                    }
-
-                    // Cleanly shut down the application
-                    Application.Current.Shutdown();
-                };
-
-                // Start the timer
-                hoverTimer.Start();
-            }
-        }
-
-
-        /// <summary>
         /// Handles the "Open" action from the tray context menu.
         /// Hides the tray icon and restores the main window to its normal state.
         /// Ensures the window is visible and reappears in the taskbar.
         /// </summary>
-        private void TrayMenu_Open_Click(object sender, RoutedEventArgs e)
+        public void TrayMenu_Open_Click(object sender, RoutedEventArgs e)
         {
             var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
             if (trayIcon != null)
@@ -591,14 +504,7 @@ namespace chat_client
         }
 
 
-        private void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
-        {
-            // Simulates clicking "Open" from the tray menu
-            TrayMenu_Open_Click(sender, e);
-        }
-
-
-        private void TrayMenu_Quit_Click(object sender, RoutedEventArgs e)
+        public void TrayMenu_Quit_Click(object sender, RoutedEventArgs e)
         {
             Application.Current.Shutdown();
         }

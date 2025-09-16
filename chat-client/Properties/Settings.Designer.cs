@@ -74,12 +74,12 @@ namespace chat_client.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool ReduceInTray {
+        public bool ReduceToTray {
             get {
-                return ((bool)(this["ReduceInTray"]));
+                return ((bool)(this["ReduceToTray"]));
             }
             set {
-                this["ReduceInTray"] = value;
+                this["ReduceToTray"] = value;
             }
         }
         

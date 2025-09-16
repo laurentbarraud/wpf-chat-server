@@ -1,12 +1,13 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 13th, 2025</date>
+/// <date>September 15th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
 using chat_client.Net.IO;
+using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -60,10 +61,12 @@ namespace chat_client.MVVM.View
                     }
                 }
 
-                // Synchronizes toggle buttons and port field with saved settings
+                // Synchronizes toggles states and port field with saved settings
                 UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
                 txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
-                ReduceInTrayToggle.IsChecked = Properties.Settings.Default.ReduceInTray;
+
+                ReduceToTrayToggle.IsChecked = chat_client.Properties.Settings.Default.ReduceToTray;
+                
                 UseEncryptionToggle.IsChecked = Properties.Settings.Default.UseEncryption;
             }
             catch (Exception ex)
@@ -73,8 +76,6 @@ namespace chat_client.MVVM.View
                 MessageBox.Show(LocalizationManager.GetString("ErrorLoadingThemeResources"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
-
 
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
         {
@@ -122,26 +123,45 @@ namespace chat_client.MVVM.View
             }
         }
 
-        private void ReduceInTrayToggle_Checked(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Triggered when the "Reduce to Tray" toggle is checked.
+        /// Updates the application setting and ensures the tray icon is initialized only if not already visible.
+        /// Prevents redundant initialization and visual flickering.
+        /// </summary>
+        private void ReduceToTrayToggle_Checked(object sender, RoutedEventArgs e)
         {
-            Properties.Settings.Default.ReduceInTray = true;
-            Properties.Settings.Default.Save();
+            chat_client.Properties.Settings.Default.ReduceToTray = true;
+            chat_client.Properties.Settings.Default.Save();
+
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                var trayIcon = mainWindow.TryFindResource("TrayIcon") as TaskbarIcon;
+
+                // Only initialize if tray icon is not already visible
+                if (trayIcon != null)
+                {
+                    mainWindow.EnsureTrayIconReady();
+                }
+            }
         }
 
         /// <summary>
-        /// Handles the unchecking of the "Reduce in tray" toggle.
-        /// Updates user settings and disposes the tray icon if active.
+        /// Triggered when the "Reduce to Tray" toggle is unchecked.
+        /// Updates the application setting and hides the tray icon if active.
+        /// Disables tray-based minimization behavior until re-enabled.
         /// </summary>
-        private void ReduceInTrayToggle_Unchecked(object sender, RoutedEventArgs e)
+        private void ReduceToTrayToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            // Update user preference to disable tray minimization
-            Properties.Settings.Default.ReduceInTray = false;
-            Properties.Settings.Default.Save();
+            chat_client.Properties.Settings.Default.ReduceToTray = false;
+            chat_client.Properties.Settings.Default.Save();
 
-            // Dispose tray icon if it exists
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
-                mainWindow.DisposeTrayIcon();
+                var trayIcon = mainWindow.TryFindResource("TrayIcon") as TaskbarIcon;
+                if (trayIcon != null)
+                {
+                    trayIcon.Visibility = Visibility.Collapsed;
+                }
             }
         }
 

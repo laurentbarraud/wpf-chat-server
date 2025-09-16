@@ -1,7 +1,7 @@
 ﻿/// <file>App.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 13th, 2025</date>
+/// <date>September 15th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.Properties;
@@ -46,6 +46,14 @@ namespace chat_client
             // Launch the main window
             var mainWindow = new MainWindow();
             mainWindow.Show();
+        }
+
+        public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.TrayMenu_Open_Click(sender, e);
+            }
         }
     }
 

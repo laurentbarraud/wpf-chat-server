@@ -12,13 +12,6 @@
         PreviewKeyDown="MainWindow1_PreviewKeyDown">
     <Window.Resources>
 
-        <!-- TaskbarIcon declaration -->
-        <tb:TaskbarIcon x:Key="TrayIcon"
-                    IconSource="/Resources/calc-icon.ico"
-                    ToolTipText="Windows Calculator"
-                    MenuActivation="RightClick"
-                    TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick" />
-
         <!-- Slide animation for emoji popup -->
         <Storyboard x:Key="SlideInStoryboard">
             <DoubleAnimation Storyboard.TargetName="popupEmojiPanel"

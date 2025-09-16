@@ -352,19 +352,18 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Label x:Name="ReduceInTrayLabel" Grid.Column="0" Content="Reduce in system tray"
+                <Label x:Name="ReduceToTrayLabel" Grid.Column="0" Content="Reduce in system tray"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="5" />
 
                 <!-- Toggle for minimizing app to system tray -->
                 <ToggleButton Grid.Column="1"
-                              x:Name="ReduceInTrayToggle"
+                              x:Name="ReduceToTrayToggle"
                               Style="{StaticResource ReduceTrayToggleStyle}"
-                              IsChecked="{Binding ReduceInTray, Mode=TwoWay}"
                               Width="60" Height="30"
                               Margin="10,0,0,0"
-                              Checked="ReduceInTrayToggle_Checked"
-                              Unchecked="ReduceInTrayToggle_Unchecked"
+                              Checked="ReduceToTrayToggle_Checked"
+                              Unchecked="ReduceToTrayToggle_Unchecked"
                               TabIndex="2" />
             </Grid>
 

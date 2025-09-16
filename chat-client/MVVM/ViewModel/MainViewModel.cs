@@ -1,13 +1,14 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 13th, 2025</date>
+/// <date>September 15th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.MVVM.View;
 using chat_client.Net;
 using chat_client.Net.IO;
+using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -24,7 +25,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+
 
 
 namespace chat_client.MVVM.ViewModel
@@ -378,6 +379,38 @@ namespace chat_client.MVVM.ViewModel
             Application.Current.Dispatcher.Invoke(() => Messages.Add(rawMessage));
 
         }
+
+        /// <summary>
+        /// User-driven setting bound to the UI that persists tray preference and updates icon visibility in real time.
+        /// </summary>
+        /// <summary>
+        /// User-driven setting bound to the UI that persists tray preference and updates icon visibility in real time.
+        /// </summary>
+        public bool ReduceToTray
+        {
+            get => chat_client.Properties.Settings.Default.ReduceToTray;
+            set
+            {
+                if (chat_client.Properties.Settings.Default.ReduceToTray != value)
+                {
+                    chat_client.Properties.Settings.Default.ReduceToTray = value;
+                    chat_client.Properties.Settings.Default.Save();
+
+                    OnPropertyChanged(nameof(ReduceToTray));
+
+                    // Update tray icon visibility
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        var trayIcon = mainWindow.TryFindResource("TrayIcon") as TaskbarIcon;
+                        if (trayIcon != null)
+                        {
+                            trayIcon.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+                        }
+                    }
+                }
+            }
+        }
+
 
         /// <summary>
         /// Clears user and message data and restores the UI to its initial state.

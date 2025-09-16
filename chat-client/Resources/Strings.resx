@@ -201,7 +201,7 @@
   <data name="PublicKeyRejected" xml:space="preserve">
     <value>The public key was rejected by the server. Encryption was not enabled.</value>
   </data>
-  <data name="ReduceInTrayLabel" xml:space="preserve">
+  <data name="ReduceToTrayLabel" xml:space="preserve">
     <value>Reduce in system tray</value>
   </data>
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">

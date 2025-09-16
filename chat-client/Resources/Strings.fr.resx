@@ -201,7 +201,7 @@
   <data name="PublicKeyRejected" xml:space="preserve">
     <value>La clé publique a été rejetée par le serveur. Le chiffrement n'a pas été activé.</value>
   </data>
-  <data name="ReduceInTrayLabel" xml:space="preserve">
+  <data name="ReduceToTrayLabel" xml:space="preserve">
     <value>Réduire dans la zone de notification</value>
   </data>
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">

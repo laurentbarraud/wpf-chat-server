@@ -10,12 +10,13 @@
                 <ResourceDictionary Source="Themes/LightTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Persistent tray icon, hidden by default -->
+            <!-- Global tray icon declaration --> 
             <tb:TaskbarIcon x:Key="TrayIcon"
-                            Visibility="Collapsed"
-                            IconSource="pack://application:,,,/Resources/calc-icon.ico"
-                            ToolTipText="WPF Chat Client"
-                            MenuActivation="RightClick" />
+                            IconSource="/Resources/calc-icon.ico"
+                            ToolTipText="Windows Calculator"
+                            MenuActivation="RightClick"
+                            TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick"
+                            Visibility="Collapsed" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

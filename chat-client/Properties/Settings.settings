@@ -14,7 +14,7 @@
     <Setting Name="UseCustomPort" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
-    <Setting Name="ReduceInTray" Type="System.Boolean" Scope="User">
+    <Setting Name="ReduceToTray" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="UseEncryption" Type="System.Boolean" Scope="User">
