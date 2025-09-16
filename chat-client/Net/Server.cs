@@ -219,64 +219,66 @@ namespace chat_client.Net
 
         /// <summary>
         /// Sends a chat message to the server using the standard packet format.
-        /// If encryption is enabled and the recipient's public key is available,
-        /// the message is encrypted using RSA before transmission.
+        /// If encryption is enabled and the recipient is not the local user,
+        /// the message is encrypted using RSA with the recipient's public key before transmission.
         /// Otherwise, the message is sent in plain text.
         /// This method ensures secure communication when possible,
-        /// and logs warnings if encryption prerequisites are missing.
+        /// and logs warnings if encryption prerequisites are missing or invalid.
         /// </summary>
         /// <param name="message">The plain text message to send.</param>
         public void SendMessageToServer(string message)
         {
-            // Validates message content
+            // Validate message content: ignore empty or whitespace-only messages
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
-            // Safely retrieves the ViewModel from the main window
+            // Safely retrieve the ViewModel from the main window
             if (Application.Current.MainWindow is not MainWindow mainWindow || mainWindow.ViewModel is not MainViewModel viewModel)
             {
                 Console.WriteLine("[ERROR] ViewModel is null. Cannot send message.");
                 return;
             }
 
-            // Retrieves sender UID (fallback to "unknown" if not initialized)
+            // Retrieve sender UID (fallback to "unknown" if not initialized)
             string senderUID = viewModel.LocalUser?.UID ?? "unknown";
 
-            // Retrieves recipient UID from selected user
+            // Retrieve recipient UID from selected user
             string? recipientUID = viewModel.SelectedUser?.UID;
 
-            // Encrypts the message if encryption is enabled and recipient UID is valid
-            if (viewModel.IsEncryptionEnabled && !string.IsNullOrEmpty(recipientUID))
+            // Encrypt the message only if encryption is enabled, recipient is valid, and not self
+            if (viewModel.IsEncryptionEnabled &&
+                !string.IsNullOrEmpty(recipientUID) &&
+                recipientUID != viewModel.LocalUser?.UID)
             {
-                // Attempts to retrieve the recipient's public key
+                // Attempt to retrieve the recipient's public key
                 if (viewModel.KnownPublicKeys.TryGetValue(recipientUID, out string? publicKeyBase64) &&
                     !string.IsNullOrEmpty(publicKeyBase64))
                 {
-                    // Encrypts the message and prepend the encryption marker
+                    // Encrypt the message and prepend the encryption marker
                     string encrypted = EncryptionHelper.EncryptMessage(message, publicKeyBase64);
                     message = "[ENC]" + encrypted;
                 }
                 else
                 {
-                    // Logs warning if encryption is enabled but key is missing
+                    // Log warning if encryption is enabled but key is missing or invalid
                     Console.WriteLine($"[WARN] Public key for UID {recipientUID} not found or invalid. Message sent as plain text.");
                 }
             }
 
-            // Builds the message packet with opcode and payload
+            // Build the message packet with opcode and payload
             var messagePacket = new PacketBuilder();
-            messagePacket.WriteOpCode(5); // Opcode for public chat message
-            messagePacket.WriteMessage(message);      // Message content (encrypted or plain)
-            messagePacket.WriteMessage(senderUID);    // Sender UID
+            messagePacket.WriteOpCode(5);              // Opcode for public chat message
+            messagePacket.WriteMessage(message);       // Message content (encrypted or plain)
+            messagePacket.WriteMessage(senderUID);     // Sender UID
 
-            // Validates socket connection before sending
+            // Validate socket connection before sending
             if (_client == null || !_client.Connected)
             {
                 Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
 
-            // Sends the packet to the server
+            // Send the packet to the server
             _client.Client.Send(messagePacket.GetPacketBytes());
         }
 

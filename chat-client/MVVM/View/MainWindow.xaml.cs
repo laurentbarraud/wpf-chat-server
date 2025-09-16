@@ -113,6 +113,19 @@ namespace chat_client
         }
 
         /// <summary>
+        /// Rebuilds the tray icon context menu using the currently selected language.
+        /// Ensures all menu items are localized and reattached to the tray icon.
+        /// Safe to call only after tray icon has been initialized.
+        /// </summary>
+        public void ApplyTrayMenuLocalization()
+        {
+            if (trayIcon == null)
+                return;
+
+            trayIcon.ContextMenu = BuildLocalizedTrayMenu();
+        }
+
+        /// <summary>
         /// Changes the watermark images
         /// </summary>
         public void ApplyWatermarkImages()
@@ -146,6 +159,28 @@ namespace chat_client
                     imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en.png", UriKind.Relative));
                 }
             }
+        }
+
+        private ContextMenu BuildLocalizedTrayMenu()
+        {
+            var contextMenu = new ContextMenu();
+
+            TrayMenuOpen = new MenuItem
+            {
+                Header = LocalizationManager.GetString("TrayOpen")
+            };
+            TrayMenuOpen.Click += TrayMenu_Open_Click;
+
+            TrayMenuQuit = new MenuItem
+            {
+                Header = LocalizationManager.GetString("TrayQuit")
+            };
+            TrayMenuQuit.Click += TrayMenu_Quit_Click;
+
+            contextMenu.Items.Add(TrayMenuOpen);
+            contextMenu.Items.Add(TrayMenuQuit);
+
+            return contextMenu;
         }
 
         private void btnScrollLeft_MouseEnter(object sender, MouseEventArgs e)
@@ -265,46 +300,30 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Ensures the tray icon is initialized with its context menu and all required event handlers.
-        /// Attaches localized menu items, hover-based shutdown logic, and restore behavior.
-        /// Safe to call multiple times; prevents duplicate event bindings.
-        /// Designed for modular tray lifecycle management in WPF.
+        /// Initializes the tray icon with its localized context menu and event handlers.
+        /// Uses null-safe casting to avoid runtime warnings and ensures the menu is attached only once.
+        /// Handles right-click behavior.
         /// </summary>
         public void EnsureTrayIconReady()
         {
-            var trayIcon = TryFindResource("TrayIcon") as TaskbarIcon;
-            if (trayIcon == null) return;
-
-            // Attach context menu only once
-            if (trayIcon.ContextMenu == null)
+            // Safely retrieve the tray icon resource and assign it if valid
+            if (TryFindResource("TrayIcon") is TaskbarIcon icon)
             {
-                var trayMenu = new ContextMenu();
+                trayIcon = icon;
 
-                // Create and localize "Open" menu item
-                TrayMenuOpen = new MenuItem
+                // Attach context menu only if not already set
+                if (trayIcon.ContextMenu == null)
                 {
-                    Header = LocalizationManager.GetString("TrayOpen")
-                };
-                TrayMenuOpen.Click += TrayMenu_Open_Click;
+                    trayIcon.ContextMenu = BuildLocalizedTrayMenu();
 
-                // Create and localize "Quit" menu item
-                TrayMenuQuit = new MenuItem
-                {
-                    Header = LocalizationManager.GetString("TrayQuit")
-                };
-                TrayMenuQuit.Click += TrayMenu_Quit_Click;
-
-                trayMenu.Items.Add(TrayMenuOpen);
-                trayMenu.Items.Add(TrayMenuQuit);
-                trayIcon.ContextMenu = trayMenu;
-
-                // Display context menu on right-click
-                trayIcon.TrayRightMouseUp += (s, e) =>
-                {
-                    trayMenu.PlacementTarget = this;
-                    trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-                    trayMenu.IsOpen = true;
-                };
+                    // Display context menu on right-click
+                    trayIcon.TrayRightMouseUp += (s, e) =>
+                    {
+                        trayIcon.ContextMenu.PlacementTarget = this;
+                        trayIcon.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+                        trayIcon.ContextMenu.IsOpen = true;
+                    };
+                }
             }
         }
 

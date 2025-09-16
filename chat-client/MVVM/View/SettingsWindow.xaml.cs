@@ -189,24 +189,32 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
-        /// Handles activation of the encryption toggle.
-        /// Saves the user's preference and triggers encryption setup if the user is already connected.
-        /// If offline, the preference is retained and encryption will be initialized upon connection.
+        /// Handles the Checked event of the encryption toggle.
+        /// Initializes encryption only if it was previously disabled, preventing duplicate key generation or transmission.
+        /// This ensures that opening the Settings window does not trigger unintended encryption setup.
+        /// Updates the encryption icon regardless of connection state.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Persist encryption preference in application settings
+            // If encryption is already enabled in settings, do nothing
+            // This prevents re-triggering encryption setup when the toggle is already active
+            if (Properties.Settings.Default.UseEncryption)
+                return;
+
+            // Persist the user's intent to enable encryption
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // Retrieve the ViewModel
+            // Retrieve the ViewModel from the main window
             var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
 
-            // If connected, proceed with encryption setup immediately
+            // If the user is connected and the ViewModel is valid, initialize encryption
             if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
+                // Attempt to generate keys and send the public key to the server
                 bool success = viewModel.InitializeEncryptionIfEnabled();
 
+                // If encryption setup fails, rollback the toggle and setting
                 if (!success)
                 {
                     UseEncryptionToggle.IsChecked = false;
@@ -215,10 +223,9 @@ namespace chat_client.MVVM.View
                 }
             }
 
-            // Update encryption icon regardless of connection state
+            // Update the encryption status icon to reflect current state
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
-
 
         /// <summary>
         /// Handles deactivation of the encryption toggle.
