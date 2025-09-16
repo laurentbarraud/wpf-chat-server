@@ -124,6 +124,33 @@ namespace chat_client.Net
         }
 
         /// <summary>
+        /// Handles the reception of a public RSA key from another connected client.
+        /// Extracts the sender's UID and public key from the packet,
+        /// and stores the key in the ViewModel's KnownPublicKeys dictionary.
+        /// Ensures thread-safe UI access via Dispatcher.
+        /// </summary>
+        /// <param name="reader">The packet reader used to extract incoming data.</param>
+        private void HandleIncomingPublicKey(PacketReader reader)
+        {
+            string senderUID = reader.ReadMessage();
+            string publicKeyBase64 = reader.ReadMessage();
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (Application.Current.MainWindow is MainWindow mainWindow &&
+                    mainWindow.ViewModel is MainViewModel viewModel)
+                {
+                    viewModel.ReceivePublicKey(senderUID, publicKeyBase64);
+                    Console.WriteLine($"[INFO] Public key received and stored for UID: {senderUID}");
+                }
+                else
+                {
+                    Console.WriteLine($"[WARN] Unable to store public key for UID {senderUID}: ViewModel not available.");
+                }
+            });
+        }
+
+        /// <summary>
         /// Continuously reads incoming packets from the server.
         /// Dispatches known opcodes and handles disconnection gracefully.
         /// </summary>
@@ -152,31 +179,24 @@ namespace chat_client.Net
                                 break;
 
                             case 6:
-                                // Handles public key exchange from another client
-                                string senderUID = PacketReader.ReadMessage();
-                                string publicKeyBase64 = PacketReader.ReadMessage();
-
-                                // Registers the received public key in the ViewModel
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    if (Application.Current.MainWindow is MainWindow mainWindow &&
-                                        mainWindow.ViewModel != null)
-                                    {
-                                        mainWindow.ViewModel.KnownPublicKeys[senderUID] = publicKeyBase64;
-                                        Console.WriteLine($"Received public key from {senderUID}");
-                                    }
-                                });
+                                HandleIncomingPublicKey(PacketReader);
                                 break;
 
                             case 10:
                                 // Triggers user disconnect event
                                 userDisconnectEvent?.Invoke();
                                 break;
+
+                            default:
+                                Console.WriteLine($"[WARN] Unknown opcode received: {opcode}");
+                                break;
                         }
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Console.WriteLine($"[ERROR] Packet reading failed: {ex.Message}");
+
                     // Handles disconnection or stream failure gracefully
                     Application.Current.Dispatcher.Invoke(() =>
                     {

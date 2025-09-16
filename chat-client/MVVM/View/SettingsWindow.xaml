@@ -382,7 +382,6 @@
                 <ToggleButton Grid.Column="1"
                               x:Name="UseEncryptionToggle"
                               Style="{StaticResource EncryptionToggleStyle}"
-                              IsChecked="{Binding UseEncryption, Mode=TwoWay}"
                               Width="60" Height="30"
                               Margin="10,0,0,0"
                               Checked="UseEncryptionToggle_Checked"

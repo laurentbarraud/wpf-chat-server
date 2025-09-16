@@ -381,10 +381,25 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// User-driven setting bound to the UI that persists tray preference and updates icon visibility in real time.
+        /// Stores the public RSA key of a connected user, indexed by their UID.
+        /// This enables encrypted communication with that user.
+        /// Called when the server transmits a public key from another client.
         /// </summary>
+        /// <param name="uid">Unique identifier of the user.</param>
+        /// <param name="publicKeyBase64">Base64-encoded XML RSA public key.</param>
+        public void ReceivePublicKey(string uid, string publicKeyBase64)
+        {
+            if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(publicKeyBase64))
+                return;
+
+            // Stores or updates the public key for the given UID
+            KnownPublicKeys[uid] = publicKeyBase64;
+        }
+
         /// <summary>
-        /// User-driven setting bound to the UI that persists tray preference and updates icon visibility in real time.
+        /// Represents the user's preference for minimizing the app to the system tray.
+        /// When changed, it updates the application setting, saves it, and shows or hides the tray icon accordingly.
+        /// This property is bound to the ReduceToTray toggle in the settings UI.
         /// </summary>
         public bool ReduceToTray
         {
@@ -398,7 +413,7 @@ namespace chat_client.MVVM.ViewModel
 
                     OnPropertyChanged(nameof(ReduceToTray));
 
-                    // Update tray icon visibility
+                    // Updates tray icon visibility
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
                         var trayIcon = mainWindow.TryFindResource("TrayIcon") as TaskbarIcon;
@@ -410,7 +425,6 @@ namespace chat_client.MVVM.ViewModel
                 }
             }
         }
-
 
         /// <summary>
         /// Clears user and message data and restores the UI to its initial state.
