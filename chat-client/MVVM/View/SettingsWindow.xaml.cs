@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 15th, 2025</date>
+/// <date>September 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -190,61 +190,41 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles activation of the encryption toggle.
-        /// Prevents activation if the user is not connected (LocalUser is null).
-        /// Displays a localized warning and reverts the toggle if necessary.
-        /// Otherwise, proceeds with encryption setup by enabling the encryption flag,
-        /// generating a new RSA key pair, and sending the public key to the server.
-        /// If the setup fails, displays a localized error and reverts the toggle.
-        /// Designed for robustness, clarity, and recruiter-facing reliability.
+        /// Saves the user's preference and triggers encryption setup if the user is already connected.
+        /// If offline, the preference is retained and encryption will be initialized upon connection.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Enables encryption in settings before attempting setup
+            // Persist encryption preference in application settings
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // Retrieves the main window and its ViewModel
-            var mainWindow = Application.Current.MainWindow as MainWindow;
-            var viewModel = mainWindow?.ViewModel;
+            // Retrieve the ViewModel
+            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
 
-            // Checks if user is connected (LocalUser must be initialized)
-            if (viewModel?.LocalUser == null)
+            // If connected, proceed with encryption setup immediately
+            if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
-                // Show warning message and revert toggle
-                MessageBox.Show(
-                    LocalizationManager.GetString("EncryptionRequiresConnection"),
-                    LocalizationManager.GetString("Error"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning
-                );
+                bool success = viewModel.InitializeEncryptionIfEnabled();
 
-                // Reverts toggle to unchecked state
-                UseEncryptionToggle.IsChecked = false;
-                return;
+                if (!success)
+                {
+                    UseEncryptionToggle.IsChecked = false;
+                    Properties.Settings.Default.UseEncryption = false;
+                    Properties.Settings.Default.Save();
+                }
             }
 
-            // Proceeds with encryption setup
-            bool success = viewModel.InitializeEncryptionIfEnabled();
-
-            // If encryption setup fails, shows error and reverts toggle
-            if (!success)
-            {
-                MessageBox.Show(
-                    LocalizationManager.GetString("ErrorInActivatingEncryption"),
-                    LocalizationManager.GetString("Error"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-
-                UseEncryptionToggle.IsChecked = false;
-            }
+            // Update encryption icon regardless of connection state
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
+
 
         /// <summary>
         /// Handles deactivation of the encryption toggle.
-        /// Updates application settings, clears the stored public key,
-        /// resets the encryption state, and updates the encryption status icon.
-        /// This ensures the system is ready for clean reactivation without residual state.
+        /// Clears the encryption flag from application settings, resets the ViewModel state,
+        /// and updates the UI to reflect that encryption is disabled.
+        /// Ensures clean rollback without residual cryptographic state.
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {

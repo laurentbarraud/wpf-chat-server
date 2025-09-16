@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 15th, 2025</date>
+/// <date>September 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -602,14 +602,10 @@ namespace chat_client
                 ? LocalizationManager.GetString("DisconnectButton")
                 : LocalizationManager.GetString("ConnectButton");
         }
-
         /// <summary>
         /// Updates the encryption status icon and tooltip above the message input field.
-        /// Reflects the current encryption state based on key exchange success and application settings.
-        /// Displays the colored icon if encryption is active and the public key is present; otherwise shows the default icon.
-        /// Ensures visual feedback remains consistent across toggle changes, connection events, and localization.
-        /// Designed for modular UI updates without direct dependency on toggle logic or connection flow.
-        /// Autonomous, reliable, and seamlessly integrated into the application's lifecycle.
+        /// Displays the colored icon only if encryption is enabled and all public keys are received.
+        /// Ensures visual feedback reflects mutual encryption readiness in a public chat.
         /// </summary>
         public void UpdateEncryptionStatusIcon()
         {
@@ -617,33 +613,28 @@ namespace chat_client
             if (viewModel == null)
                 return;
 
-            // Hide the icon if encryption is disabled in settings
             if (!viewModel.IsEncryptionEnabled)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            // Determine whether the public key has been successfully generated and stored
-            bool keySent = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
+            bool localKeyReady = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
+            bool allKeysReceived = viewModel.AreAllKeysReceived();
 
-            // Show the icon since encryption is enabled
             imgEncryptionStatus.Visibility = Visibility.Visible;
 
-            // Set the icon source depending on key exchange status
             imgEncryptionStatus.Source = new BitmapImage(new Uri(
-                keySent
+                (localKeyReady && allKeysReceived)
                     ? "/Resources/encrypted.png"
                     : "/Resources/encrypted-disabled.png",
                 UriKind.Relative));
 
-            // Set the tooltip using localized string
             imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
-                keySent ? "EncryptionEnabled" : "GetPublicKey"
+                (localKeyReady && allKeysReceived) ? "EncryptionEnabled" : "GetPublicKey"
             );
 
-            // Trigger pulse animation and show banner only if key exchange was successful
-            if (keySent)
+            if (localKeyReady && allKeysReceived)
             {
                 var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
                 storyboard.Begin();
@@ -651,5 +642,6 @@ namespace chat_client
                 ShowBanner("EncryptionEnabled", showIcon: true);
             }
         }
+
     }
 }

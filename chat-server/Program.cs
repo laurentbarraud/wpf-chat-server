@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 15th, 2025</date>
+/// <date>September 16th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -106,6 +106,26 @@ namespace chat_server
         }
 
         /// <summary>
+        /// Sends a packet to each connected user to notify them of all current users.
+        /// Opcode 1 indicates a user connection broadcast.
+        /// </summary>
+        public static void BroadcastConnection()
+        {
+            foreach (var user in _users)
+            {
+                foreach (var usr in _users)
+                {
+                    var broadcastPacket = new PacketBuilder();
+                    broadcastPacket.WriteOpCode(1); // Opcode for user connection
+                    broadcastPacket.WriteMessage(usr.Username);
+                    broadcastPacket.WriteMessage(usr.UID.ToString());
+                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+                }
+            }
+        }
+
+
+        /// <summary>
         /// Sends a message to all connected users.
         /// Opcode 5 is used for general messages.
         /// Each packet includes the message content and the sender's UID
@@ -129,24 +149,6 @@ namespace chat_server
             }
         }
 
-        /// <summary>
-        /// Sends a packet to each connected user to notify them of all current users.
-        /// Opcode 1 indicates a user connection broadcast.
-        /// </summary>
-        public static void BroadcastConnection()
-        {
-            foreach (var user in _users)
-            {
-                foreach (var usr in _users)
-                {
-                    var broadcastPacket = new PacketBuilder();
-                    broadcastPacket.WriteOpCode(1); // Opcode for user connection
-                    broadcastPacket.WriteMessage(usr.Username);
-                    broadcastPacket.WriteMessage(usr.UID.ToString());
-                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
-                }
-            }
-        }
 
         /// <summary>
         /// Broadcasts the public key of a newly connected client to all other clients.

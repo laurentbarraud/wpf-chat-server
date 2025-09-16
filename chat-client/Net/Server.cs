@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 15th, 2025</date>
+/// <date>September 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -218,84 +218,96 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends the client's public RSA key to the server for distribution to other connected clients.
-        /// Builds a packet with OpCode 6, including the sender's UID, username, and public key in Base64 format.
-        /// Returns true only if the underlying socket exists and is actively connected.
-        /// This method is used during encryption setup and must be reliable to ensure secure key exchange.
-        /// Designed to fail silently if the client is disconnected, allowing upstream logic to handle rollback and user feedback.
-        /// </summary>
-        /// <param name="uid">The UID of the sender.</param>
-        /// <param name="username">The username of the sender.</param>
-        /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
-        /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
-        public bool SendPublicKeyToServer(string uid, string username, string publicKeyBase64)
-        {
-            // Builds encryption packet with OpCode 6 (public key exchange)
-            var packet = new PacketBuilder();
-            packet.WriteOpCode(6); // OpCode for public key exchange
-            packet.WriteMessage(uid); // Sender UID
-            packet.WriteMessage(username); // Sender username
-            packet.WriteMessage(publicKeyBase64); // Public key in Base64
-
-            // Sends packet only if client is connected
-            if (_client?.Client != null && _client.Connected)
-            {
-                _client.Client.Send(packet.GetPacketBytes());
-                return true;
-            }
-
-            // Failed to send (client not connected)
-            return false;
-        }
-
-        /// <summary>
-        /// Sends a message to the server using the standard message packet format.
-        /// If encryption is enabled via application settings, the message is encrypted
-        /// using the recipient's public key before transmission. Otherwise, it is sent as plain text.
+        /// Sends a chat message to the server using the standard packet format.
+        /// If encryption is enabled and the recipient's public key is available,
+        /// the message is encrypted using RSA before transmission.
+        /// Otherwise, the message is sent in plain text.
+        /// This method ensures secure communication when possible,
+        /// and logs warnings if encryption prerequisites are missing.
         /// </summary>
         /// <param name="message">The plain text message to send.</param>
         public void SendMessageToServer(string message)
         {
-            // Retrieve ViewModel safely and exit if unavailable
+            // Validates message content
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            // Safely retrieves the ViewModel from the main window
             if (Application.Current.MainWindow is not MainWindow mainWindow || mainWindow.ViewModel is not MainViewModel viewModel)
             {
                 Console.WriteLine("[ERROR] ViewModel is null. Cannot send message.");
                 return;
             }
 
-            // Retrieve sender UID
+            // Retrieves sender UID (fallback to "unknown" if not initialized)
             string senderUID = viewModel.LocalUser?.UID ?? "unknown";
 
-            // Retrieve recipient UID
+            // Retrieves recipient UID from selected user
             string? recipientUID = viewModel.SelectedUser?.UID;
 
-            // Encrypt the message if encryption is enabled and recipient UID is valid
+            // Encrypts the message if encryption is enabled and recipient UID is valid
             if (viewModel.IsEncryptionEnabled && !string.IsNullOrEmpty(recipientUID))
             {
-                if (viewModel.KnownPublicKeys.TryGetValue(recipientUID, out string? publicKeyBase64) && !string.IsNullOrEmpty(publicKeyBase64))
+                // Attempts to retrieve the recipient's public key
+                if (viewModel.KnownPublicKeys.TryGetValue(recipientUID, out string? publicKeyBase64) &&
+                    !string.IsNullOrEmpty(publicKeyBase64))
                 {
+                    // Encrypts the message and prepend the encryption marker
                     string encrypted = EncryptionHelper.EncryptMessage(message, publicKeyBase64);
                     message = "[ENC]" + encrypted;
                 }
                 else
                 {
+                    // Logs warning if encryption is enabled but key is missing
                     Console.WriteLine($"[WARN] Public key for UID {recipientUID} not found or invalid. Message sent as plain text.");
                 }
             }
 
-            // Build and send the message packet
+            // Builds the message packet with opcode and payload
             var messagePacket = new PacketBuilder();
-            messagePacket.WriteOpCode(5); // Public chat message
-            messagePacket.WriteMessage(message);
-            messagePacket.WriteMessage(senderUID);
+            messagePacket.WriteOpCode(5); // Opcode for public chat message
+            messagePacket.WriteMessage(message);      // Message content (encrypted or plain)
+            messagePacket.WriteMessage(senderUID);    // Sender UID
 
+            // Validates socket connection before sending
             if (_client == null || !_client.Connected)
             {
                 Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
 
+            // Sends the packet to the server
             _client.Client.Send(messagePacket.GetPacketBytes());
         }
+
+
+        /// <summary>
+        /// Sends the client's public RSA key to the server for distribution to other connected clients.
+        /// Builds a packet with OpCode 6, including the sender's UID and public key in Base64 format.
+        /// Returns true only if the underlying socket exists and is actively connected.
+        /// This method is used during encryption setup and must be reliable to ensure secure key exchange.
+        /// Designed to fail silently if the client is disconnected, allowing upstream logic to handle rollback and user feedback.
+        /// </summary>
+        /// <param name="uid">The UID of the sender.</param>
+        /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
+        /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
+        public bool SendPublicKeyToServer(string uid, string publicKeyBase64)
+        {
+            // Validate socket connection before attempting to send
+            if (_client?.Client == null || !_client.Connected)
+                return false;
+
+            // Build the packet with required fields
+            var packet = new PacketBuilder();
+            packet.WriteOpCode(6); // Opcode for public key exchange
+            packet.WriteMessage(uid);
+            packet.WriteMessage(publicKeyBase64);
+
+            // Send the packet to the server
+            _client.Client.Send(packet.GetPacketBytes());
+            return true;
+        }
+
+
     }
 }

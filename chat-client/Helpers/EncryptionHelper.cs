@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 15th, 2025</date>
+/// <date>September 16th, 2025</date>
 
 // Technical notes : RSA is a widely adopted asymmetric encryption algorithm used in SSL/TLS, 
 //                   digital signatures, and secure messaging.
@@ -104,6 +104,22 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
+        /// Checks whether the RSA private key has been successfully initialized.
+        /// Used to validate decryption readiness before attempting to decrypt messages.
+        /// Prevents runtime errors caused by missing or uninitialized key material.
+        /// </summary>
+        /// <returns>True if the private key is initialized; otherwise, false.</returns>
+        public static bool IsPrivateKeyValid()
+        {
+            // Checks that essential RSA parameters are present
+            return privateKey.Modulus != null &&
+                   privateKey.Exponent != null &&
+                   privateKey.D != null &&
+                   privateKey.P != null &&
+                   privateKey.Q != null;
+        }
+
+        /// <summary>
         /// Validates that a string is a well-formed Base64-encoded value.
         /// </summary>
         public static bool IsValidBase64(string base64)
@@ -120,6 +136,27 @@ namespace chat_client.Helpers
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Sets the RSA private key used for decryption.
+        /// Accepts a Base64-encoded XML string and parses it into RSAParameters.
+        /// This method must be called before attempting to decrypt any message.
+        /// </summary>
+        /// <param name="privateKeyBase64">Base64-encoded XML RSA private key.</param>
+        public static void SetPrivateKey(string privateKeyBase64)
+        {
+            // Decode the Base64 string into raw XML text
+            var xml = Encoding.UTF8.GetString(Convert.FromBase64String(privateKeyBase64));
+
+            // Create a new RSA instance to parse the XML key
+            using var rsa = RSA.Create();
+
+            // Import the XML-formatted RSA key into the RSA instance
+            rsa.FromXmlString(xml);
+
+            // Export the parsed key as RSAParameters and store it in the static field
+            privateKey = rsa.ExportParameters(true);
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 15th, 2025</date>
+/// <date>September 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -92,8 +92,10 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Indicates whether the client is currently connected to the server.
-        /// Triggers a property change notification to update any bound UI elements when the connection state changes.
+        /// Used to control UI visibility, trigger encryption setup, and manage connection-dependent features.
+        /// Automatically notifies bound UI elements when the state changes.
         /// </summary>
+
         public bool IsConnected
         {
             get => _isConnected;
@@ -126,6 +128,25 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public Dictionary<string, string> KnownPublicKeys { get; } = new();
 
+        /// <summary>
+        /// Tracks which users have already received our public RSA key.
+        /// Used to prevent redundant key transmissions and ensure mutual encryption setup.
+        /// </summary>
+        private readonly HashSet<string> _uidsKeySentTo = new();
+
+        /// <summary>
+        /// Checks whether the local user has already sent their public key to the specified UID.
+        /// </summary>
+        /// <param name="uid">Unique identifier of the remote user.</param>
+        /// <returns>True if the key has already been sent; otherwise, false.</returns>
+        private bool HasSentKeyTo(string uid) => _uidsKeySentTo.Contains(uid);
+
+        /// <summary>
+        /// Marks the specified UID as having received our public RSA key.
+        /// Prevents duplicate transmissions during key exchange.
+        /// </summary>
+        /// <param name="uid">Unique identifier of the remote user.</param>
+        private void MarkKeyAsSentTo(string uid) => _uidsKeySentTo.Add(uid);
 
         public MainViewModel()
         {
@@ -135,6 +156,36 @@ namespace chat_client.MVVM.ViewModel
             _server.connectedEvent += UserConnected;
             _server.msgReceivedEvent += MessageReceived;
             _server.userDisconnectEvent += UserDisconnected;
+        }
+
+        /// <summary>
+        /// Determines whether all connected users (excluding the local user)
+        /// have sent their public RSA keys required for encryption.
+        /// Used to validate full encryption readiness in a public chat context.
+        /// Returns true only if encryption is enabled and every other user has a key stored.
+        /// </summary>
+        /// <returns>True if all keys are received; otherwise, false.</returns>
+        public bool AreAllKeysReceived()
+        {
+            // Encryption must be enabled to evaluate readiness
+            if (!IsEncryptionEnabled)
+                return false;
+
+            // If no users are present, encryption is not ready
+            if (Users == null || Users.Count == 0)
+                return false;
+
+            // Checks that each user (excluding self) has a stored public key
+            foreach (var user in Users)
+            {
+                if (user.UID == LocalUser?.UID)
+                    continue;
+
+                if (!KnownPublicKeys.ContainsKey(user.UID))
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -170,6 +221,12 @@ namespace chat_client.MVVM.ViewModel
                 IsConnected = _server.ConnectToServer(Username, IPAddressOfServer); // Returns a bool
                 if (!IsConnected)
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
+
+                // If encryption is enabled in settings, initialize and send public key
+                if (Properties.Settings.Default.UseEncryption)
+                {
+                    InitializeEncryptionIfEnabled();
+                }
 
                 // Updates UI to reflect connected state
                 Application.Current.Dispatcher.Invoke(() =>
@@ -263,11 +320,20 @@ namespace chat_client.MVVM.ViewModel
                 // Generates RSA key pair and export public key
                 using var rsa = new RSACryptoServiceProvider(2048);
                 string publicKeyXml = rsa.ToXmlString(false);
+                string privateKeyXml = rsa.ToXmlString(true);
+
                 string publicKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicKeyXml));
+                string privateKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(privateKeyXml));
+
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
+                LocalUser.PrivateKeyBase64 = privateKeyBase64;
+
+                // Injects the private key into EncryptionHelper
+                // This guarantees that privateKey is properly initialized before any decryption attempt
+                EncryptionHelper.SetPrivateKey(privateKeyBase64);
 
                 // Attempts to send public key to server
-                bool sent = Server.SendPublicKeyToServer(LocalUser.UID, LocalUser.Username, publicKeyBase64);
+                bool sent = Server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
                 if (!sent)
                 {
                     MessageBox.Show(
@@ -296,35 +362,33 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles incoming messages from the server.
-        /// Supports encrypted messages, system-issued disconnect commands, and standard chat messages.
+        /// If encryption is disabled, displays the message in plain text.
+        /// If encryption is enabled, attempts to decrypt the message; if decryption fails, displays a placeholder.
+        /// Also handles system-issued disconnect commands and updates the UI accordingly.
         /// </summary>
         private void MessageReceived()
         {
-            // Reads the message content and sender UID from the incoming packet
+            // Read the message content and sender UID from the incoming packet
             string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC] marker
             string senderUID = _server.PacketReader.ReadMessage();  // UID of the message sender
 
-            // Checks for server-issued disconnect command
-            // Only triggers disconnect if the message comes from the system UID to prevent spoofing
+            // Handle system-issued disconnect command (only if sent by system UID)
             if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (Application.Current.MainWindow is MainWindow mainWindow && mainWindow.ViewModel != null)
+                    if (Application.Current.MainWindow is MainWindow mainWindow && mainWindow.ViewModel is MainViewModel viewModel)
                     {
-                        var viewModel = mainWindow.ViewModel;
-
-                        // Create a timer to delay UI reset
+                        // Delay UI reset to allow user to read disconnect notice
                         var timer = new System.Timers.Timer(2000)
                         {
-                            AutoReset = false // Trigger only once
+                            AutoReset = false
                         };
 
                         timer.Elapsed += (s, e) =>
                         {
                             Application.Current.Dispatcher.Invoke(() =>
                             {
-                                // Reset UI and disconnect from server
                                 viewModel.ReinitializeUI();
                                 _server.DisconnectFromServer();
                             });
@@ -337,64 +401,75 @@ namespace chat_client.MVVM.ViewModel
                 return;
             }
 
+            // Resolve sender display name from UID
             string displayName = Users.FirstOrDefault(u => u.UID == senderUID)?.Username ?? senderUID;
 
-            // Checks if the incoming message contains the encryption marker
+            // Check if the message is encrypted
             if (rawMessage.Contains("[ENC]"))
             {
-                // Predeclare decrypted content to ensure visibility in both try and catch blocks
                 string decryptedContent = string.Empty;
 
                 try
                 {
-                    // Locate the encryption marker and extract the encrypted payload
+                    // Extract encrypted payload after the [ENC] marker
                     int markerIndex = rawMessage.IndexOf("[ENC]");
                     string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
 
-                    // Cleans up any invisible or invalid characters that may break decryption
+                    // Clean up any invisible or invalid characters
                     encryptedPayload = encryptedPayload
                         .Replace("\0", "")
                         .Replace("\r", "")
                         .Replace("\n", "");
 
-                    // Attempts to decrypt the payload using the local private key
-                    decryptedContent = EncryptionHelper.DecryptMessage(encryptedPayload);
+                    // Attempt to decrypt using the local private key
+                    decryptedContent = TryDecryptMessage(encryptedPayload);
 
-                    // Reconstructs the full message with sender display name and decrypted content
+                    // Format the decrypted message with sender name
                     rawMessage = $"{displayName}: {decryptedContent}";
                 }
                 catch (Exception)
                 {
-                    // Replaces the message with a localized failure notice if decryption fails
+                    // If decryption fails, show a localized placeholder
                     rawMessage = $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")}";
                 }
             }
             else
             {
-                // Reconstructs the full message with sender display name and plain text content
+                // Format plain text message with sender name
                 rawMessage = $"{displayName}: {rawMessage}";
             }
 
-            // Adds the final message to the chat interface
+            // Add the final message to the chat interface
             Application.Current.Dispatcher.Invoke(() => Messages.Add(rawMessage));
-
         }
 
+
         /// <summary>
-        /// Stores the public RSA key of a connected user, indexed by their UID.
-        /// This enables encrypted communication with that user.
-        /// Called when the server transmits a public key from another client.
+        /// Processes the incoming public RSA key from another connected client.
+        /// Stores the key and sends our own key in response if needed.
+        /// Ensures mutual encryption capability in a public chat.
         /// </summary>
-        /// <param name="uid">Unique identifier of the user.</param>
-        /// <param name="publicKeyBase64">Base64-encoded XML RSA public key.</param>
         public void ReceivePublicKey(string uid, string publicKeyBase64)
         {
             if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(publicKeyBase64))
                 return;
 
-            // Stores or updates the public key for the given UID
             KnownPublicKeys[uid] = publicKeyBase64;
+            Console.WriteLine($"[INFO] Stored public key for UID: {uid}");
+
+            if (IsEncryptionEnabled && LocalUser?.UID != null && !HasSentKeyTo(uid))
+            {
+                if (!string.IsNullOrEmpty(LocalUser?.PublicKeyBase64))
+                {
+                    Server.SendPublicKeyToServer(uid, LocalUser.PublicKeyBase64);
+                    MarkKeyAsSentTo(uid);
+                    Console.WriteLine($"[INFO] Sent reciprocal public key to UID: {uid}");
+                }
+            }
+
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
+
 
         /// <summary>
         /// Represents the user's preference for minimizing the app to the system tray.
@@ -475,11 +550,39 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Reads the data incoming and handles disconnect command gracefully.
-        /// Handles incoming messages from the server. If a disconnect command is received,
-        /// the UI is reset after a short delay. Otherwise, the message is optionally decrypted
-        /// (if encryption is enabled) and added to the chat.
+        /// Attempts to decrypt an incoming encrypted message using the local RSA private key.
+        /// Validates encryption state and key readiness before proceeding.
+        /// Cleans up the encrypted payload to remove invalid characters, then delegates decryption to EncryptionHelper.
+        /// If decryption succeeds, returns the plain text message; otherwise, returns a localized fallback string.
+        /// Designed to ensure graceful failure handling.
         /// </summary>
+        public string TryDecryptMessage(string encryptedPayload)
+        {
+            // Validates encryption state and key readiness
+            if (!IsEncryptionEnabled ||
+                string.IsNullOrEmpty(encryptedPayload) ||
+                !EncryptionHelper.IsPrivateKeyValid())
+            {
+                return LocalizationManager.GetString("DecryptionFailed");
+            }
+
+            try
+            {
+                string sanitizedPayload = encryptedPayload
+                    .Replace("\0", "")
+                    .Replace("\r", "")
+                    .Replace("\n", "")
+                    .Trim();
+
+                string decrypted = EncryptionHelper.DecryptMessage(sanitizedPayload);
+                return decrypted;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Decryption failed: {ex.Message}");
+                return LocalizationManager.GetString("DecryptionFailed");
+            }
+        }
 
 
         /// <summary>
