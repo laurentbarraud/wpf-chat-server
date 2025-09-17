@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 16th, 2025</date>
+/// <date>September 17th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -9,6 +9,7 @@ using chat_client.MVVM.View;
 using chat_client.Net;
 using chat_client.Net.IO;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -350,12 +351,74 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Attempts to decrypt an incoming encrypted message and formats it with the sender's display name.
+        /// If decryption fails, returns a localized placeholder message.
+        /// </summary>
+        private string FormatEncryptedMessage(string rawMessage, string displayName)
+        {
+            try
+            {
+                // Extracts the encrypted payload after the [ENC] marker
+                int markerIndex = rawMessage.IndexOf("[ENC]");
+                string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
+
+                // Cleans up invisible or invalid characters
+                encryptedPayload = encryptedPayload
+                    .Replace("\0", "")
+                    .Replace("\r", "")
+                    .Replace("\n", "");
+
+                // Attempts to decrypt the message using the local private key
+                string decryptedContent = TryDecryptMessage(encryptedPayload);
+
+                // Returns the formatted decrypted message
+                return $"{displayName}: {decryptedContent}";
+            }
+            catch
+            {
+                // Returns a placeholder if decryption fails
+                return $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")}";
+            }
+        }
+
+        /// <summary>
         /// Returns the current port number stored in application settings.
         /// </summary>
         public static int GetCurrentPort()
         {
             return chat_client.Properties.Settings.Default.CustomPortNumber;
         }
+
+        /// <summary>
+        /// Handles a system-issued disconnect command by resetting the UI and disconnecting from the server.
+        /// Delays the reset to allow the user to read the disconnect notice.
+        /// </summary>
+        private void HandleSystemDisconnect()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                // Verifies that the main window and ViewModel are available
+                if (Application.Current.MainWindow is MainWindow mainWindow &&
+                    mainWindow.ViewModel is MainViewModel viewModel)
+                {
+                    // Creates a short delay before resetting the UI
+                    var timer = new System.Timers.Timer(2000) { AutoReset = false };
+
+                    timer.Elapsed += (s, e) =>
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            // Resets the UI and disconnects from the server
+                            viewModel.ReinitializeUI();
+                            _server.DisconnectFromServer();
+                        });
+                    };
+
+                    timer.Start();
+                }
+            });
+        }
+
 
         /// <summary>
         /// Initializes RSA encryption for the current session if enabled and all prerequisites are satisfied.
@@ -440,88 +503,31 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles incoming messages from the server.
-        /// If encryption is disabled, displays the message in plain text.
-        /// If encryption is enabled, attempts to decrypt the message; if decryption fails, displays a placeholder.
-        /// Also handles system-issued disconnect commands and updates the UI accordingly.
+        /// Displays plain or decrypted content with sender name.
+        /// Handles system disconnect commands and updates the UI accordingly.
         /// </summary>
         private void MessageReceived()
         {
-            // Reads the message content and sender UID from the incoming packet
-            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC] marker
-            string senderUID = _server.PacketReader.ReadMessage();  // UID of the message sender
+            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC]
+            string senderUID = _server.PacketReader.ReadMessage();  // UID of sender
 
-            // Handles system-issued disconnect command (only if sent by system UID)
+            // Handles system-issued disconnect command
             if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
             {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    if (Application.Current.MainWindow is MainWindow mainWindow && mainWindow.ViewModel is MainViewModel viewModel)
-                    {
-                        // Delays UI reset to allow user to read disconnect notice
-                        var timer = new System.Timers.Timer(2000)
-                        {
-                            AutoReset = false
-                        };
-
-                        timer.Elapsed += (s, e) =>
-                        {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                viewModel.ReinitializeUI();
-                                _server.DisconnectFromServer();
-                            });
-                        };
-
-                        timer.Start();
-                    }
-                });
-
+                HandleSystemDisconnect();
                 return;
             }
 
-            // Resolves sender display name from UID
-            string displayName =
-                Users.FirstOrDefault(u => u.UID == senderUID)?.Username ??
-                (LocalUser?.UID == senderUID ? LocalUser.Username : senderUID);
+            // Resolves sender display name
+            string displayName = ResolveDisplayName(senderUID);
 
+            // Determines message content
+            string finalMessage = rawMessage.Contains("[ENC]")
+                ? FormatEncryptedMessage(rawMessage, displayName)
+                : $"{displayName}: {rawMessage}";
 
-            // Checks if the message is encrypted
-            if (rawMessage.Contains("[ENC]"))
-            {
-                string decryptedContent = string.Empty;
-
-                try
-                {
-                    // Extracts encrypted payload after the [ENC] marker
-                    int markerIndex = rawMessage.IndexOf("[ENC]");
-                    string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
-
-                    // Cleans up any invisible or invalid characters
-                    encryptedPayload = encryptedPayload
-                        .Replace("\0", "")
-                        .Replace("\r", "")
-                        .Replace("\n", "");
-
-                    // Attempts to decrypt using the local private key
-                    decryptedContent = TryDecryptMessage(encryptedPayload);
-
-                    // Formats the decrypted message with sender name
-                    rawMessage = $"{displayName}: {decryptedContent}";
-                }
-                catch (Exception)
-                {
-                    // If decryption fails, shows a localized placeholder
-                    rawMessage = $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")}";
-                }
-            }
-            else
-            {
-                // Formats plain text message with sender name
-                rawMessage = $"{displayName}: {rawMessage}";
-            }
-
-            // Adds the final message to the chat interface
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(rawMessage));
+            // Displays message in UI
+            Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
         }
 
         /// <summary>
@@ -614,6 +620,26 @@ namespace chat_client.MVVM.ViewModel
                     mainWindow.spnCenter.Visibility = Visibility.Hidden;
                 }
             });
+        }
+
+        /// <summary>
+        /// Resolves the display name of a message sender based on their UID.
+        /// Returns the username if found in the known user list or matches the local user.
+        /// Falls back to the UID string if no match is found.
+        /// </summary>
+        private string ResolveDisplayName(string senderUID)
+        {
+            // Checks if the sender UID matches a known user
+            var matchedUser = Users.FirstOrDefault(user => user.UID == senderUID);
+            if (matchedUser != null)
+                return matchedUser.Username;
+
+            // Checks if the sender UID matches the local user
+            if (LocalUser?.UID == senderUID)
+                return LocalUser.Username;
+
+            // Fallback to UID if no username is available
+            return senderUID;
         }
 
         /// <summary>
