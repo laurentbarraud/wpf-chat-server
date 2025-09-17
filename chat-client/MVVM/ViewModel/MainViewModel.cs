@@ -129,12 +129,6 @@ namespace chat_client.MVVM.ViewModel
         public Dictionary<string, string> KnownPublicKeys { get; } = new();
 
         /// <summary>
-        /// Tracks which public keys have already been sent to the server to prevent duplicate transmission.
-        /// A HashSet<string> is used for quick searches and to avoid duplicates.
-        /// </summary>
-        public HashSet<string> SentKeys { get; } = new HashSet<string>();
-
-        /// <summary>
         /// Tracks which users have already received our public RSA key.
         /// Used to prevent redundant key transmissions and ensure mutual encryption setup.
         /// </summary>
@@ -153,13 +147,6 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         /// <param name="uid">Unique identifier of the remote user.</param>
         private void MarkKeyAsSentTo(string uid) => _uidsKeySentTo.Add(uid);
-
-        /// <summary>
-        /// Indicates whether the initial handshake with the server has been successfully completed.
-        /// This flag ensures that encryption setup and key exchange are only triggered after the connection protocol is fully established.
-        /// Prevents premature packet transmission and enforces protocol order.
-        /// </summary>
-        public bool IsHandshakeComplete { get; set; }
 
         public MainViewModel()
         {
@@ -211,23 +198,14 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Attempts to connect the client to the server.
-        /// Validates username format, initializes LocalUser with UID,
-        /// and updates UI state accordingly. If encryption is enabled,
-        /// defers key exchange until handshake is complete.
-        /// Ensures idempotent behavior even on rapid or repeated clicks.
+        /// Initializes LocalUser with Username and a unique UID for key exchange.
         /// </summary>
         public void Connect()
         {
-            // Prevent duplicate connection attempts
-            if (IsConnected)
-            {
-                Console.WriteLine("[INFO] Already connected. Ignoring duplicate Connect() call.");
-                return;
-            }
-
-            // Validate username format
+            // Abort if username is missing or format is invalid
             if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, @"^[a-zA-Z][a-zA-Z0-9_-]*$"))
             {
+                // Highlight the textbox in crimson to indicate invalid input
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
@@ -242,23 +220,21 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Initializes local user with UID
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
-                    UID = Guid.NewGuid().ToString()
+                    UID = Guid.NewGuid().ToString() // Ajout d’un UID unique ici
                 };
 
-                // Ensures LocalUser is present in the Users collection for name resolution
-                if (!Users.Any(u => u.UID == LocalUser.UID))
-                {
-                    Users.Add(LocalUser);
-                }
-
-                // Attempts connection to server
-                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
+                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer); // Returns a bool
                 if (!IsConnected)
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
+
+                // If encryption is enabled in settings, initialize and send public key
+                if (Properties.Settings.Default.UseEncryption)
+                {
+                    InitializeEncryptionIfEnabled();
+                }
 
                 // Updates UI to reflect connected state
                 Application.Current.Dispatcher.Invoke(() =>
@@ -271,30 +247,28 @@ namespace chat_client.MVVM.ViewModel
                     }
                 });
 
-                // Persists last IP used
                 chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
                 chat_client.Properties.Settings.Default.Save();
-
-                // Encryption setup is deferred until handshake is complete
-                // TriggerEncryptionIfNeeded() will be called from ReadPackets() after opcode 1
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"[ERROR] Connection failed: {ex.Message}");
-
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    if (Application.Current.MainWindow is MainWindow mw)
                     {
-                        mainWindow.ShowBanner("ServerClosed");
+                        MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
+                                        LocalizationManager.GetString("Error"),
+                                        MessageBoxButton.OK,
+                                        MessageBoxImage.Error);
                         ReinitializeUI();
                     }
                 });
             }
         }
 
+
         /// <summary>
-        /// Connects or disconnects the client, depending on the connection status
+        /// Connect or disconnect the client, depending on the connection status
         /// </summary>
         public void ConnectDisconnect()
         {
@@ -329,27 +303,6 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Verifies whether encryption is fully initialized and all required public RSA keys are received.
-        /// If encryption is ready, updates the tray icon to reflect secure state.
-        /// Designed to be called after connection, settings change, or key exchange.
-        /// </summary>
-        /// <returns>True if encryption is fully ready; otherwise, false.</returns>
-        public bool EnsureEncryptionReady()
-        {
-            // Encryption must be explicitly enabled and private key must be valid
-            if (!IsEncryptionEnabled || !EncryptionHelper.IsPrivateKeyValid())
-                return false;
-
-            // All required public keys must be received for secure communication
-            if (!AreAllKeysReceived())
-                return false;
-
-            // Update the encryption status icon to reflect readiness
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
-            return true;
-        }
-
-        /// <summary>
         /// Returns the current port number stored in application settings.
         /// </summary>
         public static int GetCurrentPort()
@@ -358,55 +311,45 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Initializes RSA encryption for the current session if enabled and all prerequisites are satisfied.
-        /// Generates a new 2048-bit RSA key pair, encodes both keys in Base64, and stores them in the local user model.
-        /// Injects the private key into the decryption helper and registers the public key in KnownPublicKeys for local encryption support.
-        /// Sends the public key to the server only after handshake completion and socket readiness.
-        /// Updates the encryption status icon to reflect the current state.
-        /// Idempotent: skips initialization if the public key is already present or if encryption prerequisites are not met.
+        /// Attempts to initialize encryption when the toggle is activated.
+        /// Generates a fresh 2048-bit RSA key pair, encodes the public and private keys in Base64,
+        /// stores them locally, and sends the public key to the server.
+        /// Displays a localized error message on send failure.
+        /// Idempotent: repeated calls produce the same result without duplicates or crashes.
+        /// Skips initialization if the public key is already present.
         /// </summary>
         public bool InitializeEncryptionIfEnabled()
         {
-            // Skip initialization if encryption is already active or local user is not initialized
+            // Skips initialization if user is not defined or encryption is already initialized
             if (LocalUser == null || !string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
                 return false;
 
-            // Abort if encryption is disabled, handshake is incomplete, or socket is not connected
-            if (!IsEncryptionEnabled || !IsHandshakeComplete || !Server.IsConnected)
-            {
-                Console.WriteLine("[INFO] Encryption initialization skipped: prerequisites not met.");
-                return false;
-            }
-
             try
             {
-                // Generate a new RSA key pair (2048-bit)
+                // Generates a new RSA key pair (2048-bit)
                 using var rsa = new RSACryptoServiceProvider(2048);
 
-                // Export public and private keys as XML strings
-                string publicKeyXml = rsa.ToXmlString(false); // Public key only
-                string privateKeyXml = rsa.ToXmlString(true); // Includes private parameters
+                // Exports public and private keys as XML strings
+                string publicKeyXml = rsa.ToXmlString(false); // public only
+                string privateKeyXml = rsa.ToXmlString(true); // includes private parameters
 
-                // Encode keys in Base64 for transport and storage
+                // Encodes keys in Base64 for safe transport and storage
                 string publicKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicKeyXml));
                 string privateKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(privateKeyXml));
 
-                // Store keys in the local user model
+                // Stores keys in the local user model
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
 
-                // Inject private key into decryption helper for runtime use
+                // Injects private key into EncryptionHelper for decryption readiness
+                // This guarantees that privateKey is properly initialized before any decryption attempt
                 EncryptionHelper.SetPrivateKey(privateKeyBase64);
 
-                // Register local public key for solo-client encryption support
-                KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
-
-                // Attempt to send public key to server
+                // Attempts to send the public key to the server
                 bool sent = Server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
-
                 if (!sent)
                 {
-                    // Display localized error and rollback encryption setting
+                    // Shows localized error and rollback encryption setting
                     MessageBox.Show(
                         LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
@@ -418,20 +361,14 @@ namespace chat_client.MVVM.ViewModel
                     return false;
                 }
 
-                // Persist encryption setting
+                // Marks encryption as active in settings
                 Properties.Settings.Default.UseEncryption = true;
                 Properties.Settings.Default.Save();
-
-                // Update encryption status icon in UI
-                (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
-
-                Console.WriteLine("[INFO] RSA encryption initialized and public key sent.");
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                // Log error and rollback encryption setting
-                Console.WriteLine($"[ERROR] Encryption initialization failed: {ex.Message}");
+                // Rollbacks encryption setting on failure
                 Properties.Settings.Default.UseEncryption = false;
                 Properties.Settings.Default.Save();
                 return false;
@@ -480,10 +417,7 @@ namespace chat_client.MVVM.ViewModel
             }
 
             // Resolves sender display name from UID
-            string displayName =
-                Users.FirstOrDefault(u => u.UID == senderUID)?.Username ??
-                (LocalUser?.UID == senderUID ? LocalUser.Username : senderUID);
-
+            string displayName = Users.FirstOrDefault(u => u.UID == senderUID)?.Username ?? senderUID;
 
             // Checks if the message is encrypted
             if (rawMessage.Contains("[ENC]"))
@@ -524,10 +458,11 @@ namespace chat_client.MVVM.ViewModel
             Application.Current.Dispatcher.Invoke(() => Messages.Add(rawMessage));
         }
 
+
         /// <summary>
         /// Handles the reception of a public RSA key from another connected client.
         /// Stores the received key locally and, if encryption is enabled, sends our own key back to ensure mutual encryption.
-        /// This method supports bidirectional key exchange and triggers encryption readiness evaluation.
+        /// This method supports bidirectional key exchange and updates the encryption status icon accordingly.
         /// </summary>
         /// <param name="uid">The unique identifier of the sender.</param>
         /// <param name="publicKeyBase64">The sender's public RSA key encoded in Base64.</param>
@@ -556,8 +491,8 @@ namespace chat_client.MVVM.ViewModel
                 }
             }
 
-            // Evaluate encryption readiness and update icon if needed
-            EnsureEncryptionReady();
+            // Update the encryption status icon to reflect the current global key exchange state
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
 
         /// <summary>
@@ -617,6 +552,28 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Resets the encryption state after the toggle is disabled.
+        /// Clears the stored public key and updates the encryption setting in application settings.
+        /// This ensures that encryption can be reinitialized cleanly if reactivated later.
+        /// Does not dispose RSA keys directly; assumes stateless reinitialization on next activation.
+        /// The method is stateless: it does not rely on internal flags, but on actual content and settings.
+        /// </summary>
+        public void ResetEncryptionState()
+        {
+            // Disable encryption in application settings
+            Properties.Settings.Default.UseEncryption = false;
+            Properties.Settings.Default.Save();
+
+            // Clear stored public key from the user model
+            if (LocalUser != null)
+            {
+                LocalUser.PublicKeyBase64 = null;
+            }
+
+            // Optional: log or notify if needed
+        }
+
+        /// <summary>
         /// Attempts to decrypt an incoming encrypted message using the local RSA private key.
         /// Validates encryption state and key readiness before proceeding.
         /// Cleans up the encrypted payload to remove invalid characters, then delegates decryption to EncryptionHelper.
@@ -666,51 +623,6 @@ namespace chat_client.MVVM.ViewModel
 
             return false;
         }
-
-        /// <summary>
-        /// Attempts to send the local user's public RSA key to the server.
-        /// Ensures encryption is enabled, the private key is valid, the handshake is complete,
-        /// and the socket is connected before transmission.
-        /// Prevents duplicate transmission by checking if the key has already been sent.
-        /// Returns true if the key was successfully sent; otherwise, false.
-        /// </summary>
-        public bool TrySendPublicKey()
-        {
-            // Validate all prerequisites before attempting transmission
-            if (!IsEncryptionEnabled ||
-                !EncryptionHelper.IsPrivateKeyValid() ||
-                !IsHandshakeComplete ||
-                !Server.IsConnected ||
-                string.IsNullOrEmpty(LocalUser?.PublicKeyBase64))
-            {
-                Console.WriteLine("[WARN] Public key not sent: prerequisites not met.");
-                return false;
-            }
-
-            // Prevent duplicate transmission if key was already sent
-            if (SentKeys.Contains(LocalUser.UID))
-            {
-                Console.WriteLine("[INFO] Public key already sent. Skipping.");
-                return true;
-            }
-
-            // Attempt to send the public key to the server
-            bool sent = Server.SendPublicKeyToServer(LocalUser.UID, LocalUser.PublicKeyBase64);
-
-            if (sent)
-            {
-                // Mark key as sent to avoid future duplicates
-                SentKeys.Add(LocalUser.UID);
-                Console.WriteLine("[INFO] Public key successfully sent to server.");
-            }
-            else
-            {
-                Console.WriteLine("[ERROR] Failed to send public key to server.");
-            }
-
-            return sent;
-        }
-
         private void UserConnected()
         {
             var user = new UserModel

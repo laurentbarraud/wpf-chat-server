@@ -19,22 +19,8 @@ namespace chat_client.Net
         public PacketBuilder PacketBuilder;
         public PacketReader PacketReader;
 
-        /// <summary>
-        /// Raised when the server confirms a new connection (opcode 1).
-        /// Used to initialize user presence and trigger post-handshake logic.
-        /// </summary>
         public event Action connectedEvent;
-
-        /// <summary>
-        /// Raised when a new chat message is received from the server (opcode 5).
-        /// Used to update the message list in the UI.
-        /// </summary>
         public event Action msgReceivedEvent;
-
-        /// <summary>
-        /// Raised when a user disconnects from the server (opcode 10).
-        /// Used to remove the user from the active list and update the UI.
-        /// </summary>
         public event Action userDisconnectEvent;
 
         /// <summary>
@@ -172,8 +158,6 @@ namespace chat_client.Net
         {
             Task.Run(() =>
             {
-                bool hasReceivedHandshake = false;
-
                 try
                 {
                     while (_client.Connected)
@@ -181,43 +165,12 @@ namespace chat_client.Net
                         // Reads the first byte from the stream — this is the opcode
                         var opcode = PacketReader.ReadByte();
 
-                        if (!hasReceivedHandshake && opcode != 0)
-                        {
-                            Console.WriteLine("[WARN] Received unexpected opcode before handshake. Ignoring.");
-                            continue; // Ignore any packet until handshake is done
-                        }
-
                         // Dispatches logic based on opcode value
                         switch (opcode)
                         {
-                            case 0:
-                                hasReceivedHandshake = true;            
-                                break;
-
                             case 1:
                                 // Triggers connection event (e.g., user joined)
                                 connectedEvent?.Invoke();
-
-                                // Retrieve ViewModel safely
-                                var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
-
-                                // Marks handshake as complete so encryption setup can proceed
-                                if (viewModel != null)
-                                {
-                                    viewModel.IsHandshakeComplete = true;
-                                    Console.WriteLine($"[INFO] Handshake completed for UID: {viewModel.LocalUser?.UID}");
-
-                                    // If encryption is enabled, initialize and send public key
-                                    if (Properties.Settings.Default.UseEncryption)
-                                    {
-                                        bool initialized = viewModel.InitializeEncryptionIfEnabled();
-                                        bool sent = viewModel.TrySendPublicKey();
-                                        viewModel.EnsureEncryptionReady();
-
-                                        Console.WriteLine($"[INFO] Encryption initialized: {initialized}, Public key sent: {sent}");
-                                    }
-                                }
-
                                 break;
 
                             case 5:

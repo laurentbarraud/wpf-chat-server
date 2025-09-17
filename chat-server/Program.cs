@@ -159,7 +159,7 @@ namespace chat_server
         {
             foreach (var receiver in _users)
             {
-                // Skips the sender — no need to send their own key back
+                // Skip the sender — no need to send their own key back
                 if (receiver == sender)
                     continue;
 
@@ -171,9 +171,8 @@ namespace chat_server
                 receiver.ClientSocket.Client.Send(keyPacket.GetPacketBytes());
             }
 
-            // Logs the broadcast event
-            string logMessage = string.Format(LocalizationManager.GetString("PublicKeyReceivedAndBroadcasted"), sender.Username);
-            Console.WriteLine($"[{DateTime.Now}]: {logMessage}");
+            // Log the broadcast event
+            Console.WriteLine($"[{DateTime.Now}]: Public key received from: {sender.Username} — transmitted to other clients.");
         }
 
         /// <summary>

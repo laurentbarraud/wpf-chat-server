@@ -9,8 +9,52 @@
         Background="{DynamicResource BackgroundBrush}"
         Loaded="SettingsWindow_Loaded" TabIndex="12" MinHeight="300" MinWidth="438">
 
+    <!-- Toggles buttons style -->
     <Window.Resources>
-       
+        <Style x:Key="CustomToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <!-- Background of the switch -->
+                            <Border x:Name="SwitchBackground"
+                            CornerRadius="16"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1" />
+
+                            <!-- Thumb container with icon -->
+                            <Grid x:Name="ThumbContainer"
+                          Width="30" Height="30"
+                          VerticalAlignment="Center"
+                          Margin="2,2,28,2">
+                                <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+                                <Image x:Name="SwitchIcon"
+                               Width="16" Height="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Source="/Resources/encrypted-disabled.png" />
+                            </Grid>
+                        </Grid>
+
+                        <!-- Triggers to update icon and layout based on toggle state -->
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/encrypted.png" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="False">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/encrypted-disabled.png" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,28,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 
         Custom style for the "Use Custom TCP Port" toggle.
         Displays a port icon when enabled, and a grayed-out version when disabled.
@@ -103,38 +147,30 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
                         <Grid>
-                            <!-- Background and thumb -->
                             <Border x:Name="SwitchBackground"
-                                    CornerRadius="16"
-                                    Background="{DynamicResource BackgroundBrush}"
-                                    BorderBrush="{DynamicResource AccentBrush}"
-                                    BorderThickness="1" />
+                            CornerRadius="16"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1" />
 
                             <Grid x:Name="ThumbContainer"
-                                  Width="30" Height="30"
-                                  VerticalAlignment="Center"
-                                  Margin="2,2,28,2">
+                          Width="30" Height="30"
+                          VerticalAlignment="Center"
+                          Margin="2,2,28,2">
                                 <Ellipse Fill="{DynamicResource PrimaryBrush}" />
                                 <Image x:Name="SwitchIcon"
-                                       Width="16" Height="16"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Source="/Resources/encrypted-disabled.png" />
+                               Width="16" Height="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Source="/Resources/encrypted-disabled.png" />
                             </Grid>
                         </Grid>
 
                         <ControlTemplate.Triggers>
-                            <!-- Checked state -->
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/encrypted.png" />
                                 <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
                                 <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-
-                            <!-- Disabled state -->
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="SwitchBackground" Property="Opacity" Value="0.4" />
-                                <Setter TargetName="SwitchIcon" Property="Opacity" Value="0.4" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -402,7 +438,7 @@
                 IsDefault="True" TabIndex="10">
             <Image Source="/Resources/validate.png" Stretch="Uniform"/>
         </Button>
-
+        
         <!-- Label About -->
         <Label x:Name="lblAbout"
                Grid.Row="2"

@@ -165,72 +165,6 @@ namespace chat_client.MVVM.View
             }
         }
 
-        /// <summary>
-        /// Applies the user's intent to enable or disable encryption.
-        /// Handles key generation, transmission, rollback on failure, and UI updates.
-        /// Ensures idempotent behavior and avoids duplicate key transmission.
-        /// Returns true if the toggle was successfully applied; otherwise, false.
-        /// </summary>
-        private bool TryApplyEncryptionToggle(bool shouldEnableEncryption)
-        {
-            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
-            if (viewModel == null)
-                return false;
-
-            if (shouldEnableEncryption)
-            {
-                // Persist the user's intent to enable encryption
-                Properties.Settings.Default.UseEncryption = true;
-                Properties.Settings.Default.Save();
-
-                // If the client is connected and LocalUser is initialized, attempt encryption setup
-                if (viewModel.LocalUser != null && viewModel.IsConnected)
-                {
-                    // Try to initialize encryption: generate RSA keys and send public key to server
-                    bool encryptionInitialized = viewModel.InitializeEncryptionIfEnabled();
-
-                    if (!encryptionInitialized)
-                    {
-                        // Setup failed (e.g. socket issue, handshake incomplete)
-                        // Do NOT rollback the toggle — user intent is preserved
-                        Console.WriteLine("[WARN] Encryption setup failed. Will retry after connection.");
-                    }
-                }
-                else
-                {
-                    // Not connected yet — defer encryption setup until connection is established
-                    Console.WriteLine("[INFO] Encryption enabled. Waiting for connection to initialize.");
-                }
-
-                // Update encryption icon to reflect current state (may be grayed out if keys not exchanged)
-                viewModel.EnsureEncryptionReady();
-                return true;
-            }
-            else
-            {
-                // User intends to disable encryption — reset all related state
-                Properties.Settings.Default.UseEncryption = false;
-                Properties.Settings.Default.Save();
-
-                // Clear local key only if LocalUser exists
-                if (viewModel.LocalUser != null)
-                {
-                    viewModel.LocalUser.PublicKeyBase64 = null;
-                }
-
-                // Clear key exchange state
-                viewModel.KnownPublicKeys.Clear();
-                viewModel.SentKeys.Clear();
-
-                // Update encryption icon to reflect disabled state
-                viewModel.EnsureEncryptionReady();
-
-                Console.WriteLine("[INFO] Encryption disabled and reset.");
-                return true;
-            }
-        }
-
-
         private void txtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (UseCustomPortToggle.IsChecked == true)
@@ -256,28 +190,61 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles the Checked event of the encryption toggle.
-        /// Delegates to TryApplyEncryptionToggle(true) to initialize encryption if prerequisites are met.
-        /// Rolls back the toggle if encryption setup fails.
+        /// Initializes encryption only if it was previously disabled, preventing duplicate key generation or transmission.
+        /// This ensures that opening the Settings window does not trigger unintended encryption setup.
+        /// Updates the encryption icon regardless of connection state.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            bool toggleSucceeded = TryApplyEncryptionToggle(shouldEnableEncryption: true);
+            // If encryption is already enabled in settings, do nothing
+            // This prevents re-triggering encryption setup when the toggle is already active
+            if (Properties.Settings.Default.UseEncryption)
+                return;
 
-            if (!toggleSucceeded)
+            // Persist the user's intent to enable encryption
+            Properties.Settings.Default.UseEncryption = true;
+            Properties.Settings.Default.Save();
+
+            // Retrieve the ViewModel from the main window
+            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
+
+            // If the user is connected and the ViewModel is valid, initialize encryption
+            if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
-                // Revert toggle visually if encryption setup failed
-                UseEncryptionToggle.IsChecked = false;
-                Console.WriteLine("[INFO] Encryption toggle reverted due to setup failure.");
+                // Attempt to generate keys and send the public key to the server
+                bool success = viewModel.InitializeEncryptionIfEnabled();
+
+                // If encryption setup fails, rollback the toggle and setting
+                if (!success)
+                {
+                    UseEncryptionToggle.IsChecked = false;
+                    Properties.Settings.Default.UseEncryption = false;
+                    Properties.Settings.Default.Save();
+                }
             }
+
+            // Update the encryption status icon to reflect current state
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
 
         /// <summary>
-        /// Handles the Unchecked event of the encryption toggle.
-        /// Delegates to TryApplyEncryptionToggle(false) to disable encryption and reset state.
+        /// Handles deactivation of the encryption toggle.
+        /// Clears the encryption flag from application settings, resets the ViewModel state,
+        /// and updates the UI to reflect that encryption is disabled.
+        /// Ensures clean rollback without residual cryptographic state.
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            TryApplyEncryptionToggle(shouldEnableEncryption: false);
+            // Disable encryption in application settings
+            Properties.Settings.Default.UseEncryption = false;
+            Properties.Settings.Default.Save();
+
+            // Reset encryption state in the ViewModel
+            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
+            viewModel?.ResetEncryptionState();
+
+            // Update encryption icon to reflect disabled state
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
         }
 
         private void ValidatePortInput()

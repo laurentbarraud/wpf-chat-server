@@ -198,9 +198,6 @@
   <data name="PortNumberValid" xml:space="preserve">
     <value>Port number is valid.</value>
   </data>
-  <data name="PublicKeyReceivedAndBroadcasted" xml:space="preserve">
-    <value>Public key received from: {0} — transmitted to other clients.</value>
-  </data>
   <data name="PublicKeyRejected" xml:space="preserve">
     <value>The public key was rejected by the server. Encryption was not enabled.</value>
   </data>
@@ -215,9 +212,6 @@
   </data>
   <data name="ServerUnreachable" xml:space="preserve">
     <value>The server is unreachable or has refused the connection.</value>
-  </data>
-  <data name="Settings" xml:space="preserve">
-    <value>Settings</value>
   </data>
   <data name="TrayOpen" xml:space="preserve">
     <value>Open</value>

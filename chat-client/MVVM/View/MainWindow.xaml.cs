@@ -621,7 +621,6 @@ namespace chat_client
                 ? LocalizationManager.GetString("DisconnectButton")
                 : LocalizationManager.GetString("ConnectButton");
         }
-
         /// <summary>
         /// Updates the encryption status icon and tooltip above the message input field.
         /// Displays the colored icon only if encryption is enabled and all public keys are received.
@@ -633,38 +632,35 @@ namespace chat_client
             if (viewModel == null)
                 return;
 
-            bool encryptionEnabled = viewModel.IsEncryptionEnabled;
-            bool localKeyReady = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
-            bool allKeysReceived = viewModel.AreAllKeysReceived();
-
-            // Hide icon if encryption is disabled or local key is missing
-            if (!encryptionEnabled || !localKeyReady)
+            if (!viewModel.IsEncryptionEnabled)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            // Show icon and choose image based on key exchange status
+            bool localKeyReady = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
+            bool allKeysReceived = viewModel.AreAllKeysReceived();
+
             imgEncryptionStatus.Visibility = Visibility.Visible;
 
             imgEncryptionStatus.Source = new BitmapImage(new Uri(
-                allKeysReceived
+                (localKeyReady && allKeysReceived)
                     ? "/Resources/encrypted.png"
                     : "/Resources/encrypted-disabled.png",
                 UriKind.Relative));
 
             imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
-                allKeysReceived ? "EncryptionEnabled" : "GetPublicKey"
+                (localKeyReady && allKeysReceived) ? "EncryptionEnabled" : "GetPublicKey"
             );
 
-            // Trigger animation and banner only when encryption is fully ready
-            if (allKeysReceived)
+            if (localKeyReady && allKeysReceived)
             {
                 var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
                 storyboard.Begin();
 
-                ShowBanner("EncryptionEnabled", true);
+                ShowBanner("EncryptionEnabled", showIcon: true);
             }
         }
+
     }
 }
