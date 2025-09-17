@@ -14,6 +14,7 @@ using System.Resources;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace chat_client.Helpers
 {
@@ -111,6 +112,10 @@ namespace chat_client.Helpers
 
                     // Update encryption banner text
                     mainWindow.popupText.Text = GetString("EncryptionEnabled");
+
+                    // Update tooltip for settings button
+                    if (mainWindow.cmdSettings != null)
+                        ToolTipService.SetToolTip(mainWindow.cmdSettings, GetString("Settings"));
                 }
             }
         }
