@@ -639,8 +639,8 @@ namespace chat_client
 
         /// <summary>
         /// Updates the encryption status icon and tooltip above the message input field.
-        /// Displays the colored icon only if encryption is enabled and all public keys are received.
-        /// Triggers a pulse animation when encryption becomes fully ready.
+        /// Displays the colored icon only if encryption is enabled and readiness is confirmed.
+        /// Triggers a pulse animation and banner when encryption becomes fully ready.
         /// Ensures visual feedback reflects mutual encryption readiness in a public chat.
         /// </summary>
         public void UpdateEncryptionStatusIcon(bool isReady)
@@ -657,28 +657,22 @@ namespace chat_client
                 return;
             }
 
-            // Checks if the local user has generated a key and received all others
-            bool localKeyReady = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
-            bool allKeysReceived = viewModel.AreAllKeysReceived();
-
             // Shows the icon regardless of readiness (grayed out if incomplete)
             imgEncryptionStatus.Visibility = Visibility.Visible;
 
             // Sets the icon image based on encryption readiness
             imgEncryptionStatus.Source = new BitmapImage(new Uri(
-                (localKeyReady && allKeysReceived)
+                isReady
                     ? "/Resources/encrypted.png"           // Color lock icon
                     : "/Resources/encrypted-disabled.png", // Grey lock icon
                 UriKind.Relative));
 
             // Sets the tooltip using localized strings
             imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
-                (localKeyReady && allKeysReceived)
-                    ? "EncryptionEnabled"
-                    : "GetPublicKey");
+                isReady ? "EncryptionEnabled" : "GetPublicKey");
 
             // If encryption is fully ready, trigger the pulse animation and show banner
-            if (localKeyReady && allKeysReceived)
+            if (isReady)
             {
                 var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
                 storyboard.Begin();
@@ -686,7 +680,6 @@ namespace chat_client
                 ShowBanner("EncryptionEnabled", showIcon: true);
             }
         }
-
 
     }
 }

@@ -98,13 +98,6 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Represents the currently selected user in the chat interface.
-        /// Used to determine the intended recipient of outgoing messages,
-        /// especially when encryption is enabled and the correct public key must be applied.
-        /// </summary>
-        public UserModel SelectedUser { get; set; }
-
-        /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
         /// This allows clients to verify message authenticity and prevent spoofed disconnects or control signals.
         /// </summary>
@@ -220,6 +213,29 @@ namespace chat_client.MVVM.ViewModel
             return true;
         }
 
+        /// <summary>
+        /// Determines whether a message can be encrypted for the specified recipient.
+        /// Requires that encryption is enabled, the local key is initialized,
+        /// and the recipient's public key is available.
+        /// </summary>
+        /// <param name="recipientUID">Unique identifier of the recipient user.</param>
+        /// <returns>True if encryption is possible; otherwise, false.</returns>
+        public bool CanEncryptMessageFor(string recipientUID)
+        {
+            // Encryption must be enabled in settings
+            if (!IsEncryptionEnabled)
+                return false;
+
+            // Local key must be initialized
+            if (string.IsNullOrEmpty(LocalUser?.PublicKeyBase64))
+                return false;
+
+            // Recipient's public key must be known
+            if (!KnownPublicKeys.ContainsKey(recipientUID))
+                return false;
+
+            return true;
+        }
 
         /// <summary>
         /// Attempts to connect the client to the server.
@@ -397,7 +413,7 @@ namespace chat_client.MVVM.ViewModel
         /// Generates a new 2048-bit RSA key pair, encodes both keys in Base64, and stores them in the local user model.
         /// Injects the private key into the decryption helper and registers the public key in KnownPublicKeys for local encryption support.
         /// Sends the public key to the server only after handshake completion and socket readiness.
-        /// Updates the encryption status icon to reflect the current state.
+        /// Triggers encryption state evaluation to update UI and internal flags.
         /// Idempotent: skips initialization if the public key is already present or if encryption prerequisites are not met.
         /// </summary>
         public bool InitializeEncryptionIfEnabled()
@@ -424,7 +440,6 @@ namespace chat_client.MVVM.ViewModel
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
 
                 // Injects private key into EncryptionHelper for decryption readiness
-                // This guarantees that privateKey is properly initialized before any decryption attempt
                 EncryptionHelper.SetPrivateKey(privateKeyBase64);
 
                 // Attempts to send the public key to the server
@@ -446,6 +461,10 @@ namespace chat_client.MVVM.ViewModel
                 // Marks encryption as active in settings
                 Properties.Settings.Default.UseEncryption = true;
                 Properties.Settings.Default.Save();
+
+                // Re-evaluates encryption state to update UI and internal flags
+                EvaluateEncryptionState(); // Triggers PropertyChanged → icon update
+
                 return true;
             }
             catch
@@ -456,6 +475,7 @@ namespace chat_client.MVVM.ViewModel
                 return false;
             }
         }
+
 
         /// <summary>
         /// Handles incoming messages from the server.
@@ -627,8 +647,16 @@ namespace chat_client.MVVM.ViewModel
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] Decryption failed: {ex.Message}");
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var mainWindow = Application.Current.MainWindow as MainWindow;
+                    mainWindow?.ShowBanner("DecryptionFailed", showIcon: true);
+                });
+
                 return LocalizationManager.GetString("DecryptionFailed");
             }
+
         }
 
 
