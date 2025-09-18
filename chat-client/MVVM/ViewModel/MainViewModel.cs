@@ -9,6 +9,7 @@ using chat_client.MVVM.View;
 using chat_client.Net;
 using chat_client.Net.IO;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -338,6 +339,37 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Attempts to decrypt an incoming encrypted message and formats it with the sender's display name.
+        /// If decryption fails, returns a localized placeholder message.
+        /// </summary>
+        private string FormatEncryptedMessage(string rawMessage, string displayName)
+        {
+            try
+            {
+                // Extracts the encrypted payload after the [ENC] marker
+                int markerIndex = rawMessage.IndexOf("[ENC]");
+                string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
+
+                // Cleans up invisible or invalid characters
+                encryptedPayload = encryptedPayload
+                    .Replace("\0", "")
+                    .Replace("\r", "")
+                    .Replace("\n", "");
+
+                // Attempts to decrypt the message using the local private key
+                string decryptedContent = TryDecryptMessage(encryptedPayload);
+
+                // Returns the formatted decrypted message
+                return $"{displayName}: {decryptedContent}";
+            }
+            catch
+            {
+                // Returns a placeholder if decryption fails
+                return $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")}";
+            }
+        }
+
+        /// <summary>
         /// Returns the current port number stored in application settings.
         /// </summary>
         public static int GetCurrentPort()
@@ -346,12 +378,12 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Attempts to initialize encryption when the toggle is activated.
-        /// Generates a fresh 2048-bit RSA key pair, encodes the public and private keys in Base64,
-        /// stores them locally, and sends the public key to the server.
-        /// Displays a localized error message on send failure.
-        /// Idempotent: repeated calls produce the same result without duplicates or crashes.
-        /// Skips initialization if the public key is already present.
+        /// Initializes RSA encryption for the current session if enabled and all prerequisites are satisfied.
+        /// Generates a new 2048-bit RSA key pair, encodes both keys in Base64, and stores them in the local user model.
+        /// Injects the private key into the decryption helper and registers the public key in KnownPublicKeys for local encryption support.
+        /// Sends the public key to the server only after handshake completion and socket readiness.
+        /// Updates the encryption status icon to reflect the current state.
+        /// Idempotent: skips initialization if the public key is already present or if encryption prerequisites are not met.
         /// </summary>
         public bool InitializeEncryptionIfEnabled()
         {
@@ -412,47 +444,26 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles incoming messages from the server.
-        /// If encryption is disabled, displays the message in plain text.
-        /// If encryption is enabled, attempts to decrypt the message; if decryption fails, displays a placeholder.
-        /// Also handles system-issued disconnect commands and updates the UI accordingly.
+        /// Displays plain or decrypted content with sender name.
+        /// Handles system disconnect commands and updates the UI accordingly.
         /// </summary>
         private void MessageReceived()
         {
-            // Reads the message content and sender UID from the incoming packet
-            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC] marker
-            string senderUID = _server.PacketReader.ReadMessage();  // UID of the message sender
+            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC]
+            string senderUID = _server.PacketReader.ReadMessage();  // UID of sender
 
-            // Handles system-issued disconnect command (only if sent by system UID)
+            // Handles system-issued disconnect command
             if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
             {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    if (Application.Current.MainWindow is MainWindow mainWindow && mainWindow.ViewModel is MainViewModel viewModel)
-                    {
-                        // Delays UI reset to allow user to read disconnect notice
-                        var timer = new System.Timers.Timer(2000)
-                        {
-                            AutoReset = false
-                        };
-
-                        timer.Elapsed += (s, e) =>
-                        {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                viewModel.ReinitializeUI();
-                                _server.DisconnectFromServer();
-                            });
-                        };
-
-                        timer.Start();
-                    }
-                });
-
+                HandleSystemDisconnect();
                 return;
             }
 
             // Resolves sender display name from UID
-            string displayName = Users.FirstOrDefault(u => u.UID == senderUID)?.Username ?? senderUID;
+            string displayName =
+                Users.FirstOrDefault(u => u.UID == senderUID)?.Username ??
+                (LocalUser?.UID == senderUID ? LocalUser.Username : senderUID);
+
 
             // Checks if the message is encrypted
             if (rawMessage.Contains("[ENC]"))
@@ -474,23 +485,13 @@ namespace chat_client.MVVM.ViewModel
                     // Attempts to decrypt using the local private key
                     decryptedContent = TryDecryptMessage(encryptedPayload);
 
-                    // Formats the decrypted message with sender name
-                    rawMessage = $"{displayName}: {decryptedContent}";
-                }
-                catch (Exception)
-                {
-                    // If decryption fails, shows a localized placeholder
-                    rawMessage = $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")}";
-                }
-            }
-            else
-            {
-                // Formats plain text message with sender name
-                rawMessage = $"{displayName}: {rawMessage}";
-            }
+            // Determines message content
+            string finalMessage = rawMessage.Contains("[ENC]")
+                ? FormatEncryptedMessage(rawMessage, displayName)
+                : $"{displayName}: {rawMessage}";
 
-            // Adds the final message to the chat interface
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(rawMessage));
+            // Displays message in UI
+            Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
         }
 
         /// <summary>
@@ -567,28 +568,6 @@ namespace chat_client.MVVM.ViewModel
                     mainWindow.spnCenter.Visibility = Visibility.Hidden;
                 }
             });
-        }
-
-        /// <summary>
-        /// Resets the encryption state after the toggle is disabled.
-        /// Clears the stored public key and updates the encryption setting in application settings.
-        /// This ensures that encryption can be reinitialized cleanly if reactivated later.
-        /// Does not dispose RSA keys directly; assumes stateless reinitialization on next activation.
-        /// The method is stateless: it does not rely on internal flags, but on actual content and settings.
-        /// </summary>
-        public void ResetEncryptionState()
-        {
-            // Disable encryption in application settings
-            Properties.Settings.Default.UseEncryption = false;
-            Properties.Settings.Default.Save();
-
-            // Clear stored public key from the user model
-            if (LocalUser != null)
-            {
-                LocalUser.PublicKeyBase64 = null;
-            }
-
-            // Optional: log or notify if needed
         }
 
         /// <summary>
