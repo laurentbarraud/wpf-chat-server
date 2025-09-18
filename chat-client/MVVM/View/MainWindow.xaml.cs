@@ -135,8 +135,8 @@ namespace chat_client
             // Sets focus to the username input field
             txtUsername.Focus();
 
-            // Initializes encryption if enabled in settings and user is already connected
-            if (ViewModel.IsEncryptionEnabled && ViewModel.IsConnected)
+            // Initializes encryption only if explicitly enabled in settings and user is connected
+            if (chat_client.Properties.Settings.Default.UseEncryption && ViewModel.IsConnected)
             {
                 // Generates RSA keys and sends public key to server
                 ViewModel.InitializeEncryptionIfEnabled();
@@ -647,6 +647,7 @@ namespace chat_client
         /// Displays the colored icon only if encryption is enabled and readiness is confirmed.
         /// Triggers a pulse animation and banner when encryption becomes fully ready.
         /// Ensures visual feedback reflects mutual encryption readiness in a public chat.
+        /// Logs the visual state for debugging and traceability.
         /// </summary>
         public void UpdateEncryptionStatusIcon(bool isReady)
         {
@@ -659,9 +660,9 @@ namespace chat_client
             if (!chat_client.Properties.Settings.Default.UseEncryption)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
+                Console.WriteLine("[DEBUG] Encryption disabled — icon hidden.");
                 return;
             }
-
 
             // Shows the icon regardless of readiness (grayed out if incomplete)
             imgEncryptionStatus.Visibility = Visibility.Visible;
@@ -672,6 +673,9 @@ namespace chat_client
                     ? "/Resources/encrypted.png"           // Color lock icon
                     : "/Resources/encrypted-disabled.png", // Grey lock icon
                 UriKind.Relative));
+
+            // Logs which icon was applied
+            Console.WriteLine($"[DEBUG] Lock icon updated — {(isReady ? "colored" : "gray")}");
 
             // Sets the tooltip using localized strings
             imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
@@ -684,6 +688,7 @@ namespace chat_client
                 storyboard.Begin();
 
                 ShowBanner("EncryptionEnabled", showIcon: true);
+                Console.WriteLine("[DEBUG] Pulse animation triggered — encryption is ready.");
             }
         }
     }

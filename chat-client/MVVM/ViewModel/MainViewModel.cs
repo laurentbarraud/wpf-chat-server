@@ -178,11 +178,11 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Determines whether encryption can be considered fully ready for public chat.
-        /// Ready when encryption is enabled, the local public key is present, and either:
-        /// - there is no roster yet (startup/solo), or
-        /// - every other connected user has a known public key.
+        /// Returns true when encryption is enabled, the local public key is present,
+        /// and either no roster is available or all other users have exchanged keys.
+        /// Logs missing UIDs for debugging purposes.
         /// </summary>
-        /// <returns>True if the state is ready; otherwise, false.</returns>
+        /// <returns>True if encryption is ready; otherwise, false.</returns>
         public bool AreAllKeysReceived()
         {
             // Encryption must be enabled
@@ -193,22 +193,33 @@ namespace chat_client.MVVM.ViewModel
             if (string.IsNullOrEmpty(LocalUser?.PublicKeyBase64))
                 return false;
 
-            // If we don't have a roster yet, consider ready (prevents UI dead states on startup)
+            // If no roster is available yet, consider encryption ready
             if (Users == null || Users.Count == 0)
                 return true;
 
-            // If only the local user is present, ready
+            // If only the local user is present, encryption is trivially ready
             if (Users.Count == 1 && Users[0].UID == LocalUser.UID)
                 return true;
 
-            // Every other user must have a known public key
+            // Tracks missing UIDs for logging
+            List<string> missingKeys = new();
+
+            // Checks that every other user has a known public key
             foreach (var user in Users)
             {
                 if (user.UID == LocalUser.UID)
                     continue;
 
                 if (!KnownPublicKeys.ContainsKey(user.UID))
-                    return false;
+                    missingKeys.Add(user.UID);
+            }
+
+            // Logs missing UIDs if any
+            if (missingKeys.Count > 0)
+            {
+                string joined = string.Join(", ", missingKeys);
+                Console.WriteLine($"[DEBUG] Encryption not ready — missing keys for: {joined}");
+                return false;
             }
 
             return true;
@@ -353,6 +364,7 @@ namespace chat_client.MVVM.ViewModel
         public void EvaluateEncryptionState()
         {
             IsEncryptionReady = AreAllKeysReceived();
+            Console.WriteLine($"[DEBUG] EvaluateEncryptionState called — Ready: {IsEncryptionReady}");
         }
 
         /// <summary>
@@ -411,71 +423,95 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Initializes RSA encryption for the current session if enabled and all prerequisites are satisfied.
-        /// Generates a new 2048-bit RSA key pair, encodes both keys in Base64, and stores them in the local user model.
-        /// Injects the private key into the decryption helper and registers the public key in KnownPublicKeys for local encryption support.
-        /// Sends the public key to the server only after handshake completion and socket readiness.
-        /// Triggers encryption state evaluation to update UI and internal flags.
-        /// Idempotent: skips initialization if the public key is already present or if encryption prerequisites are not met.
+        /// - Generates a new 2048-bit RSA key pair
+        /// - Encodes both keys in Base64 and stores them in the local user model
+        /// - Injects the private key into the decryption helper
+        /// - Sends the public key to the server for distribution
+        /// - Registers the local public key in KnownPublicKeys for readiness evaluation
+        /// - Triggers encryption state evaluation and updates the UI icon
+        /// Includes detailed logging for debugging and traceability.
+        /// Designed to be idempotent and fail-safe: skips initialization if already done or prerequisites are missing.
         /// </summary>
+        /// <returns>True if encryption was successfully initialized and the key was sent; false otherwise.</returns>
         public bool InitializeEncryptionIfEnabled()
         {
-            // Skips initialization if user is not defined or encryption is already initialized
+            // Prevents redundant initialization if the local user is undefined or already has a public key
             if (LocalUser == null || !string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
+            {
+                Console.WriteLine("[DEBUG] Encryption initialization skipped — LocalUser is null or already initialized.");
                 return false;
+            }
 
             try
             {
-                // Generates a new RSA key pair (2048-bit)
+                // Generates a new RSA key pair with 2048-bit security
                 using var rsa = new RSACryptoServiceProvider(2048);
 
-                // Exports public and private keys as XML strings
-                string publicKeyXml = rsa.ToXmlString(false); // public only
-                string privateKeyXml = rsa.ToXmlString(true); // includes private parameters
+                // Extracts the public key (XML format, no private parameters)
+                string publicKeyXml = rsa.ToXmlString(false);
 
-                // Encodes keys in Base64 for safe transport and storage
+                // Extracts the private key (XML format, includes private parameters)
+                string privateKeyXml = rsa.ToXmlString(true);
+
+                // Encodes both keys in Base64 for safe transport and storage
                 string publicKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicKeyXml));
                 string privateKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(privateKeyXml));
 
-                // Stores keys in the local user model
+                // Stores the keys in the local user model for later use
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
 
-                // Injects private key into EncryptionHelper for decryption readiness
-                EncryptionHelper.SetPrivateKey(privateKeyBase64);
+                Console.WriteLine($"[DEBUG] RSA key pair generated — UID: {LocalUser.UID}");
 
-                // Attempts to send the public key to the server
+                // Injects the private key into the helper class for decryption support
+                EncryptionHelper.SetPrivateKey(privateKeyBase64);
+                Console.WriteLine("[DEBUG] Private key injected into EncryptionHelper.");
+
+                // Sends the public key to the server for distribution to other clients
                 bool sent = Server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
                 if (!sent)
                 {
-                    // Shows localized error and rollback encryption setting
+                    // Displays a localized error message to the user
                     MessageBox.Show(
                         LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
 
+                    // Rolls back encryption setting to prevent inconsistent state
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
+
+                    Console.WriteLine("[ERROR] Failed to send public key to server — encryption disabled.");
                     return false;
                 }
 
-                // Marks encryption as active in settings
+                // Marks encryption as active in persistent settings
                 Properties.Settings.Default.UseEncryption = true;
                 Properties.Settings.Default.Save();
+                Console.WriteLine("[DEBUG] Encryption enabled in settings.");
 
-                // After successful send and before EvaluateEncryptionState():
-                KnownPublicKeys[LocalUser.UID] = LocalUser.PublicKeyBase64;
+                // Registers the local public key in KnownPublicKeys for readiness checks
+                if (!string.IsNullOrEmpty(LocalUser.UID) && !string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
+                {
+                    KnownPublicKeys[LocalUser.UID] = LocalUser.PublicKeyBase64;
+                    Console.WriteLine($"[DEBUG] Local public key registered in KnownPublicKeys — UID: {LocalUser.UID}");
+                }
 
-                // Then evaluate
+                // Evaluates encryption readiness and updates the lock icon
                 EvaluateEncryptionState();
+                (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
 
+                Console.WriteLine($"[DEBUG] Encryption initialization complete — Ready: {IsEncryptionReady}");
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // Rollbacks encryption setting on failure
+                // Rolls back encryption setting on failure
                 Properties.Settings.Default.UseEncryption = false;
                 Properties.Settings.Default.Save();
+
+                Console.WriteLine($"[ERROR] Exception during encryption initialization: {ex.Message}");
                 return false;
             }
         }
@@ -544,23 +580,29 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles the reception of a public RSA key from another user.
-        /// Stores the key in the KnownPublicKeys dictionary and re-evaluates encryption readiness.
+        /// Stores a received public RSA key and updates encryption state.
+        /// Automatically re-evaluates readiness and refreshes the encryption icon.
+        /// Logs key reception and current readiness status for debugging.
         /// </summary>
-        /// <param name="senderUID">Unique identifier of the user who sent the key.</param>
-        /// <param name="publicKey">Base64-encoded RSA public key.</param>
-        public void ReceivePublicKey(string senderUID, string publicKey)
+        /// <param name="uid">The UID of the user whose public key is received.</param>
+        /// <param name="publicKeyBase64">The Base64-encoded public key.</param>
+        public void ReceivePublicKey(string uid, string publicKeyBase64)
         {
-            if (!KnownPublicKeys.ContainsKey(senderUID))
-            {
-                KnownPublicKeys[senderUID] = publicKey;
-            }
+            if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(publicKeyBase64))
+                return;
 
-            // Re-evaluates encryption state after receiving a new key
-            if (IsEncryptionEnabled)
-            {
-                EvaluateEncryptionState();
-            }
+            // Stores or updates the key
+            KnownPublicKeys[uid] = publicKeyBase64;
+
+            // Re-evaluates encryption readiness
+            EvaluateEncryptionState();
+
+            // Updates the lock icon
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
+
+            // Logs key reception and readiness status
+            int keyCount = KnownPublicKeys?.Count ?? 0;
+            Console.WriteLine($"[DEBUG] Public key received for UID: {uid} — Total keys: {keyCount}, Ready: {IsEncryptionReady}");
         }
 
         /// <summary>
@@ -680,11 +722,40 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Re-evaluates the encryption readiness state and updates the lock icon accordingly.
+        /// Logs the number of connected users and the number of known public keys for debugging.
+        /// This method should be called whenever the roster changes or public keys are received.
+        /// </summary>
+        public void UpdateEncryptionStatus()
+        {
+            // Re-evaluates encryption readiness based on current roster and known keys
+            EvaluateEncryptionState();
+
+            if (Users != null)
+            {
+                foreach (var user in Users)
+                {
+                    Console.WriteLine($"[DEBUG] User in roster — UID: {user.UID}, HasKey: {KnownPublicKeys.ContainsKey(user.UID)}");
+                }
+            }
+
+            Console.WriteLine($"[DEBUG] UpdateEncryptionStatusIcon called — isReady: {IsEncryptionReady}");
+
+            // Updates the lock icon to reflect the new state
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
+
+            // Logs roster (Users collection) and key status for debugging
+            int userCount = Users?.Count ?? 0;
+            int keyCount = KnownPublicKeys?.Count ?? 0;
+            Console.WriteLine($"[DEBUG] Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}");
+        }
+
+        /// <summary>
         /// Adds the new user to the Users collection and re-evaluates encryption readiness.
         /// This ensures that the encryption icon updates correctly when new users join.
         /// UI-bound actions are dispatched to the main thread to avoid threading issues.
         /// </summary>
-        private void UserConnected()
+        public void UserConnected()
         {
             var user = new UserModel
             {
@@ -707,7 +778,7 @@ namespace chat_client.MVVM.ViewModel
 
                     if (IsEncryptionEnabled)
                     {
-                        EvaluateEncryptionState();
+                        UpdateEncryptionStatus();
                     }
 
                     // Avoids to be notified of who is connected at login time (user sees it in the list of users on left)
@@ -724,7 +795,7 @@ namespace chat_client.MVVM.ViewModel
         /// Removes the user from the Users collection and posts a system message.
         /// Re-evaluates encryption readiness if encryption is enabled.
         /// </summary>
-        private void UserDisconnected()
+        public void UserDisconnected()
         {
             // Reads the UID of the disconnected user from the incoming packet
             var uid = _server.PacketReader.ReadMessage();
@@ -747,7 +818,7 @@ namespace chat_client.MVVM.ViewModel
                     // Re-evaluates encryption state only if encryption is enabled
                     if (IsEncryptionEnabled)
                     {
-                        EvaluateEncryptionState();
+                        UpdateEncryptionStatus();
                     }
                 });
             }

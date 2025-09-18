@@ -188,37 +188,32 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.Save();
         }
 
-        /// <summary>
-        /// Handles the Checked event of the encryption toggle.
-        /// Saves the encryption preference and attempts to initialize encryption.
-        /// If initialization fails, the toggle is rolled back immediately.
-        /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
+            // Saves the encryption preference immediately
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
             var mainWindow = Application.Current.MainWindow as MainWindow;
             var viewModel = mainWindow?.ViewModel;
 
+            // Ensures encryption is initialized only if connected and user is defined
             if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
                 bool success = viewModel.InitializeEncryptionIfEnabled();
 
                 if (!success)
                 {
+                    // Rollbacks toggle and setting immediately
                     UseEncryptionToggle.IsChecked = false;
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
                 }
 
-                viewModel.EvaluateEncryptionState();
-
                 // Forces UI update of encryption icon
                 mainWindow?.UpdateEncryptionStatusIcon(viewModel.IsEncryptionReady);
             }
         }
-
 
         /// <summary>
         /// Handles the Unchecked event of the encryption toggle.

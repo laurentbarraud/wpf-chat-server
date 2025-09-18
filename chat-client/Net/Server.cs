@@ -126,40 +126,26 @@ namespace chat_client.Net
 
         /// <summary>
         /// Handles the reception of a public RSA key from another connected client.
-        /// Extracts the sender's UID and public key from the incoming packet,
-        /// stores the key in the ViewModel's KnownPublicKeys dictionary,
-        /// re-evaluates encryption readiness, and updates the encryption status icon.
-        /// This ensures that the UI reflects the correct encryption state immediately
-        /// after any key exchange, including the local user's own key in solo sessions.
+        /// Extracts the sender's UID and public key from the packet,
+        /// and delegates processing to the ViewModel's ReceivePublicKey method.
+        /// This ensures centralized logic for key storage, readiness evaluation, and UI updates.
         /// </summary>
         /// <param name="reader">The packet reader used to extract incoming data.</param>
         private static void HandleIncomingPublicKey(PacketReader reader)
         {
-            // Read the sender's unique identifier (UID) from the packet
             string senderUID = reader.ReadMessage();
-
-            // Read the Base64-encoded public key from the packet
             string publicKeyBase64 = reader.ReadMessage();
 
-            // Ensure UI updates are performed on the main thread
             Application.Current.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mainWindow &&
                     mainWindow.ViewModel is MainViewModel viewModel)
                 {
-                    // Store the received public key in the ViewModel
+                    // Delegates to a self-contained method
                     viewModel.ReceivePublicKey(senderUID, publicKeyBase64);
-                    Console.WriteLine($"[INFO] Public key received and stored for UID: {senderUID}");
-
-                    // Re-evaluate encryption readiness after receiving a new key
-                    viewModel.EvaluateEncryptionState();
-
-                    // Update the encryption status icon to reflect the new state
-                    mainWindow.UpdateEncryptionStatusIcon(viewModel.IsEncryptionReady);
                 }
                 else
                 {
-                    // Log a warning if the ViewModel is not available
                     Console.WriteLine($"[WARN] Unable to store public key for UID {senderUID}: ViewModel not available.");
                 }
             });
@@ -222,9 +208,6 @@ namespace chat_client.Net
                         // Notifies user in chat
                         mainViewModel.Messages.Add(LocalizationManager.GetString("ServerHasClosed"));
 
-                        // Show banner without icon
-                        mainWindow.ShowBanner("ServerHasClosed");
-
                         // Immediately reset UI state
                         mainViewModel.ReinitializeUI();
                     });
@@ -282,6 +265,7 @@ namespace chat_client.Net
         /// Returns true only if the underlying socket exists and is actively connected.
         /// This method is used during encryption setup and must be reliable to ensure secure key exchange.
         /// Designed to fail silently if the client is disconnected, allowing upstream logic to handle rollback and user feedback.
+        /// Logs connection status and packet dispatch for debugging.
         /// </summary>
         /// <param name="uid">The UID of the sender.</param>
         /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
@@ -290,7 +274,10 @@ namespace chat_client.Net
         {
             // Validate socket connection before attempting to send
             if (_client?.Client == null || !_client.Connected)
+            {
+                Console.WriteLine("[ERROR] Cannot send public key — client is not connected.");
                 return false;
+            }
 
             // Build the packet with required fields
             var packet = new PacketBuilder();
@@ -298,11 +285,13 @@ namespace chat_client.Net
             packet.WriteMessage(uid);
             packet.WriteMessage(publicKeyBase64);
 
+            Console.WriteLine($"[DEBUG] Sending public key — UID: {uid}, Key length: {publicKeyBase64.Length}");
+
             // Send the packet to the server
             _client.Client.Send(packet.GetPacketBytes());
+
+            Console.WriteLine("[DEBUG] Public key packet sent successfully.");
             return true;
         }
-
-
     }
 }
