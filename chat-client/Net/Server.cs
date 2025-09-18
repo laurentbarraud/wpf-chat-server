@@ -131,7 +131,7 @@ namespace chat_client.Net
         /// Ensures thread-safe UI access via Dispatcher.
         /// </summary>
         /// <param name="reader">The packet reader used to extract incoming data.</param>
-        private void HandleIncomingPublicKey(PacketReader reader)
+        private static void HandleIncomingPublicKey(PacketReader reader)
         {
             string senderUID = reader.ReadMessage();
             string publicKeyBase64 = reader.ReadMessage();

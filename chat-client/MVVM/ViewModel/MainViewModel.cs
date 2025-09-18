@@ -13,7 +13,6 @@ using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.ComponentModel;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
@@ -378,6 +377,21 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Handles a system-issued disconnect command.
+        /// Clears the user list, posts a system message, and updates connection status.
+        /// </summary>
+        private void HandleSystemDisconnect()
+        {
+            // Executes UI-bound actions on the main thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Users.Clear();
+                Messages.Add("# - " + LocalizationManager.GetString("SystemDisconnected") + " #");
+                IsConnected = false;
+            });
+        }
+
+        /// <summary>
         /// Initializes RSA encryption for the current session if enabled and all prerequisites are satisfied.
         /// Generates a new 2048-bit RSA key pair, encodes both keys in Base64, and stores them in the local user model.
         /// Injects the private key into the decryption helper and registers the public key in KnownPublicKeys for local encryption support.
@@ -455,7 +469,7 @@ namespace chat_client.MVVM.ViewModel
             // Handles system-issued disconnect command
             if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
             {
-                HandleSystemDisconnect();
+                HandleSystemDisconnect(); // Restored method below
                 return;
             }
 
@@ -463,7 +477,6 @@ namespace chat_client.MVVM.ViewModel
             string displayName =
                 Users.FirstOrDefault(u => u.UID == senderUID)?.Username ??
                 (LocalUser?.UID == senderUID ? LocalUser.Username : senderUID);
-
 
             // Checks if the message is encrypted
             if (rawMessage.Contains("[ENC]"))
@@ -485,13 +498,24 @@ namespace chat_client.MVVM.ViewModel
                     // Attempts to decrypt using the local private key
                     decryptedContent = TryDecryptMessage(encryptedPayload);
 
-            // Determines message content
-            string finalMessage = rawMessage.Contains("[ENC]")
-                ? FormatEncryptedMessage(rawMessage, displayName)
-                : $"{displayName}: {rawMessage}";
+                    // Formats and displays the decrypted message
+                    string finalMessage = FormatEncryptedMessage(decryptedContent, displayName);
 
-            // Displays message in UI
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
+                    Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
+                }
+                catch (Exception ex)
+                {
+                    // Displays a system message indicating decryption failure
+                    string errorMessage = "# - " + LocalizationManager.GetString("DecryptionFailed") + ": " + ex.Message + " #";
+                    Application.Current.Dispatcher.Invoke(() => Messages.Add(errorMessage));
+                }
+            }
+            else
+            {
+                // Displays plain message
+                string finalMessage = $"{displayName}: {rawMessage}";
+                Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
+            }
         }
 
         /// <summary>
@@ -500,7 +524,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         /// <param name="senderUID">Unique identifier of the user who sent the key.</param>
         /// <param name="publicKey">Base64-encoded RSA public key.</param>
-        private void ReceivePublicKey(string senderUID, string publicKey)
+        public void ReceivePublicKey(string senderUID, string publicKey)
         {
             if (!KnownPublicKeys.ContainsKey(senderUID))
             {

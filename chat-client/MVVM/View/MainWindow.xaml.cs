@@ -433,40 +433,26 @@ namespace chat_client
             this.ShowInTaskbar = false;
         }
 
-
         /// <summary>
-        /// Displays a temporary banner at the top of the window with a localized message.
-        /// Optionally shows an icon. Slides in and fades out automatically after 2 seconds.
+        /// Displays a floating status banner with optional icon and localized text.
+        /// Uses slide-in and fade-out animation, and auto-hides after 3 seconds.
         /// </summary>
-        /// <param name="resourceKey">The localization key to display in the banner.</param>
-        /// <param name="showIcon">Whether to show the encryption icon.</param>
-        public void ShowBanner(string resourceKey, bool showIcon = false)
+        private void ShowBanner(string localizationKey, bool showIcon = false)
         {
-            string localizedText = LocalizationManager.GetString(resourceKey);
-            if (string.IsNullOrEmpty(localizedText))
-                localizedText = $"[{resourceKey}]";
-
-            popupText.Text = localizedText;
-
-            // Show or hide the icon based on context
+            popupText.Text = LocalizationManager.GetString(localizationKey);
             popupIcon.Visibility = showIcon ? Visibility.Visible : Visibility.Collapsed;
-            if (showIcon)
-            {
-                popupIcon.Source = new BitmapImage(new Uri("/Resources/encrypted.png", UriKind.Relative));
-            }
 
-            popupBanner.Visibility = Visibility.Visible;
+            popupBannerPopup.IsOpen = true;
 
             var showStoryboard = (Storyboard)FindResource("ShowPopupBannerStoryboard");
-            var hideStoryboard = (Storyboard)FindResource("HidePopupBannerStoryboard");
-
             showStoryboard.Begin();
-            hideStoryboard.Begin();
 
+            var hideStoryboard = (Storyboard)FindResource("HidePopupBannerStoryboard");
             hideStoryboard.Completed += (s, e) =>
             {
-                popupBanner.Visibility = Visibility.Collapsed;
+                popupBannerPopup.IsOpen = false;
             };
+            hideStoryboard.Begin();
         }
 
         /// <summary>

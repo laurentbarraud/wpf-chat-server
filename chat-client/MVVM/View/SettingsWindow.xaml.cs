@@ -240,12 +240,8 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // Reset encryption state in the ViewModel
-            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
-            viewModel?.ResetEncryptionState();
-
             // Update encryption icon to reflect disabled state
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(true);
         }
 
         private void ValidatePortInput()
