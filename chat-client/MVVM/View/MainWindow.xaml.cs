@@ -109,7 +109,9 @@ namespace chat_client
 
         /// <summary>
         /// Handles window load events and applies persisted settings.
-        /// Restores IP address, applies localization and theme, and initializes watermark visuals.
+        /// Restores IP address, applies localization and theme, initializes watermark visuals,
+        /// and evaluates encryption readiness if enabled and connected.
+        /// Ensures that the UI reflects the correct cryptographic state on startup.
         /// </summary>
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
@@ -136,7 +138,10 @@ namespace chat_client
             // Initializes encryption if enabled in settings and user is already connected
             if (ViewModel.IsEncryptionEnabled && ViewModel.IsConnected)
             {
+                // Generates RSA keys and sends public key to server
                 ViewModel.InitializeEncryptionIfEnabled();
+
+                // Evaluates encryption state and updates UI accordingly
                 ViewModel.EvaluateEncryptionState();
             }
         }

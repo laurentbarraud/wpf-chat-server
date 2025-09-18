@@ -190,61 +190,52 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles the Checked event of the encryption toggle.
-        /// Enables encryption only if it was previously disabled, preventing duplicate key generation or transmission.
-        /// If the user is connected, initializes encryption and triggers key exchange.
-        /// Encryption readiness is evaluated after setup to update the UI.
+        /// Saves the encryption preference and attempts to initialize encryption.
+        /// If initialization fails, the toggle is rolled back immediately.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Prevents re-triggering encryption setup if already enabled
-            if (Properties.Settings.Default.UseEncryption)
-                return;
-
-            // Persists the user's intent to enable encryption
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // Retrieves the ViewModel from the main window
             var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
 
-            // If the user is connected and the ViewModel is valid, initialize encryption
             if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
-                // Attempts to generate keys and send the public key to the server
+                // Always reinitialize, even if keys already exist
                 bool success = viewModel.InitializeEncryptionIfEnabled();
 
-                // If encryption setup fails, rollback the toggle and setting
                 if (!success)
                 {
+                    // Rollbacks toggle and setting immediately
                     UseEncryptionToggle.IsChecked = false;
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
-                    return; // No need to update icon manually — ViewModel will notify via binding
                 }
 
-                // Re-evaluates encryption state after setup
-                viewModel.EvaluateEncryptionState(); // Triggers PropertyChanged → icon update
+                // Always re-evaluate state after attempt
+                viewModel.EvaluateEncryptionState();
             }
         }
 
         /// <summary>
         /// Handles the Unchecked event of the encryption toggle.
-        /// Disables encryption in application settings and resets the ViewModel state.
-        /// Updates the UI to reflect that encryption is no longer active.
+        /// Disables encryption and resets encryption-related state.
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            // Disable encryption in application settings
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // Retrieves the ViewModel from the main window
             var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
 
-            // Resets encryption state and updates the UI
             if (viewModel != null)
             {
-                viewModel.IsEncryptionReady = false; // Triggers PropertyChanged → icon update
+                viewModel.IsEncryptionReady = false;
+                viewModel.LocalUser.PublicKeyBase64 = null;
+                viewModel.LocalUser.PrivateKeyBase64 = null;
+                EncryptionHelper.ClearPrivateKey(); // à créer si nécessaire
+                viewModel.EvaluateEncryptionState();
             }
         }
 

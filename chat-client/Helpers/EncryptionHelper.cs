@@ -17,6 +17,7 @@
 //                   All cryptographic operations rely on .NET's built-in RSA class, making the solution
 //                   portable, secure, and production-ready without external dependencies.
 
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -43,6 +44,30 @@ namespace chat_client.Helpers
             using var rsa = RSA.Create(2048); // 2048-bit key size is a widely accepted security standard
             publicKey = rsa.ExportParameters(false);  // Export only the public key (no private exponent)
             privateKey = rsa.ExportParameters(true);  // Export full key pair including private key
+        }
+
+        /// <summary>
+        /// Clears the currently loaded RSA private key from memory.
+        /// Used when encryption is disabled or reset, to prevent unintended decryption attempts.
+        /// Ensures that the EncryptionHelper is in a clean state and avoids residual cryptographic access.
+        /// </summary>
+        public static void ClearPrivateKey()
+        {
+            // Overwrites the private key parameters with empty/default values
+            privateKey = new RSAParameters
+            {
+                Modulus = null,
+                Exponent = null,
+                D = null,
+                P = null,
+                Q = null,
+                DP = null,
+                DQ = null,
+                InverseQ = null
+            };
+
+            // Logs the reset for debugging purposes
+            Debug.WriteLine("[INFO] RSA private key cleared from EncryptionHelper.");
         }
 
         /// <summary>
