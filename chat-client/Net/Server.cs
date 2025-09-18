@@ -29,6 +29,12 @@ namespace chat_client.Net
         /// </summary>
         public bool IsConnected => _client?.Connected ?? false;
 
+        /// <summary>
+        /// Indicates whether the server has acknowledged the client's identity.
+        /// Blocks outgoing packets until the handshake is complete.
+        /// </summary>
+        public bool HandshakeCompleted { get; private set; } = false;
+
         public Server()
         {
             _client = new TcpClient();
@@ -164,6 +170,10 @@ namespace chat_client.Net
                             case 1:
                                 // Triggers connection event (e.g., user joined)
                                 connectedEvent?.Invoke();
+
+                                // Marks the handshake as completed
+                                HandshakeCompleted = true;
+                                Console.WriteLine("[DEBUG] Handshake completed — client may now send packets.");
                                 break;
 
                             case 5:
@@ -225,12 +235,16 @@ namespace chat_client.Net
                 var connectPacket = new PacketBuilder();
                 connectPacket.WriteOpCode(0); // Opcode 0 = new user connection
                 connectPacket.WriteMessage(username);
-                _client.Client.Send(connectPacket.GetPacketBytes());
+
+                // Sends the packet via NetworkStream to ensure compatibility with server-side reader
+                NetworkStream stream = _client.GetStream();
+                byte[] packetBytes = connectPacket.GetPacketBytes();
+                stream.Write(packetBytes, 0, packetBytes.Length);
 
                 Console.WriteLine($"[DEBUG] Initial connection packet is sent — Username: {username}");
 
                 // Starts listening for incoming packets (non-blocking)
-                ReadPackets();
+                Task.Run(() => ReadPackets());
 
                 return true;
             }
@@ -242,17 +256,24 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// /// <summary>
         /// Sends a chat message to the server using the standard packet format.
         /// If encryption is enabled and the local key is initialized,
         /// the message is encrypted using RSA and marked accordingly.
         /// The server will broadcast this message to all clients, 
         /// who will attempt decryption using their private key.
         /// This ensures secure one-to-many communication in a public chat context.
+        /// Blocks transmission if the handshake is not completed.
         /// </summary>
         /// <param name="message">The plain text message to send.</param>
         public void SendMessageToServer(string message)
         {
+            // Blocks message transmission until handshake is completed
+            if (!HandshakeCompleted)
+            {
+                Console.WriteLine("[DEBUG] Packet blocked — handshake not completed.");
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
@@ -264,7 +285,7 @@ namespace chat_client.Net
 
             string senderUID = viewModel.LocalUser?.UID ?? "unknown";
 
-            // Encrypt the message if encryption is enabled and ready
+            // Encrypts the message if encryption is enabled and ready
             if (viewModel.IsEncryptionEnabled && viewModel.IsEncryptionReady)
             {
                 string encrypted = EncryptionHelper.EncryptMessage(message, viewModel.LocalUser.PublicKeyBase64);
@@ -285,27 +306,34 @@ namespace chat_client.Net
             _client.Client.Send(messagePacket.GetPacketBytes());
         }
 
+
         /// <summary>
         /// Sends the client's public RSA key to the server for distribution to other connected clients.
         /// Builds a packet with OpCode 6, including the sender's UID and public key in Base64 format.
-        /// Returns true only if the underlying socket exists and is actively connected.
-        /// This method is used during encryption setup and must be reliable to ensure secure key exchange.
+        /// Returns true only if the handshake is completed and the socket is actively connected.
         /// Designed to fail silently if the client is disconnected, allowing upstream logic to handle rollback and user feedback.
         /// Logs connection status and packet dispatch for debugging.
         /// </summary>
         /// <param name="uid">The UID of the sender.</param>
         /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
-        /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
+        /// <returns>True if the packet was sent successfully; false if the client is not connected or handshake is incomplete.</returns>
         public bool SendPublicKeyToServer(string uid, string publicKeyBase64)
         {
-            // Validate socket connection before attempting to send
+            // Blocks key transmission until handshake is completed
+            if (!HandshakeCompleted)
+            {
+                Console.WriteLine("[DEBUG] Packet blocked — handshake not completed.");
+                return false;
+            }
+
+            // Validates socket connection before attempting to send
             if (_client?.Client == null || !_client.Connected)
             {
                 Console.WriteLine("[ERROR] Cannot send public key — client is not connected.");
                 return false;
             }
 
-            // Build the packet with required fields
+            // Builds the packet with required fields
             var packet = new PacketBuilder();
             packet.WriteOpCode(6); // Opcode for public key exchange
             packet.WriteMessage(uid);
@@ -313,7 +341,7 @@ namespace chat_client.Net
 
             Console.WriteLine($"[DEBUG] Sending public key — UID: {uid}, Key length: {publicKeyBase64.Length}");
 
-            // Send the packet to the server
+            // Sends the packet to the server
             _client.Client.Send(packet.GetPacketBytes());
 
             Console.WriteLine("[DEBUG] Public key packet sent successfully.");

@@ -102,29 +102,42 @@ namespace chat_server
         /// Notifies all connected users of a disconnection event.
         /// Removes the disconnected user from the global list and sends a disconnect packet to remaining clients.
         /// Uses opcode 10 to signal user departure.
+        /// Wraps each transmission in a try/catch block to prevent socket exceptions.
         /// Logs each notification for traceability.
         /// </summary>
         /// <param name="uidDisconnected">The UID of the user who disconnected.</param>
         public static void BroadcastDisconnect(string uidDisconnected)
         {
-            // Locates the disconnected user in the list
             var disconnectedUser = _users.FirstOrDefault(x => x.UID.ToString() == uidDisconnected);
 
             if (disconnectedUser != null)
             {
-                // Removes the user from the active list
                 _users.Remove(disconnectedUser);
                 Console.WriteLine($"[SERVER] User removed from roster — {disconnectedUser.Username} ({uidDisconnected})");
 
-                // Notifies all remaining users of the disconnection
                 foreach (var user in _users)
                 {
-                    var broadcastPacket = new PacketBuilder();
-                    broadcastPacket.WriteOpCode(10); // Opcode for user disconnect
-                    broadcastPacket.WriteMessage(uidDisconnected);
-                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+                    try
+                    {
+                        var packet = new PacketBuilder();
+                        packet.WriteOpCode(10);
+                        packet.WriteMessage(uidDisconnected);
 
-                    Console.WriteLine($"[SERVER] Sent disconnect notification to {user.Username} for UID {uidDisconnected}");
+                        if (user.ClientSocket.Connected)
+                        {
+                            user.ClientSocket.GetStream().Write(
+                                packet.GetPacketBytes(),
+                                0,
+                                packet.GetPacketBytes().Length
+                            );
+
+                            Console.WriteLine($"[SERVER] Sent disconnect notification to {user.Username} for UID {uidDisconnected}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[SERVER] Failed to notify {user.Username} of disconnect: {ex.Message}");
+                    }
                 }
             }
         }
@@ -263,8 +276,8 @@ namespace chat_server
 
         /// <summary>
         /// Starts the TCP listener on the specified port and accepts incoming client connections.
-        /// For each accepted client, reads the handshake packet (opcode 0 + username),
-        /// initializes the Client instance, and starts its message listener in a separate task.
+        /// Reads the handshake packet (opcode 0 + username) before creating the Client instance.
+        /// Initializes the client and starts its message listener in a separate task.
         /// Logs the localized startup message and each connection for traceability.
         /// </summary>
         /// <param name="port">The TCP port to listen on.</param>
@@ -285,11 +298,11 @@ namespace chat_server
                     // Initializes a packet reader for the handshake
                     PacketReader reader = new PacketReader(clientSocket.GetStream());
 
-                    // Reads the initial opcode
+                    // Reads the initial opcode from the handshake packet
                     byte opcode = reader.ReadByte();
                     if (opcode != 0)
                     {
-                        Console.WriteLine("[SERVER] Unexpected opcode during handshake. Connection aborted.");
+                        Console.WriteLine($"[SERVER] Unexpected opcode during handshake: {opcode}. Connection aborted.");
                         clientSocket.Close();
                         continue;
                     }
@@ -298,11 +311,7 @@ namespace chat_server
                     string username = reader.ReadMessage();
 
                     // Creates and initializes the client instance
-                    Client client = new Client(clientSocket)
-                    {
-                        Username = username,
-                        UID = Guid.NewGuid()
-                    };
+                    Client client = new Client(clientSocket, username);
 
                     // Adds the client to the global user list
                     _users.Add(client);
@@ -312,7 +321,7 @@ namespace chat_server
                     // Starts listening for messages from this client
                     Task.Run(() => client.ListenForMessages());
 
-                    // Broadcasts the updated roster to all clients
+                    // Broadcasts the updated roster to all connected clients
                     BroadcastConnection();
                 }
                 catch (Exception ex)
@@ -321,6 +330,5 @@ namespace chat_server
                 }
             }
         }
-
     }
 }

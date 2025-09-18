@@ -11,10 +11,24 @@ namespace chat_server
 {
     public class Client
     {
+        /// <summary>
+        /// The display name of the connected user.
+        /// </summary>
         public string Username { get; set; }
+
+        /// <summary>
+        /// The unique identifier assigned to the client.
+        /// </summary>
         public Guid UID { get; set; }
+
+        /// <summary>
+        /// The TCP socket used for communication with the client.
+        /// </summary>
         public TcpClient ClientSocket { get; set; }
 
+        /// <summary>
+        /// The packet reader used to parse incoming data from the client.
+        /// </summary>
         private readonly PacketReader _packetReader;
 
         /// <summary>
@@ -23,20 +37,22 @@ namespace chat_server
         /// </summary>
         public string PublicKeyBase64 { get; set; }
 
-
-        public Client(TcpClient client)
+        /// <summary>
+        /// Initializes a new client instance with the provided TCP socket and username.
+        /// Instantiates the packet reader and assigns a unique identifier.
+        /// </summary>
+        /// <param name="client">The accepted TCP client socket.</param>
+        /// <param name="username">The display name of the connected user.</param>
+        public Client(TcpClient client, string username)
         {
             ClientSocket = client;
+            Username = username;
             UID = Guid.NewGuid();
+
+            // Initializes the packet reader for incoming messages
             _packetReader = new PacketReader(ClientSocket.GetStream());
 
-            var opcode = _packetReader.ReadByte();
-            Username = _packetReader.ReadMessage();
-
-            // Localized connection message
-            Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientConnected")} {Username}");
-
-            Task.Run(() => ListenForMessages());
+            Console.WriteLine($"[SERVER] Listening for messages from {Username}...");
         }
 
         /// <summary>
@@ -47,16 +63,10 @@ namespace chat_server
         /// <param name="reader">The packet reader used to extract the key.</param>
         internal void HandleIncomingPublicKey(PacketReader reader)
         {
-            // Reads the Base64-encoded public key from the packet
             string publicKeyBase64 = reader.ReadMessage();
-
-            // Stores the key in the client instance
             this.PublicKeyBase64 = publicKeyBase64;
 
-            // Logs the reception for debugging
             Console.WriteLine($"[{DateTime.Now}]: Public key received from {Username} — Length: {publicKeyBase64.Length}");
-
-            // Broadcasts the key to all other clients
             Program.BroadcastPublicKeyToOthers(this);
         }
 
@@ -67,8 +77,6 @@ namespace chat_server
         /// </summary>
         internal void ListenForMessages()
         {
-            Console.WriteLine($"[SERVER] Listening for messages from {Username}...");
-
             while (true)
             {
                 try
@@ -79,43 +87,24 @@ namespace chat_server
                     switch (opcode)
                     {
                         case 5: // Chat message
-                                // Reads the incoming message
-                            var messageReceived = _packetReader.ReadMessage();
-
-                            // Determines if the message is encrypted
-                            string logMessage = messageReceived.StartsWith("[ENC]") ? "[ENC]" : messageReceived;
-
-                            // Logs the received message
-                            Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("MessageReceived")} {Username}: {logMessage}");
-
-                            // Broadcasts the message to other connected clients
+                            string messageReceived = _packetReader.ReadMessage();
                             Program.BroadcastMessage(messageReceived, this.UID);
                             break;
 
                         case 6: // Public key exchange
-                                // Reads the Base64-encoded public key
                             string publicKeyBase64 = _packetReader.ReadMessage();
                             this.PublicKeyBase64 = publicKeyBase64;
-
-                            // Logs the key reception
-                            Console.WriteLine($"[{DateTime.Now}]: Public key received from {Username} — Length: {publicKeyBase64.Length}");
-
-                            // Broadcasts the key to other clients
                             Program.BroadcastPublicKeyToOthers(this);
                             break;
 
                         default:
-                            // Logs unsupported opcode
                             Console.WriteLine($"[SERVER] Unknown opcode received from {Username}: {opcode}");
                             break;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Logs the disconnection event
                     Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientDisconnected")} {Username}");
-
-                    // Closes the socket and broadcasts the disconnect
                     ClientSocket.Close();
                     Program.BroadcastDisconnect(UID.ToString());
                     break;
@@ -124,4 +113,3 @@ namespace chat_server
         }
     }
 }
-
