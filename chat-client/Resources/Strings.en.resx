@@ -148,7 +148,7 @@
     <value>Disconnect error</value>
   </data>
   <data name="EncryptionEnabled" xml:space="preserve">
-    <value>Encryption is enabled.</value>
+    <value>Message encryption is enabled.</value>
   </data>
   <data name="EncryptionRequiresConnection" xml:space="preserve">
     <value>You must be connected to the server to enable encryption.</value>
@@ -165,8 +165,8 @@
   <data name="ErrorWhileDisconnecting" xml:space="preserve">
     <value>Error while disconnecting : </value>
   </data>
-  <data name="GetPublicKey" xml:space="preserve">
-    <value>Getting public key</value>
+  <data name="EncryptionWaiting" xml:space="preserve">
+    <value>Encryption waiting...</value>
   </data>
   <data name="HasConnected" xml:space="preserve">
     <value>has connected</value>

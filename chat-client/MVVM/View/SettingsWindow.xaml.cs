@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 16th, 2025</date>
+/// <date>September 18th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -190,28 +190,27 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles the Checked event of the encryption toggle.
-        /// Initializes encryption only if it was previously disabled, preventing duplicate key generation or transmission.
-        /// This ensures that opening the Settings window does not trigger unintended encryption setup.
-        /// Updates the encryption icon regardless of connection state.
+        /// Enables encryption only if it was previously disabled, preventing duplicate key generation or transmission.
+        /// If the user is connected, initializes encryption and triggers key exchange.
+        /// Encryption readiness is evaluated after setup to update the UI.
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // If encryption is already enabled in settings, do nothing
-            // This prevents re-triggering encryption setup when the toggle is already active
+            // Prevents re-triggering encryption setup if already enabled
             if (Properties.Settings.Default.UseEncryption)
                 return;
 
-            // Persist the user's intent to enable encryption
+            // Persists the user's intent to enable encryption
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // Retrieve the ViewModel from the main window
+            // Retrieves the ViewModel from the main window
             var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
 
             // If the user is connected and the ViewModel is valid, initialize encryption
             if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
-                // Attempt to generate keys and send the public key to the server
+                // Attempts to generate keys and send the public key to the server
                 bool success = viewModel.InitializeEncryptionIfEnabled();
 
                 // If encryption setup fails, rollback the toggle and setting
@@ -220,12 +219,14 @@ namespace chat_client.MVVM.View
                     UseEncryptionToggle.IsChecked = false;
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
+                    return; // No need to update icon manually — viewModel will notify via binding
                 }
-            }
 
-            // Update the encryption status icon to reflect current state
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
+                // Re-evaluates encryption state after setup
+                viewModel.EvaluateEncryptionState(); // Triggers PropertyChanged → icon update
+            }
         }
+
 
         /// <summary>
         /// Handles deactivation of the encryption toggle.

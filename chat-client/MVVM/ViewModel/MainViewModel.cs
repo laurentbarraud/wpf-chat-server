@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 16th, 2025</date>
+/// <date>September 18th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -15,6 +15,7 @@ using System.ComponentModel;
 using System.ComponentModel;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
+using System.Runtime.ConstrainedExecution;
 using System.Security.Cryptography;
 using System.Security.Policy;
 using System.Text;
@@ -75,6 +76,27 @@ namespace chat_client.MVVM.ViewModel
         // Uses expression-bodied syntax (=>) for clarity and ensures the value is always up-to-date.
         public bool IsEncryptionEnabled => chat_client.Properties.Settings.Default.UseEncryption;
 
+        private bool _isEncryptionReady;
+
+        /// <summary>
+        /// Observable property that indicates whether encryption is fully ready for use.
+        /// Implements INotifyPropertyChanged to allow the UI to react automatically when the value changes.
+        /// This enables MVVM-compliant updates, such as triggering icon refreshes or animations in the view.
+        /// This becomes true only when encryption is enabled and all required public keys are received.
+        /// </summary>
+        public bool IsEncryptionReady
+        {
+            get => _isEncryptionReady;
+            set
+            {
+                if (_isEncryptionReady != value)
+                {
+                    _isEncryptionReady = value;
+                    OnPropertyChanged(nameof(IsEncryptionReady));
+                }
+            }
+        }
+
         /// <summary>
         /// Represents the currently selected user in the chat interface.
         /// Used to determine the intended recipient of outgoing messages,
@@ -130,7 +152,10 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Tracks which users have already received our public RSA key.
-        /// Used to prevent redundant key transmissions and ensure mutual encryption setup.
+        /// A HashSet has these advantages :
+        /// - No duplicates: a UID can only be added once. This prevent redundant key transmissions.
+        /// - Fast: the Contains and Add operations are in constant time
+        /// - Readable: the logic is clear and explicit
         /// </summary>
         private readonly HashSet<string> _uidsKeySentTo = new();
 
@@ -303,6 +328,16 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Evaluates the current encryption state by checking whether all required public keys are received.
+        /// Updates the IsEncryptionReady property, which triggers UI updates via data binding.
+        /// Should be called whenever the Users list changes or a new public key is received.
+        /// </summary>
+        public void EvaluateEncryptionState()
+        {
+            IsEncryptionReady = AreAllKeysReceived();
+        }
+
+        /// <summary>
         /// Returns the current port number stored in application settings.
         /// </summary>
         public static int GetCurrentPort()
@@ -458,41 +493,24 @@ namespace chat_client.MVVM.ViewModel
             Application.Current.Dispatcher.Invoke(() => Messages.Add(rawMessage));
         }
 
-
         /// <summary>
-        /// Handles the reception of a public RSA key from another connected client.
-        /// Stores the received key locally and, if encryption is enabled, sends our own key back to ensure mutual encryption.
-        /// This method supports bidirectional key exchange and updates the encryption status icon accordingly.
+        /// Handles the reception of a public RSA key from another user.
+        /// Stores the key in the KnownPublicKeys dictionary and re-evaluates encryption readiness.
         /// </summary>
-        /// <param name="uid">The unique identifier of the sender.</param>
-        /// <param name="publicKeyBase64">The sender's public RSA key encoded in Base64.</param>
-        public void ReceivePublicKey(string uid, string publicKeyBase64)
+        /// <param name="senderUID">Unique identifier of the user who sent the key.</param>
+        /// <param name="publicKey">Base64-encoded RSA public key.</param>
+        private void ReceivePublicKey(string senderUID, string publicKey)
         {
-            // Validate input: ignore empty UID or malformed key
-            if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(publicKeyBase64))
-                return;
-
-            // Store the received public key in the dictionary for future encryption
-            KnownPublicKeys[uid] = publicKeyBase64;
-            Console.WriteLine($"[INFO] Stored public key for UID: {uid}");
-
-            // If encryption is enabled and we haven't yet sent our key to this UID
-            if (IsEncryptionEnabled && LocalUser?.UID != null && !HasSentKeyTo(uid))
+            if (!KnownPublicKeys.ContainsKey(senderUID))
             {
-                // Ensure our own public key is available before sending
-                if (!string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
-                {
-                    // Send our public key to the client who just sent theirs
-                    Server.SendPublicKeyToServer(uid, LocalUser.PublicKeyBase64);
-
-                    // Mark that we've sent our key to this UID to avoid duplicate transmission
-                    MarkKeyAsSentTo(uid);
-                    Console.WriteLine($"[INFO] Sent reciprocal public key to UID: {uid}");
-                }
+                KnownPublicKeys[senderUID] = publicKey;
             }
 
-            // Update the encryption status icon to reflect the current global key exchange state
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon();
+            // Re-evaluates encryption state after receiving a new key
+            if (IsEncryptionEnabled)
+            {
+                EvaluateEncryptionState();
+            }
         }
 
         /// <summary>
@@ -623,6 +641,12 @@ namespace chat_client.MVVM.ViewModel
 
             return false;
         }
+
+        /// <summary>
+        /// Adds the new user to the Users collection and re-evaluates encryption readiness.
+        /// This ensures that the encryption icon updates correctly when new users join.
+        /// UI-bound actions are dispatched to the main thread to avoid threading issues.
+        /// </summary>
         private void UserConnected()
         {
             var user = new UserModel
@@ -634,18 +658,21 @@ namespace chat_client.MVVM.ViewModel
             // Checks whether the user is already present in the Users collection,
             // by verifying that no existing user has the same UID.
             // Uses LINQ's .Any() to efficiently scan the collection.
-            // The! in front means that no existing user has this UID
-            // So we add the new user only if he is not already in the list
+            // The "!" in front means that no existing user has this UID.
+            // So the new user is only added if he is not already in the list.
             // This prevents duplicate entries when multiple connection events are received.
-
-
             if (!Users.Any(x => x.UID == user.UID))
             {
                 // Executes UI bound actions on the main application thread
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     Users.Add(user);
-                    
+
+                    if (IsEncryptionEnabled)
+                    {
+                        EvaluateEncryptionState();
+                    }
+
                     // Avoids to be notified of who is connected at login time (user sees it in the list of users on left)
                     if (Message != null)
                     {
@@ -655,21 +682,36 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+        /// <summary>
+        /// Handles the disconnection of a remote user.
+        /// Removes the user from the Users collection and posts a system message.
+        /// Re-evaluates encryption readiness if encryption is enabled.
+        /// </summary>
         private void UserDisconnected()
         {
-            // This is the first thing sent when a user disconnects
+            // Reads the UID of the disconnected user from the incoming packet
             var uid = _server.PacketReader.ReadMessage();
 
-            // Executes UI bound actions on the main application thread
+            // Locates the user in the current Users collection
             var user = Users.FirstOrDefault(x => x.UID == uid);
 
-            // Ensures user exists to avoid NullReferenceException
+            // Ensures the user exists before attempting removal
             if (user != null)
             {
+                // Executes UI-bound actions on the main application thread
                 Application.Current.Dispatcher.Invoke(() =>
                 {
+                    // Removes the user from the active list
                     Users.Remove(user);
+
+                    // Posts a localized system message to the chat
                     Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasDisconnected") + ". #");
+
+                    // Re-evaluates encryption state only if encryption is enabled
+                    if (IsEncryptionEnabled)
+                    {
+                        EvaluateEncryptionState();
+                    }
                 });
             }
         }

@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 16th, 2025</date>
+/// <date>September 18th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -47,7 +47,8 @@ namespace chat_client.Net
         /// <returns>True if the connection is successfully established; false if an error occurs.</returns>
         public bool ConnectToServer(string username, string IPAddressOfServer)
         {
-            // If already connected, no need to reconnect
+            // If al
+            // connected, no need to reconnect
             if (_client.Connected)
                 return true;
 

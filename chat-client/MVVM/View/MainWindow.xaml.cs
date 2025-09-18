@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 16th, 2025</date>
+/// <date>September 18th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -57,6 +57,10 @@ namespace chat_client
 
         public Server Server => ViewModel?.Server;
 
+        /// <summary>
+        /// Initializes the main window, binds the ViewModel, and sets up UI event subscriptions.
+        /// Handles message autoscroll, emoji panel timing, and property change listeners for dynamic UI updates.
+        /// </summary>
         public MainWindow()
         {
             InitializeComponent();
@@ -75,9 +79,13 @@ namespace chat_client
                 {
                     UpdateConnectButtonText();
                 }
+                else if (e.PropertyName == nameof(ViewModel.IsEncryptionReady))
+                {
+                    UpdateEncryptionStatusIcon(ViewModel.IsEncryptionReady);
+                }
             };
 
-            // Initialize the scroll timer used for emoji panel auto-scrolling
+            // Initializes the scroll timer used for emoji panel auto-scrolling
             scrollTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(50)
@@ -85,30 +93,30 @@ namespace chat_client
             scrollTimer.Tick += ScrollTimer_Tick;
         }
 
+        /// <summary>
+        /// Handles window load events and applies persisted settings.
+        /// Restores IP address, applies localization and theme, and initializes watermark visuals.
+        /// </summary>
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             // Restores last used IP address
             txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
+            // Applies localization if language is not English
             string lang = Properties.Settings.Default.AppLanguage;
-
-            // If the language is different from English, we apply the localization
             if (lang != "en")
             {
                 LocalizationManager.Initialize(lang);
                 LocalizationManager.UpdateLocalizedUI();
             }
 
-            // Synchronizes the toggle button with the current theme
+            // Synchronizes the theme toggle with the current setting
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
 
-            // Synchronizes the encrypted image visibilty with the current setting
-            imgEncryptionStatus.Visibility = Properties.Settings.Default.UseEncryption
-                ? Visibility.Visible : Visibility.Collapsed;
-
-            // Apply watermarks on startup
+            // Applies watermark visuals on startup
             ApplyWatermarkImages();
 
+            // Sets focus to the username input field
             txtUsername.Focus();
         }
 
@@ -621,38 +629,48 @@ namespace chat_client
                 ? LocalizationManager.GetString("DisconnectButton")
                 : LocalizationManager.GetString("ConnectButton");
         }
+
         /// <summary>
         /// Updates the encryption status icon and tooltip above the message input field.
         /// Displays the colored icon only if encryption is enabled and all public keys are received.
+        /// Triggers a pulse animation when encryption becomes fully ready.
         /// Ensures visual feedback reflects mutual encryption readiness in a public chat.
         /// </summary>
-        public void UpdateEncryptionStatusIcon()
+        public void UpdateEncryptionStatusIcon(bool isReady)
         {
+            // Retrieves the ViewModel from the current DataContext
             var viewModel = DataContext as MainViewModel;
             if (viewModel == null)
                 return;
 
+            // If encryption is disabled in settings, hide the icon entirely
             if (!viewModel.IsEncryptionEnabled)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
                 return;
             }
 
+            // Checks if the local user has generated a key and received all others
             bool localKeyReady = !string.IsNullOrEmpty(viewModel.LocalUser?.PublicKeyBase64);
             bool allKeysReceived = viewModel.AreAllKeysReceived();
 
+            // Shows the icon regardless of readiness (grayed out if incomplete)
             imgEncryptionStatus.Visibility = Visibility.Visible;
 
+            // Sets the icon image based on encryption readiness
             imgEncryptionStatus.Source = new BitmapImage(new Uri(
                 (localKeyReady && allKeysReceived)
-                    ? "/Resources/encrypted.png"
-                    : "/Resources/encrypted-disabled.png",
+                    ? "/Resources/encrypted.png"           // Color lock icon
+                    : "/Resources/encrypted-disabled.png", // Grey lock icon
                 UriKind.Relative));
 
+            // Sets the tooltip using localized strings
             imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
-                (localKeyReady && allKeysReceived) ? "EncryptionEnabled" : "GetPublicKey"
-            );
+                (localKeyReady && allKeysReceived)
+                    ? "EncryptionEnabled"
+                    : "GetPublicKey");
 
+            // If encryption is fully ready, trigger the pulse animation and show banner
             if (localKeyReady && allKeysReceived)
             {
                 var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
@@ -661,6 +679,7 @@ namespace chat_client
                 ShowBanner("EncryptionEnabled", showIcon: true);
             }
         }
+
 
     }
 }

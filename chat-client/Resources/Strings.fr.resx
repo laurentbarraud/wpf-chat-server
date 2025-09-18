@@ -165,8 +165,8 @@
   <data name="ErrorWhileDisconnecting" xml:space="preserve">
     <value>Erreur pendant la déconnexion : </value>
   </data>
-  <data name="GetPublicKey" xml:space="preserve">
-    <value>Obtention de la clé publique</value>
+  <data name="EncryptionWaiting" xml:space="preserve">
+    <value>Chiffrage en attente...</value>
   </data>
   <data name="HasConnected" xml:space="preserve">
     <value>s'est connecté</value>

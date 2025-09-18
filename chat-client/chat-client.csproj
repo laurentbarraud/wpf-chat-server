@@ -17,6 +17,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Debug\**" />
+    <EmbeddedResource Remove="Debug\**" />
+    <None Remove="Debug\**" />
+    <Page Remove="Debug\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\chat-client-icon.ico" />
     <None Remove="Resources\encrypted-disabled.png" />
