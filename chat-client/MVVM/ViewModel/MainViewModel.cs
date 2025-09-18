@@ -177,39 +177,40 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Determines whether all connected users (excluding the local user)
-        /// have successfully exchanged their public RSA keys.
-        /// Returns true only if encryption is enabled and every other user has a known public key.
-        /// Handles edge cases such as solo client sessions and ensures accurate UI feedback.
+        /// Determines whether encryption can be considered fully ready for public chat.
+        /// Ready when encryption is enabled, the local public key is present, and either:
+        /// - there is no roster yet (startup/solo), or
+        /// - every other connected user has a known public key.
         /// </summary>
-        /// <returns>True if all required keys are received; otherwise, false.</returns>
+        /// <returns>True if the state is ready; otherwise, false.</returns>
         public bool AreAllKeysReceived()
         {
-            // Encryption must be explicitly enabled to evaluate readiness
+            // Encryption must be enabled
             if (!IsEncryptionEnabled)
                 return false;
 
-            // Validates user list
-            if (Users == null || Users.Count == 0)
+            // Local public key must exist
+            if (string.IsNullOrEmpty(LocalUser?.PublicKeyBase64))
                 return false;
 
-            // If only the local user is present, encryption is trivially ready
-            if (Users.Count == 1 && Users[0].UID == LocalUser?.UID)
+            // If we don't have a roster yet, consider ready (prevents UI dead states on startup)
+            if (Users == null || Users.Count == 0)
                 return true;
 
-            // Iterates through all connected users except the local one
+            // If only the local user is present, ready
+            if (Users.Count == 1 && Users[0].UID == LocalUser.UID)
+                return true;
+
+            // Every other user must have a known public key
             foreach (var user in Users)
             {
-                // Skips self
-                if (user.UID == LocalUser?.UID)
+                if (user.UID == LocalUser.UID)
                     continue;
 
-                // If any user lacks a known public key, encryption is incomplete
                 if (!KnownPublicKeys.ContainsKey(user.UID))
                     return false;
             }
 
-            // All required keys are present
             return true;
         }
 
@@ -462,8 +463,11 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.UseEncryption = true;
                 Properties.Settings.Default.Save();
 
-                // Re-evaluates encryption state to update UI and internal flags
-                EvaluateEncryptionState(); // Triggers PropertyChanged → icon update
+                // After successful send and before EvaluateEncryptionState():
+                KnownPublicKeys[LocalUser.UID] = LocalUser.PublicKeyBase64;
+
+                // Then evaluate
+                EvaluateEncryptionState();
 
                 return true;
             }

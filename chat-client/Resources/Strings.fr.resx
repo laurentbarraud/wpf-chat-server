@@ -225,4 +225,7 @@
   <data name="UseEncryptionLabel" xml:space="preserve">
     <value>Utiliser le chiffrage des messages</value>
   </data>
+  <data name="GetPublicKey" xml:space="preserve">
+    <value>Obtention de la clé publique...</value>
+  </data>
 </root>

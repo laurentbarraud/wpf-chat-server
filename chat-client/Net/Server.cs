@@ -126,26 +126,40 @@ namespace chat_client.Net
 
         /// <summary>
         /// Handles the reception of a public RSA key from another connected client.
-        /// Extracts the sender's UID and public key from the packet,
-        /// and stores the key in the ViewModel's KnownPublicKeys dictionary.
-        /// Ensures thread-safe UI access via Dispatcher.
+        /// Extracts the sender's UID and public key from the incoming packet,
+        /// stores the key in the ViewModel's KnownPublicKeys dictionary,
+        /// re-evaluates encryption readiness, and updates the encryption status icon.
+        /// This ensures that the UI reflects the correct encryption state immediately
+        /// after any key exchange, including the local user's own key in solo sessions.
         /// </summary>
         /// <param name="reader">The packet reader used to extract incoming data.</param>
         private static void HandleIncomingPublicKey(PacketReader reader)
         {
+            // Read the sender's unique identifier (UID) from the packet
             string senderUID = reader.ReadMessage();
+
+            // Read the Base64-encoded public key from the packet
             string publicKeyBase64 = reader.ReadMessage();
 
+            // Ensure UI updates are performed on the main thread
             Application.Current.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mainWindow &&
                     mainWindow.ViewModel is MainViewModel viewModel)
                 {
+                    // Store the received public key in the ViewModel
                     viewModel.ReceivePublicKey(senderUID, publicKeyBase64);
                     Console.WriteLine($"[INFO] Public key received and stored for UID: {senderUID}");
+
+                    // Re-evaluate encryption readiness after receiving a new key
+                    viewModel.EvaluateEncryptionState();
+
+                    // Update the encryption status icon to reflect the new state
+                    mainWindow.UpdateEncryptionStatusIcon(viewModel.IsEncryptionReady);
                 }
                 else
                 {
+                    // Log a warning if the ViewModel is not available
                     Console.WriteLine($"[WARN] Unable to store public key for UID {senderUID}: ViewModel not available.");
                 }
             });

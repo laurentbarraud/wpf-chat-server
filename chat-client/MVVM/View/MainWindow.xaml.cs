@@ -656,11 +656,12 @@ namespace chat_client
                 return;
 
             // If encryption is disabled in settings, hide the icon entirely
-            if (!viewModel.IsEncryptionEnabled)
+            if (!chat_client.Properties.Settings.Default.UseEncryption)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
                 return;
             }
+
 
             // Shows the icon regardless of readiness (grayed out if incomplete)
             imgEncryptionStatus.Visibility = Visibility.Visible;
@@ -685,6 +686,5 @@ namespace chat_client
                 ShowBanner("EncryptionEnabled", showIcon: true);
             }
         }
-
     }
 }
