@@ -52,8 +52,22 @@ namespace chat_client
 
         public double EmojiPanelHeight => 30;
 
+        /// <summary>
+        /// Represents the tray menu item used to reopen the main application window.
+        /// Typically bound to the system tray context menu for restoring visibility when minimized.
+        /// </summary>
+
         public MenuItem TrayMenuOpen { get; private set; }
+        /// <summary>
+        /// Represents the tray menu item used to exit the application.
+        /// Bound to the system tray context menu to allow clean shutdown from the tray icon.
+        /// </summary>
+
         public MenuItem TrayMenuQuit { get; private set; }
+        /// <summary>
+        /// Provides access to the current server instance managed by the ViewModel.
+        /// Used for sending and receiving packets, managing connections, and handling encryption exchange.
+        /// </summary>
 
         public Server Server => ViewModel?.Server;
 
@@ -118,6 +132,13 @@ namespace chat_client
 
             // Sets focus to the username input field
             txtUsername.Focus();
+
+            // Initializes encryption if enabled in settings and user is already connected
+            if (ViewModel.IsEncryptionEnabled && ViewModel.IsConnected)
+            {
+                ViewModel.InitializeEncryptionIfEnabled();
+                ViewModel.EvaluateEncryptionState();
+            }
         }
 
         /// <summary>
@@ -437,7 +458,7 @@ namespace chat_client
         /// Displays a floating status banner with optional icon and localized text.
         /// Uses slide-in and fade-out animation, and auto-hides after 3 seconds.
         /// </summary>
-        private void ShowBanner(string localizationKey, bool showIcon = false)
+        public void ShowBanner(string localizationKey, bool showIcon = false)
         {
             popupText.Text = LocalizationManager.GetString(localizationKey);
             popupIcon.Visibility = showIcon ? Visibility.Visible : Visibility.Collapsed;

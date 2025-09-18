@@ -268,7 +268,8 @@ namespace chat_client.MVVM.ViewModel
                     {
                         mainWindow.Title += " - Connected";
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
-                        mainWindow.spnCenter.Visibility = Visibility.Visible;
+                        mainWindow.spnDown.Visibility = Visibility.Visible;
+                        mainWindow.spnEmojiPanel.Visibility = Visibility.Visible;
                     }
                 });
 
@@ -588,8 +589,9 @@ namespace chat_client.MVVM.ViewModel
                     mainWindow.txtIPAddress.IsEnabled = true;
                     mainWindow.Title = "WPF Chat Server";
 
-                    // Hides the central panel
-                    mainWindow.spnCenter.Visibility = Visibility.Hidden;
+                    // Hides the down and toolbar panels
+                    mainWindow.spnDown.Visibility = Visibility.Hidden;
+                    mainWindow.spnEmojiPanel.Visibility = Visibility.Hidden;
                 }
             });
         }

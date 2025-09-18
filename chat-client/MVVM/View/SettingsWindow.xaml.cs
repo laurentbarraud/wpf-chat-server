@@ -219,7 +219,7 @@ namespace chat_client.MVVM.View
                     UseEncryptionToggle.IsChecked = false;
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
-                    return; // No need to update icon manually — viewModel will notify via binding
+                    return; // No need to update icon manually — ViewModel will notify via binding
                 }
 
                 // Re-evaluates encryption state after setup
@@ -227,12 +227,10 @@ namespace chat_client.MVVM.View
             }
         }
 
-
         /// <summary>
-        /// Handles deactivation of the encryption toggle.
-        /// Clears the encryption flag from application settings, resets the ViewModel state,
-        /// and updates the UI to reflect that encryption is disabled.
-        /// Ensures clean rollback without residual cryptographic state.
+        /// Handles the Unchecked event of the encryption toggle.
+        /// Disables encryption in application settings and resets the ViewModel state.
+        /// Updates the UI to reflect that encryption is no longer active.
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
@@ -240,8 +238,14 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // Update encryption icon to reflect disabled state
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(true);
+            // Retrieves the ViewModel from the main window
+            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
+
+            // Resets encryption state and updates the UI
+            if (viewModel != null)
+            {
+                viewModel.IsEncryptionReady = false; // Triggers PropertyChanged → icon update
+            }
         }
 
         private void ValidatePortInput()
