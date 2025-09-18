@@ -36,64 +36,56 @@ namespace chat_client.Net
 
         /// <summary>
         /// Establishes a TCP connection to the chat server using the specified IP address and username.
-        /// This method is invoked from the MainViewModel during client initialization.
-        /// It handles IP validation, port selection (default or custom), and initiates the handshake protocol.
-        /// Upon successful connection, it initializes the packet reader and begins listening for incoming packets.
-        /// If encryption is enabled and LocalUser is initialized, it triggers key exchange setup.
+        /// Validates the IP format and selects the appropriate port.
+        /// Initializes the packet reader and delegates the handshake to SendInitialConnectionPacket().
+        /// Triggers encryption setup if enabled and LocalUser is initialized.
         /// Returns true if the connection succeeds; false otherwise.
         /// </summary>
         /// <param name="username">The display name of the user initiating the connection.</param>
-        /// <param name="IPAddressOfServer">The target server IP address. If null or empty, defaults to localhost.</param>
+        /// <param name="IPAddressOfServer">The target server IP address. Defaults to localhost if null or empty.</param>
         /// <returns>True if the connection is successfully established; false if an error occurs.</returns>
         public bool ConnectToServer(string username, string IPAddressOfServer)
         {
-            // If al
-            // connected, no need to reconnect
+            // Skips connection attempt if already connected
             if (_client.Connected)
                 return true;
 
             try
             {
-                // Determine target IP: use localhost if no IP is provided
+                // Determines the target IP; falls back to localhost if none is provided
                 string ipToConnect = string.IsNullOrWhiteSpace(IPAddressOfServer) ? "127.0.0.1" : IPAddressOfServer;
 
-                // Validate IP format if not localhost
+                // Validates the IP format if not localhost
                 if (ipToConnect != "127.0.0.1" && !IPAddress.TryParse(ipToConnect, out _))
                 {
                     throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
                 }
 
-                // Select port: use custom if enabled, otherwise default to 7123
+                // Selects the port; uses custom if enabled, otherwise defaults to 7123
                 int portToUse = Properties.Settings.Default.UseCustomPort
                     ? Properties.Settings.Default.CustomPortNumber
                     : 7123;
 
-                // Connect to server
+                // Establishes the TCP connection
                 _client.Connect(ipToConnect, portToUse);
+                Console.WriteLine($"[DEBUG] TCP connection established — IP: {ipToConnect}, Port: {portToUse}");
 
-                // Initialize packet reader from network stream
+                // Initializes the packet reader from the network stream
                 PacketReader = new PacketReader(_client.GetStream());
 
-                // Send initial connection packet with username
-                if (!string.IsNullOrEmpty(username))
-                {
-                    var connectPacket = new PacketBuilder();
-                    connectPacket.WriteOpCode(0); // Opcode 0 = new user connection
-                    connectPacket.WriteMessage(username);
-                    _client.Client.Send(connectPacket.GetPacketBytes());
-                }
+                // Sends the initial connection packet and starts listening
+                if (!SendInitialConnectionPacket(username))
+                    throw new Exception("Failed to send initial connection packet.");
 
-                // Start listening for incoming packets
-                ReadPackets();
-
-                // Trigger encryption setup if enabled and LocalUser is initialized
+                // Triggers encryption setup if enabled and LocalUser is initialized
                 (Application.Current.MainWindow as MainWindow)?.TriggerEncryptionIfNeeded();
 
-                return true; // Connection successful
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
-                return false; // Connection failed
+                Console.WriteLine($"[ERROR] Connection failed: {ex.Message}");
+                return false;
             }
         }
 
@@ -213,6 +205,40 @@ namespace chat_client.Net
                     });
                 }
             });
+        }
+
+        /// <summary>
+        /// Sends the initial connection packet to the server using opcode 0.
+        /// Includes the username and starts listening for incoming packets.
+        /// Returns true if the packet is sent successfully; false otherwise.
+        /// </summary>
+        /// <param name="username">The display name of the user.</param>
+        /// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
+        public bool SendInitialConnectionPacket(string username)
+        {
+            if (string.IsNullOrEmpty(username))
+                return false;
+
+            try
+            {
+                // Builds the initial connection packet
+                var connectPacket = new PacketBuilder();
+                connectPacket.WriteOpCode(0); // Opcode 0 = new user connection
+                connectPacket.WriteMessage(username);
+                _client.Client.Send(connectPacket.GetPacketBytes());
+
+                Console.WriteLine($"[DEBUG] Initial connection packet is sent — Username: {username}");
+
+                // Starts listening for incoming packets (non-blocking)
+                ReadPackets();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to send initial connection packet: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>

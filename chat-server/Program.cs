@@ -59,20 +59,11 @@ namespace chat_server
             try
             {
                 _users = new List<Client>();
-                _listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
-
-                // Start listening on the selected port
-                _listener.Start();
                 Console.WriteLine($"\n{LocalizationManager.GetString("ServerStartedOnPort")} {port}.\n");
 
-                // Main loop: accept incoming clients and broadcast their connection
-                while (true)
-                {
-                    var client = new Client(_listener.AcceptTcpClient());
-                    _users.Add(client);
+                // Start listening for incoming clients
+                StartServerListener();
 
-                    BroadcastConnection(); // Notify all clients of the new connection
-                }
             }
             catch (Exception ex)
             {
@@ -84,34 +75,14 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Notifies all users of a disconnection and removes the user from the list.
-        /// Opcode 10 is used for disconnection notification.
-        /// </summary>
-        public static void BroadcastDisconnect(string uidDisconnected)
-        {
-            var disconnectedUser = _users.FirstOrDefault(x => x.UID.ToString() == uidDisconnected);
-
-            if (disconnectedUser != null)
-            {
-                _users.Remove(disconnectedUser);
-
-                foreach (var user in _users)
-                {
-                    var broadcastPacket = new PacketBuilder();
-                    broadcastPacket.WriteOpCode(10); // Opcode for user disconnect
-                    broadcastPacket.WriteMessage(uidDisconnected);
-                    user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
-                }
-            }
-        }
-
-        /// <summary>
-        /// Sends a packet to each connected user to notify them of all current users.
-        /// Opcode 1 indicates a user connection broadcast.
+        /// Sends the full roster of connected users to each client.
+        /// Uses opcode 1 to broadcast user presence.
+        /// Iterates through all users and sends each entry to every other client.
+        /// Logs each transmission for traceability.
         /// </summary>
         public static void BroadcastConnection()
         {
-            foreach (var user in _users)
+            foreach (var receiver in _users)
             {
                 foreach (var usr in _users)
                 {
@@ -119,11 +90,45 @@ namespace chat_server
                     broadcastPacket.WriteOpCode(1); // Opcode for user connection
                     broadcastPacket.WriteMessage(usr.Username);
                     broadcastPacket.WriteMessage(usr.UID.ToString());
+                    receiver.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+
+                    Console.WriteLine($"[SERVER] Sent roster entry — {usr.Username} ({usr.UID}) to {receiver.Username}");
+                }
+            }
+
+            Console.WriteLine("[SERVER] Full roster broadcast completed.");
+        }
+
+        /// <summary>
+        /// Notifies all connected users of a disconnection event.
+        /// Removes the disconnected user from the global list and sends a disconnect packet to remaining clients.
+        /// Uses opcode 10 to signal user departure.
+        /// Logs each notification for traceability.
+        /// </summary>
+        /// <param name="uidDisconnected">The UID of the user who disconnected.</param>
+        public static void BroadcastDisconnect(string uidDisconnected)
+        {
+            // Locates the disconnected user in the list
+            var disconnectedUser = _users.FirstOrDefault(x => x.UID.ToString() == uidDisconnected);
+
+            if (disconnectedUser != null)
+            {
+                // Removes the user from the active list
+                _users.Remove(disconnectedUser);
+                Console.WriteLine($"[SERVER] User removed from roster — {disconnectedUser.Username} ({uidDisconnected})");
+
+                // Notifies all remaining users of the disconnection
+                foreach (var user in _users)
+                {
+                    var broadcastPacket = new PacketBuilder();
+                    broadcastPacket.WriteOpCode(10); // Opcode for user disconnect
+                    broadcastPacket.WriteMessage(uidDisconnected);
                     user.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
+
+                    Console.WriteLine($"[SERVER] Sent disconnect notification to {user.Username} for UID {uidDisconnected}");
                 }
             }
         }
-
 
         /// <summary>
         /// Sends a message to all connected users.
@@ -149,10 +154,11 @@ namespace chat_server
             }
         }
 
-
         /// <summary>
-        /// Broadcasts the public key of a newly connected client to all other clients.
-        /// Opcode 6 is used for public key exchange.
+        /// Broadcasts the public RSA key of a newly connected client to all other clients.
+        /// Uses opcode 6 to signal public key exchange.
+        /// Skips the sender to avoid redundant transmission.
+        /// Logs each dispatch for traceability and confirms successful propagation.
         /// </summary>
         /// <param name="sender">The client who submitted their public key.</param>
         public static void BroadcastPublicKeyToOthers(Client sender)
@@ -163,16 +169,21 @@ namespace chat_server
                 if (receiver == sender)
                     continue;
 
+                // Builds the key exchange packet
                 var keyPacket = new PacketBuilder();
                 keyPacket.WriteOpCode(6); // Opcode for public key exchange
                 keyPacket.WriteMessage(sender.UID.ToString()); // UID of the sender
                 keyPacket.WriteMessage(sender.PublicKeyBase64); // Public key in Base64
 
+                // Sends the packet to the receiver
                 receiver.ClientSocket.Client.Send(keyPacket.GetPacketBytes());
+
+                // Logs the dispatch
+                Console.WriteLine($"[{DateTime.Now}]: Forwarded public key of {sender.Username} to {receiver.Username}");
             }
 
-            // Log the broadcast event
-            Console.WriteLine($"[{DateTime.Now}]: Public key received from: {sender.Username} — transmitted to other clients.");
+            // Logs the broadcast summary
+            Console.WriteLine($"[{DateTime.Now}]: Public key from {sender.Username} transmitted to all other clients.");
         }
 
         /// <summary>
@@ -250,5 +261,36 @@ namespace chat_server
             BroadcastMessage("/disconnect", SystemUID); // Special command for client to disconnect
             Console.WriteLine(LocalizationManager.GetString("ShutdownComplete"));
         }
+
+        /// <summary>
+        /// Starts the TCP listener and accepts incoming client connections.
+        /// For each accepted client, creates a Client instance and starts its message listener in a separate task.
+        /// Logs each connection for traceability.
+        /// </summary>
+        public static void StartServerListener()
+        {
+            // Initializes the TCP listener on port 7123
+            TcpListener listener = new TcpListener(IPAddress.Any, 7123);
+            listener.Start();
+
+            Console.WriteLine("[SERVER] Listener started — waiting for incoming connections...");
+
+            while (true)
+            {
+                // Accepts a new TCP client
+                TcpClient clientSocket = listener.AcceptTcpClient();
+
+                // Creates a new Client instance to handle this connection
+                Client client = new Client(clientSocket);
+
+                // Adds the client to the global user list
+                _users.Add(client);
+                Console.WriteLine($"[SERVER] New client accepted — Socket: {clientSocket.Client.RemoteEndPoint}");
+
+                // Starts listening for messages from this client in a separate task
+                Task.Run(() => client.ListenForMessages());
+            }
+        }
+
     }
 }
