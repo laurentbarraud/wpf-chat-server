@@ -148,7 +148,7 @@
     <value>Server shutdown complete.</value>
   </data>
   <data name="ServerStartedOnPort" xml:space="preserve">
-    <value>Server started on port</value>
+    <value>Listener started on port {0} — waiting for incoming connections...</value>
   </data>
   <data name="Exiting" xml:space="preserve">
     <value>Exiting...</value>

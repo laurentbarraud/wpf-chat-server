@@ -54,21 +54,20 @@ namespace chat_server
             DisplayBanner();
 
             // Prompt user for TCP port or use default
-            int port = GetPortFromUser();
+            int portToListenTo = GetPortFromUser();
 
             try
             {
                 _users = new List<Client>();
-                Console.WriteLine($"\n{LocalizationManager.GetString("ServerStartedOnPort")} {port}.\n");
 
                 // Start listening for incoming clients
-                StartServerListener();
+                StartServerListener(portToListenTo);
 
             }
             catch (Exception ex)
             {
                 // Display error if server fails to start
-                Console.WriteLine($"\n{LocalizationManager.GetString("ServerStartFailed")} {port}: {ex.Message}");
+                Console.WriteLine($"\n{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}");
                 Console.WriteLine(LocalizationManager.GetString("Exiting"));
                 Environment.Exit(1);
             }
@@ -263,32 +262,63 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Starts the TCP listener and accepts incoming client connections.
-        /// For each accepted client, creates a Client instance and starts its message listener in a separate task.
-        /// Logs each connection for traceability.
+        /// Starts the TCP listener on the specified port and accepts incoming client connections.
+        /// For each accepted client, reads the handshake packet (opcode 0 + username),
+        /// initializes the Client instance, and starts its message listener in a separate task.
+        /// Logs the localized startup message and each connection for traceability.
         /// </summary>
-        public static void StartServerListener()
+        /// <param name="port">The TCP port to listen on.</param>
+        public static void StartServerListener(int port)
         {
-            // Initializes the TCP listener on port 7123
-            TcpListener listener = new TcpListener(IPAddress.Any, 7123);
+            TcpListener listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
 
-            Console.WriteLine("[SERVER] Listener started — waiting for incoming connections...");
+            Console.WriteLine($"\n{string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port)}\n");
 
             while (true)
             {
-                // Accepts a new TCP client
-                TcpClient clientSocket = listener.AcceptTcpClient();
+                try
+                {
+                    // Accepts a new TCP client
+                    TcpClient clientSocket = listener.AcceptTcpClient();
 
-                // Creates a new Client instance to handle this connection
-                Client client = new Client(clientSocket);
+                    // Initializes a packet reader for the handshake
+                    PacketReader reader = new PacketReader(clientSocket.GetStream());
 
-                // Adds the client to the global user list
-                _users.Add(client);
-                Console.WriteLine($"[SERVER] New client accepted — Socket: {clientSocket.Client.RemoteEndPoint}");
+                    // Reads the initial opcode
+                    byte opcode = reader.ReadByte();
+                    if (opcode != 0)
+                    {
+                        Console.WriteLine("[SERVER] Unexpected opcode during handshake. Connection aborted.");
+                        clientSocket.Close();
+                        continue;
+                    }
 
-                // Starts listening for messages from this client in a separate task
-                Task.Run(() => client.ListenForMessages());
+                    // Reads the username from the handshake packet
+                    string username = reader.ReadMessage();
+
+                    // Creates and initializes the client instance
+                    Client client = new Client(clientSocket)
+                    {
+                        Username = username,
+                        UID = Guid.NewGuid()
+                    };
+
+                    // Adds the client to the global user list
+                    _users.Add(client);
+                    Console.WriteLine($"[{DateTime.Now}]: Client connected with username: {username}");
+                    Console.WriteLine($"[SERVER] New client accepted — Socket: {clientSocket.Client.RemoteEndPoint}");
+
+                    // Starts listening for messages from this client
+                    Task.Run(() => client.ListenForMessages());
+
+                    // Broadcasts the updated roster to all clients
+                    BroadcastConnection();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SERVER] Error during client handshake: {ex.Message}");
+                }
             }
         }
 

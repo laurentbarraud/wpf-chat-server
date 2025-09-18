@@ -148,7 +148,7 @@
     <value>Arrêt du serveur terminé.</value>
   </data>
   <data name="ServerStartedOnPort" xml:space="preserve">
-    <value>Serveur démarré sur le port</value>
+    <value>Écouteur démarré sur le port {0} — en attente de connexions entrantes...</value>
   </data>
   <data name="Exiting" xml:space="preserve">
     <value>Fermeture...</value>
