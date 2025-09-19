@@ -259,24 +259,23 @@ namespace chat_client.Net
         /// The server will broadcast this message to all clients, 
         /// who will attempt decryption using their private key.
         /// This ensures secure one-to-many communication in a public chat context.
-        /// Blocks transmission if the handshake is not completed.
+        /// Allows plain messages even if handshake is not completed.
         /// </summary>
         /// <param name="message">The plain text message to send.</param>
         public void SendMessageToServer(string message)
         {
-            // Blocks message transmission until handshake is completed
-            if (!HandshakeCompleted)
-            {
-                Console.WriteLine("[DEBUG] Packet blocked — handshake not completed.");
-                return;
-            }
-
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
             if (Application.Current.MainWindow is not MainWindow mainWindow || mainWindow.ViewModel is not MainViewModel viewModel)
             {
                 Console.WriteLine("[ERROR] ViewModel is null. Cannot send message.");
+                return;
+            }
+
+            if (_client == null || !_client.Connected)
+            {
+                Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
 
@@ -287,6 +286,14 @@ namespace chat_client.Net
             {
                 string encrypted = EncryptionHelper.EncryptMessage(message, viewModel.LocalUser.PublicKeyBase64);
                 message = "[ENC]" + encrypted;
+                Console.WriteLine("[DEBUG] Message encrypted and marked with [ENC].");
+            }
+            else
+            {
+                if (!HandshakeCompleted)
+                    Console.WriteLine("[WARN] Handshake not completed — sending plain message anyway.");
+
+                Console.WriteLine("[DEBUG] Sending plain message.");
             }
 
             var messagePacket = new PacketBuilder();
@@ -294,13 +301,8 @@ namespace chat_client.Net
             messagePacket.WriteMessage(message);       // Encrypted or plain
             messagePacket.WriteMessage(senderUID);     // Sender UID
 
-            if (_client == null || !_client.Connected)
-            {
-                Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
-                return;
-            }
-
             _client.Client.Send(messagePacket.GetPacketBytes());
+            Console.WriteLine("[DEBUG] Message packet sent to server.");
         }
 
 

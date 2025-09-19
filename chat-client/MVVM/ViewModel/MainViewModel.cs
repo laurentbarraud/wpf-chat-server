@@ -262,13 +262,15 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Attempts to connect the client to the server.
         /// Initializes LocalUser with Username and a unique UID for key exchange.
+        /// Ensures encryption setup if enabled, and updates UI state upon success.
+        /// Allows plain messages to be sent immediately after connection, regardless of handshake status.
         /// </summary>
         public void Connect()
         {
             // Abort if username is missing or format is invalid
             if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, @"^[a-zA-Z][a-zA-Z0-9_-]*$"))
             {
-                // Highlight the textbox in crimson to indicate invalid input
+                // Highlights the textbox in crimson to indicate invalid input
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
@@ -283,17 +285,21 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
+                // Initializes the local user with a unique UID
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
-                    UID = Guid.NewGuid().ToString() // Ajout d’un UID unique ici
+                    UID = Guid.NewGuid().ToString()
                 };
 
-                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer); // Returns a bool
+                // Attempts to connect to the server
+                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
                 if (!IsConnected)
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
 
-                // If encryption is enabled in settings, initialize and send public key
+                Console.WriteLine("[DEBUG] Client connected — plain messages allowed before handshake.");
+
+                // Initializes encryption only if enabled in settings
                 if (Properties.Settings.Default.UseEncryption)
                 {
                     InitializeEncryptionIfEnabled();
@@ -304,18 +310,20 @@ namespace chat_client.MVVM.ViewModel
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
-                        mainWindow.Title += " - Connected";
+                        mainWindow.Title += " - " + LocalizationManager.GetString("Connected");
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnDown.Visibility = Visibility.Visible;
                         mainWindow.spnEmojiPanel.Visibility = Visibility.Visible;
                     }
                 });
 
+                // Saves the last used IP address for future sessions
                 chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
                 chat_client.Properties.Settings.Default.Save();
             }
             catch (Exception)
             {
+                // Handles connection failure gracefully
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mw)
@@ -378,7 +386,8 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Attempts to decrypt an incoming encrypted message and formats it with the sender's display name.
+        /// Formats an incoming encrypted message with the sender's display name.
+        /// Extracts the encrypted payload, attempts decryption, and returns a formatted string.
         /// If decryption fails, returns a localized placeholder message.
         /// </summary>
         private string FormatEncryptedMessage(string rawMessage, string displayName)
@@ -389,13 +398,13 @@ namespace chat_client.MVVM.ViewModel
                 int markerIndex = rawMessage.IndexOf("[ENC]");
                 string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
 
-                // Cleans up invisible or invalid characters
+                // Sanitizes the payload to remove invisible or invalid characters
                 encryptedPayload = encryptedPayload
                     .Replace("\0", "")
                     .Replace("\r", "")
                     .Replace("\n", "");
 
-                // Attempts to decrypt the message using the local private key
+                // Attempts decryption using the local private key
                 string decryptedContent = TryDecryptMessage(encryptedPayload);
 
                 // Returns the formatted decrypted message
@@ -529,8 +538,9 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles incoming messages from the server.
-        /// Displays plain or decrypted content with sender name.
-        /// Handles system disconnect commands and updates the UI accordingly.
+        /// Resolves sender identity from UID and displays either plain or decrypted content.
+        /// Supports system-issued disconnect commands and updates the UI accordingly.
+        /// Ensures robust handling of encrypted payloads and fallback in case of decryption failure.
         /// </summary>
         private void MessageReceived()
         {
@@ -540,7 +550,7 @@ namespace chat_client.MVVM.ViewModel
             // Handles system-issued disconnect command
             if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
             {
-                HandleSystemDisconnect(); // Restored method below
+                HandleSystemDisconnect();
                 return;
             }
 
@@ -583,7 +593,7 @@ namespace chat_client.MVVM.ViewModel
             }
             else
             {
-                // Displays plain message
+                // Displays plain message with sender name
                 string finalMessage = $"{displayName}: {rawMessage}";
                 Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
             }
@@ -675,9 +685,9 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Attempts to decrypt an incoming encrypted message using the local RSA private key.
         /// Validates encryption state and key readiness before proceeding.
-        /// Cleans up the encrypted payload to remove invalid characters, then delegates decryption to EncryptionHelper.
-        /// If decryption succeeds, returns the plain text message; otherwise, returns a localized fallback string.
-        /// Designed to ensure graceful failure handling.
+        /// Sanitizes the encrypted payload to remove invalid characters before delegating to EncryptionHelper.
+        /// Returns the decrypted plain text if successful; otherwise, returns a localized fallback string.
+        /// Designed to ensure graceful failure handling and UI feedback.
         /// </summary>
         public string TryDecryptMessage(string encryptedPayload)
         {
@@ -691,12 +701,14 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
+                // Sanitizes the payload to remove invisible or invalid characters
                 string sanitizedPayload = encryptedPayload
                     .Replace("\0", "")
                     .Replace("\r", "")
                     .Replace("\n", "")
                     .Trim();
 
+                // Attempts decryption using the helper
                 string decrypted = EncryptionHelper.DecryptMessage(sanitizedPayload);
                 return decrypted;
             }
@@ -704,6 +716,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 Console.WriteLine($"[ERROR] Decryption failed: {ex.Message}");
 
+                // Displays a banner to inform the user
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     var mainWindow = Application.Current.MainWindow as MainWindow;
@@ -712,9 +725,7 @@ namespace chat_client.MVVM.ViewModel
 
                 return LocalizationManager.GetString("DecryptionFailed");
             }
-
         }
-
 
         /// <summary>
         /// Validates and saves the port number if it's within the allowed range.
