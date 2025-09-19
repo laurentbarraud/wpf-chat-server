@@ -146,16 +146,24 @@ namespace chat_server
         /// Broadcasts a chat message to all connected clients except the sender.
         /// Includes the message content and sender UID.
         /// Logs the message with timestamp and localization support.
-        /// If the message is encrypted, displays only the [ENC] tag.
+        /// If the message is encrypted, displays only the [ENC] tag in the server log.
+        /// Ensures that the sender is resolved before broadcasting to avoid null references.
         /// </summary>
         /// <param name="message">The message content to broadcast.</param>
         /// <param name="senderUid">The UID of the sender.</param>
         public static void BroadcastMessage(string message, Guid senderUid)
         {
+            // Resolves the sender from the roster using UID
             var sender = _users.FirstOrDefault(u => u.UID == senderUid);
-            string displayName = sender?.Username ?? "unknown";
+            if (sender == null)
+            {
+                Console.WriteLine($"[SERVER] Sender UID not found in roster: {senderUid}");
+                return;
+            }
 
-            // Formats the message for logging
+            string displayName = sender.Username;
+
+            // Formats the message for logging — shows [ENC] if encrypted
             string displayMessage = message.StartsWith("[ENC]") ? "[ENC]" : message;
             string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
             string localizedLog = string.Format(LocalizationManager.GetString("MessageReceived"), displayName, displayMessage);
@@ -164,6 +172,7 @@ namespace chat_server
 
             foreach (var user in _users)
             {
+                // Skips the sender to avoid echoing their own message
                 if (user.UID == senderUid)
                     continue;
 
@@ -171,8 +180,8 @@ namespace chat_server
                 {
                     var packet = new PacketBuilder();
                     packet.WriteOpCode(5); // Opcode for public chat message
-                    packet.WriteMessage(message);       // Full message (encrypted or plain)
-                    packet.WriteMessage(senderUid.ToString()); // Sender UID
+                    packet.WriteMessage(message);               // Full message (encrypted or plain)
+                    packet.WriteMessage(senderUid.ToString());  // Sender UID
 
                     if (user.ClientSocket.Connected)
                     {
@@ -189,7 +198,6 @@ namespace chat_server
                 }
             }
         }
-
 
         /// <summary>
         /// Broadcasts the sender's public RSA key to all other connected clients.

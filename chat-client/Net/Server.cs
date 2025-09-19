@@ -83,9 +83,6 @@ namespace chat_client.Net
                 if (!SendInitialConnectionPacket(username))
                     throw new Exception("Failed to send initial connection packet.");
 
-                // Triggers encryption setup if enabled and LocalUser is initialized
-                (Application.Current.MainWindow as MainWindow)?.TriggerEncryptionIfNeeded();
-
                 return true;
             }
             catch (Exception ex)
@@ -310,27 +307,26 @@ namespace chat_client.Net
         /// <summary>
         /// Sends the client's public RSA key to the server for distribution to other connected clients.
         /// Builds a packet with OpCode 6, including the sender's UID and public key in Base64 format.
-        /// Returns true only if the handshake is completed and the socket is actively connected.
-        /// Designed to fail silently if the client is disconnected, allowing upstream logic to handle rollback and user feedback.
-        /// Logs connection status and packet dispatch for debugging.
+        /// Validates socket connectivity before dispatching, and logs each step for traceability.
+        /// Allows transmission even if handshake is not completed, to support single-client scenarios.
+        /// Returns true if the packet was sent successfully; false otherwise.
         /// </summary>
         /// <param name="uid">The UID of the sender.</param>
         /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
-        /// <returns>True if the packet was sent successfully; false if the client is not connected or handshake is incomplete.</returns>
+        /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
         public bool SendPublicKeyToServer(string uid, string publicKeyBase64)
         {
-            // Blocks key transmission until handshake is completed
-            if (!HandshakeCompleted)
-            {
-                Console.WriteLine("[DEBUG] Packet blocked — handshake not completed.");
-                return false;
-            }
-
             // Validates socket connection before attempting to send
             if (_client?.Client == null || !_client.Connected)
             {
                 Console.WriteLine("[ERROR] Cannot send public key — client is not connected.");
                 return false;
+            }
+
+            // Logs handshake status for debugging
+            if (!HandshakeCompleted)
+            {
+                Console.WriteLine("[WARN] Handshake not completed — sending public key anyway.");
             }
 
             // Builds the packet with required fields
@@ -347,5 +343,5 @@ namespace chat_client.Net
             Console.WriteLine("[DEBUG] Public key packet sent successfully.");
             return true;
         }
+
     }
-}

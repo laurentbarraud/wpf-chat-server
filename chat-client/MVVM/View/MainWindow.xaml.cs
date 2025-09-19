@@ -134,16 +134,6 @@ namespace chat_client
 
             // Sets focus to the username input field
             txtUsername.Focus();
-
-            // Initializes encryption only if explicitly enabled in settings and user is connected
-            if (chat_client.Properties.Settings.Default.UseEncryption && ViewModel.IsConnected)
-            {
-                // Generates RSA keys and sends public key to server
-                ViewModel.InitializeEncryptionIfEnabled();
-
-                // Evaluates encryption state and updates UI accordingly
-                ViewModel.EvaluateEncryptionState();
-            }
         }
 
         /// <summary>
@@ -547,20 +537,6 @@ namespace chat_client
         {
             Application.Current.Shutdown();
         }
-
-        /// <summary>
-        /// Triggers encryption setup after connection if conditions are met.
-        /// Called from Server.cs after successful connection.
-        /// </summary>
-        public void TriggerEncryptionIfNeeded()
-        {
-            if (ViewModel?.LocalUser != null &&
-                Properties.Settings.Default.UseEncryption)
-            {
-                ViewModel.InitializeEncryptionIfEnabled();
-            }
-        }
-
 
         private void txtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
         {

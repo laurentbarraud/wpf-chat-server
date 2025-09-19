@@ -179,7 +179,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Determines whether encryption can be considered fully ready for public chat.
         /// Returns true when encryption is enabled, the local public key is present,
-        /// and either no roster is available or all other users have exchanged keys.
+        /// and either no roster is available, the client is alone, or all other users have exchanged keys.
         /// Logs missing UIDs for debugging purposes.
         /// </summary>
         /// <returns>True if encryption is ready; otherwise, false.</returns>
@@ -200,6 +200,16 @@ namespace chat_client.MVVM.ViewModel
             // If only the local user is present, encryption is trivially ready
             if (Users.Count == 1 && Users[0].UID == LocalUser.UID)
                 return true;
+
+            // Checks that at least one external public key is known
+            bool hasExternalKey = KnownPublicKeys.Any(kvp =>
+                kvp.Key != LocalUser.UID && !string.IsNullOrEmpty(kvp.Value));
+
+            if (!hasExternalKey)
+            {
+                Console.WriteLine("[DEBUG] Encryption not ready — no external public keys available.");
+                return false;
+            }
 
             // Tracks missing UIDs for logging
             List<string> missingKeys = new();
@@ -751,37 +761,41 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Adds the new user to the Users collection and re-evaluates encryption readiness.
-        /// This ensures that the encryption icon updates correctly when new users join.
-        /// UI-bound actions are dispatched to the main thread to avoid threading issues.
+        /// Handles the arrival of a new user by reading their identity and public key from the packet stream.
+        /// Adds the user to the Users collection if not already present, registers their key, and updates encryption state.
+        /// UI-bound actions are dispatched to the main thread to ensure thread safety.
         /// </summary>
         public void UserConnected()
         {
-            var user = new UserModel
-            {
-                Username = _server.PacketReader.ReadMessage(),
-                UID = _server.PacketReader.ReadMessage(),
-            };
+            var username = _server.PacketReader.ReadMessage();
+            var uid = _server.PacketReader.ReadMessage();
+            var publicKey = _server.PacketReader.ReadMessage();
 
-            // Checks whether the user is already present in the Users collection,
-            // by verifying that no existing user has the same UID.
-            // Uses LINQ's .Any() to efficiently scan the collection.
-            // The "!" in front means that no existing user has this UID.
-            // So the new user is only added if he is not already in the list.
-            // This prevents duplicate entries when multiple connection events are received.
-            if (!Users.Any(x => x.UID == user.UID))
+            // Prevents duplicate entries by checking if the UID already exists in the Users collection
+            if (!Users.Any(x => x.UID == uid))
             {
-                // Executes UI bound actions on the main application thread
                 Application.Current.Dispatcher.Invoke(() =>
                 {
+                    var user = new UserModel
+                    {
+                        Username = username,
+                        UID = uid,
+                        PublicKeyBase64 = publicKey
+                    };
+
                     Users.Add(user);
 
-                    if (IsEncryptionEnabled)
+                    // Registers the public key if not already known
+                    if (!KnownPublicKeys.ContainsKey(user.UID))
                     {
-                        UpdateEncryptionStatus();
+                        KnownPublicKeys[user.UID] = publicKey;
+                        Console.WriteLine($"[DEBUG] Public key registered for {username} — UID: {uid}");
                     }
 
-                    // Avoids to be notified of who is connected at login time (user sees it in the list of users on left)
+                    // Re-evaluates encryption readiness after adding the new user
+                    EvaluateEncryptionState();
+
+                    // Skips connection message if triggered during initial roster load
                     if (Message != null)
                     {
                         Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasConnected") + ". #");

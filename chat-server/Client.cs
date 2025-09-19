@@ -57,8 +57,10 @@ namespace chat_server
 
         /// <summary>
         /// Continuously listens for incoming packets from the connected client.
-        /// Handles supported opcodes and dispatches logic accordingly.
+        /// Logic is based on opcode values and routes each packet to its corresponding handler.
+        /// Ensures protocol alignment by reading expected fields in correct order.
         /// Terminates the loop and triggers disconnect broadcast if an exception occurs.
+        /// This method is central to the server's real-time message routing and encryption key exchange.
         /// </summary>
         internal void ListenForMessages()
         {
@@ -66,40 +68,45 @@ namespace chat_server
             {
                 try
                 {
-                    // Reads the next opcode from the packet stream
+                    // Reads the next opcode from the stream — defines packet type
                     var opcode = _packetReader.ReadByte();
 
                     switch (opcode)
                     {
                         case 5: // Public chat message
-                            string messageReceived = _packetReader.ReadMessage();     // First message: content
-                            string senderUidForMessage = _packetReader.ReadMessage(); // Second message: UID
+                                // Reads message content and sender UID
+                            string messageReceived = _packetReader.ReadMessage();
+                            string senderUidForMessage = _packetReader.ReadMessage();
 
+                            // Broadcasts the message to all other connected clients
                             Program.BroadcastMessage(messageReceived, Guid.Parse(senderUidForMessage));
                             break;
 
                         case 6: // Public key exchange
-                            string senderUidForKey = _packetReader.ReadMessage();       // First message: UID
-                            string publicKeyBase64 = _packetReader.ReadMessage();       // Second message: key
-                            this.PublicKeyBase64 = publicKeyBase64;
+                                // Reads sender UID and public RSA key
+                            string senderUidForKey = _packetReader.ReadMessage();
+                            string publicKeyBase64 = _packetReader.ReadMessage();
 
+                            // Stores the key locally and triggers broadcast to other clients
+                            this.PublicKeyBase64 = publicKeyBase64;
                             Console.WriteLine($"[SERVER] Public key received from {Username} — UID: {senderUidForKey}, Length: {publicKeyBase64.Length}");
                             Program.BroadcastPublicKeyToOthers(this);
                             break;
 
                         default:
+                            // Logs unknown opcodes for debugging and protocol validation
                             Console.WriteLine($"[SERVER] Unknown opcode received from {Username}: {opcode}");
                             break;
                     }
                 }
                 catch (Exception ex)
                 {
+                    // Handles disconnection or stream failure gracefully
                     Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientDisconnected")} {Username}");
                     ClientSocket.Close();
                     Program.BroadcastDisconnect(UID.ToString());
                     break;
                 }
-
             }
         }
     }

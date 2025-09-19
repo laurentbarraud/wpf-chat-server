@@ -10,6 +10,7 @@ using System.Data;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Markup;
+using System.Runtime.InteropServices;
 
 namespace chat_client
 {
@@ -18,6 +19,9 @@ namespace chat_client
     /// </summary>
     public partial class App : Application
     {
+        [DllImport("kernel32.dll")]
+        private static extern bool AllocConsole();
+
         /// <summary>
         /// Application startup logic.
         /// Applies saved theme and language preferences before loading the main window.
@@ -26,21 +30,25 @@ namespace chat_client
         {
             base.OnStartup(e);
 
-            // Get saved theme preference from settings
+            // Attaches a console window for debug output
+            AllocConsole();
+            Console.WriteLine("[DEBUG] Console attached — ready for runtime logs.");
+
+            // Gets saved theme preference from settings
             bool useDarkTheme = Settings.Default.AppTheme == "Dark";
 
-            // Apply the selected theme with fade animation
+            // Applies the selected theme with fade animation
             ThemeManager.ApplyTheme(useDarkTheme);
 
-            // Get saved language preference from settings
+            // Gets saved language preference from settings
             string savedLanguage = Settings.Default.AppLanguage ?? "en";
 
-            // Apply culture globally before any window loads
+            // Applies culture globally before any window loads
             var culture = new CultureInfo(savedLanguage);
             Thread.CurrentThread.CurrentUICulture = culture;
             CultureInfo.DefaultThreadCurrentUICulture = culture;
 
-            // Initialize localization system
+            // Initializes localization system
             LocalizationManager.Initialize(savedLanguage);
 
             // Launch the main window
@@ -56,5 +64,5 @@ namespace chat_client
             }
         }
     }
-
 }
+
