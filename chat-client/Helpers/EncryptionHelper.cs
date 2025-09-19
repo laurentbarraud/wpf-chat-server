@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 18th, 2025</date>
+/// <date>September 19th, 2025</date>
 
 // Technical notes : RSA is a widely adopted asymmetric encryption algorithm used in SSL/TLS, 
 //                   digital signatures, and secure messaging.

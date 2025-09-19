@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 18th, 2025</date>
+/// <date>September 19th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -56,21 +56,6 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Handles the reception of a public RSA key from a connected client.
-        /// Stores the key locally and triggers broadcast to all other clients.
-        /// Logs the key length and sender UID for traceability.
-        /// </summary>
-        /// <param name="reader">The packet reader used to extract the key.</param>
-        internal void HandleIncomingPublicKey(PacketReader reader)
-        {
-            string publicKeyBase64 = reader.ReadMessage();
-            this.PublicKeyBase64 = publicKeyBase64;
-
-            Console.WriteLine($"[{DateTime.Now}]: Public key received from {Username} — Length: {publicKeyBase64.Length}");
-            Program.BroadcastPublicKeyToOthers(this);
-        }
-
-        /// <summary>
         /// Continuously listens for incoming packets from the connected client.
         /// Handles supported opcodes and dispatches logic accordingly.
         /// Terminates the loop and triggers disconnect broadcast if an exception occurs.
@@ -86,14 +71,19 @@ namespace chat_server
 
                     switch (opcode)
                     {
-                        case 5: // Chat message
-                            string messageReceived = _packetReader.ReadMessage();
-                            Program.BroadcastMessage(messageReceived, this.UID);
+                        case 5: // Public chat message
+                            string messageReceived = _packetReader.ReadMessage();     // First message: content
+                            string senderUidForMessage = _packetReader.ReadMessage(); // Second message: UID
+
+                            Program.BroadcastMessage(messageReceived, Guid.Parse(senderUidForMessage));
                             break;
 
                         case 6: // Public key exchange
-                            string publicKeyBase64 = _packetReader.ReadMessage();
+                            string senderUidForKey = _packetReader.ReadMessage();       // First message: UID
+                            string publicKeyBase64 = _packetReader.ReadMessage();       // Second message: key
                             this.PublicKeyBase64 = publicKeyBase64;
+
+                            Console.WriteLine($"[SERVER] Public key received from {Username} — UID: {senderUidForKey}, Length: {publicKeyBase64.Length}");
                             Program.BroadcastPublicKeyToOthers(this);
                             break;
 
@@ -109,6 +99,7 @@ namespace chat_server
                     Program.BroadcastDisconnect(UID.ToString());
                     break;
                 }
+
             }
         }
     }

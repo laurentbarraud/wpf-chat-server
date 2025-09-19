@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 18th, 2025</date>
+/// <date>September 19th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -143,59 +143,95 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Sends a message to all connected users.
-        /// Opcode 5 is used for general messages.
-        /// Each packet includes the message content and the sender's UID
-        /// so that clients can identify the sender and decrypt if needed.
+        /// Broadcasts a chat message to all connected clients except the sender.
+        /// Includes the message content and sender UID.
+        /// Logs the message with timestamp and localization support.
+        /// If the message is encrypted, displays only the [ENC] tag.
         /// </summary>
-        public static void BroadcastMessage(string messageToBroadcast, Guid senderUID)
+        /// <param name="message">The message content to broadcast.</param>
+        /// <param name="senderUid">The UID of the sender.</param>
+        public static void BroadcastMessage(string message, Guid senderUid)
         {
+            var sender = _users.FirstOrDefault(u => u.UID == senderUid);
+            string displayName = sender?.Username ?? "unknown";
+
+            // Formats the message for logging
+            string displayMessage = message.StartsWith("[ENC]") ? "[ENC]" : message;
+            string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+            string localizedLog = string.Format(LocalizationManager.GetString("MessageReceived"), displayName, displayMessage);
+
+            Console.WriteLine($"[{timestamp}]: {localizedLog}");
+
             foreach (var user in _users)
             {
-                var msgPacket = new PacketBuilder();
-                msgPacket.WriteOpCode(5); // Opcode for chat message
+                if (user.UID == senderUid)
+                    continue;
 
-                // Write the message content (may be encrypted or plain text)
-                msgPacket.WriteMessage(messageToBroadcast);
+                try
+                {
+                    var packet = new PacketBuilder();
+                    packet.WriteOpCode(5); // Opcode for public chat message
+                    packet.WriteMessage(message);       // Full message (encrypted or plain)
+                    packet.WriteMessage(senderUid.ToString()); // Sender UID
 
-                // Write the sender's UID so clients can identify the sender
-                msgPacket.WriteMessage(senderUID.ToString());
-
-                // Send the packet to the connected client
-                user.ClientSocket.Client.Send(msgPacket.GetPacketBytes());
+                    if (user.ClientSocket.Connected)
+                    {
+                        user.ClientSocket.GetStream().Write(
+                            packet.GetPacketBytes(),
+                            0,
+                            packet.GetPacketBytes().Length
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SERVER] Failed to relay message to {user.Username}: {ex.Message}");
+                }
             }
         }
 
+
         /// <summary>
-        /// Broadcasts the public RSA key of a newly connected client to all other clients.
-        /// Uses opcode 6 to signal public key exchange.
-        /// Skips the sender to avoid redundant transmission.
-        /// Logs each dispatch for traceability and confirms successful propagation.
+        /// Broadcasts the sender's public RSA key to all other connected clients.
+        /// Builds a packet with opcode 6, including the sender's UID and public key in Base64 format.
+        /// Ensures that the sender does not receive their own key.
+        /// Wraps each transmission in a try/catch block to prevent socket exceptions.
+        /// Logs each dispatch for traceability.
         /// </summary>
-        /// <param name="sender">The client who submitted their public key.</param>
+        /// <param name="sender">The client who submitted the public key.</param>
         public static void BroadcastPublicKeyToOthers(Client sender)
         {
-            foreach (var receiver in _users)
+            foreach (var user in _users)
             {
-                // Skip the sender — no need to send their own key back
-                if (receiver == sender)
+                // Skips the sender to avoid echoing their own key
+                if (user.UID == sender.UID)
                     continue;
 
-                // Builds the key exchange packet
-                var keyPacket = new PacketBuilder();
-                keyPacket.WriteOpCode(6); // Opcode for public key exchange
-                keyPacket.WriteMessage(sender.UID.ToString()); // UID of the sender
-                keyPacket.WriteMessage(sender.PublicKeyBase64); // Public key in Base64
+                try
+                {
+                    var packet = new PacketBuilder();
+                    packet.WriteOpCode(6); // Opcode for public key exchange
+                    packet.WriteMessage(sender.UID.ToString());       // Sender UID
+                    packet.WriteMessage(sender.PublicKeyBase64);      // Public key in Base64
 
-                // Sends the packet to the receiver
-                receiver.ClientSocket.Client.Send(keyPacket.GetPacketBytes());
+                    if (user.ClientSocket.Connected)
+                    {
+                        user.ClientSocket.GetStream().Write(
+                            packet.GetPacketBytes(),
+                            0,
+                            packet.GetPacketBytes().Length
+                        );
 
-                // Logs the dispatch
-                Console.WriteLine($"[{DateTime.Now}]: Forwarded public key of {sender.Username} to {receiver.Username}");
+                        Console.WriteLine($"[SERVER] Public key from {sender.Username} transmitted to {user.Username}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SERVER] Failed to send public key to {user.Username}: {ex.Message}");
+                }
             }
 
-            // Logs the broadcast summary
-            Console.WriteLine($"[{DateTime.Now}]: Public key from {sender.Username} transmitted to all other clients.");
+            Console.WriteLine($"[SERVER] Public key from {sender.Username} transmitted to all other clients.");
         }
 
         /// <summary>

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 18th, 2025</date>
+/// <date>September 19th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -653,7 +653,7 @@ namespace chat_client.MVVM.ViewModel
 
                     mainWindow.txtUsername.IsEnabled = true;
                     mainWindow.txtIPAddress.IsEnabled = true;
-                    mainWindow.Title = "WPF Chat Server";
+                    mainWindow.Title = "WPF Chat";
 
                     // Hides the down and toolbar panels
                     mainWindow.spnDown.Visibility = Visibility.Hidden;

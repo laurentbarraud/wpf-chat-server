@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
         mc:Ignorable="d"
         xmlns:tb="http://www.hardcodet.net/taskbar"
-        Title="WPF Chat Server" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
+        Title="WPF Chat" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
         Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/Resources/chat-client-icon.ico" 
         TabIndex="12" StateChanged="MainWindow1_StateChanged" Closing="MainWindow1_Closing" 
         PreviewKeyDown="MainWindow1_PreviewKeyDown">
