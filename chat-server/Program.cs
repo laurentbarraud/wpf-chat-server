@@ -13,8 +13,11 @@ using System.Text;
 namespace chat_server
 {
     /// <summary>
-    /// Entry point for the WPF Chat Server application.
-    /// Handles client connections, message broadcasting, and localization.
+    /// Entry point and coordinator for the server-side chat system.
+    /// Manages the global list of connected clients and handles incoming connections via StartServerListener().
+    /// Broadcasts user presence, messages, public keys, and disconnection events using opcode-based packets.
+    /// Ensures protocol alignment and socket safety across all transmissions.
+    /// Provides localized logging and error handling for traceability and debugging.
     /// </summary>
     public class Program
     {
@@ -72,12 +75,13 @@ namespace chat_server
                 Environment.Exit(1);
             }
         }
-
         /// <summary>
-        /// Sends the full roster of connected users to each client.
-        /// Uses opcode 1 to broadcast user presence.
-        /// Iterates through all users and sends each entry to every other client.
-        /// Logs each transmission for traceability.
+        /// Broadcasts the full list of users of connected users to every client.
+        /// Uses opcode 1 to signal user presence and identity.
+        /// For each receiver, iterates through all users and sends their UID and Username.
+        /// Ensures that every client receives a complete and synchronized view of the active list of users.
+        /// Logs each transmission for traceability and protocol validation.
+        /// This method is central to client-side list of users population and UI updates.
         /// </summary>
         public static void BroadcastConnection()
         {
@@ -85,17 +89,23 @@ namespace chat_server
             {
                 foreach (var usr in _users)
                 {
+                    // Builds a list of users packet with opcode 1
                     var broadcastPacket = new PacketBuilder();
                     broadcastPacket.WriteOpCode(1); // Opcode for user connection
-                    broadcastPacket.WriteMessage(usr.Username);
-                    broadcastPacket.WriteMessage(usr.UID.ToString());
+                    broadcastPacket.WriteMessage(usr.UID.ToString());   // UID
+                    broadcastPacket.WriteMessage(usr.Username);         // Username
+
+                    // Sends the packet to the current receiver
                     receiver.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
 
-                    Console.WriteLine($"[SERVER] Sent roster entry — {usr.Username} ({usr.UID}) to {receiver.Username}");
+                    Console.WriteLine("[SERVER] list of users broadcast:");
+                    Console.WriteLine($"         → Sent UID: {usr.UID}");
+                    Console.WriteLine($"         → Sent Username: {usr.Username}");
+                    Console.WriteLine($"         → Receiver: {receiver.Username}");
                 }
             }
 
-            Console.WriteLine("[SERVER] Full roster broadcast completed.");
+            Console.WriteLine("[SERVER] Full list of users broadcast completed.");
         }
 
         /// <summary>
@@ -108,21 +118,25 @@ namespace chat_server
         /// <param name="uidDisconnected">The UID of the user who disconnected.</param>
         public static void BroadcastDisconnect(string uidDisconnected)
         {
+            // Locates the disconnected user in the global list
             var disconnectedUser = _users.FirstOrDefault(x => x.UID.ToString() == uidDisconnected);
 
             if (disconnectedUser != null)
             {
+                // Removes the user from the global list
                 _users.Remove(disconnectedUser);
-                Console.WriteLine($"[SERVER] User removed from roster — {disconnectedUser.Username} ({uidDisconnected})");
+                Console.WriteLine($"[SERVER] User removed from list of users — {disconnectedUser.Username} ({uidDisconnected})");
 
                 foreach (var user in _users)
                 {
                     try
                     {
+                        // Builds the disconnect packet with opcode 10
                         var packet = new PacketBuilder();
-                        packet.WriteOpCode(10);
-                        packet.WriteMessage(uidDisconnected);
+                        packet.WriteOpCode(10); // Disconnect opcode
+                        packet.WriteMessage(uidDisconnected); // UID of disconnected user
 
+                        // Sends the packet to each remaining client
                         if (user.ClientSocket.Connected)
                         {
                             user.ClientSocket.GetStream().Write(
@@ -153,11 +167,11 @@ namespace chat_server
         /// <param name="senderUid">The UID of the sender.</param>
         public static void BroadcastMessage(string message, Guid senderUid)
         {
-            // Resolves the sender from the roster using UID
+            // Resolves the sender from the list of users using UID
             var sender = _users.FirstOrDefault(u => u.UID == senderUid);
             if (sender == null)
             {
-                Console.WriteLine($"[SERVER] Sender UID not found in roster: {senderUid}");
+                Console.WriteLine($"[SERVER] Sender UID not found in list of users: {senderUid}");
                 return;
             }
 
@@ -323,10 +337,12 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Starts the TCP listener on the specified port and accepts incoming client connections.
-        /// Reads the handshake packet (opcode 0 + username + UID + public key) before creating the Client instance.
-        /// Initializes the client and starts its message listener in a separate task.
-        /// Logs the localized startup message and each connection for traceability.
+        /// Starts the TCP listener on the specified port and continuously accepts incoming client connections.
+        /// For each connection, reads the handshake packet (opcode 0) containing Username, UID, and RSA public key.
+        /// Initializes a Client instance with the received identity and starts its message listener in a separate task.
+        /// Adds the client to the global list of users and broadcasts the updated list to all connected clients.
+        /// Logs each step for traceability, protocol validation, and debugging.
+        /// This method is the entry point for server-side identity registration and real-time routing.
         /// </summary>
         /// <param name="port">The TCP port to listen on.</param>
         public static void StartServerListener(int port)
@@ -342,6 +358,7 @@ namespace chat_server
                 {
                     // Accepts a new TCP client
                     TcpClient clientSocket = listener.AcceptTcpClient();
+                    Console.WriteLine($"[SERVER] Incoming connection — Socket: {clientSocket.Client.RemoteEndPoint}");
 
                     // Initializes a packet reader for the handshake
                     PacketReader reader = new PacketReader(clientSocket.GetStream());
@@ -360,7 +377,12 @@ namespace chat_server
                     string uidString = reader.ReadMessage();         // UID as string
                     string publicKeyBase64 = reader.ReadMessage();   // RSA public key
 
-                    Guid uid = Guid.Parse(uidString);                // Converts UID to Guid
+                    Console.WriteLine("[SERVER] Handshake received:");
+                    Console.WriteLine($"         → Username: {username}");
+                    Console.WriteLine($"         → UID: {uidString}");
+                    Console.WriteLine($"         → PublicKeyBase64: {publicKeyBase64.Substring(0, 32)}...");
+
+                    Guid uid = Guid.Parse(uidString); // Converts UID to Guid
 
                     // Creates and initializes the client instance with provided UID
                     Client client = new Client(clientSocket, username, uid)
@@ -370,13 +392,13 @@ namespace chat_server
 
                     // Adds the client to the global user list
                     _users.Add(client);
-                    Console.WriteLine($"[{DateTime.Now}]: Client connected with username: {username}");
-                    Console.WriteLine($"[SERVER] New client accepted — Socket: {clientSocket.Client.RemoteEndPoint}");
+                    Console.WriteLine($"[{DateTime.Now}]: Client connected — Username: {username}, UID: {uid}");
+                    Console.WriteLine($"[SERVER] Total connected clients: {_users.Count}");
 
                     // Starts listening for messages from this client
                     Task.Run(() => client.ListenForMessages());
 
-                    // Broadcasts the updated roster to all connected clients
+                    // Broadcasts the updated list of users to all connected clients
                     BroadcastConnection();
                 }
                 catch (Exception ex)

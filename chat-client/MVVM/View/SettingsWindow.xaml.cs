@@ -27,7 +27,10 @@ using System.Windows.Shapes;
 namespace chat_client.MVVM.View
 {
     /// <summary>
-    /// Logique d'interaction pour Settings.xaml
+    /// Configuration window for client preferences.
+    /// Allows users to customize encryption usage, port settings, and server IP address.
+    /// Persists settings across sessions using application-level storage.
+    /// Provides localized labels and tooltips for accessibility and clarity.
     /// </summary>
     public partial class SettingsWindow : Window
     {

@@ -14,14 +14,28 @@ using System.Windows;
 
 namespace chat_client.Net
 {
+    /// <summary>
+    /// Represents the client-side connection to the server.
+    /// Manages packet construction and reading, and exposes events for packet-driven updates.
+    /// Events are subscribed by MainViewModel to handle user connection, message reception, and disconnection.
+    /// </summary>
     public class Server
     {
         TcpClient _client;
+
+        /// <summary>Used to build outgoing packets.</summary>
         public PacketBuilder PacketBuilder;
+
+        /// <summary>Used to read incoming packets from the server stream.</summary>
         public PacketReader PacketReader;
 
+        /// <summary>Triggered when a new user joins (opcode 1).</summary>
         public event Action connectedEvent;
+
+        /// <summary>Triggered when a message is received (opcode 5).</summary>
         public event Action msgReceivedEvent;
+
+        /// <summary>Triggered when a user disconnects (opcode 10).</summary>
         public event Action userDisconnectEvent;
 
         private Guid _localUid;
@@ -51,6 +65,7 @@ namespace chat_client.Net
         /// <summary>
         /// Establishes a TCP connection to the chat server using the specified IP address and username.
         /// Validates the IP format and selects the appropriate port.
+        /// Generates a unique UID and RSA public key for handshake identity.
         /// Initializes the packet reader and delegates the handshake to SendInitialConnectionPacket().
         /// Triggers encryption setup if enabled and LocalUser is initialized.
         /// Returns true if the connection succeeds; false otherwise.
@@ -91,9 +106,14 @@ namespace chat_client.Net
                 Guid uid = Guid.NewGuid();
                 string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
 
+                Console.WriteLine($"[DEBUG] UID generated for handshake: {uid}");
+                Console.WriteLine($"[DEBUG] RSA public key generated: {publicKeyBase64}");
+
                 if (!SendInitialConnectionPacket(username, uid, publicKeyBase64))
                     throw new Exception("Failed to send initial connection packet.");
 
+                // This is the only place where the UID is generated and stored for the current client session.
+                // It ensures consistent identity across handshake, messaging, and list of users updates.
                 _localUid = uid;
                 _localPublicKey = publicKeyBase64;
 
@@ -161,8 +181,14 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Continuously reads incoming packets from the server.
-        /// Dispatches known opcodes and handles disconnection gracefully.
+        /// Continuously reads incoming packets from the server on a background thread.
+        /// Dispatches logic based on opcode values and triggers corresponding events:
+        /// - Opcode 1: triggers connection event and marks handshake as complete
+        /// - Opcode 5: triggers message received event
+        /// - Opcode 6: handles incoming public key
+        /// - Opcode 10: triggers user disconnect event
+        /// Handles disconnection gracefully and resets UI state if the stream fails.
+        /// This method is central to client-side packet routing and real-time updates.
         /// </summary>
         private void ReadPackets()
         {
@@ -181,8 +207,6 @@ namespace chat_client.Net
                             case 1:
                                 // Triggers connection event (e.g., user joined)
                                 connectedEvent?.Invoke();
-
-                                // Marks the handshake as completed
                                 HandshakeCompleted = true;
                                 Console.WriteLine("[DEBUG] Handshake completed — client may now send packets.");
                                 break;
@@ -193,6 +217,7 @@ namespace chat_client.Net
                                 break;
 
                             case 6:
+                                // Handles incoming public key from another client
                                 HandleIncomingPublicKey(PacketReader);
                                 break;
 
@@ -218,10 +243,7 @@ namespace chat_client.Net
                             mainWindow.ViewModel is not MainViewModel mainViewModel)
                             return;
 
-                        // Notifies user in chat
                         mainViewModel.Messages.Add(LocalizationManager.GetString("ServerHasClosed"));
-
-                        // Immediately reset UI state
                         mainViewModel.ReinitializeUI();
                     });
                 }
@@ -230,11 +252,13 @@ namespace chat_client.Net
 
         /// <summary>
         /// Sends the initial connection packet to the server using opcode 0.
-        /// Includes the username, UID, and public RSA key for handshake.
+        /// Includes the username, UID, and public RSA key for handshake identity.
         /// Starts listening for incoming packets.
         /// Returns true if the packet is sent successfully; false otherwise.
         /// </summary>
         /// <param name="username">The display name of the user.</param>
+        /// <param name="uid">The unique identifier assigned to the client during connection.</param>
+        /// <param name="publicKeyBase64">The RSA public key used for encryption handshake.</param>
         /// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
         public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
         {
@@ -243,12 +267,18 @@ namespace chat_client.Net
 
             try
             {
-                // Builds the initial connection packet
+                // Builds the initial connection packet with opcode 0.
+                // This packet defines the client's identity and encryption capability.
                 var connectPacket = new PacketBuilder();
                 connectPacket.WriteOpCode(0); // Opcode 0 = new user connection
                 connectPacket.WriteMessage(username);           // Username
                 connectPacket.WriteMessage(uid.ToString());     // UID
                 connectPacket.WriteMessage(publicKeyBase64);    // RSA public key
+
+                Console.WriteLine("[DEBUG] Handshake packet structure:");
+                Console.WriteLine($"         → Username: {username}");
+                Console.WriteLine($"         → UID: {uid}");
+                Console.WriteLine($"         → PublicKeyBase64: {publicKeyBase64.Substring(0, 32)}...");
 
                 // Sends the packet via NetworkStream to ensure compatibility with server-side reader
                 NetworkStream stream = _client.GetStream();
@@ -270,32 +300,36 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends a chat message to the server using the standard packet format.
-        /// If encryption is enabled and the local key is initialized,
-        /// the message is encrypted using RSA and marked accordingly.
-        /// The server will broadcast this message to all clients, 
+        /// Sends a chat message to the server using the standard packet format (opcode 5).
+        /// If encryption is enabled and the local RSA key is initialized,
+        /// the message is encrypted and marked with [ENC] for broadcast.
+        /// The server will relay this message to all connected clients,
         /// who will attempt decryption using their private key.
-        /// This ensures secure one-to-many communication in a public chat context.
+        /// Ensures that the sender UID matches the identity established during handshake.
         /// Allows plain messages even if handshake is not completed.
         /// </summary>
         /// <param name="message">The plain text message to send.</param>
         public void SendMessageToServer(string message)
         {
+            // Abort if message is empty or whitespace
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
+            // Retrieve ViewModel from MainWindow context
             if (Application.Current.MainWindow is not MainWindow mainWindow || mainWindow.ViewModel is not MainViewModel viewModel)
             {
                 Console.WriteLine("[ERROR] ViewModel is null. Cannot send message.");
                 return;
             }
 
+            // Abort if client socket is not connected
             if (_client == null || !_client.Connected)
             {
                 Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
 
+            // Abort if LocalUser is not initialized or UID is missing
             if (viewModel.LocalUser == null || string.IsNullOrWhiteSpace(viewModel.LocalUser.UID))
             {
                 Console.WriteLine("[ERROR] LocalUser is not initialized. Cannot send message.");
@@ -319,15 +353,20 @@ namespace chat_client.Net
                 Console.WriteLine("[DEBUG] Sending plain message.");
             }
 
+            // Builds the message packet with opcode 5
             var messagePacket = new PacketBuilder();
             messagePacket.WriteOpCode(5);              // Public chat message
             messagePacket.WriteMessage(message);       // Encrypted or plain
             messagePacket.WriteMessage(senderUID);     // Sender UID
 
+            Console.WriteLine("[DEBUG] Message packet structure:");
+            Console.WriteLine($"         → UID: {senderUID}");
+            Console.WriteLine($"         → Content: {(message.StartsWith("[ENC]") ? "[Encrypted]" : message)}");
+
+            // Sends the packet to the server
             _client.Client.Send(messagePacket.GetPacketBytes());
             Console.WriteLine("[DEBUG] Message packet sent to server.");
         }
-
 
         /// <summary>
         /// Sends the client's public RSA key to the server for distribution to other connected clients.

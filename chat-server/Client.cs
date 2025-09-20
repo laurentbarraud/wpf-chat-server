@@ -9,6 +9,12 @@ using System.Net.Sockets;
 
 namespace chat_server
 {
+    /// <summary>
+    /// Represents a connected client on the server side.
+    /// Stores identity information including Username, UID, and RSA public key.
+    /// Manages the TCP socket and packet reader for incoming communication.
+    /// Continuously listens for packets and dispatches logic based on opcode values.
+    /// </summary>
     public class Client
     {
         /// <summary>
@@ -78,6 +84,10 @@ namespace chat_server
                                 // Reads message content and sender UID
                             string messageReceived = _packetReader.ReadMessage();
                             string senderUidForMessage = _packetReader.ReadMessage();
+
+                            Console.WriteLine("[SERVER] Incoming message packet:");
+                            Console.WriteLine($"         → Sender UID: {senderUidForMessage}");
+                            Console.WriteLine($"         → Content: {(messageReceived.StartsWith("[ENC]") ? "[Encrypted]" : messageReceived)}");
 
                             // Broadcasts the message to all other connected clients
                             Program.BroadcastMessage(messageReceived, Guid.Parse(senderUidForMessage));

@@ -26,7 +26,10 @@ using System.Windows.Threading;
 namespace chat_client
 {
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Primary window for the client-side chat interface.
+    /// Hosts the visual components bound to MainViewModel, including message input, user list, and emoji panel.
+    /// Handles user interactions such as sending messages, connecting to the server, and toggling UI panels.
+    /// Delegates core logic to MainViewModel and ensures thread-safe UI updates.
     /// </summary>
     public partial class MainWindow : Window
     {

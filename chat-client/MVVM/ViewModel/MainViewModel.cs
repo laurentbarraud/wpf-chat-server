@@ -31,6 +31,13 @@ using System.Windows.Threading;
 
 namespace chat_client.MVVM.ViewModel
 {
+    /// <summary>
+    /// Central view model for the client application.
+    /// Manages user identity, message flow, encryption state, and UI bindings.
+    /// Subscribes to server-side events to handle incoming connections, messages, and disconnections.
+    /// Maintains observable collections for connected users and chat messages.
+    /// Coordinates handshake alignment, encryption readiness, and UI state transitions.
+    /// </summary>
     public class MainViewModel : INotifyPropertyChanged
     {
         // Represents a dynamic data collection that provides notification
@@ -107,20 +114,25 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Indicates whether the client is currently connected to the server.
-        /// Used to control UI visibility, trigger encryption setup, and manage connection-dependent features.
-        /// Automatically notifies bound UI elements when the state changes.
+        /// This property is bound to UI elements (e.g., visibility toggles, button labels).
+        /// When its value changes, it triggers a notification via OnPropertyChanged(),
+        /// allowing the UI to automatically update without manual refresh.
+        /// Encapsulating the backing field (_isConnected) ensures controlled updates,
+        /// prevents silent overwrites, and enables change detection logic.
+        /// This pattern is essential in MVVM to maintain reactive, state-driven interfaces.
         /// </summary>
-
         public bool IsConnected
         {
             get => _isConnected;
             set
             {
+                // Only update if the value has actually changed
                 if (_isConnected != value)
                 {
                     _isConnected = value;
 
-                    // Warns the interface that the value has changed
+                    // Notifies the UI that the property has changed
+                    // This triggers any bindings to refresh automatically
                     OnPropertyChanged();
                 }
             }
@@ -166,11 +178,17 @@ namespace chat_client.MVVM.ViewModel
         /// <param name="uid">Unique identifier of the remote user.</param>
         private void MarkKeyAsSentTo(string uid) => _uidsKeySentTo.Add(uid);
 
+        /// <summary>
+        /// Initializes the main view model and subscribes to server-side events.
+        /// Handles user connection, message reception, and disconnection via event-driven architecture.
+        /// </summary>
         public MainViewModel()
         {
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
             _server = new Server();
+
+            // Subscribes to server events
             _server.connectedEvent += UserConnected;
             _server.msgReceivedEvent += MessageReceived;
             _server.userDisconnectEvent += UserDisconnected;
@@ -179,7 +197,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Determines whether encryption can be considered fully ready for public chat.
         /// Returns true when encryption is enabled, the local public key is present,
-        /// and either no roster is available, the client is alone, or all other users have exchanged keys.
+        /// and either no list of users is available, the client is alone, or all other users have exchanged keys.
         /// Logs missing UIDs for debugging purposes.
         /// </summary>
         /// <returns>True if encryption is ready; otherwise, false.</returns>
@@ -193,7 +211,7 @@ namespace chat_client.MVVM.ViewModel
             if (string.IsNullOrEmpty(LocalUser?.PublicKeyBase64))
                 return false;
 
-            // If no roster is available yet, consider encryption ready
+            // If no list of users is available yet, consider encryption ready
             if (Users == null || Users.Count == 0)
                 return true;
 
@@ -260,11 +278,11 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Attempts to connect the client to the server.
-        /// Initializes LocalUser with Username and a unique UID for key exchange.
-        /// Ensures encryption setup if enabled, and updates UI state upon success.
-        /// Allows plain messages to be sent immediately after connection, regardless of handshake status.
-        /// Retrieves handshake identity and public key from Server to ensure protocol alignment.
+        /// Initiates the client-side connection workflow.
+        /// Validates the username format and triggers the TCP handshake via Server.
+        /// Retrieves the UID and RSA public key generated during handshake to initialize LocalUser.
+        /// Ensures protocol alignment between client and server identity.
+        /// Activates encryption if enabled, updates UI state, and stores connection metadata.
         /// </summary>
         public void Connect()
         {
@@ -286,12 +304,8 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                /// <summary>
-                /// Initializes the LocalUser instance with the username, UID, and RSA public key
-                /// retrieved from the server-side connection handshake. This ensures that the
-                /// client-side identity matches the data transmitted during initial connection.
-                /// </summary>
-
+                // Initializes LocalUser with handshake identity retrieved from Server
+                // Ensures that the UID and RSA key used in all packets match the server-side record
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
@@ -299,7 +313,9 @@ namespace chat_client.MVVM.ViewModel
                     PublicKeyBase64 = _server.GetLocalPublicKey()
                 };
 
-                // Attempts to connect to the server
+                Console.WriteLine($"[DEBUG] LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}");
+
+                // Attempts to connect to the server using the provided IP
                 IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
                 if (!IsConnected)
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
@@ -344,7 +360,6 @@ namespace chat_client.MVVM.ViewModel
                 });
             }
         }
-
 
         /// <summary>
         /// Connect or disconnect the client, depending on the connection status
@@ -713,11 +728,11 @@ namespace chat_client.MVVM.ViewModel
         /// Verifies that all connected users have a known public RSA key.
         /// If missing keys are detected, attempts recovery by resending the local public key.
         /// Triggers a UI update to reflect synchronization status and tooltip state.
-        /// Should be called after roster updates or key exchange events.
+        /// Should be called after list of users updates or key exchange events.
         /// </summary>
         public void SyncKeys()
         {
-            // Skips synchronization if encryption is disabled or roster is unavailable
+            // Skips synchronization if encryption is disabled or list of users is unavailable
             if (!IsEncryptionEnabled || Users == null || Users.Count == 0)
                 return;
 
@@ -813,22 +828,22 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Evaluates the current encryption readiness state and updates the lock icon accordingly.
-        /// Should be called whenever the roster changes or new public keys are received.
+        /// Should be called whenever the list of users changes or new public keys are received.
         /// Provides visual feedback to the user and logs key distribution status for traceability.
         /// Designed to support dynamic multi-client encryption in a public chat context.
         /// </summary>
         public void UpdateEncryptionStatus()
         {
-            // Re-evaluates encryption readiness based on roster and known public keys
+            // Re-evaluates encryption readiness based on list of users and known public keys
             EvaluateEncryptionState();
 
-            // Logs each user in the roster and whether their public key is known
+            // Logs each user in the list of users and whether their public key is known
             if (Users != null)
             {
                 foreach (var user in Users)
                 {
                     bool hasKey = KnownPublicKeys.ContainsKey(user.UID);
-                    Console.WriteLine($"[DEBUG] User in roster — UID: {user.UID}, HasKey: {hasKey}");
+                    Console.WriteLine($"[DEBUG] User in list of users — UID: {user.UID}, HasKey: {hasKey}");
                 }
             }
 
@@ -838,7 +853,7 @@ namespace chat_client.MVVM.ViewModel
             // Delegates icon update to the UI layer
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
 
-            // Logs summary of roster and key distribution
+            // Logs summary of list of users and key distribution
             int userCount = Users?.Count ?? 0;
             int keyCount = KnownPublicKeys?.Count ?? 0;
             Console.WriteLine($"[DEBUG] Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}");
@@ -846,20 +861,23 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles the arrival of a new user by reading their identity and public key from the packet stream.
-        /// Adds the user to the Users collection if not already present, registers their key, and updates encryption state.
+        /// Adds the user to the Users collection if not already present.
+        /// Registers their RSA key and re-evaluates encryption readiness.
         /// UI-bound actions are dispatched to the main thread to ensure thread safety.
         /// </summary>
         public void UserConnected()
         {
+            // Reads identity fields from the incoming packet
             var username = _server.PacketReader.ReadMessage();
             var uid = _server.PacketReader.ReadMessage();
             var publicKey = _server.PacketReader.ReadMessage();
 
-            // Prevents duplicate entries by checking if the UID already exists in the Users collection
+            // Prevents duplicate entries by checking if the UID already exists
             if (!Users.Any(x => x.UID == uid))
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
+                    // Creates a new user model with received identity
                     var user = new UserModel
                     {
                         Username = username,
@@ -867,6 +885,7 @@ namespace chat_client.MVVM.ViewModel
                         PublicKeyBase64 = publicKey
                     };
 
+                    // Adds the user to the observable collection bound to the UI
                     Users.Add(user);
 
                     // Registers the public key if not already known
@@ -879,7 +898,7 @@ namespace chat_client.MVVM.ViewModel
                     // Re-evaluates encryption readiness after adding the new user
                     EvaluateEncryptionState();
 
-                    // Skips connection message if triggered during initial roster load
+                    // Posts a system message unless triggered during initial roster load
                     if (Message != null)
                     {
                         Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasConnected") + ". #");
@@ -901,10 +920,8 @@ namespace chat_client.MVVM.ViewModel
             // Locates the user in the current Users collection
             var user = Users.FirstOrDefault(x => x.UID == uid);
 
-            // Ensures the user exists before attempting removal
             if (user != null)
             {
-                // Executes UI-bound actions on the main application thread
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     // Removes the user from the active list
@@ -918,6 +935,8 @@ namespace chat_client.MVVM.ViewModel
                     {
                         UpdateEncryptionStatus();
                     }
+
+                    Console.WriteLine($"[DEBUG] User disconnected — Username: {user.Username}, UID: {uid}");
                 });
             }
         }
