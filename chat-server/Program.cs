@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 19th, 2025</date>
+/// <date>September 20th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -200,11 +200,11 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Broadcasts the sender's public RSA key to all other connected clients.
-        /// Builds a packet with opcode 6, including the sender's UID and public key in Base64 format.
-        /// Ensures that the sender does not receive their own key.
-        /// Wraps each transmission in a try/catch block to prevent socket exceptions.
-        /// Logs each dispatch for traceability.
+        /// Distributes the sender's public RSA key to all other connected clients.
+        /// Constructs a packet with opcode 6, including the sender's UID and public key in Base64 format.
+        /// Ensures the sender does not receive their own key to avoid redundant transmission.
+        /// Each dispatch is wrapped in a try/catch block to prevent socket exceptions and maintain server stability.
+        /// Designed to support dynamic multi-client encryption setup in real-time.
         /// </summary>
         /// <param name="sender">The client who submitted the public key.</param>
         public static void BroadcastPublicKeyToOthers(Client sender)
@@ -217,11 +217,13 @@ namespace chat_server
 
                 try
                 {
+                    // Builds the key exchange packet
                     var packet = new PacketBuilder();
-                    packet.WriteOpCode(6); // Opcode for public key exchange
-                    packet.WriteMessage(sender.UID.ToString());       // Sender UID
-                    packet.WriteMessage(sender.PublicKeyBase64);      // Public key in Base64
+                    packet.WriteOpCode(6);                          // Opcode for public key exchange
+                    packet.WriteMessage(sender.UID.ToString());     // Sender UID
+                    packet.WriteMessage(sender.PublicKeyBase64);    // Public key in Base64
 
+                    // Sends the packet only if the recipient is connected
                     if (user.ClientSocket.Connected)
                     {
                         user.ClientSocket.GetStream().Write(
@@ -235,10 +237,12 @@ namespace chat_server
                 }
                 catch (Exception ex)
                 {
+                    // Logs transmission failure for debugging
                     Console.WriteLine($"[SERVER] Failed to send public key to {user.Username}: {ex.Message}");
                 }
             }
 
+            // Logs completion of broadcast
             Console.WriteLine($"[SERVER] Public key from {sender.Username} transmitted to all other clients.");
         }
 
@@ -320,7 +324,7 @@ namespace chat_server
 
         /// <summary>
         /// Starts the TCP listener on the specified port and accepts incoming client connections.
-        /// Reads the handshake packet (opcode 0 + username) before creating the Client instance.
+        /// Reads the handshake packet (opcode 0 + username + UID + public key) before creating the Client instance.
         /// Initializes the client and starts its message listener in a separate task.
         /// Logs the localized startup message and each connection for traceability.
         /// </summary>
@@ -351,11 +355,18 @@ namespace chat_server
                         continue;
                     }
 
-                    // Reads the username from the handshake packet
-                    string username = reader.ReadMessage();
+                    // Reads the handshake fields sent by the client
+                    string username = reader.ReadMessage();          // Username
+                    string uidString = reader.ReadMessage();         // UID as string
+                    string publicKeyBase64 = reader.ReadMessage();   // RSA public key
 
-                    // Creates and initializes the client instance
-                    Client client = new Client(clientSocket, username);
+                    Guid uid = Guid.Parse(uidString);                // Converts UID to Guid
+
+                    // Creates and initializes the client instance with provided UID
+                    Client client = new Client(clientSocket, username, uid)
+                    {
+                        PublicKeyBase64 = publicKeyBase64
+                    };
 
                     // Adds the client to the global user list
                     _users.Add(client);

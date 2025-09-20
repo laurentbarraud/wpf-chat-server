@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 19th, 2025</date>
+/// <date>September 20th, 2025</date>
 
 // Technical notes : RSA is a widely adopted asymmetric encryption algorithm used in SSL/TLS, 
 //                   digital signatures, and secure messaging.
@@ -91,25 +91,40 @@ namespace chat_client.Helpers
             return Convert.ToBase64String(encrypted);
         }
 
-
         /// <summary>
         /// Decrypts a Base64-encoded encrypted message using the RSA private key.
-        /// This completes the end-to-end encryption cycle, ensuring only the intended recipient can read the message.
+        /// Uses OAEP padding with SHA-256 to match the encryption scheme.
+        /// Ensures graceful failure handling by catching exceptions and returning a localized fallback string.
         /// </summary>
         /// <param name="encryptedMessage">Base64-encoded string representing the encrypted message.</param>
-        /// <returns>Decrypted plain text string.</returns>
+        /// <returns>Decrypted plain text string if successful; otherwise, a localized error message.</returns>
         public static string DecryptMessage(string encryptedMessage)
         {
-            using var rsa = RSA.Create();
-            rsa.ImportParameters(privateKey); // Load the private key into the RSA instance
+            try
+            {
+                // Creates a new RSA instance and imports the private key
+                using var rsa = RSA.Create();
+                rsa.ImportParameters(privateKey);
 
-            var data = Convert.FromBase64String(encryptedMessage); // Decode Base64 to byte array
+                // Decodes the encrypted message from Base64
+                var data = Convert.FromBase64String(encryptedMessage);
 
-            // Decrypt using OAEP padding with SHA-256 (must match encryption padding)
-            var decrypted = rsa.Decrypt(data, RSAEncryptionPadding.OaepSHA256);
+                // Decrypts the byte array using OAEP padding with SHA-256
+                var decrypted = rsa.Decrypt(data, RSAEncryptionPadding.OaepSHA256);
 
-            return Encoding.UTF8.GetString(decrypted); // Convert decrypted byte array back to UTF-8 string
+                // Converts the decrypted byte array back to a UTF-8 string
+                return Encoding.UTF8.GetString(decrypted);
+            }
+            catch (Exception ex)
+            {
+                // Logs the error for debugging purposes
+                Console.WriteLine($"[ERROR] RSA decryption failed: {ex.Message}");
+
+                // Returns a localized fallback message to avoid crashing the UI
+                return LocalizationManager.GetString("DecryptionFailed");
+            }
         }
+
 
         /// <summary>
         /// Returns the RSA public key as a Base64-encoded XML string.

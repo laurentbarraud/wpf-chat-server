@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 19th, 2025</date>
+/// <date>September 20th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -26,30 +26,31 @@ namespace chat_server
         /// </summary>
         public TcpClient ClientSocket { get; set; }
 
+
         /// <summary>
         /// The packet reader used to parse incoming data from the client.
         /// </summary>
         private readonly PacketReader _packetReader;
 
         /// <summary>
-        /// RSA public key of the client, used for end-to-end encryption.
-        /// This key is received from the client after connection and used by others to encrypt messages.
+        /// Stores the client's public RSA key in Base64 format for encryption distribution.
+        /// Populated during handshake or key exchange.
         /// </summary>
         public string PublicKeyBase64 { get; set; }
 
         /// <summary>
-        /// Initializes a new client instance with the provided TCP socket and username.
-        /// Instantiates the packet reader and assigns a unique identifier.
+        /// Initializes a new client instance with the provided TCP socket, username, and UID.
+        /// Instantiates the packet reader and prepares the client for message listening.
         /// </summary>
         /// <param name="client">The accepted TCP client socket.</param>
         /// <param name="username">The display name of the connected user.</param>
-        public Client(TcpClient client, string username)
+        /// <param name="uid">The unique identifier assigned by the client.</param>
+        public Client(TcpClient client, string username, Guid uid)
         {
             ClientSocket = client;
             Username = username;
-            UID = Guid.NewGuid();
+            UID = uid; // Uses the UID provided by the client
 
-            // Initializes the packet reader for incoming messages
             _packetReader = new PacketReader(ClientSocket.GetStream());
 
             Console.WriteLine($"[SERVER] Listening for messages from {Username}...");

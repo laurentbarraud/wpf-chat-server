@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 19th, 2025</date>
+/// <date>September 20th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -264,6 +264,7 @@ namespace chat_client.MVVM.ViewModel
         /// Initializes LocalUser with Username and a unique UID for key exchange.
         /// Ensures encryption setup if enabled, and updates UI state upon success.
         /// Allows plain messages to be sent immediately after connection, regardless of handshake status.
+        /// Retrieves handshake identity and public key from Server to ensure protocol alignment.
         /// </summary>
         public void Connect()
         {
@@ -285,11 +286,17 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Initializes the local user with a unique UID
+                /// <summary>
+                /// Initializes the LocalUser instance with the username, UID, and RSA public key
+                /// retrieved from the server-side connection handshake. This ensures that the
+                /// client-side identity matches the data transmitted during initial connection.
+                /// </summary>
+
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
-                    UID = Guid.NewGuid().ToString()
+                    UID = _server.GetLocalUid().ToString(),
+                    PublicKeyBase64 = _server.GetLocalPublicKey()
                 };
 
                 // Attempts to connect to the server
@@ -683,6 +690,68 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Resends the client's public RSA key to the server for recovery or synchronization purposes.
+        /// Typically called when key distribution fails or when a new client join and requires the key.
+        /// Ensures that the server and all connected clients have access to the sender's encryption identity.
+        /// Designed to be safe and idempotent — skips transmission if prerequisites are missing.
+        /// </summary>
+        public void ResendPublicKey()
+        {
+            // Validates prerequisites before attempting to resend
+            if (LocalUser == null || string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
+            {
+                Console.WriteLine("[WARN] Cannot resend public key — LocalUser or key is missing.");
+                return;
+            }
+
+            // Sends the public key to the server for redistribution
+            Server.SendPublicKeyToServer(LocalUser.UID, LocalUser.PublicKeyBase64);
+            Console.WriteLine("[DEBUG] Public key resent manually.");
+        }
+
+        /// <summary>
+        /// Verifies that all connected users have a known public RSA key.
+        /// If missing keys are detected, attempts recovery by resending the local public key.
+        /// Triggers a UI update to reflect synchronization status and tooltip state.
+        /// Should be called after roster updates or key exchange events.
+        /// </summary>
+        public void SyncKeys()
+        {
+            // Skips synchronization if encryption is disabled or roster is unavailable
+            if (!IsEncryptionEnabled || Users == null || Users.Count == 0)
+                return;
+
+            List<string> missing = new();
+
+            // Iterates through all connected users (excluding self) to verify public key availability.
+            // For each user, checks whether their UID is present in the KnownPublicKeys dictionary.
+            // If a key is missing, the UID is added to the 'missing' list to trigger recovery logic.
+            // Designed to support dynamic multi-client environments where users may join or reconnect at any time.
+
+            foreach (var user in Users)
+            {
+                if (user.UID == LocalUser.UID)
+                    continue;
+
+                if (!KnownPublicKeys.ContainsKey(user.UID))
+                    missing.Add(user.UID);
+            }
+
+            // Logs missing keys for debugging
+            if (missing.Count > 0)
+            {
+                Console.WriteLine($"[DEBUG] Missing keys detected: {string.Join(", ", missing)}");
+
+                // Attempts to resend the local public key to the server
+                ResendPublicKey();
+            }
+
+            // Updates encryption readiness and UI icon with sync state
+            bool isSyncing = missing.Count > 0;
+            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady, isSyncing);
+        }
+
+        /// <summary>
         /// Attempts to decrypt an incoming encrypted message using the local RSA private key.
         /// Validates encryption state and key readiness before proceeding.
         /// Sanitizes the encrypted payload to remove invalid characters before delegating to EncryptionHelper.
@@ -743,29 +812,33 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Re-evaluates the encryption readiness state and updates the lock icon accordingly.
-        /// Logs the number of connected users and the number of known public keys for debugging.
-        /// This method should be called whenever the roster changes or public keys are received.
+        /// Evaluates the current encryption readiness state and updates the lock icon accordingly.
+        /// Should be called whenever the roster changes or new public keys are received.
+        /// Provides visual feedback to the user and logs key distribution status for traceability.
+        /// Designed to support dynamic multi-client encryption in a public chat context.
         /// </summary>
         public void UpdateEncryptionStatus()
         {
-            // Re-evaluates encryption readiness based on current roster and known keys
+            // Re-evaluates encryption readiness based on roster and known public keys
             EvaluateEncryptionState();
 
+            // Logs each user in the roster and whether their public key is known
             if (Users != null)
             {
                 foreach (var user in Users)
                 {
-                    Console.WriteLine($"[DEBUG] User in roster — UID: {user.UID}, HasKey: {KnownPublicKeys.ContainsKey(user.UID)}");
+                    bool hasKey = KnownPublicKeys.ContainsKey(user.UID);
+                    Console.WriteLine($"[DEBUG] User in roster — UID: {user.UID}, HasKey: {hasKey}");
                 }
             }
 
+            // Logs the readiness state before updating the icon
             Console.WriteLine($"[DEBUG] UpdateEncryptionStatusIcon called — isReady: {IsEncryptionReady}");
 
-            // Updates the lock icon to reflect the new state
+            // Delegates icon update to the UI layer
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
 
-            // Logs roster (Users collection) and key status for debugging
+            // Logs summary of roster and key distribution
             int userCount = Users?.Count ?? 0;
             int keyCount = KnownPublicKeys?.Count ?? 0;
             Console.WriteLine($"[DEBUG] Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}");

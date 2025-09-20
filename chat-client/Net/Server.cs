@@ -1,9 +1,10 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 18th, 2025</date>
+/// <date>September 20th, 2025</date>
 
 using chat_client.Helpers;
+using chat_client.MVVM.Model;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
 using Microsoft.VisualBasic.Logging;
@@ -22,6 +23,13 @@ namespace chat_client.Net
         public event Action connectedEvent;
         public event Action msgReceivedEvent;
         public event Action userDisconnectEvent;
+
+        private Guid _localUid;
+        private string _localPublicKey;
+
+        public Guid GetLocalUid() => _localUid;
+        public string GetLocalPublicKey() => _localPublicKey;
+
 
         /// <summary>
         /// Indicates whether the client is currently connected to the server.
@@ -80,8 +88,14 @@ namespace chat_client.Net
                 PacketReader = new PacketReader(_client.GetStream());
 
                 // Sends the initial connection packet and starts listening
-                if (!SendInitialConnectionPacket(username))
+                Guid uid = Guid.NewGuid();
+                string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
+
+                if (!SendInitialConnectionPacket(username, uid, publicKeyBase64))
                     throw new Exception("Failed to send initial connection packet.");
+
+                _localUid = uid;
+                _localPublicKey = publicKeyBase64;
 
                 return true;
             }
@@ -216,12 +230,13 @@ namespace chat_client.Net
 
         /// <summary>
         /// Sends the initial connection packet to the server using opcode 0.
-        /// Includes the username and starts listening for incoming packets.
+        /// Includes the username, UID, and public RSA key for handshake.
+        /// Starts listening for incoming packets.
         /// Returns true if the packet is sent successfully; false otherwise.
         /// </summary>
         /// <param name="username">The display name of the user.</param>
         /// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
-        public bool SendInitialConnectionPacket(string username)
+        public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
         {
             if (string.IsNullOrEmpty(username))
                 return false;
@@ -231,14 +246,16 @@ namespace chat_client.Net
                 // Builds the initial connection packet
                 var connectPacket = new PacketBuilder();
                 connectPacket.WriteOpCode(0); // Opcode 0 = new user connection
-                connectPacket.WriteMessage(username);
+                connectPacket.WriteMessage(username);           // Username
+                connectPacket.WriteMessage(uid.ToString());     // UID
+                connectPacket.WriteMessage(publicKeyBase64);    // RSA public key
 
                 // Sends the packet via NetworkStream to ensure compatibility with server-side reader
                 NetworkStream stream = _client.GetStream();
                 byte[] packetBytes = connectPacket.GetPacketBytes();
                 stream.Write(packetBytes, 0, packetBytes.Length);
 
-                Console.WriteLine($"[DEBUG] Initial connection packet is sent — Username: {username}");
+                Console.WriteLine($"[DEBUG] Initial connection packet sent — Username: {username}, UID: {uid}");
 
                 // Starts listening for incoming packets (non-blocking)
                 Task.Run(() => ReadPackets());
@@ -279,7 +296,13 @@ namespace chat_client.Net
                 return;
             }
 
-            string senderUID = viewModel.LocalUser?.UID ?? "unknown";
+            if (viewModel.LocalUser == null || string.IsNullOrWhiteSpace(viewModel.LocalUser.UID))
+            {
+                Console.WriteLine("[ERROR] LocalUser is not initialized. Cannot send message.");
+                return;
+            }
+
+            string senderUID = viewModel.LocalUser.UID;
 
             // Encrypts the message if encryption is enabled and ready
             if (viewModel.IsEncryptionEnabled && viewModel.IsEncryptionReady)
@@ -345,5 +368,5 @@ namespace chat_client.Net
             Console.WriteLine("[DEBUG] Public key packet sent successfully.");
             return true;
         }
-
     }
+}

@@ -165,9 +165,6 @@
   <data name="ErrorWhileDisconnecting" xml:space="preserve">
     <value>Error while disconnecting : </value>
   </data>
-  <data name="EncryptionWaiting" xml:space="preserve">
-    <value>Encryption waiting...</value>
-  </data>
   <data name="HasConnected" xml:space="preserve">
     <value>has connected</value>
   </data>
@@ -225,7 +222,10 @@
   <data name="UseEncryptionLabel" xml:space="preserve">
     <value>Use encryption for messages</value>
   </data>
-  <data name="GetPublicKey" xml:space="preserve">
-    <value>Getting public key...</value>
+  <data name="GettingMissingKeys" xml:space="preserve">
+    <value>Getting missing keys...</value>
+  </data>
+  <data name="SendingPublicKey" xml:space="preserve">
+    <value>Sending public key...</value>
   </data>
 </root>

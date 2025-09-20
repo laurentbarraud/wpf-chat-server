@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 19th, 2025</date>
+/// <date>September 20th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -620,14 +620,16 @@ namespace chat_client
 
         /// <summary>
         /// Updates the encryption status icon and tooltip above the message input field.
-        /// Displays the colored icon only if encryption is enabled and readiness is confirmed.
-        /// Triggers a pulse animation and banner when encryption becomes fully ready.
-        /// Ensures visual feedback reflects mutual encryption readiness in a public chat.
-        /// Logs the visual state for debugging and traceability.
+        /// Displays the gray icon during key exchange or synchronization phase.
+        /// Switches to colored icon once encryption is fully ready.
+        /// Tooltip reflects current state: sending key, syncing, or ready.
+        /// Triggers pulse animation and banner only when encryption becomes fully active.
+        /// Designed to support real-time feedback in multi-client encrypted chat.
         /// </summary>
-        public void UpdateEncryptionStatusIcon(bool isReady)
+        /// <param name="isReady">True if encryption is fully ready (all keys synchronized).</param>
+        /// <param name="isSyncing">True if key exchange or synchronization is in progress.</param>
+        public void UpdateEncryptionStatusIcon(bool isReady, bool isSyncing = false)
         {
-            // Retrieves the ViewModel from the current DataContext
             var viewModel = DataContext as MainViewModel;
             if (viewModel == null)
                 return;
@@ -640,32 +642,34 @@ namespace chat_client
                 return;
             }
 
-            // Shows the icon regardless of readiness (grayed out if incomplete)
+            // Always show the icon if encryption is enabled
             imgEncryptionStatus.Visibility = Visibility.Visible;
 
-            // Sets the icon image based on encryption readiness
-            imgEncryptionStatus.Source = new BitmapImage(new Uri(
-                isReady
-                    ? "/Resources/encrypted.png"           // Color lock icon
-                    : "/Resources/encrypted-disabled.png", // Grey lock icon
-                UriKind.Relative));
-
-            // Logs which icon was applied
-            Console.WriteLine($"[DEBUG] Lock icon updated — {(isReady ? "colored" : "gray")}");
-
-            // Sets the tooltip using localized strings
-            imgEncryptionStatus.ToolTip = LocalizationManager.GetString(
-                isReady ? "EncryptionEnabled" : "GetPublicKey");
-
-            // If encryption is fully ready, trigger the pulse animation and show banner
-            if (isReady)
+            if (!isReady)
             {
-                var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
-                storyboard.Begin();
+                // Shows gray icon during key exchange or sync phase
+                imgEncryptionStatus.Source = new BitmapImage(new Uri("/Resources/encrypted-disabled.png", UriKind.Relative));
 
-                ShowBanner("EncryptionEnabled", showIcon: true);
-                Console.WriteLine("[DEBUG] Pulse animation triggered — encryption is ready.");
+                // Tooltip reflects current sync state
+                string tooltipKey = isSyncing ? "GettingMissingKeys" : "SendingPublicKey";
+                imgEncryptionStatus.ToolTip = LocalizationManager.GetString(tooltipKey);
+
+                Console.WriteLine($"[DEBUG] Lock icon set to gray — tooltip: {tooltipKey}");
+                return;
             }
+
+            // Shows colored icon when encryption is fully ready
+            imgEncryptionStatus.Source = new BitmapImage(new Uri("/Resources/encrypted.png", UriKind.Relative));
+            imgEncryptionStatus.ToolTip = LocalizationManager.GetString("EncryptionEnabled");
+
+            Console.WriteLine("[DEBUG] Lock icon updated — colored");
+
+            // Triggers pulse animation and banner only when encryption becomes ready
+            var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
+            storyboard.Begin();
+
+            ShowBanner("EncryptionEnabled", showIcon: true);
+            Console.WriteLine("[DEBUG] Pulse animation triggered — encryption is ready.");
         }
     }
 }
