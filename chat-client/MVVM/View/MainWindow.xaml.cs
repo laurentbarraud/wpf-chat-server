@@ -583,24 +583,26 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Handles live updates to the username textbox.
+        /// Toggles watermark visibility and connection button state based on input.
+        /// Clears the error style if previously applied, restoring the default textbox appearance.
+        /// </summary>
         private void txtUsername_TextChanged(object sender, TextChangedEventArgs e)
         {
             bool textBoxIsEmpty = string.IsNullOrWhiteSpace(txtUsername.Text);
 
+            // Shows watermark when textbox is empty
             imgUsernameWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
+
+            // Enables the connect button only when input is non-empty
             cmdConnectDisconnect.IsEnabled = !textBoxIsEmpty;
 
-            if (txtUsername.Background is SolidColorBrush brush &&
-                brush.Color == (Color)ColorConverter.ConvertFromString("#DC143C"))
+            // Removes the error style if it was previously applied
+            if (txtUsername.Style != null)
             {
-                // Restores the themed background brush from resources
-                var defaultBrush = TryFindResource("BackgroundBrush") as Brush;
-                if (defaultBrush != null)
-                {
-                    txtUsername.Background = defaultBrush;
-                }
+                txtUsername.ClearValue(Control.StyleProperty);
             }
-
         }
 
         private void txtIPAddress_TextChanged(object sender, TextChangedEventArgs e)

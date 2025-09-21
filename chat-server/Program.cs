@@ -224,7 +224,6 @@ namespace chat_server
             }
         }
 
-
         /// <summary>
         /// Distributes the sender's public RSA key to all other connected clients.
         /// Constructs a packet with opcode 6, including the sender's UID and public key in Base64 format.

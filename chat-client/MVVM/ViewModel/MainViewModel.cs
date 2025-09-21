@@ -288,12 +288,12 @@ namespace chat_client.MVVM.ViewModel
             // Rejects empty or malformed usernames to prevent handshake inconsistencies
             if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, @"^[a-zA-Z][a-zA-Z0-9_-]*$"))
             {
-                // Highlights the username textbox in crimson to indicate invalid input
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
-                        mainWindow.txtUsername.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DC143C"));
+                        // Applies a red border style to the username textbox to visually indicate invalid input
+                        mainWindow.txtUsername.Style = mainWindow.TryFindResource("ErrorTextBoxStyle") as Style;
                         mainWindow.txtUsername.Focus();
                     }
                 });
@@ -337,6 +337,7 @@ namespace chat_client.MVVM.ViewModel
                         mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
                         mainWindow.spnDown.Visibility = Visibility.Visible;
                         mainWindow.spnEmojiPanel.Visibility = Visibility.Visible;
+                        mainWindow.txtMessageToSend.Focus();
                     }
                 });
 

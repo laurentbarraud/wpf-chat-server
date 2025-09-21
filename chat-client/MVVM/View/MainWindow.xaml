@@ -69,6 +69,12 @@
                      Duration="0:0:0.3" BeginTime="0:0:2" />
         </Storyboard>
 
+        <!-- Style for error indication on username textbox -->
+        <Style x:Key="ErrorTextBoxStyle" TargetType="TextBox">
+            <Setter Property="BorderBrush" Value="#DC143C"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+
     </Window.Resources>
     <Window.DataContext>
         <viewmodel:MainViewModel/>

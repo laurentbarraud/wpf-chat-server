@@ -99,7 +99,8 @@ namespace chat_client.Helpers
                 }
                 else if (window is MainWindow mainWindow)
                 {
-                    mainWindow.UpdateConnectButtonText();
+                    mainWindow.Update
+                        ButtonText();
                     mainWindow.ApplyWatermarkImages();
 
                     // Update tray menu labels
