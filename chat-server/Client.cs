@@ -81,9 +81,9 @@ namespace chat_server
                     switch (opcode)
                     {
                         case 5: // Public chat message
-                                // Reads message content and sender UID
-                            string messageReceived = _packetReader.ReadMessage();
+                                // Reads sender UID and message content
                             string senderUidForMessage = _packetReader.ReadMessage();
+                            string messageReceived = _packetReader.ReadMessage();
 
                             Console.WriteLine("[SERVER] Incoming message packet:");
                             Console.WriteLine($"         → Sender UID: {senderUidForMessage}");

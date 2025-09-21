@@ -36,11 +36,19 @@ namespace chat_client.MVVM.View
     {
         public MainViewModel ViewModel { get; set; }
 
+        private bool IsInitializing = true;
+
         public SettingsWindow()
         {
             InitializeComponent();
         }
 
+        /// <summary>
+        /// Initializes the settings window by synchronizing UI controls with saved application preferences.
+        /// Loads localization, port configuration, tray behavior, and encryption state.
+        /// Ensures that toggle events do not fire during initial binding.
+        /// This method guarantees an idempotent UI state for user interaction.
+        /// </summary>
         private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
@@ -49,7 +57,7 @@ namespace chat_client.MVVM.View
                 string appLanguage = Properties.Settings.Default.AppLanguage;
 
                 // Initializes the localization manager with the saved language
-                 LocalizationManager.Initialize(appLanguage);
+                LocalizationManager.Initialize(appLanguage);
 
                 // Refreshes all UI labels and texts with localized strings
                 LocalizationManager.UpdateLocalizedUI();
@@ -64,13 +72,14 @@ namespace chat_client.MVVM.View
                     }
                 }
 
-                // Synchronizes toggles states and port field with saved settings
+                // Synchronizes toggle states and port field with saved settings
                 UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
                 txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
+                ReduceToTrayToggle.IsChecked = Properties.Settings.Default.ReduceToTray;
+                UseEncryptionToggle.IsChecked = ViewModel.IsEncryptionEnabled;
 
-                ReduceToTrayToggle.IsChecked = chat_client.Properties.Settings.Default.ReduceToTray;
-                
-                UseEncryptionToggle.IsChecked = Properties.Settings.Default.UseEncryption;
+                // Initialization complete — toggle events may now fire
+                IsInitializing = false;
             }
             catch (Exception ex)
             {
@@ -191,39 +200,47 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.Save();
         }
 
+        /// <summary>
+        /// Handles the Checked event of the encryption toggle.
+        /// Attempts to initialize encryption and updates UI accordingly.
+        /// Saves the preference only if initialization succeeds.
+        /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Saves the encryption preference immediately
-            Properties.Settings.Default.UseEncryption = true;
-            Properties.Settings.Default.Save();
+            if (IsInitializing) return;
 
             var mainWindow = Application.Current.MainWindow as MainWindow;
             var viewModel = mainWindow?.ViewModel;
 
-            // Ensures encryption is initialized only if connected and user is defined
             if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
                 bool success = viewModel.InitializeEncryptionIfEnabled();
 
                 if (!success)
                 {
-                    // Rollbacks toggle and setting immediately
+                    // Rollbacks toggle immediately — preference will not be saved
                     UseEncryptionToggle.IsChecked = false;
-                    Properties.Settings.Default.UseEncryption = false;
-                    Properties.Settings.Default.Save();
+                    return;
                 }
 
                 // Forces UI update of encryption icon
                 mainWindow?.UpdateEncryptionStatusIcon(viewModel.IsEncryptionReady);
             }
+
+            // Saves the encryption preference after successful initialization
+            Properties.Settings.Default.UseEncryption = true;
+            Properties.Settings.Default.Save();
         }
 
         /// <summary>
         /// Handles the Unchecked event of the encryption toggle.
         /// Disables encryption and resets encryption-related state.
+        /// Saves the preference immediately.
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
+            if (IsInitializing) return;
+
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
@@ -234,7 +251,7 @@ namespace chat_client.MVVM.View
                 viewModel.IsEncryptionReady = false;
                 viewModel.LocalUser.PublicKeyBase64 = null;
                 viewModel.LocalUser.PrivateKeyBase64 = null;
-                EncryptionHelper.ClearPrivateKey(); // à créer si nécessaire
+                EncryptionHelper.ClearPrivateKey();
                 viewModel.EvaluateEncryptionState();
             }
         }

@@ -71,12 +71,10 @@ namespace chat_client.MVVM.ViewModel
         // assuming the containing object is set as the DataContext.
         public List<string> EmojiList { get; } = new()
         {
-            "😀", "👍", "🙏", "😅", "😂", "🤣", "😉", "😎",
-            "😁", "😇", "🤨", "😏", "🕒", "📌", "❤️", "👀",
-            "🤷", "🤝", "🔥", "⚠️", "💤", "📞", "🧠", "🛠️",
-            "🥳", "😴", "😲", "😘", "👌", "💪", "🙈", "🤐",
-            "😷", "👋", "🍺", "🍻", "🍾", "☀️", "⭐",
-            "🌧️", "🔥", "✨"
+            "😀", "👍", "🙏", "😅", "😂", "🤣", "😉", "😎", "😤", "😏", "🙈", "👋", "💪",
+            "👌", "📌", "📞", "🔍", "⚠️", "✓", "🤝", "📣", "🚀", "☕", "🍺", "🍻", "🎉", 
+            "🍾", "🥳", "🍰", "🍱", "😁", "😇", "🤨", "🤷", "🤐", "😘", "❤️", "😲", "😬", 
+            "😷", "😴", "💤", "🔧", "🚗", "🏡", "☀️",  "🔥", "⭐", "🌟", "✨", "🌧️", "🕒"
         };
 
         // Exposes the current encryption setting (UseEncryption) as a read-only property.
@@ -568,8 +566,8 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private void MessageReceived()
         {
-            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC]
             string senderUID = _server.PacketReader.ReadMessage();  // UID of sender
+            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC]
 
             // Handles system-issued disconnect command
             if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
@@ -862,17 +860,19 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles the arrival of a new user by reading their identity and public key from the packet stream.
-        /// Adds the user to the Users collection if not already present.
+        /// Handles the arrival of a new user by reading their identity and public key from the incoming packet.
+        /// Expects fields in the order: UID → Username → PublicKey.
+        /// Adds the user to the observable Users collection if not already present.
         /// Registers their RSA key and re-evaluates encryption readiness.
         /// UI-bound actions are dispatched to the main thread to ensure thread safety.
+        /// This method is triggered by opcode 1 and corresponds to the server-side BroadcastUserList().
         /// </summary>
         public void UserConnected()
         {
-            // Reads identity fields from the incoming packet
-            var username = _server.PacketReader.ReadMessage();
-            var uid = _server.PacketReader.ReadMessage();
-            var publicKey = _server.PacketReader.ReadMessage();
+            // Reads identity fields from the incoming packet in expected order
+            var uid = _server.PacketReader.ReadMessage();         // First: UID
+            var username = _server.PacketReader.ReadMessage();    // Second: Username
+            var publicKey = _server.PacketReader.ReadMessage();   // Third: RSA public key
 
             // Prevents duplicate entries by checking if the UID already exists
             if (!Users.Any(x => x.UID == uid))
@@ -882,8 +882,8 @@ namespace chat_client.MVVM.ViewModel
                     // Creates a new user model with received identity
                     var user = new UserModel
                     {
-                        Username = username,
                         UID = uid,
+                        Username = username,
                         PublicKeyBase64 = publicKey
                     };
 
