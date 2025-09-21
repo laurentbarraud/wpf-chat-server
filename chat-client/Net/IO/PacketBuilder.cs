@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 20th, 2025</date>
+/// <date>September 21th, 2025</date>
 
 using System.IO;
 using System.Text;

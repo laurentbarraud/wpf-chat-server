@@ -1,12 +1,13 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 20th, 2025</date>
+/// <date>September 21th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
+using Microsoft.VisualBasic.ApplicationServices;
 using Microsoft.VisualBasic.Logging;
 using System.Net;
 using System.Net.Sockets;
@@ -65,20 +66,16 @@ namespace chat_client.Net
         /// <summary>
         /// Establishes a TCP connection to the chat server using the specified IP address and username.
         /// Validates the IP format and selects the appropriate port.
-        /// Generates a unique UID and RSA public key for handshake identity.
+        /// Generates a unique UID and RSA public key to identify the client during handshake.
         /// Initializes the packet reader and delegates the handshake to SendInitialConnectionPacket().
-        /// Triggers encryption setup if enabled and LocalUser is initialized.
-        /// Returns true if the connection succeeds; false otherwise.
+        /// Returns the generated UID and public key if the connection succeeds; otherwise returns empty values.
+        /// Designed for traceable identity and secure session initialization.
         /// </summary>
         /// <param name="username">The display name of the user initiating the connection.</param>
         /// <param name="IPAddressOfServer">The target server IP address. Defaults to localhost if null or empty.</param>
-        /// <returns>True if the connection is successfully established; false if an error occurs.</returns>
-        public bool ConnectToServer(string username, string IPAddressOfServer)
+        /// <returns>A tuple containing the UID and public key if successful; otherwise (Guid.Empty, null).</returns>
+        public (Guid uid, string publicKeyBase64) ConnectToServer(string username, string IPAddressOfServer)
         {
-            // Skips connection attempt if already connected
-            if (_client.Connected)
-                return true;
-
             try
             {
                 // Determines the target IP; falls back to localhost if none is provided
@@ -102,27 +99,27 @@ namespace chat_client.Net
                 // Initializes the packet reader from the network stream
                 PacketReader = new PacketReader(_client.GetStream());
 
-                // Sends the initial connection packet and starts listening
+                // Generates UID and RSA public key for handshake
                 Guid uid = Guid.NewGuid();
                 string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
 
                 Console.WriteLine($"[DEBUG] UID generated for handshake: {uid}");
                 Console.WriteLine($"[DEBUG] RSA public key generated: {publicKeyBase64}");
 
+                // Sends the initial connection packet and starts listening
                 if (!SendInitialConnectionPacket(username, uid, publicKeyBase64))
                     throw new Exception("Failed to send initial connection packet.");
 
-                // This is the only place where the UID is generated and stored for the current client session.
-                // It ensures consistent identity across handshake, messaging, and list of users updates.
+                // Stores UID and public key locally for reference
                 _localUid = uid;
                 _localPublicKey = publicKeyBase64;
 
-                return true;
+                return (uid, publicKeyBase64);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] Connection failed: {ex.Message}");
-                return false;
+                return (Guid.Empty, null);
             }
         }
 

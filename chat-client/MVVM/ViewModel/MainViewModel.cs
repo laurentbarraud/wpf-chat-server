@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 20th, 2025</date>
+/// <date>September 21th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -278,18 +278,19 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Initiates the client-side connection workflow.
-        /// Validates the username format and triggers the TCP handshake via Server.
+        /// Initiates the client-side connection workflow with full identity synchronization.
+        /// Validates the username format and delegates the TCP handshake to the Server layer.
         /// Retrieves the UID and RSA public key generated during handshake to initialize LocalUser.
-        /// Ensures protocol alignment between client and server identity.
-        /// Activates encryption if enabled, updates UI state, and stores connection metadata.
+        /// Ensures protocol alignment between client and server for traceable communication.
+        /// Activates encryption if enabled, updates UI state, and stores connection metadata for future sessions.
+        /// Designed for maintainability, auditability, and recruiter-facing clarity.
         /// </summary>
         public void Connect()
         {
-            // Abort if username is missing or format is invalid
+            // Rejects empty or malformed usernames to prevent handshake inconsistencies
             if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, @"^[a-zA-Z][a-zA-Z0-9_-]*$"))
             {
-                // Highlights the textbox in crimson to indicate invalid input
+                // Highlights the username textbox in crimson to indicate invalid input
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
@@ -304,31 +305,32 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Initializes LocalUser with handshake identity retrieved from Server
-                // Ensures that the UID and RSA key used in all packets match the server-side record
+                // Initiates TCP connection and retrieves handshake identity from Server
+                var result = _server.ConnectToServer(Username.Trim(), IPAddressOfServer);
+                if (result.uid == Guid.Empty || string.IsNullOrEmpty(result.publicKeyBase64))
+                    throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
+
+                // Initializes LocalUser with verified handshake identity
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
-                    UID = _server.GetLocalUid().ToString(),
-                    PublicKeyBase64 = _server.GetLocalPublicKey()
+                    UID = result.uid.ToString(),
+                    PublicKeyBase64 = result.publicKeyBase64
                 };
 
                 Console.WriteLine($"[DEBUG] LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}");
 
-                // Attempts to connect to the server using the provided IP
-                IsConnected = _server.ConnectToServer(Username, IPAddressOfServer);
-                if (!IsConnected)
-                    throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
-
+                // Marks connection as successful
+                IsConnected = true;
                 Console.WriteLine("[DEBUG] Client connected — plain messages allowed before handshake.");
 
-                // Initializes encryption only if enabled in settings
+                // Activates encryption if enabled in application settings
                 if (Properties.Settings.Default.UseEncryption)
                 {
                     InitializeEncryptionIfEnabled();
                 }
 
-                // Updates UI to reflect connected state
+                // Updates UI to reflect connected state and unlocks chat features
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
@@ -340,13 +342,13 @@ namespace chat_client.MVVM.ViewModel
                     }
                 });
 
-                // Saves the last used IP address for future sessions
+                // Stores the last used IP address for future sessions
                 chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
                 chat_client.Properties.Settings.Default.Save();
             }
             catch (Exception)
             {
-                // Handles connection failure gracefully
+                // Handles connection failure gracefully and resets UI state
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mw)
