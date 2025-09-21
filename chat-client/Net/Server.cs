@@ -353,8 +353,8 @@ namespace chat_client.Net
             // Builds the message packet with opcode 5
             var messagePacket = new PacketBuilder();
             messagePacket.WriteOpCode(5);              // Public chat message
+            messagePacket.WriteMessage(senderUID);     // Sender UID — must come first
             messagePacket.WriteMessage(message);       // Encrypted or plain
-            messagePacket.WriteMessage(senderUID);     // Sender UID
 
             Console.WriteLine("[DEBUG] Message packet structure:");
             Console.WriteLine($"         → UID: {senderUID}");
