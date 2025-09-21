@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Resources;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -91,6 +92,7 @@ namespace chat_client.Helpers
             {
                 if (window is SettingsWindow settings)
                 {
+                    // Updates labels
                     settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
                     settings.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
                     settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
@@ -102,14 +104,25 @@ namespace chat_client.Helpers
                     mainWindow.UpdateConnectButtonText();
                     mainWindow.ApplyWatermarkImages();
 
-                    // Update tray menu labels
+                    // Updates tooltips
+                    mainWindow.cmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftTooltip");
+                    mainWindow.cmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightTooltip");
+                    mainWindow.cmdSettings.ToolTip = LocalizationManager.GetString("Settings");
+
+                    // Updates window title
+                    if (mainWindow.Title != "WPF chat client")
+                    {
+                        mainWindow.Title = "WPF chat client - " + LocalizationManager.GetString("Connected");;
+                    }
+                    
+                    // Updates tray menu labels
                     if (mainWindow.TrayMenuOpen != null)
                         mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
 
                     if (mainWindow.TrayMenuQuit != null)
                         mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
 
-                    // Update encryption banner text
+                    // Updates encryption banner text
                     mainWindow.popupText.Text = GetString("EncryptionEnabled");
                 }
             }

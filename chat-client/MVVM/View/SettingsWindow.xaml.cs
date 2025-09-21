@@ -76,7 +76,7 @@ namespace chat_client.MVVM.View
                 UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
                 txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
                 ReduceToTrayToggle.IsChecked = Properties.Settings.Default.ReduceToTray;
-                UseEncryptionToggle.IsChecked = ViewModel.IsEncryptionEnabled;
+                UseEncryptionToggle.IsChecked = chat_client.Properties.Settings.Default.UseEncryption;
 
                 // Initialization complete — toggle events may now fire
                 IsInitializing = false;

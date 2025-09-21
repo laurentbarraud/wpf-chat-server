@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
         mc:Ignorable="d"
         xmlns:tb="http://www.hardcodet.net/taskbar"
-        Title="WPF Chat" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
+        Title="WPF chat client" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
         Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/Resources/chat-client-icon.ico" 
         TabIndex="12" StateChanged="MainWindow1_StateChanged" Closing="MainWindow1_Closing" 
         PreviewKeyDown="MainWindow1_PreviewKeyDown">
@@ -401,15 +401,15 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Left scroll button -->
-                            <Button x:Name="btnScrollLeft"
+                            <Button x:Name="cmdScrollLeft"
                                     Grid.Column="0"
                                     Width="20"
                                     Height="20"
                                     VerticalAlignment="Center"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    MouseEnter="btnScrollLeft_MouseEnter"
-                                    MouseLeave="btnScrollLeft_MouseLeave"
+                                    MouseEnter="cmdScrollLeft_MouseEnter"
+                                    MouseLeave="cmdScrollLeft_MouseLeave"
                                     ToolTip="Scroll left">
                                 <Button.Style>
                                     <Style TargetType="{x:Type Button}">
@@ -471,15 +471,15 @@
                             </ScrollViewer>
 
                             <!-- Right scroll button -->
-                            <Button x:Name="btnScrollRight"
+                            <Button x:Name="cmdScrollRight"
                                     Grid.Column="2"
                                     Width="20"
                                     Height="{Binding ActualHeight, ElementName=spnEmojiPanel}"
                                     VerticalAlignment="Center"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    MouseEnter="btnScrollRight_MouseEnter"
-                                    MouseLeave="btnScrollRight_MouseLeave"
+                                    MouseEnter="cmdScrollRight_MouseEnter"
+                                    MouseLeave="cmdScrollRight_MouseLeave"
                                     ToolTip="Scroll right">
                                 <Button.Style>
                                     <Style TargetType="{x:Type Button}">

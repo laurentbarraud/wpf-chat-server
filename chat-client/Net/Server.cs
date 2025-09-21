@@ -336,7 +336,7 @@ namespace chat_client.Net
             string senderUID = viewModel.LocalUser.UID;
 
             // Encrypts the message if encryption is enabled and ready
-            if (viewModel.IsEncryptionEnabled && viewModel.IsEncryptionReady)
+            if (chat_client.Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady)
             {
                 string encrypted = EncryptionHelper.EncryptMessage(message, viewModel.LocalUser.PublicKeyBase64);
                 message = "[ENC]" + encrypted;

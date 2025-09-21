@@ -77,10 +77,6 @@ namespace chat_client.MVVM.ViewModel
             "😷", "😴", "💤", "🔧", "🚗", "🏡", "☀️",  "🔥", "⭐", "🌟", "✨", "🌧️", "🕒"
         };
 
-        // Exposes the current encryption setting (UseEncryption) as a read-only property.
-        // Uses expression-bodied syntax (=>) for clarity and ensures the value is always up-to-date.
-        public bool IsEncryptionEnabled => chat_client.Properties.Settings.Default.UseEncryption;
-
         private bool _isEncryptionReady;
 
         /// <summary>
@@ -202,7 +198,7 @@ namespace chat_client.MVVM.ViewModel
         public bool AreAllKeysReceived()
         {
             // Encryption must be enabled
-            if (!IsEncryptionEnabled)
+            if (!chat_client.Properties.Settings.Default.UseEncryption)
                 return false;
 
             // Local public key must exist
@@ -261,7 +257,7 @@ namespace chat_client.MVVM.ViewModel
         public bool CanEncryptMessageFor(string recipientUID)
         {
             // Encryption must be enabled in settings
-            if (!IsEncryptionEnabled)
+            if (!chat_client.Properties.Settings.Default.UseEncryption)
                 return false;
 
             // Local key must be initialized
@@ -696,7 +692,7 @@ namespace chat_client.MVVM.ViewModel
 
                     mainWindow.txtUsername.IsEnabled = true;
                     mainWindow.txtIPAddress.IsEnabled = true;
-                    mainWindow.Title = "WPF Chat";
+                    mainWindow.Title = "WPF chat client";
 
                     // Hides the down and toolbar panels
                     mainWindow.spnDown.Visibility = Visibility.Hidden;
@@ -734,7 +730,7 @@ namespace chat_client.MVVM.ViewModel
         public void SyncKeys()
         {
             // Skips synchronization if encryption is disabled or list of users is unavailable
-            if (!IsEncryptionEnabled || Users == null || Users.Count == 0)
+            if (!chat_client.Properties.Settings.Default.UseEncryption || Users == null || Users.Count == 0)
                 return;
 
             List<string> missing = new();
@@ -777,7 +773,7 @@ namespace chat_client.MVVM.ViewModel
         public string TryDecryptMessage(string encryptedPayload)
         {
             // Validates encryption state and key readiness
-            if (!IsEncryptionEnabled ||
+            if (!chat_client.Properties.Settings.Default.UseEncryption ||
                 string.IsNullOrEmpty(encryptedPayload) ||
                 !EncryptionHelper.IsPrivateKeyValid())
             {
@@ -934,7 +930,7 @@ namespace chat_client.MVVM.ViewModel
                     Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasDisconnected") + ". #");
 
                     // Re-evaluates encryption state only if encryption is enabled
-                    if (IsEncryptionEnabled)
+                    if (chat_client.Properties.Settings.Default.UseEncryption)
                     {
                         UpdateEncryptionStatus();
                     }

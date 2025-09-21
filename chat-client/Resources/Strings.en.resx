@@ -228,4 +228,10 @@
   <data name="SendingPublicKey" xml:space="preserve">
     <value>Sending public key...</value>
   </data>
+  <data name="ScrollLeft" xml:space="preserve">
+    <value>Scroll left</value>
+  </data>
+  <data name="ScrollRight" xml:space="preserve">
+    <value>Scroll right</value>
+  </data>
 </root>

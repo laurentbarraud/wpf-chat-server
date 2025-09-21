@@ -159,6 +159,58 @@ namespace chat_server
         }
 
         /// <summary>
+        /// Broadcasts a public chat message to all connected clients, including the sender.
+        /// Encapsulates the message with its sender UID and dispatches it via TCP stream.
+        /// Handles both encrypted and plain messages, and logs the transmission with localization support.
+        /// Designed for clarity, traceability, and future extensibility (e.g. system messages, multi-opcode routing).
+        /// </summary>
+        /// <param name="message">The message content to broadcast (plain or encrypted).</param>
+        /// <param name="senderUid">The UID of the client who originated the message.</param>
+        public static void BroadcastMessageToAll(string message, Guid senderUid)
+        {
+            foreach (var user in _users)
+            {
+                try
+                {
+                    // Builds the message packet with opcode and sender metadata
+                    var packet = new PacketBuilder();
+                    packet.WriteOpCode(5); // Public chat message
+                    packet.WriteMessage(senderUid.ToString());
+                    packet.WriteMessage(message);
+
+                    // Sends the packet if the client is still connected
+                    if (user.ClientSocket.Connected)
+                    {
+                        user.ClientSocket.GetStream().Write(
+                            packet.GetPacketBytes(),
+                            0,
+                            packet.GetPacketBytes().Length
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SERVER] Failed to relay message to {user.Username}: {ex.Message}");
+                }
+            }
+
+            // Resolves sender identity for logging
+            var sender = _users.FirstOrDefault(u => u.UID.ToString() == senderUid.ToString());
+            string displayName = sender?.Username ?? "???";
+            string displayMessage = message.StartsWith("[ENC]") ? "[ENC]" : message;
+            string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+
+            // Localized log output for traceability
+            string localizedLog = LocalizationManager.GetString("MessageReceived") + " " + displayName + ": " + displayMessage;
+            Console.WriteLine($"[SERVER] Incoming message packet:");
+            Console.WriteLine($"         → Sender UID: {senderUid}");
+            Console.WriteLine($"         → Sender Username: {displayName}");
+            Console.WriteLine($"         → Content: {displayMessage}");
+            Console.WriteLine($"[{timestamp}]: {localizedLog}");
+        }
+
+
+        /// <summary>
         /// Distributes the sender's public RSA key to all other connected clients.
         /// Constructs a packet with opcode 6, including the sender's UID and public key in Base64 format.
         /// Ensures the sender does not receive their own key to avoid redundant transmission.
@@ -212,7 +264,7 @@ namespace chat_server
         private static void DisplayBanner()
         {
             Console.WriteLine("╔══════════════════════════════════════════╗");
-            Console.WriteLine("║          WPF Chat Server v1.0            ║");
+            Console.WriteLine("║          WPF chat server v1.0            ║");
             Console.WriteLine("╚══════════════════════════════════════════╝");
             Console.WriteLine(LocalizationManager.GetString("BannerLine1"));
             Console.WriteLine(LocalizationManager.GetString("BannerLine2") + "\n");

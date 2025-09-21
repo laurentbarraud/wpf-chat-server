@@ -210,24 +210,24 @@ namespace chat_client
             return contextMenu;
         }
 
-        private void btnScrollLeft_MouseEnter(object sender, MouseEventArgs e)
+        private void cmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
         {
             scrollDirection = -1;
             scrollTimer.Start();
         }
 
-        private void btnScrollLeft_MouseLeave(object sender, MouseEventArgs e)
+        private void cmdScrollLeft_MouseLeave(object sender, MouseEventArgs e)
         {
             scrollTimer.Stop();
         }
 
-        private void btnScrollRight_MouseEnter(object sender, MouseEventArgs e)
+        private void cmdScrollRight_MouseEnter(object sender, MouseEventArgs e)
         {
             scrollDirection = 1;
             scrollTimer.Start();
         }
 
-        private void btnScrollRight_MouseLeave(object sender, MouseEventArgs e)
+        private void cmdScrollRight_MouseLeave(object sender, MouseEventArgs e)
         {
             scrollTimer.Stop();
         }
@@ -605,10 +605,16 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Handles live updates to the IP address textbox.
+        /// Toggles the visibility of the watermark image based on whether the input field is empty.
+        /// </summary>
         private void txtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
         {
+            // Checks if the textbox is empty or contains only whitespace
             bool textBoxIsEmpty = string.IsNullOrWhiteSpace(txtIPAddress.Text);
 
+            // Shows or hides the watermark image depending on input state
             imgIPAddressWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
         }
 

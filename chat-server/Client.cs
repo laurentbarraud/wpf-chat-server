@@ -60,48 +60,7 @@ namespace chat_server
             _packetReader = new PacketReader(ClientSocket.GetStream());
 
             Console.WriteLine($"[SERVER] Listening for messages from {Username}...");
-        }
-
-        private void BroadcastToOthers(string message)
-        {
-            foreach (var user in Program._users)
-            {
-                if (user.UID == this.UID)
-                    continue;
-
-                try
-                {
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode(5);
-                    packet.WriteMessage(this.UID.ToString());
-                    packet.WriteMessage(message);
-
-                    if (user.ClientSocket.Connected)
-                    {
-                        user.ClientSocket.GetStream().Write(
-                            packet.GetPacketBytes(),
-                            0,
-                            packet.GetPacketBytes().Length
-                        );
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[SERVER] Failed to relay message to {user.Username}: {ex.Message}");
-                }
-            }
-
-            // Logging
-            string displayMessage = message.StartsWith("[ENC]") ? "[ENC]" : message;
-            string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-            string localizedLog = string.Format(LocalizationManager.GetString("MessageReceived"), Username, displayMessage);
-
-            Console.WriteLine($"[SERVER] Incoming message packet:");
-            Console.WriteLine($"         → Sender UID: {UID}");
-            Console.WriteLine($"         → Sender Username: {Username}");
-            Console.WriteLine($"         → Content: {displayMessage}");
-            Console.WriteLine($"[{timestamp}]: {localizedLog}");
-        }
+        }      
 
         /// <summary>
         /// Continuously listens for incoming packets from the connected client.
@@ -131,7 +90,7 @@ namespace chat_server
                             Console.WriteLine($"         → Content: {(messageReceived.StartsWith("[ENC]") ? "[Encrypted]" : messageReceived)}");
 
                             // Broadcasts the message to all other connected clients
-                            BroadcastToOthers(messageReceived);
+                            Program.BroadcastMessageToAll(messageReceived, Guid.Parse(senderUidForMessage));
                             break;
 
                         case 6: // Public key exchange
