@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 21th, 2025</date>
+/// <date>September 22th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -159,72 +159,6 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Broadcasts a chat message to all connected clients except the sender.
-        /// Includes the message content and sender UID.
-        /// Logs the message with timestamp and localization support.
-        /// If the message is encrypted, displays only the [ENC] tag in the server log.
-        /// Ensures that the sender is resolved before broadcasting to avoid null references.
-        /// </summary>
-        /// <param name="message">The message content to broadcast.</param>
-        /// <param name="senderUid">The UID of the sender.</param>
-        public static void BroadcastMessage(string message, Guid senderUid)
-        {
-            // Resolves the sender from the list of users using UID
-            var sender = _users.FirstOrDefault(u => u.UID == senderUid);
-
-            if (sender == null)
-            {
-                Console.WriteLine($"[SERVER] Sender UID not found: {senderUid}");
-                Console.WriteLine($"[SERVER] Known UIDs:");
-                foreach (var u in _users)
-                    Console.WriteLine($"         → {u.UID} ({u.Username})");
-                return;
-            }
-
-            // Formats the message for logging — shows [ENC] if encrypted
-            string displayName = sender.Username;
-            string displayMessage = message.StartsWith("[ENC]") ? "[ENC]" : message;
-            string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-            string localizedLog = string.Format(LocalizationManager.GetString("MessageReceived"), displayName, displayMessage);
-
-            // Unified log output for traceability
-            Console.WriteLine($"[SERVER] Incoming message packet:");
-            Console.WriteLine($"         → Sender UID: {senderUid}");
-            Console.WriteLine($"         → Sender Username: {displayName}");
-            Console.WriteLine($"         → Content: {displayMessage}");
-            Console.WriteLine($"[{timestamp}]: {localizedLog}");
-
-            Console.WriteLine("[SERVER] Verifying user list before broadcast:");
-            foreach (var user in _users)
-            {
-                // Skips the sender to avoid echoing their own message
-                if (user.UID == senderUid)
-                    continue;
-
-                try
-                {
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode(5); // Opcode for public chat message
-                    packet.WriteMessage(senderUid.ToString());  // Sender UID
-                    packet.WriteMessage(message);               // Full message (encrypted or plain)
-
-                    if (user.ClientSocket.Connected)
-                    {
-                        user.ClientSocket.GetStream().Write(
-                            packet.GetPacketBytes(),
-                            0,
-                            packet.GetPacketBytes().Length
-                        );
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[SERVER] Failed to relay message to {user.Username}: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
         /// Distributes the sender's public RSA key to all other connected clients.
         /// Constructs a packet with opcode 6, including the sender's UID and public key in Base64 format.
         /// Ensures the sender does not receive their own key to avoid redundant transmission.
@@ -274,6 +208,7 @@ namespace chat_server
         /// <summary>
         /// Displays the server banner using localized strings.
         /// </summary>
+
         private static void DisplayBanner()
         {
             Console.WriteLine("╔══════════════════════════════════════════╗");
@@ -343,7 +278,31 @@ namespace chat_server
         public static void Shutdown()
         {
             Console.WriteLine(LocalizationManager.GetString("ShutdownStart"));
-            BroadcastMessage("/disconnect", SystemUID); // Special command for client to disconnect
+
+            foreach (var user in _users)
+            {
+                try
+                {
+                    var packet = new PacketBuilder();
+                    packet.WriteOpCode(5); // Public message opcode
+                    packet.WriteMessage(SystemUID.ToString()); // Sender UID (system)
+                    packet.WriteMessage("/disconnect");        // Special disconnect command
+
+                    if (user.ClientSocket.Connected)
+                    {
+                        user.ClientSocket.GetStream().Write(
+                            packet.GetPacketBytes(),
+                            0,
+                            packet.GetPacketBytes().Length
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SERVER] Failed to send shutdown to {user.Username}: {ex.Message}");
+                }
+            }
+
             Console.WriteLine(LocalizationManager.GetString("ShutdownComplete"));
         }
 
