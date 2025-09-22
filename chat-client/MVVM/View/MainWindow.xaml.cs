@@ -384,24 +384,27 @@ namespace chat_client
                 ReduceToTray();
             }
         }
+
         /// <summary>
         /// Handles global key press events to trigger tray reduction behavior
-        /// when "ReduceToTray" mode is enabled via application settings.
-        /// Supports Escape key and double Ctrl press within one second.
+        /// and debug console activation.
+        /// Supports Escape key, double Ctrl press within one second,
+        /// and Ctrl+Alt+D to open the console on demand.
         /// </summary>
         private void MainWindow1_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // Skips tray logic if feature is disabled
             if (!chat_client.Properties.Settings.Default.ReduceToTray)
                 return;
 
-            // Reduce to tray on Escape key
+            // Reduces to tray on Escape key
             if (e.Key == Key.Escape)
             {
                 ReduceToTray();
                 return;
             }
 
-            // Reduce to tray if Ctrl is pressed twice within one second
+            // Reduces to tray if Ctrl is pressed twice within one second
             if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
             {
                 var now = DateTime.Now;

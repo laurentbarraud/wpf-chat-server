@@ -8,18 +8,11 @@ using System.Runtime.InteropServices;
 
 namespace chat_client.Helpers
 {
-    /// <summary>
-    /// Provides access to the system console window for debug output.
-    /// Used to display logs when --debug or -d is specified at startup.
-    /// </summary>
     public static class ConsoleManager
     {
-        [DllImport("kernel32.dll")]
+        [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool AllocConsole();
 
-        /// <summary>
-        /// Shows the system console window and enables standard output.
-        /// </summary>
         public static void Show()
         {
             AllocConsole();
@@ -27,3 +20,4 @@ namespace chat_client.Helpers
         }
     }
 }
+

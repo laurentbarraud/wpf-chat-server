@@ -19,9 +19,6 @@ namespace chat_client
     /// </summary>
     public partial class App : Application
     {
-        [DllImport("kernel32.dll")]
-        private static extern bool AllocConsole();
-
         /// <summary>
         /// Handles application startup sequence.
         /// Creates the main window, applies command-line arguments if present,
