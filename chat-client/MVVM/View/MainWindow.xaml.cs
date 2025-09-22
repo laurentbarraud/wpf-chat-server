@@ -34,25 +34,44 @@ namespace chat_client
     public partial class MainWindow : Window
     {
         public MainViewModel ViewModel { get; set; }
-
-        // Indicates whether the client is currently connected to the server.
-        // Uses null-conditional access to safely evaluate connection state.
+        
+        /// <summary>
+        /// Indicates whether the client is currently connected to the server.
+        /// Uses null-conditional access to safely evaluate connection state. 
+        /// </summary>
         public bool IsConnected => ViewModel?.Server != null && ViewModel.Server.IsConnected;
 
-        // Stores the timestamp of the last Ctrl key press.
-        // Used for detecting double-press or timing-based shortcuts.
+        /// <summary>
+        /// Stores the timestamp of the last Ctrl key press.
+        /// Used for detecting double-press or timing-based shortcuts.
+        /// </summary>
         private DateTime lastCtrlPress = DateTime.MinValue;
 
-        // Tray icon variables
+        /// <summary>
+        /// Tray icon variables
+        /// </summary>
         private TaskbarIcon trayIcon;
 
-        // Scoll variables
+        /// <summary>
+        /// Scoll variables
+        /// </summary>
         private DispatcherTimer scrollTimer;
         private int scrollDirection = 0; // -1 = left, 1 = right
 
-        // Popup variables
+        /// <summary>
+        /// Popup variables
+        /// </summary>
         private bool isEmojiPanelOpen = false;
 
+        /// <summary>
+        /// Indicates whether the window is still initializing.
+        /// Prevents toggle event handlers from applying changes during startup.
+        /// </summary>
+        private bool IsInitializing = true;
+
+        /// <summary>
+        /// Height of the emoji panel
+        /// </summary>
         public double EmojiPanelHeight => 30;
 
         /// <summary>
@@ -129,14 +148,16 @@ namespace chat_client
                 LocalizationManager.UpdateLocalizedUI();
             }
 
-            // Synchronizes the theme toggle with the current setting
-            ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme == "Dark";
+            // Synchronizes theme toggle with saved preference
+            ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme?.ToLower() == "dark";
 
             // Applies watermark visuals on startup
             ApplyWatermarkImages();
 
             // Sets focus to the username input field
             txtUsername.Focus();
+
+            IsInitializing = false;
         }
 
         /// <summary>
@@ -472,6 +493,8 @@ namespace chat_client
 
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
+            if (IsInitializing) return;
+
             // Save user preference
             Properties.Settings.Default.AppTheme = "Dark";
             Properties.Settings.Default.Save();
@@ -485,6 +508,8 @@ namespace chat_client
 
         private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
         {
+            if (IsInitializing) return;
+
             // Save user preference
             Properties.Settings.Default.AppTheme = "Light";
             Properties.Settings.Default.Save();

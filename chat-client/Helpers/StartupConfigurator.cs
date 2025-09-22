@@ -6,31 +6,18 @@
 using System;
 using System.Linq;
 using System.Windows;
+using System.Globalization;
 
 namespace chat_client.Helpers
 {
     /// <summary>
     /// Parses and applies command-line startup arguments to configure the chat client.
-    /// Supports flexible aliases and applies settings for username, encryption, theme, language, port, tray behavior, and debug console.
-    /// Automatically connects to localhost if username is provided.
-    /// Designed for multi-client initialization and automated launch scenarios.
+    /// Updates application settings when arguments are provided.
+    /// Supports flexible aliases for username, encryption, theme, language, port, tray behavior, and debug console.
+    /// Automatically connects to localhost if username is specified.
     /// </summary>
     public static class StartupConfigurator
     {
-        /// <summary>
-        /// Applies command-line arguments to initialize the client state.
-        /// Supported flags:
-        /// --username / -u / /username / -user / /user
-        /// --port / -p / /port
-        /// --theme / -t / /theme / --dark / /dark / --light / /light
-        /// --language / -l / /language / --lang / /lang
-        /// --encrypted / -e / /encrypted / /e
-        /// --reduceInTray / -r / /reduceInTray / --reduce / /reduce
-        /// --debug / -d / /debug
-        /// --help / -h / -? / /help / /h / /?
-        /// --about / /about // To-do: shows the About this software window
-        /// </summary>
-        /// <param name="args">Array of command-line arguments passed at startup.</param>
         public static void ApplyStartupArguments(string[] args)
         {
             if (args == null || args.Length == 0)
@@ -46,7 +33,6 @@ namespace chat_client.Helpers
             bool showHelp = false;
             bool showAbout = false;
 
-            // Parses all supported flags and their values
             for (int i = 0; i < args.Length; i++)
             {
                 string arg = args[i].ToLower();
@@ -143,7 +129,6 @@ namespace chat_client.Helpers
                 }
             }
 
-            // Displays help and exits
             if (showHelp)
             {
                 Console.WriteLine("Chat Client Command-Line Options:");
@@ -159,16 +144,15 @@ namespace chat_client.Helpers
                 return;
             }
 
-            // To-do: shows the About this software window
             if (showAbout)
             {
-                Console.WriteLine("[Startup] About window requested. Feature not yet implemented.");
+                Console.WriteLine("[Startup] About window requested. Feature will be implemented in Bloc 4.");
             }
 
             var mainWindow = Application.Current.MainWindow as MainWindow;
             var viewModel = mainWindow?.ViewModel;
 
-            // Enables encryption if requested
+            // Applies encryption and updates setting
             if (enableEncryption && viewModel != null)
             {
                 Properties.Settings.Default.UseEncryption = true;
@@ -176,31 +160,34 @@ namespace chat_client.Helpers
                 Console.WriteLine("[Startup] Encryption enabled.");
             }
 
-            // Applies theme (dark = true, light = false)
+            // Applies theme and updates setting
             if (!string.IsNullOrEmpty(theme))
             {
                 bool isDark = theme.ToLower() == "dark";
                 ThemeManager.ApplyTheme(isDark);
+                Properties.Settings.Default.AppTheme = isDark ? "Dark" : "Light";
                 Console.WriteLine($"[Startup] Theme applied: {(isDark ? "dark" : "light")}");
             }
 
-            // Applies language if supported
+            // Applies language and updates setting
             if (!string.IsNullOrEmpty(language))
             {
                 var supportedLanguages = new[] { "en", "fr" };
                 if (supportedLanguages.Contains(language.ToLower()))
                 {
                     LocalizationManager.Initialize(language);
+                    Properties.Settings.Default.AppLanguage = language;
                     Console.WriteLine($"[Startup] Language set: {language}");
                 }
                 else
                 {
                     Console.WriteLine($"[Startup] Unsupported language: {language}. Defaulting to 'en'.");
                     LocalizationManager.Initialize("en");
+                    Properties.Settings.Default.AppLanguage = "en";
                 }
             }
 
-            // Applies reduce to tray setting
+            // Applies tray behavior
             if (reduceInTray)
             {
                 Properties.Settings.Default.ReduceToTray = true;
@@ -210,7 +197,7 @@ namespace chat_client.Helpers
             // Shows debug console if requested
             if (debugMode)
             {
-                ConsoleManager.Show(); // Requires ConsoleManager helper
+                ConsoleManager.Show();
                 Console.WriteLine("[Startup] Debug console shown.");
             }
 
