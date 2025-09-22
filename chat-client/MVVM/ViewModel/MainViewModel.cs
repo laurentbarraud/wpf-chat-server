@@ -321,7 +321,7 @@ namespace chat_client.MVVM.ViewModel
                 // Activates encryption if enabled in application settings
                 if (Properties.Settings.Default.UseEncryption)
                 {
-                    InitializeEncryptionIfEnabled();
+                    InitializeEncryption();
                 }
 
                 // Updates UI to reflect connected state and unlocks chat features
@@ -405,38 +405,6 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Formats an incoming encrypted message with the sender's display name.
-        /// Extracts the encrypted payload, attempts decryption, and returns a formatted string.
-        /// If decryption fails, returns a localized placeholder message.
-        /// </summary>
-        private string FormatEncryptedMessage(string rawMessage, string displayName)
-        {
-            try
-            {
-                // Extracts the encrypted payload after the [ENC] marker
-                int markerIndex = rawMessage.IndexOf("[ENC]");
-                string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
-
-                // Sanitizes the payload to remove invisible or invalid characters
-                encryptedPayload = encryptedPayload
-                    .Replace("\0", "")
-                    .Replace("\r", "")
-                    .Replace("\n", "");
-
-                // Attempts decryption using the local private key
-                string decryptedContent = TryDecryptMessage(encryptedPayload);
-
-                // Returns the formatted decrypted message
-                return $"{displayName}: {decryptedContent}";
-            }
-            catch
-            {
-                // Returns a placeholder if decryption fails
-                return $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")}";
-            }
-        }
-
-        /// <summary>
         /// Returns the current port number stored in application settings.
         /// </summary>
         public static int GetCurrentPort()
@@ -460,100 +428,89 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Initializes RSA encryption for the current session if enabled and all prerequisites are satisfied.
-        /// - Generates a new 2048-bit RSA key pair
-        /// - Encodes both keys in Base64 and stores them in the local user model
-        /// - Injects the private key into the decryption helper
-        /// - Sends the public key to the server for distribution
-        /// - Registers the local public key in KnownPublicKeys for readiness evaluation
-        /// - Triggers encryption state evaluation and updates the UI icon
-        /// Includes detailed logging for debugging and traceability.
-        /// Designed to be idempotent and fail-safe: skips initialization if already done or prerequisites are missing.
+        /// Initializes RSA encryption for the current session.
+        /// This method is idempotent and can be called multiple times safely.
+        /// It generates a new 2048-bit RSA key pair, stores it in the local user,
+        /// injects the private key into the decryption helper, sends the public key to the server,
+        /// registers it locally, and updates the encryption status.
+        /// Returns true if initialization succeeds, false otherwise.
         /// </summary>
-        /// <returns>True if encryption was successfully initialized and the key was sent; false otherwise.</returns>
-        public bool InitializeEncryptionIfEnabled()
+        public bool InitializeEncryption()
         {
-            // Prevents redundant initialization if the local user is undefined or already has a public key
-            if (LocalUser == null || !string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
+            // Skips encryption initialization if LocalUser is not yet defined
+            // or if encryption is already active for the current session.
+            // This ensures the method remains idempotent and avoids redundant key generation.
+            if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
-                Console.WriteLine("[DEBUG] Encryption initialization skipped — LocalUser is null or already initialized.");
+                Console.WriteLine("[DEBUG] Encryption initialization skipped — LocalUser is null or encryption already active.");
                 return false;
             }
 
             try
             {
-                // Generates a new RSA key pair with 2048-bit security
+                // Generates RSA key pair (2048-bit)
                 using var rsa = new RSACryptoServiceProvider(2048);
-
-                // Extracts the public key (XML format, no private parameters)
                 string publicKeyXml = rsa.ToXmlString(false);
-
-                // Extracts the private key (XML format, includes private parameters)
                 string privateKeyXml = rsa.ToXmlString(true);
 
-                // Encodes both keys in Base64 for safe transport and storage
+                // Encodes keys in Base64
                 string publicKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicKeyXml));
                 string privateKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(privateKeyXml));
 
-                // Stores the keys in the local user model for later use
+                // Stores keys in LocalUser
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
-
                 Console.WriteLine($"[DEBUG] RSA key pair generated — UID: {LocalUser.UID}");
 
-                // Injects the private key into the helper class for decryption support
+                // Injects private key into decryption helper
                 EncryptionHelper.SetPrivateKey(privateKeyBase64);
                 Console.WriteLine("[DEBUG] Private key injected into EncryptionHelper.");
 
-                // Sends the public key to the server for distribution to other clients
+                // Sends public key to server
                 bool sent = Server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
                 if (!sent)
                 {
-                    // Displays a localized error message to the user
                     MessageBox.Show(
                         LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
 
-                    // Rolls back encryption setting to prevent inconsistent state
+                    // Rollback encryption setting
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
-
                     Console.WriteLine("[ERROR] Failed to send public key to server — encryption disabled.");
                     return false;
                 }
 
-                // Marks encryption as active in persistent settings
+                // Marks encryption as active
                 Properties.Settings.Default.UseEncryption = true;
                 Properties.Settings.Default.Save();
                 Console.WriteLine("[DEBUG] Encryption enabled in settings.");
 
-                // Registers the local public key in KnownPublicKeys for readiness checks
-                if (!string.IsNullOrEmpty(LocalUser.UID) && !string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
+                // Registers public key locally
+                if (!string.IsNullOrEmpty(LocalUser.UID))
                 {
-                    KnownPublicKeys[LocalUser.UID] = LocalUser.PublicKeyBase64;
-                    Console.WriteLine($"[DEBUG] Local public key registered in KnownPublicKeys — UID: {LocalUser.UID}");
+                    KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
+                    Console.WriteLine($"[DEBUG] Local public key registered — UID: {LocalUser.UID}");
                 }
 
-                // Evaluates encryption readiness and updates the lock icon
+                // Evaluates encryption state and update UI
                 EvaluateEncryptionState();
                 (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
-
                 Console.WriteLine($"[DEBUG] Encryption initialization complete — Ready: {IsEncryptionReady}");
+
                 return true;
             }
             catch (Exception ex)
             {
-                // Rolls back encryption setting on failure
+                // Rollbacks on failure
                 Properties.Settings.Default.UseEncryption = false;
                 Properties.Settings.Default.Save();
-
                 Console.WriteLine($"[ERROR] Exception during encryption initialization: {ex.Message}");
                 return false;
             }
         }
-
 
         /// <summary>
         /// Handles incoming messages from the server.
@@ -578,11 +535,11 @@ namespace chat_client.MVVM.ViewModel
                 Users.FirstOrDefault(u => u.UID == senderUID)?.Username ??
                 (LocalUser?.UID == senderUID ? LocalUser.Username : senderUID);
 
+            string finalMessage;
+
             // Checks if the message is encrypted
             if (rawMessage.Contains("[ENC]"))
             {
-                string decryptedContent = string.Empty;
-
                 try
                 {
                     // Extracts encrypted payload after the [ENC] marker
@@ -596,26 +553,23 @@ namespace chat_client.MVVM.ViewModel
                         .Replace("\n", "");
 
                     // Attempts to decrypt using the local private key
-                    decryptedContent = TryDecryptMessage(encryptedPayload);
+                    string decryptedContent = TryDecryptMessage(encryptedPayload);
 
-                    // Formats and displays the decrypted message
-                    string finalMessage = FormatEncryptedMessage(decryptedContent, displayName);
-
-                    Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
+                    // Formats the decrypted message
+                    finalMessage = $"{displayName}: {decryptedContent}";
                 }
                 catch (Exception ex)
                 {
-                    // Displays a system message indicating decryption failure
-                    string errorMessage = "# - " + LocalizationManager.GetString("DecryptionFailed") + ": " + ex.Message + " #";
-                    Application.Current.Dispatcher.Invoke(() => Messages.Add(errorMessage));
+                    finalMessage = $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")} ({ex.Message})";
                 }
             }
             else
             {
-                // Displays plain message with sender name
-                string finalMessage = $"{displayName}: {rawMessage}";
-                Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
+                // Plain message
+                finalMessage = $"{displayName}: {rawMessage}";
             }
+
+            Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
         }
 
         /// <summary>
@@ -770,18 +724,35 @@ namespace chat_client.MVVM.ViewModel
         /// Returns the decrypted plain text if successful; otherwise, returns a localized fallback string.
         /// Designed to ensure graceful failure handling and UI feedback.
         /// </summary>
-        public string TryDecryptMessage(string encryptedPayload)
+        public static string TryDecryptMessage(string encryptedPayload)
         {
+            // Logs the initial decryption attempt
+            Console.WriteLine("[DEBUG] TryDecryptMessage called.");
+
             // Validates encryption state and key readiness
-            if (!chat_client.Properties.Settings.Default.UseEncryption ||
-                string.IsNullOrEmpty(encryptedPayload) ||
-                !EncryptionHelper.IsPrivateKeyValid())
+            if (!chat_client.Properties.Settings.Default.UseEncryption)
             {
+                Console.WriteLine("[WARN] Encryption is disabled in application settings.");
+                return LocalizationManager.GetString("DecryptionFailed");
+            }
+
+            if (string.IsNullOrEmpty(encryptedPayload))
+            {
+                Console.WriteLine("[WARN] Encrypted payload is null or empty.");
+                return LocalizationManager.GetString("DecryptionFailed");
+            }
+
+            if (!EncryptionHelper.IsPrivateKeyValid())
+            {
+                Console.WriteLine("[WARN] RSA private key is not valid or not initialized.");
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
             try
             {
+                // Logs the raw payload before sanitization
+                Console.WriteLine($"[DEBUG] Raw encrypted payload: {encryptedPayload}");
+
                 // Sanitizes the payload to remove invisible or invalid characters
                 string sanitizedPayload = encryptedPayload
                     .Replace("\0", "")
@@ -789,21 +760,19 @@ namespace chat_client.MVVM.ViewModel
                     .Replace("\n", "")
                     .Trim();
 
+                Console.WriteLine($"[DEBUG] Sanitized encrypted payload: {sanitizedPayload}");
+
                 // Attempts decryption using the helper
                 string decrypted = EncryptionHelper.DecryptMessage(sanitizedPayload);
+
+                // Logs the decrypted result
+                Console.WriteLine($"[DEBUG] Decryption successful. Decrypted message: {decrypted}");
+
                 return decrypted;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] Decryption failed: {ex.Message}");
-
-                // Displays a banner to inform the user
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    var mainWindow = Application.Current.MainWindow as MainWindow;
-                    mainWindow?.ShowBanner("DecryptionFailed", showIcon: true);
-                });
-
+                Console.WriteLine($"[ERROR] Exception during decryption: {ex.Message}");
                 return LocalizationManager.GetString("DecryptionFailed");
             }
         }

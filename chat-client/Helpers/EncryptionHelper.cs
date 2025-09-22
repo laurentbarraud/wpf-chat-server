@@ -26,9 +26,16 @@ namespace chat_client.Helpers
     /// <summary>
     /// Provides RSA-based end-to-end encryption utilities for secure message exchange.
     /// This static helper encapsulates key generation, encryption, and decryption logic.
-    ///</summary>
+    /// It maintains encryption state and ensures safe cryptographic operations throughout the session.
+    /// </summary>
     public static class EncryptionHelper
     {
+        /// <summary>
+        /// Indicates whether encryption is currently active.
+        /// This flag is updated when the private key is set or cleared.
+        /// </summary>
+        public static bool IsEncryptionActive { get; private set; } = false;
+
         // RSA key pair used for asymmetric encryption.
         // Only the public key is shared externally; the private key remains local for decryption.
         private static RSAParameters publicKey;
@@ -65,6 +72,8 @@ namespace chat_client.Helpers
                 DQ = null,
                 InverseQ = null
             };
+
+            IsEncryptionActive = false;
 
             // Logs the reset for debugging purposes
             Debug.WriteLine("[INFO] RSA private key cleared from EncryptionHelper.");
@@ -197,6 +206,8 @@ namespace chat_client.Helpers
 
             // Export the parsed key as RSAParameters and store it in the static field
             privateKey = rsa.ExportParameters(true);
+
+            IsEncryptionActive = true;
         }
     }
 }

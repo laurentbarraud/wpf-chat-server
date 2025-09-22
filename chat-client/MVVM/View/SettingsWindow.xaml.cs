@@ -214,22 +214,23 @@ namespace chat_client.MVVM.View
 
             if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
-                bool success = viewModel.InitializeEncryptionIfEnabled();
+                bool encryptionInitialized = viewModel.InitializeEncryption();
 
-                if (!success)
+                if (!encryptionInitialized)
                 {
                     // Rollbacks toggle immediately — preference will not be saved
                     UseEncryptionToggle.IsChecked = false;
-                    return;
                 }
+                else
+                {
+                    // Forces UI update of encryption icon
+                    mainWindow?.UpdateEncryptionStatusIcon(viewModel.IsEncryptionReady);
 
-                // Forces UI update of encryption icon
-                mainWindow?.UpdateEncryptionStatusIcon(viewModel.IsEncryptionReady);
+                    // Saves the encryption preference after successful initialization
+                    Properties.Settings.Default.UseEncryption = true;
+                    Properties.Settings.Default.Save();
+                }
             }
-
-            // Saves the encryption preference after successful initialization
-            Properties.Settings.Default.UseEncryption = true;
-            Properties.Settings.Default.Save();
         }
 
         /// <summary>
@@ -249,9 +250,17 @@ namespace chat_client.MVVM.View
             if (viewModel != null)
             {
                 viewModel.IsEncryptionReady = false;
-                viewModel.LocalUser.PublicKeyBase64 = null;
-                viewModel.LocalUser.PrivateKeyBase64 = null;
-                EncryptionHelper.ClearPrivateKey();
+
+                // Clears keys only if LocalUser is initialized and keys are present
+                if (viewModel.LocalUser != null &&
+                    (!string.IsNullOrEmpty(viewModel.LocalUser.PublicKeyBase64) ||
+                     !string.IsNullOrEmpty(viewModel.LocalUser.PrivateKeyBase64)))
+                {
+                    viewModel.LocalUser.PublicKeyBase64 = null;
+                    viewModel.LocalUser.PrivateKeyBase64 = null;
+                    EncryptionHelper.ClearPrivateKey();
+                }
+
                 viewModel.EvaluateEncryptionState();
             }
         }

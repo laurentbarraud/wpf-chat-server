@@ -284,7 +284,8 @@ namespace chat_client
 
         /// <summary>
         /// Calculates a custom placement for the emoji popup so that it appears
-        /// directly above the target control (in this case, the message input field).
+        /// directly above the target control (in this 
+        /// , the message input field).
         /// This ensures precise vertical positioning regardless of layout or control size.
         /// </summary>
         /// <param name="popupSize">The measured size of the popup content.</param>
@@ -453,28 +454,6 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Displays a floating status banner with optional icon and localized text.
-        /// Uses slide-in and fade-out animation, and auto-hides after 3 seconds.
-        /// </summary>
-        public void ShowBanner(string localizationKey, bool showIcon = false)
-        {
-            popupText.Text = LocalizationManager.GetString(localizationKey);
-            popupIcon.Visibility = showIcon ? Visibility.Visible : Visibility.Collapsed;
-
-            popupBannerPopup.IsOpen = true;
-
-            var showStoryboard = (Storyboard)FindResource("ShowPopupBannerStoryboard");
-            showStoryboard.Begin();
-
-            var hideStoryboard = (Storyboard)FindResource("HidePopupBannerStoryboard");
-            hideStoryboard.Completed += (s, e) =>
-            {
-                popupBannerPopup.IsOpen = false;
-            };
-            hideStoryboard.Begin();
-        }
-
-        /// <summary>
         /// Handles continuous scrolling of the emoji panel when arrow buttons are hovered.
         /// </summary>
         private void ScrollTimer_Tick(object sender, EventArgs e)
@@ -634,7 +613,7 @@ namespace chat_client
         /// Displays the gray icon during key exchange or synchronization phase.
         /// Switches to colored icon once encryption is fully ready.
         /// Tooltip reflects current state: sending key, syncing, or ready.
-        /// Triggers pulse animation and banner only when encryption becomes fully active.
+        /// Triggers Ultra Zoom animation only when encryption becomes fully active.
         /// Designed to support real-time feedback in multi-client encrypted chat.
         /// </summary>
         /// <param name="isReady">True if encryption is fully ready (all keys synchronized).</param>
@@ -645,7 +624,7 @@ namespace chat_client
             if (viewModel == null)
                 return;
 
-            // If encryption is disabled in settings, hide the icon entirely
+            // Hide the icon entirely if encryption is disabled in settings
             if (!chat_client.Properties.Settings.Default.UseEncryption)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
@@ -653,15 +632,15 @@ namespace chat_client
                 return;
             }
 
-            // Always show the icon if encryption is enabled
+            // Ensure the icon is visible if encryption is enabled
             imgEncryptionStatus.Visibility = Visibility.Visible;
 
             if (!isReady)
             {
-                // Shows gray icon during key exchange or sync phase
+                // Display gray lock icon during key exchange or synchronization phase
                 imgEncryptionStatus.Source = new BitmapImage(new Uri("/Resources/encrypted-disabled.png", UriKind.Relative));
 
-                // Tooltip reflects current sync state
+                // Set tooltip based on current sync state
                 string tooltipKey = isSyncing ? "GettingMissingKeys" : "SendingPublicKey";
                 imgEncryptionStatus.ToolTip = LocalizationManager.GetString(tooltipKey);
 
@@ -669,18 +648,15 @@ namespace chat_client
                 return;
             }
 
-            // Shows colored icon when encryption is fully ready
+            // Display colored lock icon when encryption is fully ready
             imgEncryptionStatus.Source = new BitmapImage(new Uri("/Resources/encrypted.png", UriKind.Relative));
             imgEncryptionStatus.ToolTip = LocalizationManager.GetString("EncryptionEnabled");
+            imgEncryptionStatus.Visibility = Visibility.Visible;
 
-            Console.WriteLine("[DEBUG] Lock icon updated — colored");
+            var zoom = (Storyboard)FindResource("StarWarsLockDrop");
+            zoom.Begin();
 
-            // Triggers pulse animation and banner only when encryption becomes ready
-            var storyboard = (Storyboard)FindResource("EncryptionPulseAnimation");
-            storyboard.Begin();
-
-            ShowBanner("EncryptionEnabled", showIcon: true);
-            Console.WriteLine("[DEBUG] Pulse animation triggered — encryption is ready.");
+            Console.WriteLine("[DEBUG] Lock icon updated.");
         }
     }
 }

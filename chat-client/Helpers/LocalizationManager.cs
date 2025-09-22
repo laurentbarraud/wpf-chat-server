@@ -117,13 +117,14 @@ namespace chat_client.Helpers
                     
                     // Updates tray menu labels
                     if (mainWindow.TrayMenuOpen != null)
+                    {
                         mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
+                    }
 
                     if (mainWindow.TrayMenuQuit != null)
+                    {
                         mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
-
-                    // Updates encryption banner text
-                    mainWindow.popupText.Text = GetString("EncryptionEnabled");
+                    }
                 }
             }
         }
