@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 22th, 2025</date>
+/// <date>September 23th, 2025</date>
 
 using chat_client.MVVM.View;
 using chat_client.Net;
@@ -28,24 +28,13 @@ namespace chat_client.Helpers
 
         public static CultureInfo CurrentCulture { get; private set; }
 
-        /// <summary>
-        /// Initializes the localization system with the specified language code.
-        /// </summary>
-        /// <param name="languageCode">A valid language code ("en" or "fr").</param>
-        public static void Initialize(string languageCode)
+        public static string GetFormattedString(string key)
         {
-            CurrentCulture = new CultureInfo(languageCode);
-
-            // Force thread culture
-            Thread.CurrentThread.CurrentUICulture = CurrentCulture;
-            CultureInfo.DefaultThreadCurrentUICulture = CurrentCulture;
-
-            _ResourceManager = new ResourceManager("chat_client.Resources.Strings", typeof(LocalizationManager).Assembly);
-
-
-            // Force UI refresh
-            UpdateLocalizedUI();
+            var raw = GetString(key);
+            return raw?.Replace("\\n", "\n").Replace("\\t", "\t") ?? $"[[{key}]]";
         }
+
+
         /// <summary>
         /// Retrieves a localized string from the resource file using the specified key.
         /// Returns the key itself if the resource manager is not initialized,
@@ -83,6 +72,25 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
+        /// Initializes the localization system with the specified language code.
+        /// </summary>
+        /// <param name="languageCode">A valid language code ("en" or "fr").</param>
+        public static void Initialize(string languageCode)
+        {
+            CurrentCulture = new CultureInfo(languageCode);
+
+            // Force thread culture
+            Thread.CurrentThread.CurrentUICulture = CurrentCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = CurrentCulture;
+
+            _ResourceManager = new ResourceManager("chat_client.Resources.Strings", typeof(LocalizationManager).Assembly);
+
+
+            // Force UI refresh
+            UpdateLocalizedUI();
+        }
+
+        /// <summary>
         /// Applies localized strings to UI elements across all open windows.
         /// This method updates labels and buttons based on the current language setting.
         /// </summary>
@@ -97,7 +105,7 @@ namespace chat_client.Helpers
                     settings.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
                     settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
                     settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
-                    settings.lblAbout.Content = GetString("About");
+                    settings.AboutTextBlock.Text = GetString("About");
                 }
                 else if (window is MainWindow mainWindow)
                 {

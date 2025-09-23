@@ -10,13 +10,24 @@
                 <ResourceDictionary Source="Themes/LightTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Global tray icon declaration --> 
+            <!-- Global tray icon declaration -->
             <tb:TaskbarIcon x:Key="TrayIcon"
                             IconSource="/Resources/calc-icon.ico"
                             ToolTipText="Windows Calculator"
                             MenuActivation="RightClick"
                             TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick"
                             Visibility="Collapsed" />
+
+            <!-- Interactive textblock style -->
+            <Style x:Key="InteractiveTextBlockStyle" TargetType="TextBlock">
+                <Setter Property="Cursor" Value="Arrow" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                        <Setter Property="Cursor" Value="Hand" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

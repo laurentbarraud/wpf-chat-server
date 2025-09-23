@@ -178,13 +178,13 @@
     <value>The IP address is incorrect. Leave it blank to connect locally.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value>v1.0, sept. 2025 — by Laurent Barraud.</value>
+    <value> v1.0 - sept. 2025 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo1" xml:space="preserve">
-    <value>This software is for education purposes only and is provided "as is", without any kind of warranty.</value>
+    <value>This software is for education purposes only and is provided "as is",\nwithout any kind of warranty.</value>
   </data>
   <data name="LicenceInfo2" xml:space="preserve">
-    <value>In no event shall the author be liable for any indirect, incidental or consequential damages, including loss of data, lost profits, or business interruption with the use of this software.</value>
+    <value>In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits, or business interruption\nwith the use of this software.</value>
   </data>
   <data name="LicenceInfoResources" xml:space="preserve">
     <value>Button images inspired by resources available on Flaticon.com.</value>
@@ -258,5 +258,8 @@ All command-line arguments support both Windows-style notation
 Example:
   chat-client.exe --dark /e /r /u Laurent
   </value>
-</data>
+  </data>
+  <data name="CommandLineArguments" xml:space="preserve">
+    <value>Command-line arguments</value>
+  </data>
 </root>

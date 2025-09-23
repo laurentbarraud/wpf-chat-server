@@ -1,12 +1,13 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 22th, 2025</date>
+/// <date>September 23th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
 using chat_client.Net.IO;
+using chat_client.View;
 using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.Generic;
@@ -89,20 +90,19 @@ namespace chat_client.MVVM.View
             }
         }
 
+        /// <summary>
+        /// Handles mouse click on the About label.
+        /// Opens the AboutWindow as a modal dialog, blocking interaction with the main window until closed.
+        /// Ensures the AboutWindow is properly owned by the main application window for focus and stacking.
+        /// </summary>
         private void AboutLabel_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            MessageBox.Show(
-            LocalizationManager.GetString("LicenceInfo1") + "\n" +
-            LocalizationManager.GetString("LicenceInfo2") + "\n" +
-            LocalizationManager.GetString("LicenceInfoResources") + "\n\n" +
-            LocalizationManager.GetString("LicenceFinal"),
-            LocalizationManager.GetString("About"),
-            MessageBoxButton.OK,
-            MessageBoxImage.Information
-            );
+            var aboutWindow = new AboutWindow();
+            aboutWindow.Owner = Application.Current.MainWindow;
+            aboutWindow.ShowDialog();
         }
 
-        private void btnValidate_Click(object sender, RoutedEventArgs e)
+        private void cmdValidate_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }

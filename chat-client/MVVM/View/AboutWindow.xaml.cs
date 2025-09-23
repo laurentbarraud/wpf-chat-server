@@ -1,4 +1,9 @@
-﻿using System;
+﻿/// <file>AboutWindow.cs</file>
+/// <author>Laurent Barraud</author>
+/// <version>1.0</version>
+/// <date>September 23th, 2025</date>
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,14 +30,21 @@ namespace chat_client.View
             InitializeComponent();
         }
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            this.Title = LocalizationManager.GetString("About");
+            LicenceFinalText.Text = LocalizationManager.GetFormattedString("LicenceFinal");
+            LicenceInfo1Text.Text = LocalizationManager.GetFormattedString("LicenceInfo1");
+            LicenceInfo2Text.Text = LocalizationManager.GetFormattedString("LicenceInfo2");
+            CliTextBlock.Text = LocalizationManager.GetFormattedString("CommandLineArguments");
+        }
+
         /// <summary>
-        /// Handles click on the CLI arguments hyperlink and displays the help MessageBox.
+        /// Handles click on the CLI arguments textblock and displays the help MessageBox.
         /// </summary>
-        private void CliHyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        private void CliTextBlock_MouseDown(object sender, MouseButtonEventArgs e)
         {
             ShowCliHelp();
-            e.Handled = true; // Stop automatic navigation: essential if the link
-                              // must act as a button without opening a browser.
         }
 
         /// <summary>
