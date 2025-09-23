@@ -234,4 +234,29 @@
   <data name="ScrollRight" xml:space="preserve">
     <value>Faire défiler à droite</value>
   </data>
+  <data name="CliHelpTitle" xml:space="preserve">
+    <value>Aide en ligne de commande</value>
+  </data>
+  <data name="CliHelpText" xml:space="preserve">
+    <value>Arguments de ligne de commande :
+
+  --about             Ouvre la fenêtre À propos
+  --debug, -d         Ouvre la console de débogage au démarrage
+  --username, -u      Définit le nom d’utilisateur et connecte à localhost
+  --port, -p          Définit le port du serveur (défaut : 7123)
+  --theme, -t         Définit le thème (clair ou sombre)
+  --dark              Raccourci pour le thème sombre
+  --light             Raccourci pour le thème clair
+  --language, -l      Définit la langue de l’interface (en ou fr)
+  --encrypted, -e     Active le chiffrement des messages
+  --reduceInTray, -r  Réduit dans la barre d’état au démarrage
+  --help, -h, -?      Affiche ce message d’aide
+
+Tous les arguments de la ligne de commande prennent en charge la notation de style Windows 
+(/debug) et la notation de style Unix (--debug ou -d).
+
+Exemple :
+  chat-client.exe --dark /e /r /u Laurent
+</value>
+  </data>
 </root>

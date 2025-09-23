@@ -1,0 +1,92 @@
+﻿<Window x:Class="chat_client.View.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About"
+        Width="640" Height="420"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="Transparent" WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <!-- Background gradient: bright white to desaturated blue to near-black -->
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FFFFFF" Offset="0"/>
+                <!-- Top-left: bright white -->
+                <GradientStop Color="#B0B8C4" Offset="0.4"/>
+                <!-- Center: desaturated light blue -->
+                <GradientStop Color="#10141C" Offset="1"/>
+                <!-- Bottom-right: near-black blue -->
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <!-- Top content area -->
+        <Grid Margin="0,0,0,60">
+            <!-- Wireframe overlay docked to bottom -->
+            <Image Source="/Resources/AboutWireframeOverlay.png"
+           Width="550" Height="360"
+           Opacity="0.7"
+           Stretch="Uniform"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Bottom"
+           Margin="0,0,0,-30"/>
+
+            <!-- Title -->
+            <TextBlock Text="WPF Chat Client"
+               FontSize="43"
+               FontWeight="Bold"
+               Foreground="Black"
+               Margin="20,30,0,0"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Top"/>
+
+            <!-- Version label -->
+            <TextBlock Text="Version 1.0 – September 2025 – by Laurent Barraud"
+               FontSize="12"
+               Foreground="Black"
+               Margin="20,90,0,0"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Top"/>
+        </Grid>
+
+        <!-- Bottom panel -->
+        <DockPanel VerticalAlignment="Bottom"
+                   Height="60"
+                   Background="#000000"
+                   LastChildFill="False">
+
+            <!-- Link -->
+            <TextBlock x:Name="CliLink" 
+                       DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       FontSize="14"
+                       Foreground="White"
+                       Margin="20,0,0,0">
+            <Hyperlink x:Name="CliHyperlink"
+                       NavigateUri="#"
+                       TextDecorations="{x:Null}"
+                       Foreground="White"
+                       RequestNavigate="CliHyperlink_RequestNavigate">
+                Command-line arguments
+            </Hyperlink>
+            </TextBlock>
+
+            <!-- Spacer -->
+            <DockPanel DockPanel.Dock="Left" Width="Auto"/>
+
+            <!-- OK button -->
+            <Button x:Name="cmdOk"
+                    Content="OK"
+                    Width="90"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="0,0,20,0"
+                    Click="cmdOk_Click"
+                    DockPanel.Dock="Right"
+                    IsDefault="True"
+                    IsCancel="True" />
+        </DockPanel>
+    </Grid>
+</Window>
+
+

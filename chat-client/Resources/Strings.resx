@@ -234,4 +234,10 @@
   <data name="ScrollRight" xml:space="preserve">
     <value>Scroll right</value>
   </data>
+  <data name="CliHelpTitle" xml:space="preserve">
+    <value>Command Line Help</value>
+  </data>
+  <data name="CliHelpText" xml:space="preserve">
+    <value>Command Line Arguments:\n\n --about \tOpens the About window\n --debug \tOpens debug console at startup\n --theme light \tForces light theme\n --theme dark \tForces dark theme\n --minimized \tStarts minimized in tray\n --connect &lt;user&gt; \tAuto-connect with specified username\n\nExample:\nchat-client.exe --theme dark --connect Laurent</value>
+  </data>
 </root>

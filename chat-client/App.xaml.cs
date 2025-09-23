@@ -19,55 +19,49 @@ namespace chat_client
     /// </summary>
     public partial class App : Application
     {
-        /// <summary>
-        /// Handles application startup sequence.
-        /// Creates the main window, applies command-line arguments if present,
-        /// and falls back to saved preferences otherwise.
-        /// Ensures global culture is set before rendering UI.
-        /// </summary>
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // Creates and registers the main window before applying arguments
-            var mainWindow = new MainWindow();
-            Application.Current.MainWindow = mainWindow;
-
             // Extracts command-line arguments (excluding executable path)
             string[] args = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
+            // Determines language from arguments or saved settings
+            string language = Settings.Default.AppLanguage ?? "en";
+
+            // Applies global culture before any UI is created
+            var culture = new CultureInfo(language);
+            Thread.CurrentThread.CurrentUICulture = culture;
+            Thread.CurrentThread.CurrentCulture = culture;
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+
+            // Initializes localization manager with selected language
+            LocalizationManager.Initialize(language);
+
+            // Creates and registers the main window
+            var mainWindow = new MainWindow();
+            Application.Current.MainWindow = mainWindow;
+
             if (args.Length > 0)
             {
-                // Applies all startup arguments (theme, language, encryption, etc.)
+                // Applies startup arguments (theme, encryption, etc.)
                 StartupConfigurator.ApplyStartupArguments(args);
 
-                // Applies remaining preferences not overridden by arguments
-                string fallbackLanguage = Settings.Default.AppLanguage ?? "en";
-                LocalizationManager.Initialize(fallbackLanguage);
-
+                // Applies fallback theme if not overridden
                 bool fallbackTheme = Settings.Default.AppTheme?.ToLower() == "dark";
                 ThemeManager.ApplyTheme(fallbackTheme);
             }
             else
             {
-                // No arguments provided — applies saved preferences only
-                string savedLanguage = Settings.Default.AppLanguage ?? "en";
-                LocalizationManager.Initialize(savedLanguage);
-
+                // Applies saved preferences only
                 string savedTheme = Settings.Default.AppTheme?.ToLower() ?? "light";
                 mainWindow.ThemeToggle.IsChecked = savedTheme == "dark";
             }
 
-            // Applies global culture before any UI is rendered
-            var culture = new System.Globalization.CultureInfo(Settings.Default.AppLanguage ?? "en");
-            System.Threading.Thread.CurrentThread.CurrentUICulture = culture;
-            System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
-
             // Displays the main window
             mainWindow.Show();
         }
-
-
 
         public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
         {

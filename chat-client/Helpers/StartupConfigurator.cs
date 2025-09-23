@@ -3,18 +3,19 @@
 /// <version>1.0</version>
 /// <date>September 22th, 2025</date>
 
+using chat_client.View;
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
-using System.Globalization;
 
 namespace chat_client.Helpers
 {
     /// <summary>
     /// Parses and applies command-line startup arguments to configure the chat client.
-    /// Updates application settings when arguments are provided.
-    /// Supports flexible aliases for username, encryption, theme, language, port, tray behavior, and debug console.
-    /// Automatically connects to localhost if username is specified.
+    /// Supports flexible aliases for username, encryption, theme, language, port, tray behavior, debug console, and About window.
+    /// Applies settings, initializes localization, and triggers auto-connect if username is provided.
+    /// Opens the About window and exits if --about is passed.
     /// </summary>
     public static class StartupConfigurator
     {
@@ -23,6 +24,7 @@ namespace chat_client.Helpers
             if (args == null || args.Length == 0)
                 return;
 
+            // Declares variables to store parsed arguments
             string username = null;
             string theme = null;
             string language = null;
@@ -33,6 +35,7 @@ namespace chat_client.Helpers
             bool showHelp = false;
             bool showAbout = false;
 
+            // Parses each argument and maps it to its corresponding behavior
             for (int i = 0; i < args.Length; i++)
             {
                 string arg = args[i].ToLower();
@@ -129,6 +132,7 @@ namespace chat_client.Helpers
                 }
             }
 
+            // Displays help message and exits if --help is passed
             if (showHelp)
             {
                 Console.WriteLine("Chat Client Command-Line Options:");
@@ -139,37 +143,21 @@ namespace chat_client.Helpers
                 Console.WriteLine("  --encrypted, -e               Enable message encryption");
                 Console.WriteLine("  --reduceInTray, -r, --reduce Minimize to tray on startup");
                 Console.WriteLine("  --debug, -d                   Show debug console");
-                Console.WriteLine("  --about                       Show About window (coming soon)");
+                Console.WriteLine("  --about                       Show About window");
                 Console.WriteLine("  --help, -h, -?                Show this help message");
                 return;
             }
 
+            // Opens AboutWindow and exits if --about is passed
             if (showAbout)
             {
-                Console.WriteLine("[Startup] About window requested. Feature will be implemented in Bloc 4.");
+                var aboutWindow = new AboutWindow();
+                aboutWindow.ShowDialog(); // Blocks until user clicks OK
+                Application.Current.Shutdown(); // Closes app after AboutWindow
+                return;
             }
 
-            var mainWindow = Application.Current.MainWindow as MainWindow;
-            var viewModel = mainWindow?.ViewModel;
-
-            // Applies encryption and updates setting
-            if (enableEncryption && viewModel != null)
-            {
-                Properties.Settings.Default.UseEncryption = true;
-                viewModel.InitializeEncryption();
-                Console.WriteLine("[Startup] Encryption enabled.");
-            }
-
-            // Applies theme and updates setting
-            if (!string.IsNullOrEmpty(theme))
-            {
-                bool isDark = theme.ToLower() == "dark";
-                ThemeManager.ApplyTheme(isDark);
-                Properties.Settings.Default.AppTheme = isDark ? "Dark" : "Light";
-                Console.WriteLine($"[Startup] Theme applied: {(isDark ? "dark" : "light")}");
-            }
-
-            // Applies language and updates setting
+            // Initializes localization before any UI is shown
             if (!string.IsNullOrEmpty(language))
             {
                 var supportedLanguages = new[] { "en", "fr" };
@@ -187,7 +175,28 @@ namespace chat_client.Helpers
                 }
             }
 
-            // Applies tray behavior
+            // Retrieves main window and its view model
+            var mainWindow = Application.Current.MainWindow as MainWindow;
+            var viewModel = mainWindow?.ViewModel;
+
+            // Enables encryption if requested
+            if (enableEncryption && viewModel != null)
+            {
+                Properties.Settings.Default.UseEncryption = true;
+                viewModel.InitializeEncryption();
+                Console.WriteLine("[Startup] Encryption enabled.");
+            }
+
+            // Applies theme if specified
+            if (!string.IsNullOrEmpty(theme))
+            {
+                bool isDark = theme.ToLower() == "dark";
+                ThemeManager.ApplyTheme(isDark);
+                Properties.Settings.Default.AppTheme = isDark ? "Dark" : "Light";
+                Console.WriteLine($"[Startup] Theme applied: {(isDark ? "dark" : "light")}");
+            }
+
+            // Enables tray minimization if requested
             if (reduceInTray)
             {
                 Properties.Settings.Default.ReduceToTray = true;
@@ -201,7 +210,7 @@ namespace chat_client.Helpers
                 Console.WriteLine("[Startup] Debug console shown.");
             }
 
-            // Applies username and triggers connection
+            // Applies username and triggers auto-connect
             if (!string.IsNullOrEmpty(username) && mainWindow != null)
             {
                 mainWindow.txtUsername.Text = username;
@@ -210,7 +219,9 @@ namespace chat_client.Helpers
                 mainWindow.cmdConnectDisconnect_Click(new object(), new RoutedEventArgs());
             }
 
+            // Saves all updated settings
             Properties.Settings.Default.Save();
         }
     }
 }
+
