@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 23th, 2025</date>
+/// <date>September 24th, 2025</date>
 
 using chat_client.MVVM.View;
 using chat_client.Net;

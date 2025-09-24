@@ -238,7 +238,24 @@
     <value>Command Line Help</value>
   </data>
   <data name="CliHelpText" xml:space="preserve">
-    <value>Command Line Arguments:\n\n --about \tOpens the About window\n --debug \tOpens debug console at startup\n --theme light \tForces light theme\n --theme dark \tForces dark theme\n --minimized \tStarts minimized in tray\n --connect &lt;user&gt; \tAuto-connect with specified username\n\nExample:\nchat-client.exe --theme dark --connect Laurent</value>
+    <value>  --about             Opens the About window
+  --debug, -d         Opens debug console at startup
+  --username, -u      Sets username and auto-connects to localhost
+  --port, -p          Sets server port (default: 7123)
+  --theme, -t         Sets theme (light or dark)
+  --dark              Shortcut for dark theme
+  --light             Shortcut for light theme
+  --language, -l      Sets UI language (en or fr)
+  --encrypted, -e     Enables message encryption
+  --reduceInTray, -r  Minimizes to tray on startup
+  --help, -h, -?      Displays this help message
+
+All command-line arguments support both Windows-style notation 
+(/debug) and Unix-style notation (--debug or -d).
+
+Example:
+  chat-client.exe --dark /e /r /u Laurent
+  </value>
   </data>
   <data name="CommandLineArguments" xml:space="preserve">
     <value>Command-line arguments</value>

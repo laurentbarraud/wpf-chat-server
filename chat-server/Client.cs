@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 23th, 2025</date>
+/// <date>September 24th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -116,6 +116,13 @@ namespace chat_server
                     Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientDisconnected")} {Username}");
                     ClientSocket.Close();
                     Program.BroadcastDisconnect(UID.ToString());
+
+                    // Remove the disconnected client from the global list.
+                    // This prevents reconnection issues if the same user (same pseudo) returns with a new UID
+                    // It also ensures the server doesn't retain stale references to closed sockets
+                    Program._users.Remove(this);
+                    Console.WriteLine($"[SERVER] User removed from list of users — {this.Username} ({UID.ToString()})");
+
                     break;
                 }
             }

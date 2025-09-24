@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 23th, 2025</date>
+/// <date>September 24th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -321,7 +321,7 @@ namespace chat_client.MVVM.ViewModel
                 // Activates encryption if enabled in application settings
                 if (Properties.Settings.Default.UseEncryption)
                 {
-                    InitializeEncryption();
+                    InitializeEncryption(this);
                 }
 
                 // Updates UI to reflect connected state and unlocks chat features
@@ -405,6 +405,25 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Returns all known public RSA keys from the current Users list.
+        /// Filters out users without keys and includes the local user.
+        /// </summary>
+        public Dictionary<string, string> GetAllKnownPublicKeys()
+        {
+            var keys = new Dictionary<string, string>();
+
+            foreach (var user in Users)
+            {
+                if (!string.IsNullOrEmpty(user.UID) && !string.IsNullOrEmpty(user.PublicKeyBase64))
+                {
+                    keys[user.UID] = user.PublicKeyBase64;
+                }
+            }
+
+            return keys;
+        }
+
+        /// <summary>
         /// Returns the current port number stored in application settings.
         /// </summary>
         public static int GetCurrentPort()
@@ -429,13 +448,14 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Initializes RSA encryption for the current session.
-        /// This method is idempotent and can be called multiple times safely.
+        /// This method is idempotent and safe to call multiple times.
         /// It generates a new 2048-bit RSA key pair, stores it in the local user,
         /// injects the private key into the decryption helper, sends the public key to the server,
-        /// registers it locally, and updates the encryption status.
-        /// Returns true if initialization succeeds, false otherwise.
+        /// retrieves all known public keys from the server, registers them locally,
+        /// and evaluates encryption readiness.
+        /// Returns true if initialization succeeds; false otherwise.
         /// </summary>
-        public bool InitializeEncryption()
+        public bool InitializeEncryption(MainViewModel viewModel)
         {
             // Skips encryption initialization if LocalUser is not yet defined
             // or if encryption is already active for the current session.
@@ -465,8 +485,7 @@ namespace chat_client.MVVM.ViewModel
                 // Injects private key into decryption helper
                 EncryptionHelper.SetPrivateKey(privateKeyBase64);
                 Console.WriteLine("[DEBUG] Private key injected into EncryptionHelper.");
-
-                // Sends public key to server
+                // Sends the client's public key to the server
                 bool sent = Server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
                 if (!sent)
                 {
@@ -476,26 +495,48 @@ namespace chat_client.MVVM.ViewModel
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
 
-                    // Rollback encryption setting
+                    // Rolls back encryption setting
                     Properties.Settings.Default.UseEncryption = false;
                     Properties.Settings.Default.Save();
                     Console.WriteLine("[ERROR] Failed to send public key to server — encryption disabled.");
                     return false;
                 }
 
-                // Marks encryption as active
+                // Requests all known public keys from the current Users list
+                var allKeys = viewModel.GetAllKnownPublicKeys();
+                foreach (var kvp in allKeys)
+                {
+                    if (!KnownPublicKeys.ContainsKey(kvp.Key))
+                    {
+                        KnownPublicKeys[kvp.Key] = kvp.Value;
+                        Console.WriteLine($"[DEBUG] External public key registered — UID: {kvp.Key}");
+                    }
+                }
+
+                // Marks encryption as active in settings
                 Properties.Settings.Default.UseEncryption = true;
                 Properties.Settings.Default.Save();
                 Console.WriteLine("[DEBUG] Encryption enabled in settings.");
 
-                // Registers public key locally
+                // Registers the client's own public key locally
                 if (!string.IsNullOrEmpty(LocalUser.UID))
                 {
                     KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
                     Console.WriteLine($"[DEBUG] Local public key registered — UID: {LocalUser.UID}");
                 }
 
-                // Evaluates encryption state and update UI
+                // Retrieves all known public keys from the current Users list
+                var keys = GetAllKnownPublicKeys();
+                foreach (var kvp in keys)
+                {
+                    if (kvp.Key != LocalUser.UID && !KnownPublicKeys.ContainsKey(kvp.Key) && !string.IsNullOrEmpty(kvp.Value))
+                    {
+                        KnownPublicKeys[kvp.Key] = kvp.Value;
+                        Console.WriteLine($"[DEBUG] External public key registered — UID: {kvp.Key}");
+                    }
+                }
+
+                // Evaluates encryption readiness and updates UI
                 EvaluateEncryptionState();
                 (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
                 Console.WriteLine($"[DEBUG] Encryption initialization complete — Ready: {IsEncryptionReady}");

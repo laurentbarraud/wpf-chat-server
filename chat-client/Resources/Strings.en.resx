@@ -238,9 +238,7 @@
     <value>Command Line Help</value>
   </data>
   <data name="CliHelpText" xml:space="preserve">
-    <value>Command Line Arguments:
-
-  --about             Opens the About window
+    <value>  --about             Opens the About window
   --debug, -d         Opens debug console at startup
   --username, -u      Sets username and auto-connects to localhost
   --port, -p          Sets server port (default: 7123)

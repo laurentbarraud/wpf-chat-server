@@ -56,16 +56,6 @@
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap"/>
-            
-            <!-- Licence final label in top panel, bottom-right corner -->
-            <TextBlock x:Name="LicenceFinalText"
-                       FontSize="12"
-                       Background="Black"
-                       Foreground="#7CCBD3"
-                       Margin="0,0,0,0"
-                       HorizontalAlignment="Right"
-                       VerticalAlignment="Bottom"
-                       TextWrapping="Wrap"/>
         </Grid>
 
         <!-- Bottom panel -->
@@ -74,23 +64,36 @@
            Background="#000000"
            LastChildFill="False">
 
-            <!-- Localized command-line link -->
-            <TextBlock x:Name="CliTextBlock"
-                       DockPanel.Dock="Left"
-                       VerticalAlignment="Center"
-                       FontSize="14"
-                       Foreground="WhiteSmoke"
-                       Background="Transparent"
-                       Margin="20,0,0,0"
-                       Style="{StaticResource InteractiveTextBlockStyle}"
-                       Cursor="Hand"
-                       MouseDown="CliTextBlock_MouseDown"
-                       TextWrapping="Wrap" />
+            <!-- Horizontal container for CLI link, spacer, licence text, and OK button -->
+            <StackPanel Orientation="Horizontal"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+                Margin="20,0,0,0"
+                DockPanel.Dock="Left">
 
-            <!-- Spacer -->
-            <DockPanel DockPanel.Dock="Left" Width="Auto"/>
+                <!-- Localized command-line link -->
+                <TextBlock x:Name="CliTextBlock"
+                   FontSize="14"
+                   Foreground="WhiteSmoke"
+                   Background="Transparent"
+                   Style="{StaticResource InteractiveTextBlockStyle}"
+                   Cursor="Hand"
+                   MouseDown="CliTextBlock_MouseDown"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center" />
 
-            <!-- OK button -->
+                <!-- Spacer between CLI link and licence text -->
+                <Rectangle Width="120" Fill="Transparent" />
+
+                <!-- Licence and version text -->
+                <TextBlock x:Name="LicenceFinalText"
+                   FontSize="12"
+                   Foreground="WhiteSmoke"
+                   VerticalAlignment="Center"
+                   TextWrapping="NoWrap" />
+            </StackPanel>
+
+            <!-- OK button aligned to the right -->
             <Button x:Name="cmdOk"
             Content="OK"
             Width="90"
@@ -102,7 +105,6 @@
             IsDefault="True"
             IsCancel="True" />
         </DockPanel>
-
     </Grid>
 </Window>
 

@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 23th, 2025</date>
+/// <date>September 24th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -125,10 +125,6 @@ namespace chat_server
 
             if (disconnectedUser != null)
             {
-                // Removes the user from the global list
-                _users.Remove(disconnectedUser);
-                Console.WriteLine($"[SERVER] User removed from list of users — {disconnectedUser.Username} ({uidDisconnected})");
-
                 foreach (var user in _users)
                 {
                     try

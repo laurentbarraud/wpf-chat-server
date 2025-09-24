@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 23th, 2025</date>
+/// <date>September 24th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -214,7 +214,7 @@ namespace chat_client.MVVM.View
 
             if (viewModel?.LocalUser != null && viewModel.IsConnected)
             {
-                bool encryptionInitialized = viewModel.InitializeEncryption();
+                bool encryptionInitialized = viewModel.InitializeEncryption(viewModel);
 
                 if (!encryptionInitialized)
                 {

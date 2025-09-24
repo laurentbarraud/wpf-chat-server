@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 23th, 2025</date>
+/// <date>September 24th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -149,6 +149,26 @@ namespace chat_client.Net
                 MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message, LocalizationManager.GetString("DisconnectError"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        /// <summary>
+        /// Returns all known public RSA keys for connected users.
+        /// Keys may include the caller's own key; filtering is done client-side.
+        /// Filters out users with missing UID or public key.
+        /// After checking, we tell the compiler that the values are safe to use.
+        /// </summary>
+        public Dictionary<string, string> GetAllKnownPublicKeys(MainViewModel viewModel)
+        {
+            // Returns an empty dictionary if viewModel or Users list is null
+            if (viewModel?.Users == null)
+                return new Dictionary<string, string>();
+
+            return viewModel.Users
+                // Filters out users with null or empty UID or public key
+                .Where(u => !string.IsNullOrEmpty(u.UID) && !string.IsNullOrEmpty(u.PublicKeyBase64))
+                // Uses ! to assert non-nullability after filtering
+                .ToDictionary(u => u.UID!, u => u.PublicKeyBase64!);
+        }
+
 
         /// <summary>
         /// Handles the reception of a public RSA key from another connected client.

@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 23th, 2025</date>
+/// <date>September 24th, 2025</date>
 
 using chat_client.View;
 using System;
@@ -183,7 +183,7 @@ namespace chat_client.Helpers
             if (enableEncryption && viewModel != null)
             {
                 Properties.Settings.Default.UseEncryption = true;
-                viewModel.InitializeEncryption();
+                viewModel.InitializeEncryption(viewModel);
                 Console.WriteLine("[Startup] Encryption enabled.");
             }
 
