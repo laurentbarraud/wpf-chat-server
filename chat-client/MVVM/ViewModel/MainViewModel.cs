@@ -208,63 +208,53 @@ namespace chat_client.MVVM.ViewModel
 
 
         /// <summary>
-        /// Determines whether encryption can be considered fully ready for public chat.
-        /// Returns true when encryption is enabled, the local public key is present,
-        /// and either no list of users is available, the client is alone, or all other users have exchanged keys.
-        /// Logs missing UIDs for debugging purposes.
+        /// Checks whether encryption is fully ready for secure communication.
+        /// Returns true only if encryption is enabled, the local public key is present,
+        /// and every other connected user has a known public key.
+        /// Logs missing UIDs for debugging. This method guarantees strict readiness before encrypted messages are allowed.
         /// </summary>
-        /// <returns>True if encryption is ready; otherwise, false.</returns>
+        /// <returns>True if all required public keys are present; otherwise, false.</returns>
         public bool AreAllKeysReceived()
         {
-            // Encryption must be enabled
+            // Encryption must be enabled in settings
             if (!chat_client.Properties.Settings.Default.UseEncryption)
                 return false;
 
-            // Local public key must exist
+            // Local public key must be defined
             if (string.IsNullOrEmpty(LocalUser?.PublicKeyBase64))
                 return false;
 
-            // If no list of users is available yet, consider encryption ready
-            if (Users == null || Users.Count == 0)
-                return true;
-
-            // If only the local user is present, encryption is trivially ready
-            if (Users.Count == 1 && Users[0].UID == LocalUser.UID)
-                return true;
-
-            // Checks that at least one external public key is known
-            bool hasExternalKey = KnownPublicKeys.Any(kvp =>
-                kvp.Key != LocalUser.UID && !string.IsNullOrEmpty(kvp.Value));
-
-            if (!hasExternalKey)
-            {
-                Console.WriteLine("[DEBUG] Encryption not ready — no external public keys available.");
+            // User list must be available and contain at least one peer
+            if (Users == null || Users.Count <= 1)
                 return false;
-            }
 
-            // Tracks missing UIDs for logging
-            List<string> missingKeys = new();
+            // Prepares a list to track UIDs of users whose public key is missing
+            List<string> missingPeerUids = new();
 
-            // Checks that every other user has a known public key
-            foreach (var user in Users)
+            // Iterates through all connected users to verify that each has a known public key
+            foreach (var connectedUser in Users)
             {
-                if (user.UID == LocalUser.UID)
+                // Skips the local client
+                if (connectedUser.UID == LocalUser.UID)
                     continue;
 
-                if (!KnownPublicKeys.ContainsKey(user.UID))
-                    missingKeys.Add(user.UID);
+                // Adds UID to the missing list if no public key is registered
+                if (!KnownPublicKeys.TryGetValue(connectedUser.UID, out string peerKey) || string.IsNullOrEmpty(peerKey))
+                    missingPeerUids.Add(connectedUser.UID);
             }
 
             // Logs missing UIDs if any
-            if (missingKeys.Count > 0)
+            if (missingPeerUids.Count > 0)
             {
-                string joined = string.Join(", ", missingKeys);
+                string joined = string.Join(", ", missingPeerUids);
                 Console.WriteLine($"[DEBUG] Encryption not ready — missing keys for: {joined}");
                 return false;
             }
 
+            // All keys are present and valid
             return true;
         }
+
 
         /// <summary>
         /// Determines whether a message can be encrypted for the specified recipient.
@@ -356,8 +346,8 @@ namespace chat_client.MVVM.ViewModel
                     Console.WriteLine("[Connect] Encryption re-initialized on startup.");
 
                     // Ensures key is resent and sync is triggered immediately
-                    _server.ResendPublicKey(_localUid.ToString(), _localPublicKey);
-                    _server.RequestAllPublicKeysFromServer(_localUid.ToString());
+                    _server.ResendPublicKey();
+                    _server.RequestAllPublicKeysFromServer();
                 }
 
                 // Updates UI to reflect connected state and unlocks chat features
