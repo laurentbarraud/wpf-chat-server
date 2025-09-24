@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 24th, 2025</date>
+/// <date>September 25th, 2025</date>
 
 using System.IO;
 using System.Net.Sockets;

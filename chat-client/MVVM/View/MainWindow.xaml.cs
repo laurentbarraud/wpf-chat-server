@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 24th, 2025</date>
+/// <date>September 25th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -59,11 +59,6 @@ namespace chat_client
         private int scrollDirection = 0; // -1 = left, 1 = right
 
         /// <summary>
-        /// Popup variables
-        /// </summary>
-        private bool isEmojiPanelOpen = false;
-
-        /// <summary>
         /// Indicates whether the window is still initializing.
         /// Prevents toggle event handlers from applying changes during startup.
         /// </summary>
@@ -90,6 +85,14 @@ namespace chat_client
         /// Provides access to the current server instance managed by the ViewModel.
         /// Used for sending and receiving packets, managing connections, and handling encryption exchange.
         /// </summary>
+
+        /// <summary>
+        /// Indicates whether the encryption initialization process is currently active.
+        /// Used to temporarily disable UI interactions (encryption toggle button in settings window) 
+        /// during RSA key generation, public key transmission, and synchronization steps.
+        /// Prevents concurrent or repeated activation while the encryption setup is in progress. 
+        /// </summary>
+        private bool _isEncryptionInitializing = false;
 
         public Server Server => ViewModel?.Server;
 
@@ -270,13 +273,11 @@ namespace chat_client
             if (popupEmojiPanel.IsOpen)
             {
                 popupEmojiPanel.IsOpen = false;
-                isEmojiPanelOpen = false;
             }
             else
             {
                 popupEmojiPanel.VerticalOffset = -popupEmojiPanel.ActualHeight;
                 popupEmojiPanel.IsOpen = true;
-                isEmojiPanelOpen = true;
             }
         }
 

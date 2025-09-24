@@ -11,12 +11,12 @@
         <!-- Background gradient: bright white to desaturated blue to near-black -->
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FFFFFF" Offset="0"/>
                 <!-- Top-left: bright white -->
-                <GradientStop Color="#B0B8C4" Offset="0.4"/>
+                <GradientStop Color="#FFFFFF" Offset="0"/>
                 <!-- Center: desaturated light blue -->
-                <GradientStop Color="#10141C" Offset="1"/>
+                <GradientStop Color="#D3E4E4" Offset="0.4"/>
                 <!-- Bottom-right: near-black blue -->
+                <GradientStop Color="#10141C" Offset="1"/>
             </LinearGradientBrush>
         </Grid.Background>
 

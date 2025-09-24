@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 24th, 2025</date>
+/// <date>September 25th, 2025</date>
 
 using chat_server.Net.IO;
 using chat_server.Helpers;
@@ -80,6 +80,38 @@ namespace chat_server
 
                     switch (opcode)
                     {
+                        case 3: // Public key sync request
+                            string requesterUid = _packetReader.ReadMessage();
+                            Console.WriteLine($"[SERVER] Public key sync requested by UID: {requesterUid}");
+
+                            foreach (var user in Program._users)
+                            {
+                                if (string.IsNullOrEmpty(user.PublicKeyBase64))
+                                    continue;
+
+                                try
+                                {
+                                    var responsePacket = new PacketBuilder();
+                                    responsePacket.WriteOpCode(6); // Public key exchange
+                                    responsePacket.WriteMessage(user.UID.ToString());
+                                    responsePacket.WriteMessage(user.PublicKeyBase64);
+
+                                    ClientSocket.GetStream().Write(
+                                        responsePacket.GetPacketBytes(),
+                                        0,
+                                        responsePacket.GetPacketBytes().Length
+                                    );
+
+                                    Console.WriteLine($"[SERVER] Sent public key of {user.Username} to {Username}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"[SERVER] Failed to send key to {Username}: {ex.Message}");
+                                }
+                            }
+
+                            break;
+
                         case 5: // Public chat message
                                 // Reads sender UID and message content
                             string senderUidForMessage = _packetReader.ReadMessage();

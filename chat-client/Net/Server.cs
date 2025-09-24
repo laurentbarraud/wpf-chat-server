@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 24th, 2025</date>
+/// <date>September 25th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -171,27 +171,36 @@ namespace chat_client.Net
 
 
         /// <summary>
-        /// Handles the reception of a public RSA key from another connected client.
-        /// Extracts the sender's UID and public key from the packet,
-        /// and delegates processing to the ViewModel's ReceivePublicKey method.
-        /// This ensures centralized logic for key storage, readiness evaluation, and UI updates.
+        /// Processes an incoming RSA public key packet from another connected client.
+        /// Extracts the sender's UID and Base64-encoded public key from the stream,
+        /// then delegates the key registration to the ViewModel's ReceivePublicKey method.
+        /// This ensures centralized handling of key storage, synchronization logic, and UI updates.
         /// </summary>
-        /// <param name="reader">The packet reader used to extract incoming data.</param>
+        /// <param name="reader">The packet reader used to extract incoming data from the stream.</param>
         private static void HandleIncomingPublicKey(PacketReader reader)
         {
+            // Reads the sender's UID from the packet
             string senderUID = reader.ReadMessage();
+
+            // Reads the Base64-encoded RSA public key from the packet
             string publicKeyBase64 = reader.ReadMessage();
 
+            // Ensures UI thread safety when accessing application state
             Application.Current.Dispatcher.Invoke(() =>
             {
+                // Verifies that the main window and its ViewModel are available
                 if (Application.Current.MainWindow is MainWindow mainWindow &&
                     mainWindow.ViewModel is MainViewModel viewModel)
                 {
-                    // Delegates to a self-contained method
+                    // Registers the incoming public key
                     viewModel.ReceivePublicKey(senderUID, publicKeyBase64);
+
+                    // Triggers synchronization check to detect and recover missing keys
+                    viewModel.SyncKeys();
                 }
                 else
                 {
+                    // Logs a warning if the ViewModel is unavailable
                     Console.WriteLine($"[WARN] Unable to store public key for UID {senderUID}: ViewModel not available.");
                 }
             });
@@ -265,6 +274,47 @@ namespace chat_client.Net
                     });
                 }
             });
+        }
+
+        /// <summary>
+        /// Sends a request to the server asking for all known public keys.
+        /// This triggers a series of opcode 6 packets in response.
+        /// </summary>
+        public void RequestAllPublicKeysFromServer()
+        {
+            var packet = new PacketBuilder();
+            packet.WriteOpCode(3); // Opcode for public key sync request
+            packet.WriteMessage(_localUid.ToString());
+
+            // Sends the packet to the server via the active socket stream
+            _client.GetStream().Write(
+                packet.GetPacketBytes(),
+                0,
+                packet.GetPacketBytes().Length
+            );
+
+            Console.WriteLine($"[DEBUG] Public key sync request sent — UID: {_localUid.ToString()}");
+        }
+
+
+        /// <summary>
+        /// Resends the client's public RSA key to the server for recovery or synchronization purposes.
+        /// Typically called when key distribution fails or when a new client joins and requires the key.
+        /// Ensures that the server and all connected clients have access to the sender's encryption identity.
+        /// Designed to be safe and idempotent — skips transmission if prerequisites are missing.
+        /// </summary>
+        public void ResendPublicKey()
+        {
+            // Validates prerequisites before attempting to resend
+            if (_localUid == Guid.Empty || string.IsNullOrEmpty(_localPublicKey))
+            {
+                Console.WriteLine("[WARN] Cannot resend public key — UID or key is missing.");
+                return;
+            }
+
+            // Sends the public key to the server for redistribution
+            SendPublicKeyToServer(_localUid.ToString(), _localPublicKey);
+            Console.WriteLine("[DEBUG] Public key resent manually — UID: " + _localUid);
         }
 
         /// <summary>
