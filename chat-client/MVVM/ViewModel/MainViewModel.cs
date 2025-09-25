@@ -598,65 +598,81 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles incoming messages from the server.
-        /// Resolves sender identity from UID and displays either plain or decrypted content.
-        /// Supports system-issued disconnect commands and updates the UI accordingly.
-        /// Ensures robust handling of encrypted payloads and fallback in case of decryption failure.
+        /// Handles incoming chat packets (opcode 5) by reading three fields in sequence:
+        /// senderUid, recipientUid, then raw content.  
+        /// Filters out unicast packets not addressed to this client.  
+        /// Processes system-issued “/disconnect” commands.  
+        /// Decrypts payloads prefixed “[ENC]” with fallback on failure.  
+        /// Resolves the sender’s display name and dispatches the formatted message to the UI dispatcher.
         /// </summary>
         private void MessageReceived()
         {
-            string senderUID = _server.PacketReader.ReadMessage();  // UID of sender
-            string rawMessage = _server.PacketReader.ReadMessage(); // May contain plain text or [ENC]
+            // Reads the UID of the sender
+            string senderUid = _server.PacketReader.ReadMessage();
 
-            // Handles system-issued disconnect command
-            if (rawMessage == "/disconnect" && senderUID == SystemUID.ToString())
+            // Reads the UID of the intended recipient (empty string = broadcast)
+            string recipientUid = _server.PacketReader.ReadMessage();
+
+            // Reads the message content, which may be plain text or "[ENC]" + ciphertext
+            string rawContent = _server.PacketReader.ReadMessage();
+
+            // Ignores unicast messages not meant for this client
+            if (!string.IsNullOrEmpty(recipientUid)
+                && recipientUid != LocalUser.UID)
+            {
+                return;
+            }
+
+            // Processes system disconnect requests
+            if (rawContent == "/disconnect"
+                && senderUid == SystemUID.ToString())
             {
                 HandleSystemDisconnect();
                 return;
             }
 
-            // Resolves sender display name from UID
-            string displayName =
-                Users.FirstOrDefault(u => u.UID == senderUID)?.Username ??
-                (LocalUser?.UID == senderUID ? LocalUser.Username : senderUID);
+            // Resolves the display name: find in Users, otherwise fallbacks to local user or UID
+            string displayName = Users
+                .FirstOrDefault(u => u.UID.ToString() == senderUid)?.Username
+                ?? (LocalUser?.UID.ToString() == senderUid ? LocalUser.Username : senderUid);
 
             string finalMessage;
 
-            // Checks if the message is encrypted
-            if (rawMessage.Contains("[ENC]"))
+            // Decrypts encrypted payloads
+            if (rawContent.StartsWith("[ENC]"))
             {
+                // Strips the "[ENC]" marker and cleans up any stray control characters
+                string encryptedPayload = rawContent
+                    .Substring(5)
+                    .Replace("\0", "")
+                    .Replace("\r", "")
+                    .Replace("\n", "")
+                    .Trim();
+
                 try
                 {
-                    // Extracts encrypted payload after the [ENC] marker
-                    int markerIndex = rawMessage.IndexOf("[ENC]");
-                    string encryptedPayload = rawMessage.Substring(markerIndex + "[ENC]".Length).Trim();
-
-                    // Cleans up any invisible or invalid characters
-                    encryptedPayload = encryptedPayload
-                        .Replace("\0", "")
-                        .Replace("\r", "")
-                        .Replace("\n", "");
-
-                    // Attempts to decrypt using the local private key
-                    string decryptedContent = TryDecryptMessage(encryptedPayload);
-
-                    // Formats the decrypted message
-                    finalMessage = $"{displayName}: {decryptedContent}";
+                    // Attempts decryption using the local private key
+                    string decrypted = TryDecryptMessage(encryptedPayload);
+                    finalMessage = $"{displayName}: {decrypted}";
                 }
                 catch (Exception ex)
                 {
+                    // Fallbacks on decryption failure
                     finalMessage = $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")} ({ex.Message})";
                 }
             }
             else
             {
-                // Plain message
-                finalMessage = $"{displayName}: {rawMessage}";
+                // Plain-text fallback
+                finalMessage = $"{displayName}: {rawContent}";
             }
 
-            Application.Current.Dispatcher.Invoke(() => Messages.Add(finalMessage));
+            // Dispatches the formatted message to the UI thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Messages.Add(finalMessage);
+            });
         }
-
 
         /// <summary>
         /// Receives and registers a public RSA key from another client in the network.
