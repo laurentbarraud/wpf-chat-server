@@ -157,7 +157,7 @@ namespace chat_server
         /// <summary>
         /// Processes a chat packet with opcode 5:
         /// - If recipientUid is provided, delivers to the intended recipient and echoes back to the sender.
-        /// - If recipientUid is null, delivers to all connected clients.
+        /// - If recipientUid is null, delivers to all connected clients (broadcast).
         /// Supports both plain-text and encrypted payloads (prefixed "[ENC]").
         /// Logs each transmission with a timestamp for audit and debugging.
         /// </summary>
@@ -173,9 +173,10 @@ namespace chat_server
         /// </param>
         public static void BroadcastMessage(string content, Guid senderUid, Guid? recipientUid = null)
         {
+            // It iterates through each connected user to determine delivery.
             foreach (var user in _users)
             {
-                // In unicast mode, skip users who are neither the recipient nor the sender
+                // In unicast mode, it skips users who are neither the recipient nor the sender.
                 if (recipientUid.HasValue
                     && user.UID != recipientUid.Value
                     && user.UID != senderUid)
@@ -185,16 +186,17 @@ namespace chat_server
 
                 try
                 {
-                    // Build the packet: [OpCode][SenderUid][RecipientUid or empty][Content]
+                    // It constructs the packet with [OpCode][SenderUid][RecipientUid or empty][Content].
                     var builder = new PacketBuilder();
                     builder.WriteOpCode(5);
                     builder.WriteMessage(senderUid.ToString());
                     builder.WriteMessage(recipientUid?.ToString() ?? string.Empty);
                     builder.WriteMessage(content);
 
-                    var packetBytes = builder.GetPacketBytes();
+                    // It retrieves the serialized packet bytes.
+                    byte[] packetBytes = builder.GetPacketBytes();
 
-                    // Send the packet if the client is still connected
+                    // It sends the packet bytes if the client’s socket is still connected.
                     if (user.ClientSocket.Connected)
                     {
                         user.ClientSocket.GetStream()
@@ -203,18 +205,40 @@ namespace chat_server
                 }
                 catch (Exception ex)
                 {
+                    // It logs any exceptions encountered during send.
                     Console.WriteLine($"[SERVER] Failed to send to {user.Username}: {ex.Message}");
                 }
             }
 
-            // Local log for traceability
+            // After delivery, it performs a local log for traceability.
+
+            // It resolves the sender’s username from the connected users list.
             var sender = _users.FirstOrDefault(u => u.UID == senderUid);
             string senderName = sender?.Username ?? "Unknown";
-            string displayText = content.StartsWith("[ENC]") ? "[Encrypted]" : content;
-            string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-            Console.WriteLine($"[{timestamp}] Message from {senderName}: {displayText}");
-        }
 
+            // It creates a human-readable display of the content.
+            string displayText = content.StartsWith("[ENC]") ? "[Encrypted]" : content;
+
+            // It generates a timestamp in dd.MM.yyyy HH:mm:ss format.
+            string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
+
+            if (recipientUid.HasValue)
+            {
+                // In encrypted (unicast) mode, it logs sender and recipient.
+                var recipient = _users.FirstOrDefault(u => u.UID == recipientUid.Value);
+                string recipientName = recipient?.Username ?? "Unknown";
+                Console.WriteLine(
+                    $"[{timestamp}] Encrypted message from {senderName} to {recipientName}: {displayText}"
+                );
+            }
+            else
+            {
+                // In broadcast mode, it logs sender only.
+                Console.WriteLine(
+                    $"[{timestamp}] Broadcast message from {senderName}: {displayText}"
+                );
+            }
+        }
 
         /// <summary>
         /// Distributes the sender's public RSA key to all other connected clients.
