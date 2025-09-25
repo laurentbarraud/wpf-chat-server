@@ -171,37 +171,36 @@ namespace chat_client.Net
 
 
         /// <summary>
-        /// Processes an incoming RSA public key packet from another connected client.
-        /// Extracts the sender's UID and Base64-encoded public key from the stream,
-        /// then delegates the key registration to the ViewModel's ReceivePublicKey method.
-        /// This ensures centralized handling of key storage, synchronization logic, and UI updates.
+        /// Processes an incoming RSA public key packet from a peer.
+        /// Reads senderUid and Base64-encoded public key,  
+        /// delegates registration to the ViewModel for centralized key storage and sync logic,  
+        /// and triggers a key-synchronization check.  
+        /// Ensures UI thread safety and logs warnings when the ViewModel is unavailable.
         /// </summary>
-        /// <param name="reader">The packet reader used to extract incoming data from the stream.</param>
+        /// <param name="reader">The packet reader extracting data from the incoming stream.</param>
         private static void HandleIncomingPublicKey(PacketReader reader)
         {
-            // Reads the sender's UID from the packet
-            string senderUID = reader.ReadMessage();
+            // Reads the UID of the peer who sent the key
+            string senderUid = reader.ReadMessage();
 
-            // Reads the Base64-encoded RSA public key from the packet
+            // Reads the Base64-encoded RSA public key
             string publicKeyBase64 = reader.ReadMessage();
 
-            // Ensures UI thread safety when accessing application state
+            // Invokes registration on the UI thread for thread safety
             Application.Current.Dispatcher.Invoke(() =>
             {
-                // Verifies that the main window and its ViewModel are available
-                if (Application.Current.MainWindow is MainWindow mainWindow &&
-                    mainWindow.ViewModel is MainViewModel viewModel)
+                if (Application.Current.MainWindow is MainWindow mainWindow
+                    && mainWindow.ViewModel is MainViewModel viewModel)
                 {
                     // Registers the incoming public key
-                    viewModel.ReceivePublicKey(senderUID, publicKeyBase64);
+                    viewModel.ReceivePublicKey(senderUid, publicKeyBase64);
 
-                    // Triggers synchronization check to detect and recover missing keys
+                    // Triggers synchronization logic to confirm full key set
                     viewModel.SyncKeys();
                 }
                 else
                 {
-                    // Logs a warning if the ViewModel is unavailable
-                    Console.WriteLine($"[WARN] Unable to store public key for UID {senderUID}: ViewModel not available.");
+                    Console.WriteLine($"[WARN] Cannot register public key for {senderUid}: ViewModel unavailable.");
                 }
             });
         }
@@ -367,21 +366,20 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends a chat message to the server using the standard packet format (opcode 5).
-        /// Validates that the client is connected, the LocalUser identity is initialized,
-        /// and—if encryption is enabled and ready—encrypts a copy of the message for each peer
-        /// using that peer’s public key.  Each encrypted packet includes both sender and recipient UIDs,
-        /// so the server can forward it only to the intended client.  If encryption is disabled or not ready,
-        /// sends a single plain‐text broadcast packet.  Logs every step to aid debugging.
+        /// Sends a chat message to the server (opcode 5).
+        /// Validates connection, LocalUser initialization, handshake completion, and full key synchronization before encrypting.
+        /// When encryption is enabled and ready, encrypts the message separately for each peer using its public key,
+        /// embeds senderUid and recipientUid in each packet, and logs every step.
+        /// When encryption is disabled or not ready, falls back to a single plain‐text broadcast packet.
         /// </summary>
         /// <param name="message">The plain-text message to send.</param>
         public void SendMessageToServer(string message)
         {
-            // Abort if message is empty
+            // Abort when the message is null, empty, or whitespace
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
-            // Retrieve ViewModel from the MainWindow
+            // Retrieve the ViewModel from MainWindow
             if (Application.Current.MainWindow is not MainWindow mainWindow
                 || mainWindow.ViewModel is not MainViewModel viewModel)
             {
@@ -389,14 +387,14 @@ namespace chat_client.Net
                 return;
             }
 
-            // Abort if socket is not connected
+            // Abort when the TCP socket is not connected
             if (_client?.Connected != true)
             {
                 Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
 
-            // Abort if LocalUser is not initialized
+            // Abort when LocalUser is not initialized or UID is missing
             var localUser = viewModel.LocalUser;
             if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
             {
@@ -404,46 +402,53 @@ namespace chat_client.Net
                 return;
             }
 
-            var senderUid = localUser.UID;
+            string senderUid = localUser.UID;
 
-            // If encryption is enabled and all keys are ready, encrypt per peer
-            if (Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady)
+            // Encrypt per peer only when encryption is enabled, handshake is complete, and all keys are received
+            if (Properties.Settings.Default.UseEncryption
+                && HandshakeCompleted
+                && viewModel.IsEncryptionReady)
             {
                 foreach (var kvp in viewModel.KnownPublicKeys)
                 {
-                    var peerUid = kvp.Key;
+                    string peerUid = kvp.Key;
                     if (peerUid == senderUid)
                         continue;
 
-                    var peerPubKey = kvp.Value;
-                    var encryptedPayload = EncryptionHelper.EncryptMessage(message, peerPubKey);
-                    var payload = "[ENC]" + encryptedPayload;
-                    Console.WriteLine($"[DEBUG] Message encrypted for {peerUid}.");
+                    // Encrypts the message using the peer’s public key
+                    string encryptedPayload = EncryptionHelper.EncryptMessage(message, kvp.Value);
+                    string payload = "[ENC]" + encryptedPayload;
+                    Console.WriteLine($"[DEBUG] Encrypts message for {peerUid}.");
 
+                    // Builds the packet: [OpCode][SenderUid][RecipientUid][Payload]
                     var packet = new PacketBuilder();
-                    packet.WriteOpCode(5);                // public chat opcode
-                    packet.WriteMessage(senderUid);       // who sends
-                    packet.WriteMessage(peerUid);         // who should receive
-                    packet.WriteMessage(payload);         // encrypted content
+                    packet.WriteOpCode(5);
+                    packet.WriteMessage(senderUid);
+                    packet.WriteMessage(peerUid);
+                    packet.WriteMessage(payload);
 
+                    // Sends the encrypted packet
                     _client.Client.Send(packet.GetPacketBytes());
-                    Console.WriteLine($"[DEBUG] Encrypted packet sent to server for recipient {peerUid}.");
+                    Console.WriteLine($"[DEBUG] Sends encrypted packet for recipient {peerUid}.");
                 }
             }
             else
             {
+                // Warns if handshake is not complete before sending plain text
                 if (!HandshakeCompleted)
                     Console.WriteLine("[WARN] Handshake not completed — sending plain message anyway.");
 
-                Console.WriteLine("[DEBUG] Sending plain message.");
+                Console.WriteLine("[DEBUG] Sends plain-text message.");
 
+                // Builds the plain-text packet: [OpCode][SenderUid][Content]
                 var packet = new PacketBuilder();
                 packet.WriteOpCode(5);
                 packet.WriteMessage(senderUid);
                 packet.WriteMessage(message);
 
+                // Sends the plain-text packet
                 _client.Client.Send(packet.GetPacketBytes());
-                Console.WriteLine("[DEBUG] Plain-text packet sent to server.");
+                Console.WriteLine("[DEBUG] Sends plain-text packet.");
             }
         }
 
