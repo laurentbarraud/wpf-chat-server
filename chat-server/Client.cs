@@ -90,9 +90,7 @@ namespace chat_server
 
             // Parses UIDs and invokes broadcast
             Guid senderUid = Guid.Parse(senderStr);
-            Guid? recipientUid = string.IsNullOrEmpty(recipientStr)
-                                 ? (Guid?)null
-                                 : Guid.Parse(recipientStr);
+            Guid? recipientUid = string.IsNullOrEmpty(recipientStr) ? (Guid?)null : Guid.Parse(recipientStr);
 
             Program.BroadcastMessage(content, senderUid, recipientUid);
         }

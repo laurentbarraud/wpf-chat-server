@@ -8,8 +8,12 @@ using chat_client.MVVM.Model;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
 using ChatClient.Helpers;
+using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Security.Principal;
+using System.Text;
 using System.Windows;
 
 namespace chat_client.Net
@@ -315,64 +319,65 @@ namespace chat_client.Net
             ClientLogger.Log("Public key resent manually — UID: " + _localUid, LogLevel.Debug);
         }
 
-        /// <summary>
-        /// Sends the initial connection packet to the server using opcode 0.
-        /// Includes the username, UID, and public RSA key for handshake identity.
-        /// Starts listening for incoming packets.
-        /// Returns true if the packet is sent successfully; false otherwise.
-        /// </summary>
-        /// <param name="username">The display name of the user.</param>
-        /// <param name="uid">The unique identifier assigned to the client during connection.</param>
-        /// <param name="publicKeyBase64">The RSA public key used for encryption handshake.</param>
-        /// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
-        public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
+/// <summary>
+/// Sends the initial connection packet to the server using opcode 0.  
+/// Includes the username, UID, and public RSA key for handshake identity.
+/// Starts listening for incoming packets.  
+/// Returns true if the packet is sent successfully; false otherwise.
+/// </summary>
+/// <param name="username">The display name of the user.</param>
+/// <param name="uid">The unique identifier assigned to the client during connection.</param>
+/// <param name="publicKeyBase64">The RSA public key used for encryption handshake.</param>
+/// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
+public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
+    {
+        if (string.IsNullOrEmpty(username))
+            return false;
+
+        try
         {
-            if (string.IsNullOrEmpty(username))
-                return false;
+            // Constructs the handshake packet with identity and encryption capability
+            var connectPacket = new PacketBuilder();
+            connectPacket.WriteOpCode(0);                       // Opcode 0 = new user connection
+            connectPacket.WriteMessage(username);               // Writes the Username
+            connectPacket.WriteMessage(uid.ToString());         // Writes the UID
+            connectPacket.WriteMessage(publicKeyBase64);        // Writes the Base64 public key
 
-            try
-            {
-                // Builds the initial connection packet with opcode 0.
-                // This packet defines the client's identity and encryption capability.
-                var connectPacket = new PacketBuilder();
-                connectPacket.WriteOpCode(0); // Opcode 0 = new user connection
-                connectPacket.WriteMessage(username);           // Username
-                connectPacket.WriteMessage(uid.ToString());     // UID
-                connectPacket.WriteMessage(publicKeyBase64);    // RSA public key
+            // Logs the packet structure for debugging
+            ClientLogger.Log("Handshake packet structure:", LogLevel.Debug);
+            ClientLogger.Log($"  → Username: {username}", LogLevel.Debug);
+            ClientLogger.Log($"  → UID: {uid}", LogLevel.Debug);
+            ClientLogger.Log($"  → PublicKeyBase64 fragment: {publicKeyBase64.Substring(0, 32)}…", LogLevel.Debug);
 
-                ClientLogger.Log("Handshake packet structure:", LogLevel.Debug);
-                ClientLogger.Log($"         → Username: {username}", LogLevel.Debug);
-                ClientLogger.Log($"         → UID: {uid}", LogLevel.Debug);
-                ClientLogger.Log($"         → PublicKeyBase64: {publicKeyBase64.Substring(0, 32)}...", LogLevel.Debug);
+            // Sends the packet bytes and flushes to ensure immediate transmission
+            NetworkStream stream = _client.GetStream();
+            byte[] packetBytes = connectPacket.GetPacketBytes();
+            stream.Write(packetBytes, 0, packetBytes.Length);
+            stream.Flush();                                     // Ensures data is sent now
 
-                // Sends the packet via NetworkStream to ensure compatibility with server-side reader
-                NetworkStream stream = _client.GetStream();
-                byte[] packetBytes = connectPacket.GetPacketBytes();
-                stream.Write(packetBytes, 0, packetBytes.Length);
+            // Logs success and spawns the packet reader
+            ClientLogger.Log($"Initial connection packet sent — Username: {username}, UID: {uid}", LogLevel.Debug);
+            Task.Run(() => ReadPackets());
 
-                ClientLogger.Log($"Initial connection packet sent — Username: {username}, UID: {uid}", LogLevel.Debug);
-
-                // Starts listening for incoming packets (non-blocking)
-                Task.Run(() => ReadPackets());
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"Failed to send initial connection packet: {ex.Message}", LogLevel.Error);
-                return false;
-            }
+            return true;
         }
+        catch (Exception ex)
+        {
+            // Logs any error that occurs during handshake send
+            ClientLogger.Log($"Failed to send initial connection packet: {ex.Message}", LogLevel.Error);
+            return false;
+        }
+    }
 
-        /// <summary>
-        /// Sends a chat message to the server (opcode 5).  
-        /// Validates connection state, LocalUser initialization, handshake completion, and key synchronization before encrypting.  
-        /// When encryption is enabled and ready, it encrypts the message separately for each peer using its public key,  
-        /// embeds senderUid and recipientUid in each packet, and logs every step.  
-        /// When encryption is disabled or not ready, it falls back to a single plain-text broadcast packet.  
-        /// </summary>
-        /// <param name="message">The plain-text message to send.</param>
-        public void SendMessageToServer(string message)
+    /// <summary>
+    /// Sends a chat message to the server (opcode 5).  
+    /// Validates connection state, LocalUser initialization, handshake completion, and key synchronization before encrypting.  
+    /// When encryption is enabled and ready, it encrypts the message separately for each peer using its public key,  
+    /// embeds senderUid and recipientUid in each packet, and logs every step.  
+    /// When encryption is disabled or not ready, it falls back to a single plain-text broadcast packet.  
+    /// </summary>
+    /// <param name="message">The plain-text message to send.</param>
+    public void SendMessageToServer(string message)
         {
             // Abort when the message is null, empty, or whitespace
             if (string.IsNullOrWhiteSpace(message))

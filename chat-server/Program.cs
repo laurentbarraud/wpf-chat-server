@@ -5,8 +5,10 @@
 
 using chat_server.Helpers;
 using chat_server.Net.IO;
+using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -278,39 +280,40 @@ namespace chat_server
             LogL(LogLevelLocal.Info, "ShutdownComplete");
         }
 
-        // StartServerListener
         /// <summary>
-        /// Starts a TCP listener on the specified port, performs handshakes,
-        /// validates/imports client RSA keys, registers clients, and
-        /// broadcasts the updated roster. Logs each major step.
+        /// Starts a TCP listener on the specified port, performs client handshakes,
+        /// validates RSA keys, registers new clients, and broadcasts the roster.
+        /// Logs each major step and handles unexpected conditions.
         /// </summary>
         public static void StartServerListener(int port)
         {
+            // Creates and starts the TCP listener on all network interfaces
             _listener = new TcpListener(IPAddress.Any, port);
             _listener.Start();
-            Log(LogLevelLocal.Info,
-                $"{LocalizationManager.GetString("ServerStartedOnPort")} {port}");
+            Log(LogLevelLocal.Info, $"{LocalizationManager.GetString("ServerStartedOnPort")} {port}");
 
             while (true)
             {
                 try
                 {
+                    // Accepts an incoming TCP connection
                     TcpClient tcpClient = _listener.AcceptTcpClient();
-                    string remoteEndpoint = tcpClient.Client.RemoteEndPoint?
-                        .ToString() ?? "Unknown endpoint";
-                    Log(LogLevelLocal.Info,
-                        $"Incoming connection from {remoteEndpoint}");
+                    string endpoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown endpoint";
+                    Log(LogLevelLocal.Info, $"Incoming connection from {endpoint}");
 
-                    var reader = new PacketReader(tcpClient.GetStream());
-                    byte opcode = reader.ReadByte();
+                    NetworkStream stream = tcpClient.GetStream();
+
+                    // Reads the handshake opcode byte
+                    int opcode = stream.ReadByte();
                     if (opcode != 0)
                     {
-                        Log(LogLevelLocal.Error,
-                            $"Unexpected handshake opcode: {opcode}. Disconnecting.");
+                        Log(LogLevelLocal.Error, $"Unexpected handshake opcode: {opcode}. Disconnecting.");
                         tcpClient.Close();
                         continue;
                     }
 
+                    // Parses the Username, UID string, and Base64 public key
+                    var reader = new PacketReader(stream);
                     string username = reader.ReadMessage();
                     string uidString = reader.ReadMessage();
                     string publicKeyBase64 = reader.ReadMessage();
@@ -318,15 +321,17 @@ namespace chat_server
                     Log(LogLevelLocal.Debug, "[SERVER] Handshake received:");
                     Log(LogLevelLocal.Debug, $"  → Username: {username}");
                     Log(LogLevelLocal.Debug, $"  → UID: {uidString}");
-                    Log(LogLevelLocal.Debug,
-                        $"  → Key fragment: {publicKeyBase64.Substring(0, 32)}…");
+                    Log(LogLevelLocal.Debug, $"  → Key fragment: {publicKeyBase64.Substring(0, 32)}…");
 
+                    // Parses and validates the client's GUID
                     Guid uid = Guid.Parse(uidString);
-                    byte[] derBytes = Convert.FromBase64String(publicKeyBase64);
 
+                    // Imports the RSA public key in PKCS#1 DER format
+                    byte[] derBytes = Convert.FromBase64String(publicKeyBase64);
                     using var rsa = RSA.Create();
                     rsa.ImportRSAPublicKey(derBytes, out _);
 
+                    // Instantiates and registers the client
                     var client = new Client(tcpClient, username, uid)
                     {
                         PublicKeyDer = derBytes,
@@ -334,21 +339,19 @@ namespace chat_server
                     };
                     Users.Add(client);
 
-                    Log(LogLevelLocal.Info,
-                        $"Client connected: {username} ({uid})");
-                    Log(LogLevelLocal.Info,
-                        $"[SERVER] User count: {Users.Count}");
+                    Log(LogLevelLocal.Info, $"Client connected: {username} ({uid})");
+                    Log(LogLevelLocal.Info, $"[SERVER] User count: {Users.Count}");
                     foreach (var u in Users)
-                        Log(LogLevelLocal.Debug,
-                            $"  → {u.Username} ({u.UID})");
+                        Log(LogLevelLocal.Debug, $"  → {u.Username} ({u.UID})");
 
+                    // Spawns the message listener and updates the roster
                     Task.Run(() => client.ListenForMessages());
                     BroadcastConnection();
                 }
                 catch (Exception ex)
                 {
-                    Log(LogLevelLocal.Error,
-                        $"[SERVER] Handshake error: {ex.Message}");
+                    // Logs any exception during the handshake process
+                    Log(LogLevelLocal.Error, $"[SERVER] Handshake error: {ex.Message}");
                 }
             }
         }

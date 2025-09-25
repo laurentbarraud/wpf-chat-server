@@ -92,7 +92,7 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Decrypts the Base64-encoded OAEP/SHA-256 ciphertext using local private key DER.
+        /// Decrypts the Base64-encoded OAEP/SHA-256 ciphertext using local private key DER.  
         /// Returns the UTF-8 plaintext or a localized fallback on error.
         /// </summary>
         /// <param name="encryptedMessage">Base64-encoded ciphertext.</param>
@@ -101,38 +101,61 @@ namespace chat_client.Helpers
         {
             try
             {
+                // Creates a temporary RSA instance for decryption
                 using var rsa = RSA.Create();
+
+                // Imports the local private key in DER PKCS#1 format
                 rsa.ImportRSAPrivateKey(PrivateKeyDer, out _);
 
+                // Decodes and decrypts the ciphertext
                 byte[] cipherBytes = Convert.FromBase64String(encryptedMessage);
                 byte[] plainBytes = rsa.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
 
+                // Returns the decrypted text
                 return Encoding.UTF8.GetString(plainBytes);
+            }
+            catch (FormatException fe)
+            {
+                // Logs Base64 decoding failures
+                ClientLogger.Log($"RSA decryption failed (invalid Base64): {fe.Message}", LogLevel.Error);
+                return LocalizationManager.GetString("DecryptionFailed");
+            }
+            catch (CryptographicException ce)
+            {
+                // Logs RSA decryption errors
+                ClientLogger.Log($"RSA decryption failed (crypto error): {ce.Message}", LogLevel.Error);
+                return LocalizationManager.GetString("DecryptionFailed");
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"RSA decryption failed: {ex.Message}", LogLevel.Error);
+                // Logs any unexpected decryption error
+                ClientLogger.Log($"RSA decryption error: {ex.Message}", LogLevel.Error);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
         }
 
         /// <summary>
-        /// Encrypts the UTF-8 plaintext using the recipient’s Base64-DER public key.
-        /// Uses OAEP with SHA-256 padding for maximum security.
+        /// Encrypts the UTF-8 plaintext using the recipient’s Base64-DER public key.  
+        /// Uses OAEP with SHA-256 padding for semantic security and randomness.
         /// </summary>
         /// <param name="plainMessage">UTF-8 text to encrypt.</param>
         /// <param name="recipientPublicKeyBase64">Base64-encoded DER public key.</param>
         /// <returns>Base64-encoded ciphertext.</returns>
         public static string EncryptMessage(string plainMessage, string recipientPublicKeyBase64)
         {
+            // Creates a temporary RSA instance for encryption
             using var rsa = RSA.Create();
+
+            // Imports the recipient's public key in DER PKCS#1 format
             byte[] publicDer = Convert.FromBase64String(recipientPublicKeyBase64);
             rsa.ImportRSAPublicKey(publicDer, out _);
 
+            // Encrypts the UTF-8 bytes with OAEP SHA-256 padding
             byte[] cipher = rsa.Encrypt(
                 Encoding.UTF8.GetBytes(plainMessage),
                 RSAEncryptionPadding.OaepSHA256);
 
+            // Returns the ciphertext as a Base64 string
             return Convert.ToBase64String(cipher);
         }
 
