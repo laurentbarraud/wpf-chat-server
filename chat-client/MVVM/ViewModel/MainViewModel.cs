@@ -218,40 +218,92 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Determines whether all required public keys are received for encryption readiness.
-        /// Returns true if encryption is enabled, the local public key is set,
-        /// and there are no missing peer keys (zero or more peers).
+        /// Determines whether encryption can proceed by checking:
+        ///   1. Encryption is enabled in settings  
+        ///   2. Local user and its public key are initialized  
+        ///   3. All connected peers have published a valid public key  
+        /// Uses a lock on the shared key dictionary to ensure thread safety
+        /// and logs each decision point for detailed troubleshooting.
         /// </summary>
+        /// <returns>True if encryption is fully ready (including solo mode); otherwise, false.</returns>
         public bool AreAllKeysReceived()
         {
-            // Requires encryption enabled and local user initialized
+            // Logs the current encryption setting for debugging
+            ClientLogger.Log(
+                $"Checking encryption readiness — UseEncryption={Settings.Default.UseEncryption}",
+                LogLevel.Debug);
+
+            // Skips if encryption is disabled or if the local user is not initialized
             if (!Settings.Default.UseEncryption || LocalUser == null)
-                return false;
-
-            // Requires local public key present
-            if (string.IsNullOrEmpty(LocalUser.PublicKeyBase64))
-                return false;
-
-            // If no peers are connected, encryption is ready with only the local key
-            if (Users.Count == 0)
-                return true;
-
-            // Collects any peer UIDs whose public key is not yet known
-            var missing = Users
-                .Select(u => u.UID)
-                .Except(KnownPublicKeys.Keys)
-                .ToList();
-
-            if (missing.Any())
             {
                 ClientLogger.Log(
-                    $"Encryption not ready — missing keys for: {string.Join(", ", missing)}",
+                    "Skipping encryption readiness check — encryption disabled or local user not initialized.",
+                    LogLevel.Info);
+                return false;
+            }
+
+            // Checks presence of the local public key
+            bool hasLocalKey = !string.IsNullOrEmpty(LocalUser.PublicKeyBase64);
+            ClientLogger.Log(
+                $"Local public key present: {hasLocalKey}",
+                LogLevel.Debug);
+
+            if (!hasLocalKey)
+            {
+                ClientLogger.Log(
+                    "Skipping encryption readiness check — local public key not yet generated.",
+                    LogLevel.Info);
+                return false;
+            }
+
+            // Handles solo mode where no peers are connected
+            if (Users.Count == 0)
+            {
+                ClientLogger.Log(
+                    "Solo mode detected — no peers; encryption considered ready.",
+                    LogLevel.Debug);
+
+                ClientLogger.Log(
+                    "Encryption is fully activated and ready (solo mode).",
+                    LogLevel.Info);
+                return true;
+            }
+
+            List<string> missingKeys;
+
+            // Locks the shared dictionary while computing missing entries
+            lock (KnownPublicKeys)
+            {
+                var peerUids = Users.Select(u => u.UID).ToList();
+                ClientLogger.Log(
+                    $"Peer UIDs to verify: {string.Join(", ", peerUids)}",
+                    LogLevel.Debug);
+
+                missingKeys = peerUids
+                    .Except(KnownPublicKeys.Keys)
+                    .ToList();
+
+                ClientLogger.Log(
+                    $"Number of missing keys detected: {missingKeys.Count}",
+                    LogLevel.Debug);
+            }
+
+            // Logs and aborts if any peer keys are missing
+            if (missingKeys.Any())
+            {
+                ClientLogger.Log(
+                    $"Encryption not ready — missing keys for: {string.Join(", ", missingKeys)}",
                     LogLevel.Debug);
                 return false;
             }
 
+            // All checks passed: logs activation and returns readiness
+            ClientLogger.Log(
+                "Encryption is fully activated and ready.",
+                LogLevel.Info);
             return true;
         }
+
 
         /// <summary>
         /// Determines whether a message can be encrypted for the specified recipient.
@@ -416,21 +468,25 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Recalculates encryption readiness by ensuring encryption is enabled, the local public key is present,
-        /// and every connected peer’s public key is known.  
-        /// Updates the IsEncryptionReady flag and raises change notifications for both readiness and syncing properties,
-        /// triggering all bound UI elements to refresh.  
-        /// This method is invoked whenever the user list or known key dictionary changes.
+        /// Recalculates the overall encryption state in a thread-safe, single-notification manner.
+        /// Determines readiness by verifying encryption settings, local key presence, and peer key availability.
+        /// Updates the IsEncryptionReady property (whose setter raises change notifications 
+        /// for both readiness and syncing exactly once), and logs the result for debugging.
+        /// This method is invoked whenever user lists or key collections change.
         /// </summary>
         public void EvaluateEncryptionState()
         {
-            // Update the backing field via the property setter
-            IsEncryptionReady = AreAllKeysReceived();
+            // Determines whether all required public keys are now present
+            bool ready = AreAllKeysReceived();
 
-            // Raise PropertyChanged for IsEncryptionSyncing as well
-            OnPropertyChanged(nameof(IsEncryptionSyncing));
+            // Updates the readiness flag;
+            // the setter raises PropertyChanged for both IsEncryptionReady and IsEncryptionSyncing exactly once
+            IsEncryptionReady = ready;
 
-            ClientLogger.Log($"EvaluateEncryptionState called — Ready: {IsEncryptionReady}", LogLevel.Debug);
+            // Logs the new encryption state for traceability
+            ClientLogger.Log(
+                $"EvaluateEncryptionState called — Ready: {IsEncryptionReady}",
+                LogLevel.Debug);
         }
 
         /// <summary>
@@ -476,19 +532,31 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Initializes RSA encryption for the current session.
-        /// This method is safe to call multiple times and ensures the client can
-        /// send and receive encrypted messages. It generates a new RSA key pair,
-        /// stores it in the LocalUser object, injects the private key, sends the public key
-        /// to the server, registers known keys locally, requests missing keys if needed,
-        /// evaluates readiness, and triggers a final sync. All settings are saved once at the end.
+        /// Initializes RSA encryption for the current session in a thread-safe, idempotent manner.
+        /// 1. Verifies that a local user exists and that encryption is not already active.
+        /// 2. Generates a new 2048-bit RSA key pair.
+        /// 3. Encodes the public and private keys in Base64 and stores them on the LocalUser model.
+        /// 4. Locks the KnownPublicKeys dictionary and registers the user’s own public key locally.
+        /// 5. Sends the public key to the server for distribution to all peers.
+        /// 6. Marks encryption as enabled in the client settings upon successful transmission.
+        /// 7. Imports any pre-existing peer keys from the provided ViewModel under lock.
+        /// 8. If the known-key count is incomplete, requests the server to resend all public keys.
+        /// 9. Recalculates encryption readiness and logs the result (without touching the UI).
+        /// 10. Performs one final SyncKeys pass to recover any missing keys.
+        /// 11. Saves the handshake key pair and encryption flag to persistent settings in one atomic call,
+        ///     then updates the UI lock-icon to reflect ultimate encryption readiness.
+        /// All steps log progress or errors and catch exceptions to prevent the client from crashing.
         /// </summary>
+        /// <param name="viewModel">The MainViewModel providing context and peer key retrieval.</param>
+        /// <returns>True if encryption was initialized successfully; otherwise, false.</returns>
         public bool InitializeEncryption(MainViewModel viewModel)
         {
-            // Skips if LocalUser is not set or encryption is already active
+            // 1. Skips if no user or encryption already active
             if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
-                ClientLogger.Log("Encryption initialization skipped — LocalUser is null or already active.", LogLevel.Debug);
+                ClientLogger.Log(
+                    "Encryption initialization skipped — no LocalUser or already active.",
+                    LogLevel.Debug);
                 return false;
             }
 
@@ -496,204 +564,286 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Generates RSA key pair (2048-bit)
+                // 2. Generates a new 2048-bit RSA key pair
                 using var rsa = new RSACryptoServiceProvider(2048);
                 string publicKeyXml = rsa.ToXmlString(false);
                 string privateKeyXml = rsa.ToXmlString(true);
 
-                // Encodes keys in Base64
+                // 3. Encodes keys in Base64
                 string publicKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicKeyXml));
                 string privateKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(privateKeyXml));
 
-                // Stores keys in LocalUser model
+                // Stores Base64 keys in LocalUser
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
-                ClientLogger.Log($"RSA key pair generated — UID: {LocalUser.UID}", LogLevel.Debug);
+                ClientLogger.Log(
+                    $"RSA key pair generated for UID {LocalUser.UID}.",
+                    LogLevel.Debug);
 
-                // Registers the client’s own public key locally
-                if (!string.IsNullOrEmpty(LocalUser.UID))
+                // 4. Registers own public key locally under lock
+                lock (KnownPublicKeys)
                 {
                     KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
-                    ClientLogger.Log($"Local public key registered — UID: {LocalUser.UID}", LogLevel.Debug);
+                    ClientLogger.Log(
+                        $"Local public key added to KnownPublicKeys for UID {LocalUser.UID}.",
+                        LogLevel.Debug);
                 }
 
-                // Sends the public key to the server for distribution
+                // 5. Sends public key to server
                 bool sent = Server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
                 if (!sent)
                 {
+                    ClientLogger.Log(
+                        "Failed to send public key to server — disabling encryption.",
+                        LogLevel.Error);
                     MessageBox.Show(
                         LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
 
-                    // Mark encryption disabled on failure
                     Properties.Settings.Default.UseEncryption = false;
-                    ClientLogger.Log("Failed to send public key to server — encryption disabled.", LogLevel.Error);
                     return false;
                 }
 
-                // Marks encryption enabled in settings
+                // 6. Enables encryption in settings
                 Properties.Settings.Default.UseEncryption = true;
                 initializationSucceeded = true;
-                ClientLogger.Log("Encryption enabled in settings.", LogLevel.Debug);
+                ClientLogger.Log(
+                    "Encryption enabled in application settings.",
+                    LogLevel.Info);
 
-                // Registers any known public keys from the local user list
-                foreach (var (peerUid, peerKey) in viewModel.GetAllKnownPublicKeys())
+                // 7. Imports peer keys from ViewModel under lock
+                lock (KnownPublicKeys)
                 {
-                    if (!KnownPublicKeys.ContainsKey(peerUid))
+                    foreach (var (peerUid, peerKey) in viewModel.GetAllKnownPublicKeys())
                     {
-                        KnownPublicKeys[peerUid] = peerKey;
-                        ClientLogger.Log($"External public key registered — UID: {peerUid}", LogLevel.Debug);
+                        if (!KnownPublicKeys.ContainsKey(peerUid))
+                        {
+                            KnownPublicKeys[peerUid] = peerKey;
+                            ClientLogger.Log(
+                                $"Imported external public key for peer UID {peerUid}.",
+                                LogLevel.Debug);
+                        }
                     }
                 }
 
-                // Requests full key synchronization if the set is incomplete
-                if (KnownPublicKeys.Count < ExpectedClientCount)
+                // 8. Requests full key sync if set is incomplete
+                if (KnownPublicKeys.Count < viewModel.ExpectedClientCount)
                 {
                     _server.RequestAllPublicKeysFromServer();
-                    ClientLogger.Log("Full public-key sync requested due to incomplete keyset.", LogLevel.Debug);
+                    ClientLogger.Log(
+                        "Requested full public-key synchronization from server.",
+                        LogLevel.Debug);
                 }
 
-                // Evaluates readiness and update UI
+                // 9. Recalculates readiness (logs only, no UI update)
                 EvaluateEncryptionState();
-                if (IsEncryptionReady)
-                {
-                    (Application.Current.MainWindow as MainWindow)
-                        ?.UpdateEncryptionStatusIcon(IsEncryptionReady);
-                    ClientLogger.Log($"Encryption readiness confirmed — All {ExpectedClientCount} public keys received.", LogLevel.Debug);
-                }
-                else
-                {
-                    ClientLogger.Log($"[DEBUG] Encryption incomplete — {KnownPublicKeys.Count}/{ExpectedClientCount} public keys received.", LogLevel.Debug);
-                }
+                ClientLogger.Log(
+                    $"Post-init readiness: {IsEncryptionReady} with {KnownPublicKeys.Count}/{viewModel.ExpectedClientCount} keys.",
+                    LogLevel.Debug);
 
-                // Final sync pass to recover any missing keys
+                // 10. Performs final synchronization pass
                 SyncKeys();
 
                 return true;
             }
             catch (Exception ex)
             {
-                // Disables encryption on exception
+                // Disables encryption on exception to keep client stable
                 Properties.Settings.Default.UseEncryption = false;
-                ClientLogger.Log($"Exception during encryption initialization: {ex.Message}", LogLevel.Error);
+                ClientLogger.Log(
+                    $"Exception during encryption initialization: {ex.Message}",
+                    LogLevel.Error);
                 return false;
             }
             finally
             {
-                //Saves handshake key pair and encryption setting once
-                Properties.Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;   // saves public key
-                Properties.Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;  // saves private key
-                Properties.Settings.Default.Save();                                             // save all settings in one call
-                ClientLogger.Log("Settings saved.", LogLevel.Debug);
+                // 11. Persists handshake keys and encryption flag in one atomic save
+                Properties.Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;
+                Properties.Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;
+                Properties.Settings.Default.Save();
+                ClientLogger.Log(
+                    "Handshake keys and encryption settings persisted.",
+                    LogLevel.Debug);
+
+                // Only now updates the UI lock-icon if initialization succeeded
+                if (initializationSucceeded)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        (Application.Current.MainWindow as MainWindow)
+                            ?.UpdateEncryptionStatusIcon(IsEncryptionReady);
+                    });
+                    ClientLogger.Log(
+                        "UI lock-icon updated to reflect final encryption readiness.",
+                        LogLevel.Info);
+                }
             }
         }
 
         /// <summary>
-        /// Handles incoming chat packets (opcode 5) by reading three fields in sequence:
-        /// senderUid, recipientUid, then raw content.  
-        /// Filters out unicast packets not addressed to this client.  
-        /// Processes system-issued “/disconnect” commands.  
-        /// Decrypts payloads prefixed “[ENC]” with fallback on failure.  
-        /// Resolves the sender’s display name and dispatches the formatted message to the UI dispatcher.
+        /// Processes incoming chat packets (opcode 5) in a safe and robust manner.  
+        /// Reads the sender UID, recipient UID, and raw content sequentially from the packet reader.  
+        /// Filters out unicast messages not addressed to this client.  
+        /// Handles system disconnect commands immediately.  
+        /// Detects encrypted payloads by the “[ENC]” prefix, sanitizes control characters,  
+        /// and attempts decryption inside a guarded block to prevent exceptions from crashing the client.  
+        /// Falls back to a localized error message if decryption fails.  
+        /// Resolves the sender’s display name from the user list or falls back to UID.  
+        /// Finally, marshals the formatted message onto the UI thread to update the Messages collection.
         /// </summary>
         private void MessageReceived()
         {
-            // Reads the UID of the sender
-            string senderUid = _server.PacketReader.ReadMessage();
-
-            // Reads the UID of the intended recipient (empty string = broadcast)
-            string recipientUid = _server.PacketReader.ReadMessage();
-
-            // Reads the message content, which may be plain text or "[ENC]" + ciphertext
-            string rawContent = _server.PacketReader.ReadMessage();
-
-            // Ignores unicast messages not meant for this client
-            if (!string.IsNullOrEmpty(recipientUid)
-                && recipientUid != LocalUser.UID)
+            try
             {
-                return;
-            }
+                // Reads the UID of the sender from the incoming packet
+                string senderUid = _server.PacketReader.ReadMessage();
 
-            // Processes system disconnect requests
-            if (rawContent == "/disconnect"
-                && senderUid == SystemUID.ToString())
-            {
-                HandleSystemDisconnect();
-                return;
-            }
+                // Reads the UID of the intended recipient (empty = broadcast)
+                string recipientUid = _server.PacketReader.ReadMessage();
 
-            // Resolves the display name: find in Users, otherwise fallbacks to local user or UID
-            string displayName = Users
-                .FirstOrDefault(u => u.UID.ToString() == senderUid)?.Username
-                ?? (LocalUser?.UID.ToString() == senderUid ? LocalUser.Username : senderUid);
+                // Reads the raw content, which may include an “[ENC]” prefix
+                string rawContent = _server.PacketReader.ReadMessage();
 
-            string finalMessage;
-
-            // Decrypts encrypted payloads
-            if (rawContent.StartsWith("[ENC]"))
-            {
-                // Strips the "[ENC]" marker and cleans up any stray control characters
-                string encryptedPayload = rawContent
-                    .Substring(5)
-                    .Replace("\0", "")
-                    .Replace("\r", "")
-                    .Replace("\n", "")
-                    .Trim();
-
-                try
+                // Filters out unicast messages not intended for this client
+                if (!string.IsNullOrEmpty(recipientUid)
+                    && recipientUid != LocalUser.UID)
                 {
-                    // Attempts decryption using the local private key
-                    string decrypted = TryDecryptMessage(encryptedPayload);
-                    finalMessage = $"{displayName}: {decrypted}";
+                    return;
                 }
-                catch (Exception ex)
-                {
-                    // Fallbacks on decryption failure
-                    finalMessage = $"{displayName}: {LocalizationManager.GetString("DecryptionFailed")} ({ex.Message})";
-                }
-            }
-            else
-            {
-                // Plain-text fallback
-                finalMessage = $"{displayName}: {rawContent}";
-            }
 
-            // Dispatches the formatted message to the UI thread
-            Application.Current.Dispatcher.Invoke(() =>
+                // Handles system-issued disconnect commands immediately
+                if (rawContent == "/disconnect"
+                    && senderUid == SystemUID.ToString())
+                {
+                    HandleSystemDisconnect();
+                    return;
+                }
+
+                // Determines the display name: looks up the user or falls back to UID
+                string displayName = Users
+                    .FirstOrDefault(u => u.UID.ToString() == senderUid)?.Username
+                    ?? (LocalUser?.UID == senderUid ? LocalUser.Username
+                                                     : senderUid);
+
+                string finalMessage;
+
+                // Detects and processes encrypted payloads
+                if (rawContent.StartsWith("[ENC]"))
+                {
+                    // Strips the “[ENC]” marker and removes stray control characters
+                    string encryptedPayload = rawContent
+                        .Substring(5)
+                        .Replace("\0", "")
+                        .Replace("\r", "")
+                        .Replace("\n", "")
+                        .Trim();
+
+                    try
+                    {
+                        // Attempts decryption using the local private key
+                        string decrypted = TryDecryptMessage(encryptedPayload);
+                        finalMessage = $"{displayName}: {decrypted}";
+                    }
+                    catch (Exception exDecrypt)
+                    {
+                        // Logs decryption errors and uses a localized fallback message
+                        ClientLogger.Log(
+                            $"Decryption error for sender {senderUid}: {exDecrypt.Message}",
+                            LogLevel.Error);
+                        string errorText = LocalizationManager.GetString("DecryptionFailed");
+                        finalMessage = $"{displayName}: {errorText}";
+                    }
+                }
+                else
+                {
+                    // Uses the raw content for plain-text messages
+                    finalMessage = $"{displayName}: {rawContent}";
+                }
+
+                // Marshals the formatted message onto the UI thread safely
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Messages.Add(finalMessage);
+                });
+            }
+            catch (Exception ex)
             {
-                Messages.Add(finalMessage);
-            });
+                // Catches any unexpected exception to prevent client termination
+                ClientLogger.Log(
+                    $"Unexpected error in MessageReceived: {ex.Message}",
+                    LogLevel.Error);
+            }
         }
 
         /// <summary>
-        /// Registers a received public key, re-evaluates readiness,
-        /// and updates the lock icon exactly when encryption becomes ready.
+        /// Registers or updates a peer’s RSA public key in a thread-safe, idempotent manner.
+        /// Locks the shared key dictionary to prevent concurrent writes, logs whether a key was added, updated, or duplicated,
+        /// re-evaluates overall encryption readiness, and refreshes the lock icon if encryption becomes fully ready.
         /// </summary>
-        /// <param name="uid">UID of the peer whose key is received.</param>
-        /// <param name="publicKeyBase64">Base64-encoded public key.</param>
+        /// <param name="uid">The unique identifier of the peer.</param>
+        /// <param name="publicKeyBase64">The Base64-encoded RSA public key.</param>
         public void ReceivePublicKey(string uid, string publicKeyBase64)
         {
+            // Guard against invalid input
             if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(publicKeyBase64))
-                return;
-
-            // Stores or updates the peer's public key
-            KnownPublicKeys[uid] = publicKeyBase64;
-
-            // Re-evaluate encryption readiness
-            EvaluateEncryptionState();
-            ClientLogger.Log(
-                $"Public key received for UID: {uid} — Ready: {IsEncryptionReady}",
-                LogLevel.Debug);
-
-            // Update lock icon whenever encryption is fully ready
-            if (AreAllKeysReceived())
             {
-                (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
-                ClientLogger.Log("Encryption readiness confirmed — lock icon turned on.", LogLevel.Debug);
+                ClientLogger.Log(
+                    $"Discarded incoming public key — uid or key is empty.",
+                    LogLevel.Warn);
+                return;
+            }
+
+            bool isNewOrUpdated = false;
+
+            // Protects KnownPublicKeys from concurrent access
+            lock (KnownPublicKeys)
+            {
+                if (KnownPublicKeys.TryGetValue(uid, out var existingKey))
+                {
+                    // Detects duplicate key receipt
+                    if (existingKey == publicKeyBase64)
+                    {
+                        ClientLogger.Log(
+                            $"Received duplicate public key for UID {uid}; no change.",
+                            LogLevel.Debug);
+                    }
+                    else
+                    {
+                        // Updates changed key
+                        KnownPublicKeys[uid] = publicKeyBase64;
+                        isNewOrUpdated = true;
+                        ClientLogger.Log(
+                            $"Updated public key for UID {uid}.",
+                            LogLevel.Info);
+                    }
+                }
+                else
+                {
+                    // Adds new key
+                    KnownPublicKeys.Add(uid, publicKeyBase64);
+                    isNewOrUpdated = true;
+                    ClientLogger.Log(
+                        $"Registered new public key for UID {uid}.",
+                        LogLevel.Info);
+                }
+            }
+
+            // Re-evaluates encryption state, raising PropertyChanged for readiness and syncing
+            EvaluateEncryptionState();
+
+            // If encryptions just became ready, update the UI lock icon
+            if (IsEncryptionReady && isNewOrUpdated)
+            {
+                (Application.Current.MainWindow as MainWindow)
+                    ?.UpdateEncryptionStatusIcon(IsEncryptionReady);
+                ClientLogger.Log(
+                    $"Encryption readiness confirmed after key registration for UID {uid}.",
+                    LogLevel.Debug);
             }
         }
+
 
         /// <summary>
         /// Represents the user's preference for minimizing the app to the system tray.
@@ -768,45 +918,84 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Verifies that all connected users have a known public RSA key.
-        /// If missing keys are detected, attempts recovery by resending the local public key.
-        /// Triggers a UI update to reflect synchronization status and tooltip state.
-        /// Should be called after list of users updates or key exchange events.
+        /// Ensures that all connected peers have published their RSA public keys.
+        /// If any keys are missing, requests the server to resend the local public key.
+        /// Re-evaluates encryption readiness (both ready and syncing flags),
+        /// and refreshes the lock-icon on the UI with the current sync status.
+        /// Wraps all operations in thread-safe locks and exception handlers to prevent client crashes.
         /// </summary>
         public void SyncKeys()
         {
-            // Skips synchronization if encryption is disabled or list of users is unavailable
-            if (!chat_client.Properties.Settings.Default.UseEncryption || Users == null || Users.Count == 0)
-                return;
-
-            List<string> missing = new();
-
-            // Iterates through all connected users (excluding self) to verify public key availability.
-            // For each user, checks whether their UID is present in the KnownPublicKeys dictionary.
-            // If a key is missing, the UID is added to the 'missing' list to trigger recovery logic.
-            // Designed to support dynamic multi-client environments where users may join or reconnect at any time.
-
-            foreach (var user in Users)
+            try
             {
-                if (user.UID == LocalUser.UID)
-                    continue;
+                // Skips synchronization if encryption is disabled or if Users or LocalUser is uninitialized
+                if (!Settings.Default.UseEncryption || Users == null || LocalUser == null)
+                    return;
 
-                if (!KnownPublicKeys.ContainsKey(user.UID))
-                    missing.Add(user.UID);
+                // Builds a snapshot of peer UIDs (excludes self) to avoid concurrent collection issues
+                var peerUids = Users
+                    .Where(u => u.UID != LocalUser.UID)
+                    .Select(u => u.UID)
+                    .ToList();
+
+                // If no peers exist, triggers a readiness re-evaluation and exits
+                if (peerUids.Count == 0)
+                {
+                    EvaluateEncryptionState();
+                    return;
+                }
+
+                List<string> missingKeys;
+
+                // Locks the shared dictionary while checking for missing entries
+                lock (KnownPublicKeys)
+                {
+                    missingKeys = peerUids
+                        .Where(uid => !KnownPublicKeys.ContainsKey(uid))
+                        .ToList();
+                }
+
+                // If any keys are missing, logs the UIDs and requests a key resend
+                if (missingKeys.Count > 0)
+                {
+                    ClientLogger.Log(
+                        $"SyncKeys detected missing keys for: {string.Join(", ", missingKeys)}",
+                        LogLevel.Debug);
+
+                    try
+                    {
+                        _server.ResendPublicKey();
+                        ClientLogger.Log(
+                            "Requests resend of local public key from server.",
+                            LogLevel.Debug);
+                    }
+                    catch (Exception exRequest)
+                    {
+                        ClientLogger.Log(
+                            $"Failed to request public key resend: {exRequest.Message}",
+                            LogLevel.Error);
+                    }
+                }
+
+                // Re-evaluates encryption state, raising PropertyChanged for ready and syncing
+                EvaluateEncryptionState();
+
+                // Updates the lock icon on the UI thread with the current ready/syncing status
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    (Application.Current.MainWindow as MainWindow)
+                        ?.UpdateEncryptionStatusIcon(
+                            IsEncryptionReady,
+                            missingKeys.Count > 0);
+                });
             }
-
-            // Logs missing keys for debugging
-            if (missing.Count > 0)
+            catch (Exception ex)
             {
-                ClientLogger.Log($"Missing keys detected: {string.Join(", ", missing)}", LogLevel.Debug);
-
-                // Attempts to resend the local public key to the server
-                _server.ResendPublicKey();
+                // Catches any unexpected error to prevent the client from terminating
+                ClientLogger.Log(
+                    $"Unexpected error in SyncKeys: {ex.Message}",
+                    LogLevel.Error);
             }
-
-            // Updates encryption readiness and UI icon with sync state
-            bool isSyncing = missing.Count > 0;
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady, isSyncing);
         }
 
         /// <summary>

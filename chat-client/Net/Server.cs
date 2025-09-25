@@ -369,96 +369,156 @@ public bool SendInitialConnectionPacket(string username, Guid uid, string public
         }
     }
 
-    /// <summary>
-    /// Sends a chat message to the server (opcode 5).  
-    /// Validates connection state, LocalUser initialization, handshake completion, and key synchronization before encrypting.  
-    /// When encryption is enabled and ready, it encrypts the message separately for each peer using its public key,  
-    /// embeds senderUid and recipientUid in each packet, and logs every step.  
-    /// When encryption is disabled or not ready, it falls back to a single plain-text broadcast packet.  
-    /// </summary>
-    /// <param name="message">The plain-text message to send.</param>
-    public void SendMessageToServer(string message)
+        /// <summary>
+        /// Sends a chat message to the server (opcode 5).
+        /// Validates message content, ViewModel availability, TCP connection state, and local user identity before proceeding.
+        /// If encryption is enabled, handshake is complete, and all public keys are ready,  
+        /// it encrypts the message separately for each peer under a lock, handles per-peer errors,  
+        /// and posts a local echo on the UI thread.  
+        /// Otherwise, it sends a single plain-text broadcast packet under exception handling.
+        /// All steps log their progress or failure to the client logger to avoid crashing the client.
+        /// </summary>
+        /// <param name="message">The plain-text message to send.</param>
+        public void SendMessageToServer(string message)
         {
-            // Abort when the message is null, empty, or whitespace
-            if (string.IsNullOrWhiteSpace(message))
-                return;
-
-            // Retrieve the ViewModel from MainWindow
-            if (Application.Current.MainWindow is not MainWindow mainWindow
-                || mainWindow.ViewModel is not MainViewModel viewModel)
+            try
             {
-                ClientLogger.Log("ViewModel is null. Cannot send message.", LogLevel.Error);
-                return;
-            }
+                // Aborts immediately if the message is null, empty, or whitespace
+                if (string.IsNullOrWhiteSpace(message))
+                    return;
 
-            // Abort when the TCP socket is not connected
-            if (_client?.Connected != true)
-            {
-                ClientLogger.LogLocalized(LocalizationManager.GetString("ClientSocketNotConnected"), LogLevel.Error);
-                return;
-            }
-
-            // Abort when LocalUser is not initialized or UID is missing
-            var localUser = viewModel.LocalUser;
-            if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
-            {
-                ClientLogger.Log("LocalUser is not initialized. Cannot send message.", LogLevel.Error);
-                return;
-            }
-
-            string senderUid = localUser.UID;
-
-            // Encrypts per peer only when encryption is enabled, handshake is complete, and all keys are synchronized
-            if (Properties.Settings.Default.UseEncryption
-                && HandshakeCompleted
-                && viewModel.IsEncryptionReady)
-            {
-                foreach (var kvp in viewModel.KnownPublicKeys)
+                // Retrieves the main window and its ViewModel for data context
+                if (Application.Current.MainWindow is not MainWindow mainWindow
+                    || mainWindow.ViewModel is not MainViewModel viewModel)
                 {
-                    string peerUid = kvp.Key;
-                    if (peerUid == senderUid)
-                        continue;
-
-                    // Encrypts the message using the peer’s public key
-                    string encryptedPayload = EncryptionHelper.EncryptMessage(message, kvp.Value);
-                    string payload = "[ENC]" + encryptedPayload;
-                    ClientLogger.Log($"Encrypts message for {peerUid}.", LogLevel.Debug);
-
-                    // Builds the packet: [OpCode][SenderUid][RecipientUid][Payload]
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode(5);
-                    packet.WriteMessage(senderUid);
-                    packet.WriteMessage(peerUid);
-                    packet.WriteMessage(payload);
-
-                    // Sends the encrypted packet to the server
-                    _client.Client.Send(packet.GetPacketBytes());
-                    ClientLogger.Log($"Sends encrypted packet for recipient {peerUid}.", LogLevel.Debug);
+                    ClientLogger.Log("Cannot send message — ViewModel is not available.", LogLevel.Error);
+                    return;
                 }
 
-                // Adds a local echo so the sender sees his own message immediately
-                Application.Current.Dispatcher.Invoke(() =>
+                // Aborts if the TCP socket is not connected
+                if (_client?.Connected != true)
                 {
-                    viewModel.Messages.Add($"{localUser.Username}: {message}");
-                });
+                    ClientLogger.LogLocalized(
+                        LocalizationManager.GetString("ClientSocketNotConnected"),
+                        LogLevel.Error);
+                    return;
+                }
+
+                // Verifies that the local user is initialized and has a valid UID
+                var localUser = viewModel.LocalUser;
+                if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
+                {
+                    ClientLogger.Log("Cannot send message — LocalUser is not initialized.", LogLevel.Error);
+                    return;
+                }
+
+                // Captures the sender's UID for packet construction
+                string senderUid = localUser.UID;
+
+                // Determines whether to use encrypted or plain-text path
+                bool useEncryption = Properties.Settings.Default.UseEncryption
+                                     && HandshakeCompleted
+                                     && viewModel.IsEncryptionReady;
+
+                if (useEncryption)
+                {
+                    // Encrypts and sends one packet per peer under a lock on the shared key dictionary
+                    lock (viewModel.KnownPublicKeys)
+                    {
+                        foreach (var kvp in viewModel.KnownPublicKeys)
+                        {
+                            string peerUid = kvp.Key;
+
+                            // Skips sending to self
+                            if (peerUid == senderUid)
+                                continue;
+
+                            // Verifies that encryption can proceed for this recipient
+                            if (!viewModel.CanEncryptMessageFor(peerUid))
+                            {
+                                ClientLogger.Log(
+                                    $"Cannot encrypt for {peerUid} — missing key or encryption disabled.",
+                                    LogLevel.Warn);
+                                continue;
+                            }
+
+                            try
+                            {
+                                // Encrypts the message payload using the peer's public key
+                                string encryptedPayload = EncryptionHelper.EncryptMessage(message, kvp.Value);
+                                string payloadMarker = "[ENC]" + encryptedPayload;
+                                ClientLogger.Log(
+                                    $"Encrypts message for recipient {peerUid}.",
+                                    LogLevel.Debug);
+
+                                // Builds the packet: [OpCode][SenderUid][RecipientUid][Payload]
+                                var packet = new PacketBuilder();
+                                packet.WriteOpCode(5);
+                                packet.WriteMessage(senderUid);
+                                packet.WriteMessage(peerUid);
+                                packet.WriteMessage(payloadMarker);
+
+                                // Sends the encrypted packet over the socket
+                                _client.Client.Send(packet.GetPacketBytes());
+                                ClientLogger.Log(
+                                    $"Sends encrypted packet to {peerUid}.",
+                                    LogLevel.Debug);
+                            }
+                            catch (Exception exPeer)
+                            {
+                                // Logs any failure for this peer without crashing the client
+                                ClientLogger.Log(
+                                    $"Failed to send encrypted packet to {peerUid}: {exPeer.Message}",
+                                    LogLevel.Error);
+                            }
+                        }
+                    }
+
+                    // Posts a local echo on the UI thread so the sender sees their own message immediately
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        viewModel.Messages.Add($"{localUser.Username}: {message}");
+                    });
+                }
+                else
+                {
+                    // Warns if handshake or key synchronization is not complete
+                    if (!HandshakeCompleted)
+                        ClientLogger.Log(
+                            "Handshake not completed — sending plain-text message.",
+                            LogLevel.Warn);
+
+                    ClientLogger.Log("Sends plain-text message.", LogLevel.Debug);
+
+                    try
+                    {
+                        // Builds the plain-text broadcast packet: [OpCode][SenderUid][Content]
+                        var packet = new PacketBuilder();
+                        packet.WriteOpCode(5);
+                        packet.WriteMessage(senderUid);
+                        packet.WriteMessage(message);
+
+                        // Sends the plain-text packet over the socket
+                        _client.Client.Send(packet.GetPacketBytes());
+                        ClientLogger.Log(
+                            "Plain-text packet sent successfully.",
+                            LogLevel.Debug);
+                    }
+                    catch (Exception exPlain)
+                    {
+                        // Logs failure to send without crashing the client
+                        ClientLogger.Log(
+                            $"Failed to send plain-text packet: {exPlain.Message}",
+                            LogLevel.Error);
+                    }
+                }
             }
-            else
+            catch (Exception ex)
             {
-                // Warns if handshake is not complete before sending plain text
-                if (!HandshakeCompleted)
-                    ClientLogger.Log("Handshake not completed — sending plain message anyway.", LogLevel.Warn);
-
-                ClientLogger.Log("Sends plain-text message.", LogLevel.Debug);
-
-                // Builds the plain-text packet: [OpCode][SenderUid][Content]
-                var packet = new PacketBuilder();
-                packet.WriteOpCode(5);
-                packet.WriteMessage(senderUid);
-                packet.WriteMessage(message);
-
-                // Sends the plain-text packet to the server
-                _client.Client.Send(packet.GetPacketBytes());
-                ClientLogger.Log("Sends plain-text packet.", LogLevel.Debug);
+                // Catches any unexpected exception and log it to prevent client termination
+                ClientLogger.Log(
+                    $"Unexpected error in SendMessageToServer: {ex.Message}",
+                    LogLevel.Error);
             }
         }
 

@@ -7,6 +7,7 @@ using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
+using chat_client.Properties;
 using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
@@ -23,6 +24,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace chat_client
 {
@@ -110,30 +112,34 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Initializes the main window, binds the view model to the DataContext,
-        /// registers event handlers for message autoscroll and dynamic UI updates
-        /// (connect button text and encryption lock-icon), applies the initial UI state,
-        /// and configures the dispatcher timer for emoji panel scrolling.
+        /// Initializes the main window and sets up all UI bindings, event handlers, and initial state for the encrypted chat client.
+        /// 1. Loads XAML-defined components and resources.
+        /// 2. Instantiates the MainViewModel and assigns it to DataContext.
+        /// 3. Registers collection and property-changed handlers for auto-scroll and dynamic UI updates (connect button text and lock icon).
+        /// 4. Applies the initial connect button text and encryption lock icon based on ViewModel state.
+        /// 5. Configures and starts the dispatcher timer for emoji panel auto-scrolling.
         /// </summary>
         public MainWindow()
         {
-            // Loads XAML-defined components and resources
+            // Loads all XAML elements, styles, and resources
             InitializeComponent();
 
-            // Instantiates the view model and assigns it to the DataContext
+            // Instantiates the view model and binds it to the window
             ViewModel = new MainViewModel();
             DataContext = ViewModel;
 
-            // Registers to new messages to automatically scroll the chat view
+            // Registers handler to auto-scroll chat when new messages arrive
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            // Subscribes to ViewModel.PropertyChanged to update dynamic UI elements
+            // Subscribes to property changes to keep connect button and lock icon in sync with ViewModel
             ViewModel.PropertyChanged += (sender, e) =>
             {
+                // Updates the connect/disconnect button label on connection state changes
                 if (e.PropertyName == nameof(ViewModel.IsConnected))
                 {
                     UpdateConnectButtonText();
                 }
+                // Updates the encryption lock icon and tooltip when readiness or syncing flags change
                 else if (e.PropertyName == nameof(ViewModel.IsEncryptionReady) ||
                          e.PropertyName == nameof(ViewModel.IsEncryptionSyncing))
                 {
@@ -143,13 +149,13 @@ namespace chat_client
                 }
             };
 
-            // Applies the initial state for connect button and lock-icon
+            // Applies the initial UI state immediately after construction
             UpdateConnectButtonText();
             UpdateEncryptionStatusIcon(
                 ViewModel.IsEncryptionReady,
                 ViewModel.IsEncryptionSyncing);
 
-            // Configures the timer used for emoji panel auto-scrolling
+            // Configures the emoji panel auto-scroll timer (ticks every 50 ms)
             scrollTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(50)
@@ -660,56 +666,79 @@ namespace chat_client
                 ? LocalizationManager.GetString("DisconnectButton")
                 : LocalizationManager.GetString("ConnectButton");
         }
-
+        
         /// <summary>
-        /// Updates the encryption status icon and tooltip above the message input field.
-        /// Displays the gray icon during key exchange or synchronization phase.
-        /// Switches to colored icon once encryption is fully ready.
-        /// Tooltip reflects current state: sending key, syncing, or ready.
-        /// Triggers Ultra Zoom animation only when encryption becomes fully active.
-        /// Designed to support real-time feedback in multi-client encrypted chat.
+        /// Updates the encryption status icon and tooltip above the message input field in real time.
+        /// 1. Hides the icon entirely if encryption is disabled in settings.
+        /// 2. Displays a gray lock icon during public-key sending or key synchronization phases.
+        /// 3. Updates the tooltip to reflect current state: sending key, syncing, or ready.
+        /// 4. Triggers the Ultra Zoom animation and the colored lock icon when encryption becomes fully active.
         /// </summary>
-        /// <param name="isReady">True if encryption is fully ready (all keys synchronized).</param>
-        /// <param name="isSyncing">True if key exchange or synchronization is in progress.</param>
+        /// <param name="isReady">True when all peer keys are synchronized and encryption is ready.</param>
+        /// <param name="isSyncing">True while key exchange or synchronization is in progress.</param>
         public void UpdateEncryptionStatusIcon(bool isReady, bool isSyncing = false)
         {
-            var viewModel = DataContext as MainViewModel;
-            if (viewModel == null)
-                return;
-
-            // Hide the icon entirely if encryption is disabled in settings
-            if (!chat_client.Properties.Settings.Default.UseEncryption)
+            try
             {
+                // Acquires the ViewModel; aborts if not available
+                if (DataContext is not MainViewModel viewModel)
+                    return;
+
+                // 1. Hides icon when encryption is globally disabled
+                if (!Settings.Default.UseEncryption)
+                {
+                    imgEncryptionStatus.Visibility = Visibility.Collapsed;
+                    imgEncryptionStatus.Source = null;
+                    imgEncryptionStatus.ToolTip = null;
+                    ClientLogger.Log(
+                        "Encryption disabled — icon hidden.",
+                        LogLevel.Info);
+                    return;
+                }
+
+                // Ensures icon is visible when encryption is enabled
+                imgEncryptionStatus.Visibility = Visibility.Visible;
+
+                // 2 & 3. Shows gray icon and sets appropriate tooltip during key send or sync
+                if (!isReady)
+                {
+                    // Displays gray lock icon during key exchange or synchronization
+                    imgEncryptionStatus.Source = new BitmapImage(
+                        new Uri("/Resources/encrypted-disabled.png", UriKind.Relative));
+
+                    // Chooses tooltip text based on whether syncing is in progress
+                    string tooltipKey = isSyncing
+                        ? "GettingMissingKeys"
+                        : "SendingPublicKey";
+                    imgEncryptionStatus.ToolTip = LocalizationManager.GetString(tooltipKey);
+
+                    ClientLogger.Log(
+                        $"Encryption in progress — gray icon displayed; tooltip: {tooltipKey}.",
+                        LogLevel.Debug);
+                    return;
+                }
+
+                // 4. Displays colored lock icon and triggers Zoom animation when fully ready
+                imgEncryptionStatus.Source = new BitmapImage(
+                    new Uri("/Resources/encrypted.png", UriKind.Relative));
+                imgEncryptionStatus.ToolTip = LocalizationManager.GetString("EncryptionEnabled");
+
+                // Begins the Ultra Zoom animation defined in XAML
+                var storyboard = (Storyboard)FindResource("StarWarsLockDrop");
+                storyboard.Begin();
+
+                ClientLogger.Log(
+                    "Encryption fully active — colored icon displayed with Zoom animation.",
+                    LogLevel.Info);
+            }
+            catch (Exception ex)
+            {
+                // Logs any unexpected error and hides the icon to prevent UI disruption
+                ClientLogger.Log(
+                    $"Error in UpdateEncryptionStatusIcon: {ex.Message}",
+                    LogLevel.Error);
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
-                ClientLogger.Log("[Encryption disabled — icon hidden.", LogLevel.Debug);
-                return;
             }
-
-            // Ensure the icon is visible if encryption is enabled
-            imgEncryptionStatus.Visibility = Visibility.Visible;
-
-            if (!isReady)
-            {
-                // Display gray lock icon during key exchange or synchronization phase
-                imgEncryptionStatus.Source = new BitmapImage(new Uri("/Resources/encrypted-disabled.png", UriKind.Relative));
-
-                // Set tooltip based on current sync state
-                string tooltipKey = isSyncing ? "GettingMissingKeys" : "SendingPublicKey";
-                imgEncryptionStatus.ToolTip = LocalizationManager.GetString(tooltipKey);
-
-                ClientLogger.Log($"Lock icon set to gray — tooltip: {tooltipKey}", LogLevel.Debug);
-                return;
-            }
-
-            // Display colored lock icon when encryption is fully ready
-            imgEncryptionStatus.Source = new BitmapImage(new Uri("/Resources/encrypted.png", UriKind.Relative));
-            imgEncryptionStatus.ToolTip = LocalizationManager.GetString("EncryptionEnabled");
-            imgEncryptionStatus.Visibility = Visibility.Visible;
-
-            var zoom = (Storyboard)FindResource("StarWarsLockDrop");
-            zoom.Begin();
-
-            ClientLogger.Log("Lock icon updated.", LogLevel.Debug);
         }
     }
 }
