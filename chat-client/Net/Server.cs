@@ -102,9 +102,9 @@ namespace chat_client.Net
                 // Initializes the packet reader from the network stream
                 PacketReader = new PacketReader(_client.GetStream());
 
-                // Generates UID and RSA public key for handshake
+                // Generates UID and retrieves the client's RSA public key for handshake
                 Guid uid = Guid.NewGuid();
-                string publicKeyBase64 = EncryptionHelper.GetPublicKeyBase64();
+                string publicKeyBase64 = EncryptionHelper.PublicKeyBase64;
 
                 ClientLogger.Log($"UID generated for handshake: {uid}", LogLevel.Debug);
                 ClientLogger.Log($"RSA public key generated: {publicKeyBase64}", LogLevel.Debug);

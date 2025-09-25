@@ -95,37 +95,61 @@ namespace chat_client
         /// </summary>
         private bool _isEncryptionInitializing = false;
 
-        public Server Server => ViewModel?.Server;
+        /// <summary>
+        /// Gets the Server instance managed by the view model.
+        /// Throws an InvalidOperationException if the view model has not been initialized.
+        /// </summary>
+        public Server Server
+        {
+            get
+            {
+                if (ViewModel is null)
+                    throw new InvalidOperationException("MainWindow.ViewModel is not initialized; cannot retrieve Server.");
+                return ViewModel.Server;
+            }
+        }
 
         /// <summary>
-        /// Initializes the main window, binds the ViewModel, and sets up UI event subscriptions.
-        /// Handles message autoscroll, emoji panel timing, and property change listeners for dynamic UI updates.
+        /// Initializes the main window, binds the view model to the DataContext,
+        /// registers event handlers for message autoscroll and dynamic UI updates
+        /// (connect button text and encryption lock-icon), applies the initial UI state,
+        /// and configures the dispatcher timer for emoji panel scrolling.
         /// </summary>
         public MainWindow()
         {
+            // Loads XAML-defined components and resources
             InitializeComponent();
 
-            // ViewModel binding
+            // Instantiates the view model and assigns it to the DataContext
             ViewModel = new MainViewModel();
-            this.DataContext = ViewModel;
+            DataContext = ViewModel;
 
-            // Subscribes to message collection changes to trigger autoscroll
+            // Registers to new messages to automatically scroll the chat view
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            // Subscribes to property changes to update UI dynamically
-            ViewModel.PropertyChanged += (s, e) =>
+            // Subscribes to ViewModel.PropertyChanged to update dynamic UI elements
+            ViewModel.PropertyChanged += (sender, e) =>
             {
                 if (e.PropertyName == nameof(ViewModel.IsConnected))
                 {
                     UpdateConnectButtonText();
                 }
-                else if (e.PropertyName == nameof(ViewModel.IsEncryptionReady))
+                else if (e.PropertyName == nameof(ViewModel.IsEncryptionReady) ||
+                         e.PropertyName == nameof(ViewModel.IsEncryptionSyncing))
                 {
-                    UpdateEncryptionStatusIcon(ViewModel.IsEncryptionReady);
+                    UpdateEncryptionStatusIcon(
+                        ViewModel.IsEncryptionReady,
+                        ViewModel.IsEncryptionSyncing);
                 }
             };
 
-            // Initializes the scroll timer used for emoji panel auto-scrolling
+            // Applies the initial state for connect button and lock-icon
+            UpdateConnectButtonText();
+            UpdateEncryptionStatusIcon(
+                ViewModel.IsEncryptionReady,
+                ViewModel.IsEncryptionSyncing);
+
+            // Configures the timer used for emoji panel auto-scrolling
             scrollTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(50)

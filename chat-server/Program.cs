@@ -14,6 +14,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace chat_server
@@ -25,14 +26,12 @@ namespace chat_server
     /// </summary>
     public class Program
     {
-        // Fields
         private static TcpListener _listener;
         public static readonly List<Client> Users = new();
         public static string AppLanguage = "en";
         public static readonly Guid SystemUID =
             Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        // Local logger
         private enum LogLevelLocal { Debug, Info, Warn, Error }
 
         private static void Log(LogLevelLocal level, string message)
@@ -47,41 +46,52 @@ namespace chat_server
             Log(level, text);
         }
 
-        // Main
+        /// <summary>
+        /// Serves as the application entry point.
+        /// Sets up console encoding, localization, and debug settings;
+        /// prompts for a server port; and launches the TCP listener.
+        /// Handles Ctrl+C to perform a graceful shutdown.
+        /// </summary>
         public static void Main(string[] args)
         {
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
-            Console.CancelKeyPress += (s, e) =>
+            Console.OutputEncoding = Encoding.UTF8;
+
+            // Gracefully handle Ctrl+C to shut down the server
+            Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
                 Shutdown();
                 Environment.Exit(0);
             };
 
-            string culture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-            AppLanguage = culture == "fr" ? "fr" : "en";
+            // Detect system language and initialize localization
+            string systemCulture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
+            AppLanguage = systemCulture == "fr" ? "fr" : "en";
             LocalizationManager.Initialize(AppLanguage);
 
-            #if DEBUG
-            ServerLogHelper.IsDebugEnabled = true;
-            #else
-            ServerLogHelper.IsDebugEnabled = args.Contains("--debug");
-            #endif
-
+            // Display localized banner
             DisplayBanner();
-            int port = GetPortFromUser();
 
-            try { StartServerListener(port); }
+            // Prompt user for TCP port or use default
+            int portToListenTo = GetPortFromUser();
+
+            try
+            {
+                // Start listening for incoming clients
+                StartServerListener(portToListenTo);
+            }
             catch (Exception ex)
             {
-                Log(LogLevelLocal.Error,
-                    $"{LocalizationManager.GetString("ServerStartFailed")} {port}: {ex.Message}");
+                // Logs failure when server fails to start on the chosen port
+                Log(LogLevelLocal.Error, $"{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}");
+
+                // Logs that the application is exiting
                 Log(LogLevelLocal.Info, LocalizationManager.GetString("Exiting"));
+
                 Environment.Exit(1);
             }
         }
 
-        // BroadcastConnection
         /// <summary>Broadcasts full user list (opcode 1) to every client.</summary>
         public static void BroadcastConnection()
         {
@@ -104,7 +114,6 @@ namespace chat_server
             Log(LogLevelLocal.Debug, "[SERVER] Completed user list broadcast");
         }
 
-        // BroadcastDisconnect
         /// <summary>Notifies clients of a disconnection (opcode 10) and logs each send.</summary>
         public static void BroadcastDisconnect(string uid)
         {
@@ -136,7 +145,6 @@ namespace chat_server
             }
         }
 
-        // BroadcastMessage
         /// <summary>Routes a chat packet (opcode 5) to one or all clients.</summary>
         public static void BroadcastMessage(string content, Guid senderUid, Guid? recipientUid = null)
         {
@@ -181,7 +189,6 @@ namespace chat_server
             }
         }
 
-        // BroadcastPublicKeyToOthers
         /// <summary>Distributes sender's public key (opcode 6) to other clients.</summary>
         public static void BroadcastPublicKeyToOthers(Client sender)
         {
@@ -211,39 +218,60 @@ namespace chat_server
                 "[SERVER] Completed public key broadcast");
         }
 
-        // DisplayBanner
         /// <summary>Displays the localized startup banner.</summary>
         private static void DisplayBanner()
         {
             Console.WriteLine("╔═══════════════════════════════════╗");
-            Console.WriteLine("║          WPF Chat Server          ║");
+            Console.WriteLine("║        WPF Chat Server 1.0        ║");
             Console.WriteLine("╚═══════════════════════════════════╝");
             Console.WriteLine(LocalizationManager.GetString("BannerLine1"));
             Console.WriteLine(LocalizationManager.GetString("BannerLine2"));
         }
 
-        // GetPortFromUser
-        /// <summary>Prompts for a valid TCP port with timeout and fallback.</summary>
-        private static int GetPortFromUser()
+        /// <summary>
+        /// Prompts the user to enter a valid TCP port or fallback to default.
+        /// </summary>
+        /// <returns>Valid port number to use</returns>
+        static int GetPortFromUser()
         {
-            const int defaultPort = 7123;
-            Console.Write(LocalizationManager.GetString("PortPrompt"));
+            int defaultPort = 7123;
+            int chosenPort = defaultPort;
+
+            // Prints the prompt without newline and leaves a space for input
+            Console.Write(LocalizationManager.GetString("PortPrompt") + " ");
+
+            // Read the user’s input
             string input = ReadLineWithTimeout(7000);
 
-            if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
-                return port;
 
-            Console.Write(LocalizationManager.GetString("InvalidPortPrompt"));
-            string confirm = Console.ReadLine()?.Trim().ToLower();
-            if (confirm == "y" || confirm == "o")
-                return defaultPort;
+            if (!string.IsNullOrWhiteSpace(input))
+            {
+                // Validate port number
+                if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
+                {
+                    chosenPort = port;
+                }
+                else
+                {
+                    Console.Write(LocalizationManager.GetString("InvalidPortPrompt"));
+                    string confirm = Console.ReadLine()?.Trim().ToLower();
 
-            Log(LogLevelLocal.Info, LocalizationManager.GetString("Exiting"));
-            Environment.Exit(0);
-            return defaultPort;
+                    if (confirm == "y" || confirm == "o") // "o" for "oui" in French
+                    {
+                        chosenPort = defaultPort;
+                    }
+                    else
+                    {
+                        Console.WriteLine(LocalizationManager.GetString("Exiting"));
+                        Environment.Exit(0);
+                    }
+                }
+            }
+
+            return chosenPort;
         }
 
-        // ReadLineWithTimeout
+
         /// <summary>Reads a console line with a timeout.</summary>
         private static string ReadLineWithTimeout(int timeoutMs)
         {
@@ -252,7 +280,7 @@ namespace chat_server
             return result ?? string.Empty;
         }
 
-        // Shutdown
+
         /// <summary>Sends "/disconnect" to all clients then exits.</summary>
         public static void Shutdown()
         {
@@ -290,7 +318,11 @@ namespace chat_server
             // Creates and starts the TCP listener on all network interfaces
             _listener = new TcpListener(IPAddress.Any, port);
             _listener.Start();
-            Log(LogLevelLocal.Info, $"{LocalizationManager.GetString("ServerStartedOnPort")} {port}");
+
+            Console.WriteLine("\n");
+
+            // Logs that the server has successfully started on the specified port
+            Log(LogLevelLocal.Info, string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
 
             while (true)
             {

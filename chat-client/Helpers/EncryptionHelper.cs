@@ -19,7 +19,7 @@
 ///  All cryptographic operations rely on .NET's built-in RSA class, making the solution
 ///  portable, secure, and production-ready without external dependencies.</summary>
 
-using ChatClient.Helpers;
+using System;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -27,119 +27,62 @@ using System.Text;
 namespace chat_client.Helpers
 {
     /// <summary>
-    /// Provides RSA-based end-to-end encryption utilities for secure message exchange.  
-    /// Generates a 2048-bit RSA key pair at runtime, exposes the public key for distribution,  
-    /// and keeps the private key local for decryption.  
-    /// Uses OAEP padding with SHA-256 to ensure semantic security and prevent ciphertext patterns. 
+    /// Provides RSA-based end-to-end encryption utilities for secure message exchange.
+    /// Generates a single 2048-bit RSA key pair at startup,
+    /// exposes the public key as Base64-DER for the handshake,
+    /// and keeps the private key local for decryption.
+    /// Uses OAEP with SHA-256 padding to ensure semantic security.
     /// </summary>
     public static class EncryptionHelper
     {
-        /// <summary>
-        /// Indicates whether encryption is currently active.  
-        /// This flag is updated when the private key is set or cleared.
-        /// </summary>
-        public static bool IsEncryptionActive { get; private set; } = false;
+        /// <summary>Indicates whether decryption is currently enabled.</summary>
+        public static bool IsEncryptionActive { get; private set; }
 
-        // Stores the RSA key pair used for asymmetric encryption.
-        // The public key is shared externally; the private key remains local.
-        private static RSAParameters publicKey;
-        private static RSAParameters privateKey;
-
-        /// <summary>
-        /// Generates a 2048-bit RSA key pair once at startup.
-        /// Exports the public key as DER and encodes it in Base64 for distribution.
-        /// Retains the private key DER for all decryptions.
-        /// </summary>
-        static EncryptionHelper()
-        {
-            using var rsa = RSA.Create(2048);
-
-            // Export public key in PKCS#1 DER format, then Base64-encode it
-            PublicKeyBase64 = Convert.ToBase64String(rsa.ExportRSAPublicKey());
-
-            // Export private key in PKCS#1 DER format (full key)
-            PrivateKeyDer = rsa.ExportRSAPrivateKey();
-        }
-
-        // Backing fields
+        /// <summary>Holds the Base64-DER representation of the public key.</summary>
         public static readonly string PublicKeyBase64;
+
+        // Retains both public and private key material for the local client.
+        private static readonly RSA RsaInstance;
+
+        // Raw private key in DER PKCS#1 format, used for decryption imports.
         private static readonly byte[] PrivateKeyDer;
 
         /// <summary>
-        /// Clears the currently loaded RSA private key from memory.  
-        /// Used when encryption is disabled or reset, to prevent unintended decryption attempts.  
-        /// Ensures that the helper is in a clean state.
+        /// Initializes the RSA key pair at startup, exports the public key,
+        /// caches the private key DER, and activates decryption.
+        /// </summary>
+        static EncryptionHelper()
+        {
+            // Generates a new 2048-bit RSA key pair
+            RsaInstance = RSA.Create(2048);
+
+            // Exports the public key as DER PKCS#1 and encodes it in Base64
+            PublicKeyBase64 = Convert.ToBase64String(RsaInstance.ExportRSAPublicKey());
+
+            // Exports the private key as DER PKCS#1 for later import
+            PrivateKeyDer = RsaInstance.ExportRSAPrivateKey();
+
+            // Activates decryption by default
+            IsEncryptionActive = true;
+
+            Debug.WriteLine("[INFO] EncryptionHelper initialized with RSA 2048 key pair.");
+        }
+
+        /// <summary>
+        /// Disables decryption by clearing the local private key reference.
         /// </summary>
         public static void ClearPrivateKey()
         {
-            // Overwrites the private key parameters with empty/default values
-            privateKey = new RSAParameters
-            {
-                Modulus = null,
-                Exponent = null,
-                D = null,
-                P = null,
-                Q = null,
-                DP = null,
-                DQ = null,
-                InverseQ = null
-            };
-
             IsEncryptionActive = false;
-
-            // Logs the reset for debugging purposes
-            Debug.WriteLine("[INFO] RSA private key cleared from EncryptionHelper.");
+            Debug.WriteLine("[INFO] EncryptionHelper decryption disabled.");
         }
 
         /// <summary>
-        /// Decrypts the Base64-encoded OAEP/SHA-256 ciphertext using local private key DER.  
-        /// Returns the UTF-8 plaintext or a localized fallback on error.
+        /// Encrypts the given plaintext using the recipient's Base64-DER public key.
+        /// Uses OAEP with SHA-256 padding for maximum security.
         /// </summary>
-        /// <param name="encryptedMessage">Base64-encoded ciphertext.</param>
-        /// <returns>Decrypted UTF-8 string or localized error.</returns>
-        public static string DecryptMessage(string encryptedMessage)
-        {
-            try
-            {
-                // Creates a temporary RSA instance for decryption
-                using var rsa = RSA.Create();
-
-                // Imports the local private key in DER PKCS#1 format
-                rsa.ImportRSAPrivateKey(PrivateKeyDer, out _);
-
-                // Decodes and decrypts the ciphertext
-                byte[] cipherBytes = Convert.FromBase64String(encryptedMessage);
-                byte[] plainBytes = rsa.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
-
-                // Returns the decrypted text
-                return Encoding.UTF8.GetString(plainBytes);
-            }
-            catch (FormatException fe)
-            {
-                // Logs Base64 decoding failures
-                ClientLogger.Log($"RSA decryption failed (invalid Base64): {fe.Message}", LogLevel.Error);
-                return LocalizationManager.GetString("DecryptionFailed");
-            }
-            catch (CryptographicException ce)
-            {
-                // Logs RSA decryption errors
-                ClientLogger.Log($"RSA decryption failed (crypto error): {ce.Message}", LogLevel.Error);
-                return LocalizationManager.GetString("DecryptionFailed");
-            }
-            catch (Exception ex)
-            {
-                // Logs any unexpected decryption error
-                ClientLogger.Log($"RSA decryption error: {ex.Message}", LogLevel.Error);
-                return LocalizationManager.GetString("DecryptionFailed");
-            }
-        }
-
-        /// <summary>
-        /// Encrypts the UTF-8 plaintext using the recipient’s Base64-DER public key.  
-        /// Uses OAEP with SHA-256 padding for semantic security and randomness.
-        /// </summary>
-        /// <param name="plainMessage">UTF-8 text to encrypt.</param>
-        /// <param name="recipientPublicKeyBase64">Base64-encoded DER public key.</param>
+        /// <param name="plainMessage">The UTF-8 text to encrypt.</param>
+        /// <param name="recipientPublicKeyBase64">Recipient's Base64-DER public key.</param>
         /// <returns>Base64-encoded ciphertext.</returns>
         public static string EncryptMessage(string plainMessage, string recipientPublicKeyBase64)
         {
@@ -150,46 +93,49 @@ namespace chat_client.Helpers
             byte[] publicDer = Convert.FromBase64String(recipientPublicKeyBase64);
             rsa.ImportRSAPublicKey(publicDer, out _);
 
-            // Encrypts the UTF-8 bytes with OAEP SHA-256 padding
+            // Encrypts the plaintext with OAEP SHA-256 padding
             byte[] cipher = rsa.Encrypt(
                 Encoding.UTF8.GetBytes(plainMessage),
                 RSAEncryptionPadding.OaepSHA256);
 
-            // Returns the ciphertext as a Base64 string
+            // Returns the ciphertext as Base64
             return Convert.ToBase64String(cipher);
         }
 
         /// <summary>
-        /// Returns the RSA public key as a Base64-encoded XML string.  
-        /// This can be transmitted to the server or other clients for encryption purposes.
+        /// Decrypts the given Base64-encoded ciphertext using the local private key.
+        /// Returns the UTF-8 plaintext or a localized error message on failure.
         /// </summary>
-        public static string GetPublicKeyBase64()
+        /// <param name="encryptedMessage">Base64-encoded ciphertext.</param>
+        /// <returns>Decrypted UTF-8 text or fallback string.</returns>
+        public static string DecryptMessage(string encryptedMessage)
         {
-            using var rsa = RSA.Create();
-            rsa.ImportParameters(publicKey);
+            if (!IsEncryptionActive)
+            {
+                Debug.WriteLine("[WARN] Decryption requested while disabled; returning raw text.");
+                return encryptedMessage;
+            }
 
-            // Exports the public key as XML
-            string xmlKey = rsa.ToXmlString(false);
+            try
+            {
+                // Imports the private key from DER and decrypts
+                using var rsa = RSA.Create();
+                rsa.ImportRSAPrivateKey(PrivateKeyDer, out _);
 
-            // Encodes the XML string in Base64 for safe transmission
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(xmlKey));
+                byte[] cipherBytes = Convert.FromBase64String(encryptedMessage);
+                byte[] plainBytes = rsa.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
+
+                return Encoding.UTF8.GetString(plainBytes);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ERROR] RSA decryption failed: {ex.Message}");
+                return LocalizationManager.GetString("DecryptionFailed");
+            }
         }
 
         /// <summary>
-        /// Checks whether the RSA private key has been successfully initialized.  
-        /// Prevents runtime errors caused by missing or uninitialized key material.
-        /// </summary>
-        public static bool IsPrivateKeyValid()
-        {
-            return privateKey.Modulus != null &&
-                   privateKey.Exponent != null &&
-                   privateKey.D != null &&
-                   privateKey.P != null &&
-                   privateKey.Q != null;
-        }
-
-        /// <summary>
-        /// Validates that a string is a well-formed Base64-encoded value.
+        /// Validates whether a string is well-formed Base64 data.
         /// </summary>
         public static bool IsValidBase64(string base64)
         {
@@ -205,27 +151,6 @@ namespace chat_client.Helpers
             {
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Sets the RSA private key used for decryption.  
-        /// Accepts a Base64-encoded XML string and parses it into RSAParameters.  
-        /// Must be called before attempting to decrypt any message.
-        /// </summary>
-        public static void SetPrivateKey(string privateKeyBase64)
-        {
-            // Decodes the Base64 string into raw XML text
-            string xml = Encoding.UTF8.GetString(Convert.FromBase64String(privateKeyBase64));
-
-            using var rsa = RSA.Create();
-
-            // Imports the XML-formatted RSA key
-            rsa.FromXmlString(xml);
-
-            // Exports the parsed key as RSAParameters and stores it
-            privateKey = rsa.ExportParameters(true);
-
-            IsEncryptionActive = true;
         }
     }
 }
