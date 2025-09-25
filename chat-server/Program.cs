@@ -155,54 +155,64 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Broadcasts a public chat message to all connected clients, including the sender.
-        /// Encapsulates the message with its sender UID and dispatches it via TCP stream.
-        /// Handles both encrypted and plain messages, and logs the transmission with localization support.
-        /// Designed for clarity, traceability, and future extensibility (e.g. system messages, multi-opcode routing).
+        /// Processes a chat packet with opcode 5:
+        /// - If recipientUid is provided, delivers to the intended recipient and echoes back to the sender.
+        /// - If recipientUid is null, delivers to all connected clients.
+        /// Supports both plain-text and encrypted payloads (prefixed "[ENC]").
+        /// Logs each transmission with a timestamp for audit and debugging.
         /// </summary>
-        /// <param name="message">The message content to broadcast (plain or encrypted).</param>
-        /// <param name="senderUid">The UID of the client who originated the message.</param>
-        public static void BroadcastMessageToAll(string message, Guid senderUid)
+        /// <param name="content">
+        /// The message content, either plain text or "[ENC]" + encrypted payload.
+        /// </param>
+        /// <param name="senderUid">
+        /// UID of the client who originated the message.
+        /// </param>
+        /// <param name="recipientUid">
+        /// Optional UID of the intended recipient.  
+        /// Use null to broadcast to everyone.
+        /// </param>
+        public static void BroadcastMessage(string content, Guid senderUid, Guid? recipientUid = null)
         {
             foreach (var user in _users)
             {
+                // In unicast mode, skip users who are neither the recipient nor the sender
+                if (recipientUid.HasValue
+                    && user.UID != recipientUid.Value
+                    && user.UID != senderUid)
+                {
+                    continue;
+                }
+
                 try
                 {
-                    // Builds the message packet with opcode and sender metadata
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode(5); // Public chat message
-                    packet.WriteMessage(senderUid.ToString());
-                    packet.WriteMessage(message);
+                    // Build the packet: [OpCode][SenderUid][RecipientUid or empty][Content]
+                    var builder = new PacketBuilder();
+                    builder.WriteOpCode(5);
+                    builder.WriteMessage(senderUid.ToString());
+                    builder.WriteMessage(recipientUid?.ToString() ?? string.Empty);
+                    builder.WriteMessage(content);
 
-                    // Sends the packet if the client is still connected
+                    var packetBytes = builder.GetPacketBytes();
+
+                    // Send the packet if the client is still connected
                     if (user.ClientSocket.Connected)
                     {
-                        user.ClientSocket.GetStream().Write(
-                            packet.GetPacketBytes(),
-                            0,
-                            packet.GetPacketBytes().Length
-                        );
+                        user.ClientSocket.GetStream()
+                            .Write(packetBytes, 0, packetBytes.Length);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[SERVER] Failed to relay message to {user.Username}: {ex.Message}");
+                    Console.WriteLine($"[SERVER] Failed to send to {user.Username}: {ex.Message}");
                 }
             }
 
-            // Resolves sender identity for logging
-            var sender = _users.FirstOrDefault(u => u.UID.ToString() == senderUid.ToString());
-            string displayName = sender?.Username ?? "???";
-            string displayMessage = message.StartsWith("[ENC]") ? "[ENC]" : message;
+            // Local log for traceability
+            var sender = _users.FirstOrDefault(u => u.UID == senderUid);
+            string senderName = sender?.Username ?? "Unknown";
+            string displayText = content.StartsWith("[ENC]") ? "[Encrypted]" : content;
             string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
-
-            // Localized log output for traceability
-            string localizedLog = LocalizationManager.GetString("MessageReceived") + " " + displayName + ": " + displayMessage;
-            Console.WriteLine($"[SERVER] Incoming message packet:");
-            Console.WriteLine($"         → Sender UID: {senderUid}");
-            Console.WriteLine($"         → Sender Username: {displayName}");
-            Console.WriteLine($"         → Content: {displayMessage}");
-            Console.WriteLine($"[{timestamp}]: {localizedLog}");
+            Console.WriteLine($"[{timestamp}] Message from {senderName}: {displayText}");
         }
 
 

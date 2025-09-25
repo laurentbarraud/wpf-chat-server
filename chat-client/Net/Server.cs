@@ -368,49 +368,67 @@ namespace chat_client.Net
 
         /// <summary>
         /// Sends a chat message to the server using the standard packet format (opcode 5).
-        /// If encryption is enabled and the local RSA key is initialized,
-        /// the message is encrypted and marked with [ENC] for broadcast.
-        /// The server will relay this message to all connected clients,
-        /// who will attempt decryption using their private key.
-        /// Ensures that the sender UID matches the identity established during handshake.
-        /// Allows plain messages even if handshake is not completed.
+        /// Validates that the client is connected, the LocalUser identity is initialized,
+        /// and—if encryption is enabled and ready—encrypts a copy of the message for each peer
+        /// using that peer’s public key.  Each encrypted packet includes both sender and recipient UIDs,
+        /// so the server can forward it only to the intended client.  If encryption is disabled or not ready,
+        /// sends a single plain‐text broadcast packet.  Logs every step to aid debugging.
         /// </summary>
-        /// <param name="message">The plain text message to send.</param>
+        /// <param name="message">The plain-text message to send.</param>
         public void SendMessageToServer(string message)
         {
-            // Abort if message is empty or whitespace
+            // Abort if message is empty
             if (string.IsNullOrWhiteSpace(message))
                 return;
 
-            // Retrieve ViewModel from MainWindow context
-            if (Application.Current.MainWindow is not MainWindow mainWindow || mainWindow.ViewModel is not MainViewModel viewModel)
+            // Retrieve ViewModel from the MainWindow
+            if (Application.Current.MainWindow is not MainWindow mainWindow
+                || mainWindow.ViewModel is not MainViewModel viewModel)
             {
                 Console.WriteLine("[ERROR] ViewModel is null. Cannot send message.");
                 return;
             }
 
-            // Abort if client socket is not connected
-            if (_client == null || !_client.Connected)
+            // Abort if socket is not connected
+            if (_client?.Connected != true)
             {
                 Console.WriteLine(LocalizationManager.GetString("ClientSocketNotConnected"));
                 return;
             }
 
-            // Abort if LocalUser is not initialized or UID is missing
-            if (viewModel.LocalUser == null || string.IsNullOrWhiteSpace(viewModel.LocalUser.UID))
+            // Abort if LocalUser is not initialized
+            var localUser = viewModel.LocalUser;
+            if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
             {
                 Console.WriteLine("[ERROR] LocalUser is not initialized. Cannot send message.");
                 return;
             }
 
-            string senderUID = viewModel.LocalUser.UID;
+            var senderUid = localUser.UID;
 
-            // Encrypts the message if encryption is enabled and ready
-            if (chat_client.Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady)
+            // If encryption is enabled and all keys are ready, encrypt per peer
+            if (Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady)
             {
-                string encrypted = EncryptionHelper.EncryptMessage(message, viewModel.LocalUser.PublicKeyBase64);
-                message = "[ENC]" + encrypted;
-                Console.WriteLine("[DEBUG] Message encrypted and marked with [ENC].");
+                foreach (var kvp in viewModel.KnownPublicKeys)
+                {
+                    var peerUid = kvp.Key;
+                    if (peerUid == senderUid)
+                        continue;
+
+                    var peerPubKey = kvp.Value;
+                    var encryptedPayload = EncryptionHelper.EncryptMessage(message, peerPubKey);
+                    var payload = "[ENC]" + encryptedPayload;
+                    Console.WriteLine($"[DEBUG] Message encrypted for {peerUid}.");
+
+                    var packet = new PacketBuilder();
+                    packet.WriteOpCode(5);                // public chat opcode
+                    packet.WriteMessage(senderUid);       // who sends
+                    packet.WriteMessage(peerUid);         // who should receive
+                    packet.WriteMessage(payload);         // encrypted content
+
+                    _client.Client.Send(packet.GetPacketBytes());
+                    Console.WriteLine($"[DEBUG] Encrypted packet sent to server for recipient {peerUid}.");
+                }
             }
             else
             {
@@ -418,21 +436,15 @@ namespace chat_client.Net
                     Console.WriteLine("[WARN] Handshake not completed — sending plain message anyway.");
 
                 Console.WriteLine("[DEBUG] Sending plain message.");
+
+                var packet = new PacketBuilder();
+                packet.WriteOpCode(5);
+                packet.WriteMessage(senderUid);
+                packet.WriteMessage(message);
+
+                _client.Client.Send(packet.GetPacketBytes());
+                Console.WriteLine("[DEBUG] Plain-text packet sent to server.");
             }
-
-            // Builds the message packet with opcode 5
-            var messagePacket = new PacketBuilder();
-            messagePacket.WriteOpCode(5);              // Public chat message
-            messagePacket.WriteMessage(senderUID);     // Sender UID — must come first
-            messagePacket.WriteMessage(message);       // Encrypted or plain
-
-            Console.WriteLine("[DEBUG] Message packet structure:");
-            Console.WriteLine($"         → UID: {senderUID}");
-            Console.WriteLine($"         → Content: {(message.StartsWith("[ENC]") ? "[Encrypted]" : message)}");
-
-            // Sends the packet to the server
-            _client.Client.Send(messagePacket.GetPacketBytes());
-            Console.WriteLine("[DEBUG] Message packet sent to server.");
         }
 
         /// <summary>

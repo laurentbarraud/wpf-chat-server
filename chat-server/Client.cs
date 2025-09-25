@@ -112,17 +112,19 @@ namespace chat_server
 
                             break;
 
-                        case 5: // Public chat message
-                                // Reads sender UID and message content
-                            string senderUidForMessage = _packetReader.ReadMessage();
-                            string messageReceived = _packetReader.ReadMessage();
+                        case 5: // Public (or routed) chat message
+                                // Extracts in order: sender UID, recipient UID (empty = broadcast), then content
+                            string senderStr = _packetReader.ReadMessage();
+                            string recipientStr = _packetReader.ReadMessage();
+                            string content = _packetReader.ReadMessage();
 
-                            Console.WriteLine("[SERVER] Incoming message packet:");
-                            Console.WriteLine($"         → Sender UID: {senderUidForMessage}");
-                            Console.WriteLine($"         → Content: {(messageReceived.StartsWith("[ENC]") ? "[Encrypted]" : messageReceived)}");
+                            Guid senderGuid = Guid.Parse(senderStr);
+                            Guid? recipientGuid = string.IsNullOrEmpty(recipientStr)
+                                                    ? (Guid?)null
+                                                    : Guid.Parse(recipientStr);
 
-                            // Broadcasts the message to all other connected clients
-                            Program.BroadcastMessageToAll(messageReceived, Guid.Parse(senderUidForMessage));
+                            // Uses the unified BroadcastMessageToAll method
+                            Program.BroadcastMessage(content, senderGuid, recipientGuid);
                             break;
 
                         case 6: // Public key exchange
