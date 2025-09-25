@@ -7,6 +7,7 @@ using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
+using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.Configuration;
@@ -656,7 +657,7 @@ namespace chat_client
             if (!chat_client.Properties.Settings.Default.UseEncryption)
             {
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
-                Console.WriteLine("[DEBUG] Encryption disabled — icon hidden.");
+                ClientLogger.Log("[Encryption disabled — icon hidden.", LogLevel.Debug);
                 return;
             }
 
@@ -672,7 +673,7 @@ namespace chat_client
                 string tooltipKey = isSyncing ? "GettingMissingKeys" : "SendingPublicKey";
                 imgEncryptionStatus.ToolTip = LocalizationManager.GetString(tooltipKey);
 
-                Console.WriteLine($"[DEBUG] Lock icon set to gray — tooltip: {tooltipKey}");
+                ClientLogger.Log($"Lock icon set to gray — tooltip: {tooltipKey}", LogLevel.Debug);
                 return;
             }
 
@@ -684,7 +685,7 @@ namespace chat_client
             var zoom = (Storyboard)FindResource("StarWarsLockDrop");
             zoom.Begin();
 
-            Console.WriteLine("[DEBUG] Lock icon updated.");
+            ClientLogger.Log("Lock icon updated.", LogLevel.Debug);
         }
     }
 }

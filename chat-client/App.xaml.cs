@@ -5,12 +5,13 @@
 
 using chat_client.Helpers;
 using chat_client.Properties;
+using ChatClient.Helpers;
 using System.Configuration;
 using System.Data;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Markup;
-using System.Runtime.InteropServices;
 
 namespace chat_client
 {
@@ -39,6 +40,13 @@ namespace chat_client
             // Initializes localization manager with selected language
             LocalizationManager.Initialize(language);
 
+            // Sets log verbosity based on build configuration or command-line flag
+            #if DEBUG
+                ClientLogger.IsDebugEnabled = true;
+            #else
+                ClientLogger.IsDebugEnabled = args.Contains("--debug");
+            #endif
+
             // Creates and registers the main window
             var mainWindow = new MainWindow();
             Application.Current.MainWindow = mainWindow;
@@ -62,6 +70,7 @@ namespace chat_client
             // Displays the main window
             mainWindow.Show();
         }
+
 
         public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
         {

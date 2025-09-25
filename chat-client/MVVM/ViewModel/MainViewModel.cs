@@ -8,6 +8,7 @@ using chat_client.MVVM.Model;
 using chat_client.MVVM.View;
 using chat_client.Net;
 using chat_client.Net.IO;
+using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.VisualBasic.ApplicationServices;
 using System;
@@ -247,7 +248,7 @@ namespace chat_client.MVVM.ViewModel
             if (missingPeerUids.Count > 0)
             {
                 string joined = string.Join(", ", missingPeerUids);
-                Console.WriteLine($"[DEBUG] Encryption not ready — missing keys for: {joined}");
+                ClientLogger.Log($"Encryption not ready — missing keys for: {joined}", LogLevel.Debug);
                 return false;
             }
 
@@ -322,11 +323,11 @@ namespace chat_client.MVVM.ViewModel
                     UID = result.uid.ToString(),
                     PublicKeyBase64 = result.publicKeyBase64
                 };
-                Console.WriteLine($"[DEBUG] LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}");
+                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", LogLevel.Debug);
 
                 // Marks connection as successful (plain chat allowed)
                 IsConnected = true;
-                Console.WriteLine("[DEBUG] Client connected — plain messages allowed before handshake.");
+                ClientLogger.Log("Client connected — plain messages allowed before handshake.", LogLevel.Debug);
 
                 if (Properties.Settings.Default.UseEncryption)
                 {
@@ -338,7 +339,7 @@ namespace chat_client.MVVM.ViewModel
                         LocalUser.PublicKeyBase64 = storedPub;
                         LocalUser.PrivateKeyBase64 = storedPriv;
                         EncryptionHelper.SetPrivateKey(storedPriv);
-                        Console.WriteLine("[DEBUG] Loaded existing RSA key pair from settings.");
+                        ClientLogger.Log("Loaded existing RSA key pair from settings.", LogLevel.Debug);
 
                         // Re-publishes public key to server after reconnect
                         Server.SendPublicKeyToServer(LocalUser.UID, storedPub);
@@ -347,7 +348,7 @@ namespace chat_client.MVVM.ViewModel
 
                     // Initializes encryption if no stored pair found
                     InitializeEncryption(this);
-                    Console.WriteLine("[Connect] Encryption initialized on startup.");
+                    ClientLogger.Log("Encryption initialized on startup.", LogLevel.Info);
 
                     // Triggers key synchronization
                     _server.ResendPublicKey();
@@ -433,7 +434,7 @@ namespace chat_client.MVVM.ViewModel
         public void EvaluateEncryptionState()
         {
             IsEncryptionReady = AreAllKeysReceived();
-            Console.WriteLine($"[DEBUG] EvaluateEncryptionState called — Ready: {IsEncryptionReady}");
+            ClientLogger.Log($"EvaluateEncryptionState called — Ready: {IsEncryptionReady}", LogLevel.Debug);
         }
 
         /// <summary>
@@ -491,7 +492,7 @@ namespace chat_client.MVVM.ViewModel
             // Skips if LocalUser is not set or encryption is already active
             if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
-                Console.WriteLine("[DEBUG] Encryption initialization skipped — LocalUser is null or already active.");
+                ClientLogger.Log("Encryption initialization skipped — LocalUser is null or already active.", LogLevel.Debug);
                 return false;
             }
 
@@ -511,17 +512,17 @@ namespace chat_client.MVVM.ViewModel
                 // Stores keys in LocalUser model
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
-                Console.WriteLine($"[DEBUG] RSA key pair generated — UID: {LocalUser.UID}");
+                ClientLogger.Log($"RSA key pair generated — UID: {LocalUser.UID}", LogLevel.Debug);
 
                 // Injects private key into decryption helper
                 EncryptionHelper.SetPrivateKey(privateKeyBase64);
-                Console.WriteLine("[DEBUG] Private key injected into EncryptionHelper.");
+                ClientLogger.Log("Private key injected into EncryptionHelper.", LogLevel.Debug);
 
                 // Registers the client’s own public key locally
                 if (!string.IsNullOrEmpty(LocalUser.UID))
                 {
                     KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
-                    Console.WriteLine($"[DEBUG] Local public key registered — UID: {LocalUser.UID}");
+                    ClientLogger.Log($"Local public key registered — UID: {LocalUser.UID}", LogLevel.Debug);
                 }
 
                 // Sends the public key to the server for distribution
@@ -536,14 +537,14 @@ namespace chat_client.MVVM.ViewModel
 
                     // Mark encryption disabled on failure
                     Properties.Settings.Default.UseEncryption = false;
-                    Console.WriteLine("[ERROR] Failed to send public key to server — encryption disabled.");
+                    ClientLogger.Log("Failed to send public key to server — encryption disabled.", LogLevel.Error);
                     return false;
                 }
 
                 // Marks encryption enabled in settings
                 Properties.Settings.Default.UseEncryption = true;
                 initializationSucceeded = true;
-                Console.WriteLine("[DEBUG] Encryption enabled in settings.");
+                ClientLogger.Log("Encryption enabled in settings.", LogLevel.Debug);
 
                 // Registers any known public keys from the local user list
                 foreach (var (peerUid, peerKey) in viewModel.GetAllKnownPublicKeys())
@@ -551,7 +552,7 @@ namespace chat_client.MVVM.ViewModel
                     if (!KnownPublicKeys.ContainsKey(peerUid))
                     {
                         KnownPublicKeys[peerUid] = peerKey;
-                        Console.WriteLine($"[DEBUG] External public key registered — UID: {peerUid}");
+                        ClientLogger.Log($"External public key registered — UID: {peerUid}", LogLevel.Debug);
                     }
                 }
 
@@ -559,7 +560,7 @@ namespace chat_client.MVVM.ViewModel
                 if (KnownPublicKeys.Count < ExpectedClientCount)
                 {
                     _server.RequestAllPublicKeysFromServer();
-                    Console.WriteLine("[DEBUG] Full public-key sync requested due to incomplete keyset.");
+                    ClientLogger.Log("Full public-key sync requested due to incomplete keyset.", LogLevel.Debug);
                 }
 
                 // Evaluates readiness and update UI
@@ -568,11 +569,11 @@ namespace chat_client.MVVM.ViewModel
                 {
                     (Application.Current.MainWindow as MainWindow)
                         ?.UpdateEncryptionStatusIcon(IsEncryptionReady);
-                    Console.WriteLine($"[DEBUG] Encryption readiness confirmed — All {ExpectedClientCount} public keys received.");
+                    ClientLogger.Log($"Encryption readiness confirmed — All {ExpectedClientCount} public keys received.", LogLevel.Debug);
                 }
                 else
                 {
-                    Console.WriteLine($"[DEBUG] Encryption incomplete — {KnownPublicKeys.Count}/{ExpectedClientCount} public keys received.");
+                    ClientLogger.Log($"[DEBUG] Encryption incomplete — {KnownPublicKeys.Count}/{ExpectedClientCount} public keys received.", LogLevel.Debug);
                 }
 
                 // Final sync pass to recover any missing keys
@@ -584,7 +585,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 // Disables encryption on exception
                 Properties.Settings.Default.UseEncryption = false;
-                Console.WriteLine($"[ERROR] Exception during encryption initialization: {ex.Message}");
+                ClientLogger.Log($"Exception during encryption initialization: {ex.Message}", LogLevel.Error);
                 return false;
             }
             finally
@@ -593,7 +594,7 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;   // saves public key
                 Properties.Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;  // saves private key
                 Properties.Settings.Default.Save();                                             // save all settings in one call
-                Console.WriteLine("[DEBUG] Settings saved.");
+                ClientLogger.Log("Settings saved.", LogLevel.Debug);
             }
         }
 
@@ -698,18 +699,18 @@ namespace chat_client.MVVM.ViewModel
 
             // Logs key reception and current readiness status for diagnostics
             int publicKeyCount = KnownPublicKeys?.Count ?? 0;
-            Console.WriteLine($"[DEBUG] Public key received for UID: {uid} — Total keys: {publicKeyCount}, Ready: {IsEncryptionReady}");
+            ClientLogger.Log($"Public key received for UID: {uid} — Total keys: {publicKeyCount}, Ready: {IsEncryptionReady}", LogLevel.Debug);
 
             // Updates the lock icon only when all expected keys have been received
             // This ensures that the visual indicator reflects true decryption capability
             if (publicKeyCount == ExpectedClientCount)
             {
                 (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
-                Console.WriteLine($"[DEBUG] Encryption readiness confirmed — All {ExpectedClientCount} public keys received.");
+                ClientLogger.Log($"Encryption readiness confirmed — All {ExpectedClientCount} public keys received.", LogLevel.Debug);
             }
             else
             {
-                Console.WriteLine($"[DEBUG] Encryption incomplete — {publicKeyCount}/{ExpectedClientCount} public keys received.");
+                ClientLogger.Log($"Encryption incomplete — {publicKeyCount}/{ExpectedClientCount} public keys received.", LogLevel.Debug);
             }
         }
 
@@ -816,7 +817,7 @@ namespace chat_client.MVVM.ViewModel
             // Logs missing keys for debugging
             if (missing.Count > 0)
             {
-                Console.WriteLine($"[DEBUG] Missing keys detected: {string.Join(", ", missing)}");
+                ClientLogger.Log($"Missing keys detected: {string.Join(", ", missing)}", LogLevel.Debug);
 
                 // Attempts to resend the local public key to the server
                 _server.ResendPublicKey();
@@ -837,31 +838,31 @@ namespace chat_client.MVVM.ViewModel
         public static string TryDecryptMessage(string encryptedPayload)
         {
             // Logs the initial decryption attempt
-            Console.WriteLine("[DEBUG] TryDecryptMessage called.");
+            ClientLogger.Log("TryDecryptMessage called.", LogLevel.Debug);
 
             // Validates encryption state and key readiness
             if (!chat_client.Properties.Settings.Default.UseEncryption)
             {
-                Console.WriteLine("[WARN] Encryption is disabled in application settings.");
+                ClientLogger.Log("Encryption is disabled in application settings.", LogLevel.Warn);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
             if (string.IsNullOrEmpty(encryptedPayload))
             {
-                Console.WriteLine("[WARN] Encrypted payload is null or empty.");
+                ClientLogger.Log("Encrypted payload is null or empty.", LogLevel.Warn);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
             if (!EncryptionHelper.IsPrivateKeyValid())
             {
-                Console.WriteLine("[WARN] RSA private key is not valid or not initialized.");
+                ClientLogger.Log("RSA private key is not valid or not initialized.", LogLevel.Warn);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
             try
             {
                 // Logs the raw payload before sanitization
-                Console.WriteLine($"[DEBUG] Raw encrypted payload: {encryptedPayload}");
+                ClientLogger.Log($"Raw encrypted payload: {encryptedPayload}", LogLevel.Debug);
 
                 // Sanitizes the payload to remove invisible or invalid characters
                 string sanitizedPayload = encryptedPayload
@@ -870,19 +871,19 @@ namespace chat_client.MVVM.ViewModel
                     .Replace("\n", "")
                     .Trim();
 
-                Console.WriteLine($"[DEBUG] Sanitized encrypted payload: {sanitizedPayload}");
+                ClientLogger.Log($"Sanitized encrypted payload: {sanitizedPayload}", LogLevel.Debug);
 
                 // Attempts decryption using the helper
                 string decrypted = EncryptionHelper.DecryptMessage(sanitizedPayload);
 
                 // Logs the decrypted result
-                Console.WriteLine($"[DEBUG] Decryption successful. Decrypted message: {decrypted}");
+                ClientLogger.Log($"Decryption successful. Decrypted message: {decrypted}", LogLevel.Debug);
 
                 return decrypted;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] Exception during decryption: {ex.Message}");
+                ClientLogger.Log($"Exception during decryption: {ex.Message}", LogLevel.Error);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
         }
@@ -919,12 +920,12 @@ namespace chat_client.MVVM.ViewModel
                 foreach (var user in Users)
                 {
                     bool hasKey = KnownPublicKeys.ContainsKey(user.UID);
-                    Console.WriteLine($"[DEBUG] User in list of users — UID: {user.UID}, HasKey: {hasKey}");
+                    ClientLogger.Log($"User in list of users — UID: {user.UID}, HasKey: {hasKey}", LogLevel.Debug);
                 }
             }
 
             // Logs the readiness state before updating the icon
-            Console.WriteLine($"[DEBUG] UpdateEncryptionStatusIcon called — isReady: {IsEncryptionReady}");
+            ClientLogger.Log($"UpdateEncryptionStatusIcon called — isReady: {IsEncryptionReady}", LogLevel.Debug);
 
             // Delegates icon update to the UI layer
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
@@ -932,7 +933,7 @@ namespace chat_client.MVVM.ViewModel
             // Logs summary of list of users and key distribution
             int userCount = Users?.Count ?? 0;
             int keyCount = KnownPublicKeys?.Count ?? 0;
-            Console.WriteLine($"[DEBUG] Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}");
+            ClientLogger.Log($"Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}", LogLevel.Debug);
         }
 
         /// <summary>
@@ -968,13 +969,13 @@ namespace chat_client.MVVM.ViewModel
 
                     // Updates the expected client count for encryption readiness evaluation
                     ExpectedClientCount = Users.Count;
-                    Console.WriteLine($"[DEBUG] ExpectedClientCount updated — Total users: {ExpectedClientCount}");
+                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", LogLevel.Debug);
 
                     // Registers the public key if not already known
                     if (!KnownPublicKeys.ContainsKey(user.UID))
                     {
                         KnownPublicKeys[user.UID] = publicKey;
-                        Console.WriteLine($"[DEBUG] Public key registered for {username} — UID: {uid}");
+                        ClientLogger.Log($"Public key registered for {username} — UID: {uid}", LogLevel.Debug);
                     }
 
                     // Re-evaluates encryption readiness after adding the new user
@@ -1011,7 +1012,7 @@ namespace chat_client.MVVM.ViewModel
 
                     // Updates the expected client count after user removal
                     ExpectedClientCount = Users.Count;
-                    Console.WriteLine($"[DEBUG] ExpectedClientCount updated — Total users: {ExpectedClientCount}");
+                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", LogLevel.Debug);
 
                     // Posts a localized system message to the chat
                     Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasDisconnected") + ". #");
@@ -1022,7 +1023,7 @@ namespace chat_client.MVVM.ViewModel
                         UpdateEncryptionStatus();
                     }
 
-                    Console.WriteLine($"[DEBUG] User disconnected — Username: {user.Username}, UID: {uid}");
+                    ClientLogger.Log($"User disconnected — Username: {user.Username}, UID: {uid}", LogLevel.Debug);
                 });
             }
         }

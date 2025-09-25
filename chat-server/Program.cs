@@ -48,27 +48,34 @@ namespace chat_server
                 Environment.Exit(0);
             };
 
-            // Detect system language and initialize localization
+            // Detects system language and initializes localization
             string systemCulture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
             AppLanguage = systemCulture == "fr" ? "fr" : "en";
             LocalizationManager.Initialize(AppLanguage);
 
-            // Display localized banner
+            // Sets log verbosity based on build configuration or command-line flag
+            #if DEBUG
+                ServerLogger.IsDebugEnabled = true;
+            #else
+                ServerLogger.IsDebugEnabled = args.Contains("--debug");
+            #endif
+
+            // Displays localized banner
             DisplayBanner();
 
-            // Prompt user for TCP port or use default
+            // Prompts user for TCP port or use default
             int portToListenTo = GetPortFromUser();
 
             try
             {
-                // Start listening for incoming clients
+                // Starts listening for incoming clients
                 StartServerListener(portToListenTo);
             }
             catch (Exception ex)
             {
-                // Display error if server fails to start
-                Console.WriteLine($"\n{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}");
-                Console.WriteLine(LocalizationManager.GetString("Exiting"));
+                // Displays error if server fails to start
+                ServerLogger.LogLocalized($"\n{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}", LogLevel.Error);
+                ServerLogger.LogLocalized(LocalizationManager.GetString("Exiting"), LogLevel.Info);
                 Environment.Exit(1);
             }
         }
@@ -98,15 +105,15 @@ namespace chat_server
                     receiver.ClientSocket.Client.Send(broadcastPacket.GetPacketBytes());
 
                     // Logs the transmission for debugging and protocol validation
-                    Console.WriteLine("[SERVER] list of users broadcast:");
-                    Console.WriteLine($"         → Sent UID: {usr.UID}");
-                    Console.WriteLine($"         → Sent Username: {usr.Username}");
-                    Console.WriteLine($"         → Sent PublicKey: {usr.PublicKeyBase64.Substring(0, 30)}...");
-                    Console.WriteLine($"         → Receiver: {receiver.Username}");
+                    ServerLogger.Log("[SERVER] list of users broadcast:", LogLevel.Debug);
+                    ServerLogger.Log($"         → Sent UID: {usr.UID}", LogLevel.Debug);
+                    ServerLogger.Log($"         → Sent Username: {usr.Username}", LogLevel.Debug);
+                    ServerLogger.Log($"         → Sent PublicKey: {usr.PublicKeyBase64.Substring(0, 30)}...", LogLevel.Debug);
+                    ServerLogger.Log($"         → Receiver: {receiver.Username}", LogLevel.Debug);
                 }
             }
 
-            Console.WriteLine("[SERVER] Full list of users broadcast completed.");
+            ServerLogger.Log("[SERVER] Full list of users broadcast completed.", LogLevel.Debug);
         }
 
 
@@ -143,12 +150,12 @@ namespace chat_server
                                 packet.GetPacketBytes().Length
                             );
 
-                            Console.WriteLine($"[SERVER] Sent disconnect notification to {user.Username} for UID {uidDisconnected}");
+                            ServerLogger.Log($"[SERVER] Sent disconnect notification to {user.Username} for UID {uidDisconnected}", LogLevel.Debug);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[SERVER] Failed to notify {user.Username} of disconnect: {ex.Message}");
+                        ServerLogger.Log($"[SERVER] Failed to notify {user.Username} of disconnect: {ex.Message}", LogLevel.Debug);
                     }
                 }
             }
@@ -201,7 +208,7 @@ namespace chat_server
                 catch (Exception ex)
                 {
                     // Logs any exception encountered during send
-                    Console.WriteLine($"[SERVER] Failed to send to {user.Username}: {ex.Message}");
+                    ServerLogger.Log($"[SERVER] Failed to send to {user.Username}: {ex.Message}", LogLevel.Debug);
                 }
             }
 
@@ -220,16 +227,12 @@ namespace chat_server
                 // In unicast mode, logs sender and recipient
                 var recipient = _users.FirstOrDefault(u => u.UID == recipientUid.Value);
                 string recipientName = recipient?.Username ?? "Unknown";
-                Console.WriteLine(
-                    $"[{timestamp}] Message from {senderName} to {recipientName}: {displayText}"
-                );
+                ServerLogger.Log($"[{timestamp}] Message from {senderName} to {recipientName}: {displayText}", LogLevel.Debug);
             }
             else
             {
                 // In broadcast mode, logs sender only
-                Console.WriteLine(
-                    $"[{timestamp}] Broadcast message from {senderName}: {displayText}"
-                );
+                ServerLogger.Log($"[{timestamp}] Broadcast message from {senderName}: {displayText}", LogLevel.Debug);
             }
         }
 
@@ -266,18 +269,18 @@ namespace chat_server
                             packet.GetPacketBytes().Length
                         );
 
-                        Console.WriteLine($"[SERVER] Public key from {sender.Username} transmitted to {user.Username}");
+                        ServerLogger.Log($"[SERVER] Public key from {sender.Username} transmitted to {user.Username}", LogLevel.Debug);
                     }
                 }
                 catch (Exception ex)
                 {
                     // Logs transmission failure for debugging
-                    Console.WriteLine($"[SERVER] Failed to send public key to {user.Username}: {ex.Message}");
+                    ServerLogger.Log($"[SERVER] Failed to send public key to {user.Username}: {ex.Message}", LogLevel.Error);
                 }
             }
 
             // Logs completion of broadcast
-            Console.WriteLine($"[SERVER] Public key from {sender.Username} transmitted to all other clients.");
+            ServerLogger.Log($"[SERVER] Public key from {sender.Username} transmitted to all other clients.", LogLevel.Debug);
         }
 
         /// <summary>
@@ -323,7 +326,7 @@ namespace chat_server
                     }
                     else
                     {
-                        Console.WriteLine(LocalizationManager.GetString("Exiting"));
+                        ServerLogger.Log(LocalizationManager.GetString("Exiting"), LogLevel.Info);
                         Environment.Exit(0);
                     }
                 }
@@ -352,7 +355,7 @@ namespace chat_server
         /// </summary>
         public static void Shutdown()
         {
-            Console.WriteLine(LocalizationManager.GetString("ShutdownStart"));
+            ServerLogger.LogLocalized(LocalizationManager.GetString("ShutdownStart"), LogLevel.Info);
 
             foreach (var user in _users)
             {
@@ -374,11 +377,11 @@ namespace chat_server
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[SERVER] Failed to send shutdown to {user.Username}: {ex.Message}");
+                    ServerLogger.Log($"[SERVER] Failed to send shutdown to {user.Username}: {ex.Message}", LogLevel.Error);
                 }
             }
 
-            Console.WriteLine(LocalizationManager.GetString("ShutdownComplete"));
+            ServerLogger.Log(LocalizationManager.GetString("ShutdownComplete"), LogLevel.Info);
         }
 
         /// <summary>
@@ -395,7 +398,7 @@ namespace chat_server
             TcpListener listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
 
-            Console.WriteLine($"\n{string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port)}\n");
+            ServerLogger.Log($"\n{string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port)}\n", LogLevel.Info);
 
             while (true)
             {
@@ -403,7 +406,7 @@ namespace chat_server
                 {
                     // Accepts a new TCP client
                     TcpClient clientSocket = listener.AcceptTcpClient();
-                    Console.WriteLine($"[SERVER] Incoming connection — Socket: {clientSocket.Client.RemoteEndPoint}");
+                    ServerLogger.Log($"[SERVER] Incoming connection — Socket: {clientSocket.Client.RemoteEndPoint}", LogLevel.Info);
 
                     // Initializes a packet reader for the handshake
                     PacketReader reader = new PacketReader(clientSocket.GetStream());
@@ -412,7 +415,7 @@ namespace chat_server
                     byte opcode = reader.ReadByte();
                     if (opcode != 0)
                     {
-                        Console.WriteLine($"[SERVER] Unexpected opcode during handshake: {opcode}. Connection aborted.");
+                        ServerLogger.Log($"[SERVER] Unexpected opcode during handshake: {opcode}. Connection aborted.", LogLevel.Error);
                         clientSocket.Close();
                         continue;
                     }
@@ -422,10 +425,10 @@ namespace chat_server
                     string uidString = reader.ReadMessage();
                     string publicKeyBase64 = reader.ReadMessage();
 
-                    Console.WriteLine("[SERVER] Handshake received:");
-                    Console.WriteLine($"         → Username: {username}");
-                    Console.WriteLine($"         → UID: {uidString}");
-                    Console.WriteLine($"         → PublicKeyBase64: {publicKeyBase64.Substring(0, 32)}...");
+                    ServerLogger.Log("[SERVER] Handshake received:", LogLevel.Debug);
+                    ServerLogger.Log($"         → Username: {username}", LogLevel.Debug);
+                    ServerLogger.Log($"         → UID: {uidString}", LogLevel.Debug);
+                    ServerLogger.Log($"         → PublicKeyBase64: {publicKeyBase64.Substring(0, 32)}...", LogLevel.Debug);
 
                     // Converts UID string to Guid
                     Guid uid = Guid.Parse(uidString);
@@ -440,11 +443,11 @@ namespace chat_server
                     _users.Add(client);
 
                     // Logs the updated user list and connection details
-                    Console.WriteLine($"[{DateTime.Now}]: Client connected — Username: {username}, UID: {uid}");
-                    Console.WriteLine($"[SERVER] Connected users ({_users.Count}):");
+                    ServerLogger.Log($"[{DateTime.Now}]: Client connected — Username: {username}, UID: {uid}", LogLevel.Info);
+                    ServerLogger.Log($"[SERVER] Connected users ({_users.Count}):", LogLevel.Info);
                     foreach (var u in _users)
                     {
-                        Console.WriteLine($"         → {u.Username} ({u.UID})");
+                        ServerLogger.Log($"         → {u.Username} ({u.UID})", LogLevel.Debug);
                     }
 
                     // Starts listening for messages from this client
@@ -455,7 +458,7 @@ namespace chat_server
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[SERVER] Error during client handshake: {ex.Message}");
+                    ServerLogger.Log($"[SERVER] Error during client handshake: {ex.Message}", LogLevel.Error);
                 }
             }
         }

@@ -19,6 +19,7 @@
 ///  All cryptographic operations rely on .NET's built-in RSA class, making the solution
 ///  portable, secure, and production-ready without external dependencies.</summary>
 
+using ChatClient.Helpers;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
@@ -130,7 +131,7 @@ namespace chat_client.Helpers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] RSA decryption failed: {ex.Message}");
+                ClientLogger.Log($"RSA decryption failed: {ex.Message}", LogLevel.Error);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
         }
@@ -204,7 +205,5 @@ namespace chat_client.Helpers
             IsEncryptionActive = true;
         }
     }
-}
-
 }
 

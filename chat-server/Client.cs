@@ -59,7 +59,7 @@ namespace chat_server
 
             _packetReader = new PacketReader(ClientSocket.GetStream());
 
-            Console.WriteLine($"[SERVER] Listening for messages from {Username}...");
+            ServerLogger.Log($"Listening for messages from {Username}...", LogLevel.Debug);
         }      
 
         /// <summary>
@@ -82,7 +82,7 @@ namespace chat_server
                     {
                         case 3: // Public key sync request
                             string requesterUid = _packetReader.ReadMessage();
-                            Console.WriteLine($"[SERVER] Public key sync requested by UID: {requesterUid}");
+                            ServerLogger.Log($"Public key sync requested by UID: {requesterUid}", LogLevel.Debug);
 
                             foreach (var user in Program._users)
                             {
@@ -102,11 +102,11 @@ namespace chat_server
                                         responsePacket.GetPacketBytes().Length
                                     );
 
-                                    Console.WriteLine($"[SERVER] Sent public key of {user.Username} to {Username}");
+                                    ServerLogger.Log($"Sent public key of {user.Username} to {Username}", LogLevel.Debug);
                                 }
                                 catch (Exception ex)
                                 {
-                                    Console.WriteLine($"[SERVER] Failed to send key to {Username}: {ex.Message}");
+                                    ServerLogger.Log($"Failed to send key to {Username}: {ex.Message}", LogLevel.Error);
                                 }
                             }
 
@@ -134,20 +134,20 @@ namespace chat_server
 
                             // Stores the key locally and triggers broadcast to other clients
                             this.PublicKeyBase64 = publicKeyBase64;
-                            Console.WriteLine($"[SERVER] Public key received from {Username} — UID: {senderUidForKey}, Length: {publicKeyBase64.Length}");
+                            ServerLogger.Log($"Public key received from {Username} — UID: {senderUidForKey}, Length: {publicKeyBase64.Length}", LogLevel.Debug);
                             Program.BroadcastPublicKeyToOthers(this);
                             break;
 
                         default:
                             // Logs unknown opcodes for debugging and protocol validation
-                            Console.WriteLine($"[SERVER] Unknown opcode received from {Username}: {opcode}");
+                            ServerLogger.Log($"Unknown opcode received from {Username}: {opcode}", LogLevel.Error);
                             break;
                     }
                 }
                 catch (Exception ex)
                 {
                     // Handles disconnection or stream failure gracefully
-                    Console.WriteLine($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientDisconnected")} {Username}");
+                    ServerLogger.Log($"[{DateTime.Now}]: {LocalizationManager.GetString("ClientDisconnected")} {Username}", LogLevel.Info);
                     ClientSocket.Close();
                     Program.BroadcastDisconnect(UID.ToString());
 
@@ -155,7 +155,7 @@ namespace chat_server
                     // This prevents reconnection issues if the same user (same pseudo) returns with a new UID
                     // It also ensures the server doesn't retain stale references to closed sockets
                     Program._users.Remove(this);
-                    Console.WriteLine($"[SERVER] User removed from list of users — {this.Username} ({UID.ToString()})");
+                    ServerLogger.Log($"User removed from list of users — {this.Username} ({UID.ToString()})", LogLevel.Debug);
 
                     break;
                 }

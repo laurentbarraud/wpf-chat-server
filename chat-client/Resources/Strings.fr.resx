@@ -260,4 +260,34 @@ Exemple :
   <data name="CommandLineArguments" xml:space="preserve">
     <value>Arguments de ligne de commande</value>
   </data>
+  <data name="CliOptionsHelpLine1" xml:space="preserve">
+    <value>Options de ligne de commande du client :</value>
+  </data>
+  <data name="CliOptionsHelpLine2" xml:space="preserve">
+    <value>  --username, -u, -user         Définit le nom d’utilisateur et la connexion automatique en hôte local</value>
+  </data>
+  <data name="CliOptionsHelpLine3" xml:space="preserve">
+    <value>  --port, -p                    Définit le port du serveur (par défaut : 7123)</value>
+  </data>
+  <data name="CliOptionsHelpLine4" xml:space="preserve">
+    <value>  --theme, -t, --dark, --light Applique le thème UI</value>
+  </data>
+  <data name="CliOptionsHelpLine5" xml:space="preserve">
+    <value>  --language, -l, --lang        Définit la langue de l'UI (en ou fr)</value>
+  </data>
+  <data name="CliOptionsHelpLine6" xml:space="preserve">
+    <value>  --encrypted, -e               Active le chiffrage des messages</value>
+  </data>
+  <data name="CliOptionsHelpLine7" xml:space="preserve">
+    <value>  --reduceInTray, -r, --reduce Réduire dans la zone de notification</value>
+  </data>
+  <data name="CliOptionsHelpLine8" xml:space="preserve">
+    <value>  --debug, -d                   Afficher la console de débogage</value>
+  </data>
+  <data name="CliOptionsHelpLine9" xml:space="preserve">
+    <value>  --about                       Afficher la fenêtre A propos de</value>
+  </data>
+  <data name="CliOptionsHelpLine10" xml:space="preserve">
+    <value>  --help, -h, -?                Afficher ce message d'aide</value>
+  </data>
 </root>

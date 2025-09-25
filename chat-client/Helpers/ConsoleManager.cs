@@ -3,6 +3,7 @@
 /// <version>1.0</version>
 /// <date>September 25th, 2025</date>
 
+using ChatClient.Helpers;
 using System;
 using System.Runtime.InteropServices;
 
@@ -16,7 +17,7 @@ namespace chat_client.Helpers
         public static void Show()
         {
             AllocConsole();
-            Console.WriteLine("[Console] Debug console activated.");
+            ClientLogger.Log("[Console] Debug console activated.", LogLevel.Info);
         }
     }
 }

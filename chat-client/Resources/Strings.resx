@@ -260,4 +260,34 @@ Example:
   <data name="CommandLineArguments" xml:space="preserve">
     <value>Command-line arguments</value>
   </data>
+  <data name="CliOptionsHelpLine1" xml:space="preserve">
+    <value>Client command-Line options:</value>
+  </data>
+  <data name="CliOptionsHelpLine2" xml:space="preserve">
+    <value>  --username, -u, -user         Set username and auto-connect to localhost</value>
+  </data>
+  <data name="CliOptionsHelpLine3" xml:space="preserve">
+    <value>  --port, -p                    Set server port (default: 7123)</value>
+  </data>
+  <data name="CliOptionsHelpLine4" xml:space="preserve">
+    <value>  --theme, -t, --dark, --light Apply UI theme</value>
+  </data>
+  <data name="CliOptionsHelpLine5" xml:space="preserve">
+    <value>  --language, -l, --lang        Set UI language (en or fr)</value>
+  </data>
+  <data name="CliOptionsHelpLine6" xml:space="preserve">
+    <value>  --encrypted, -e               Enable message encryption</value>
+  </data>
+  <data name="CliOptionsHelpLine7" xml:space="preserve">
+    <value>  --reduceInTray, -r, --reduce Minimize to tray on startup</value>
+  </data>
+  <data name="CliOptionsHelpLine8" xml:space="preserve">
+    <value>  --debug, -d                   Show debug console</value>
+  </data>
+  <data name="CliOptionsHelpLine9" xml:space="preserve">
+    <value>  --about                       Show About window</value>
+  </data>
+  <data name="CliOptionsHelpLine10" xml:space="preserve">
+    <value>  --help, -h, -?                Show this help message</value>
+  </data>
 </root>

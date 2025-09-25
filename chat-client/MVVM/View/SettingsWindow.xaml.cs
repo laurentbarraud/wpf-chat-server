@@ -8,6 +8,7 @@ using chat_client.MVVM.ViewModel;
 using chat_client.Net;
 using chat_client.Net.IO;
 using chat_client.View;
+using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.Generic;
@@ -85,7 +86,7 @@ namespace chat_client.MVVM.View
             catch (Exception ex)
             {
                 // Logs the error to console to help diagnose crashes
-                Console.WriteLine($"[ERROR] SettingsWindow_Loaded failed: {ex.Message}");
+                ClientLogger.Log($"SettingsWindow_Loaded failed: {ex.Message}", LogLevel.Error);
                 MessageBox.Show(LocalizationManager.GetString("ErrorLoadingThemeResources"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
