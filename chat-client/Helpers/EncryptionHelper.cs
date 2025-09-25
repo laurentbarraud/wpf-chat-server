@@ -46,15 +46,20 @@ namespace chat_client.Helpers
         private static RSAParameters privateKey;
 
         /// <summary>
-        /// Static constructor that generates a new RSA key pair (2048 bits).  
-        /// The public key is exported for encryption, while the private key is retained for decryption.  
-        /// Keys are generated once at runtime and stored in memory.
+        /// Initializes the EncryptionHelper by generating a fresh 2048-bit RSA key pair.
+        /// Exports the public key parameters for external encryption and retains the
+        /// private key parameters for internal decryption.
         /// </summary>
         static EncryptionHelper()
         {
+            // Creates a new RSA instance with a 2048-bit key size.
             using var rsa = RSA.Create(2048);
-            publicKey = rsa.ExportParameters(false); // Exports only the public key
-            privateKey = rsa.ExportParameters(true); // Exports the full key pair
+
+            // Exports only the public key components for use by other clients.
+            publicKey = rsa.ExportParameters(false);
+
+            // Exports the complete key pair (public + private) for local decryption.
+            privateKey = rsa.ExportParameters(true);
         }
 
         /// <summary>
@@ -84,27 +89,36 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Encrypts a plain text message using the recipient’s RSA public key.  
-        /// Uses OAEP padding with SHA-256 to ensure semantic security.  
-        /// Only the holder of the corresponding private key can decrypt the result.
+        /// Encrypts the specified plaintext message using the recipient’s RSA public key.
+        /// Uses OAEP with SHA-256 padding to guarantee semantic security.
         /// </summary>
-        /// <param name="plainMessage">The UTF-8 encoded message to encrypt.</param>
-        /// <param name="recipientPublicKeyXmlBase64">Base64-encoded XML public key of the recipient.</param>
-        /// <returns>Base64-encoded encrypted string safe for transmission.</returns>
+        /// <param name="plainMessage">The UTF-8 encoded plaintext to encrypt.</param>
+        /// <param name="recipientPublicKeyXmlBase64">
+        ///   The Base64-encoded XML representation of the recipient’s RSA public key.
+        /// </param>
+        /// <returns>
+        ///   A Base64-encoded ciphertext string safe for transmission.
+        /// </returns>
         public static string EncryptMessage(string plainMessage, string recipientPublicKeyXmlBase64)
         {
+            // Instantiates a new RSA context for encryption operations.
             using var rsa = RSA.Create();
 
-            // Decodes and imports the recipient’s public key from Base64 XML
-            string xmlKey = Encoding.UTF8.GetString(Convert.FromBase64String(recipientPublicKeyXmlBase64));
+            // Decodes the Base64 XML and converts it to a UTF-8 string.
+            byte[] xmlBytes = Convert.FromBase64String(recipientPublicKeyXmlBase64);
+            string xmlKey = Encoding.UTF8.GetString(xmlBytes);
+
+            // Imports the public key parameters into the RSA instance.
             rsa.FromXmlString(xmlKey);
 
-            byte[] data = Encoding.UTF8.GetBytes(plainMessage);
+            // Encodes the plaintext message into a byte array.
+            byte[] dataBytes = Encoding.UTF8.GetBytes(plainMessage);
 
-            // Encrypts the data using OAEP with SHA-256
-            byte[] encrypted = rsa.Encrypt(data, RSAEncryptionPadding.OaepSHA256);
+            // Encrypts the data using OAEP SHA-256 padding.
+            byte[] encryptedBytes = rsa.Encrypt(dataBytes, RSAEncryptionPadding.OaepSHA256);
 
-            return Convert.ToBase64String(encrypted);
+            // Returns the encrypted bytes as a Base64 string.
+            return Convert.ToBase64String(encryptedBytes);
         }
 
         /// <summary>

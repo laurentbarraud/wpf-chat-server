@@ -8,6 +8,7 @@ using chat_client.MVVM.Model;
 using chat_client.MVVM.View;
 using chat_client.Net;
 using chat_client.Net.IO;
+using chat_client.Properties;
 using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.VisualBasic.ApplicationServices;
@@ -829,30 +830,34 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Attempts to decrypt an incoming encrypted message using the local RSA private key.
-        /// Validates encryption state and key readiness before proceeding.
-        /// Sanitizes the encrypted payload to remove invalid characters before delegating to EncryptionHelper.
-        /// Returns the decrypted plain text if successful; otherwise, returns a localized fallback string.
-        /// Designed to ensure graceful failure handling and UI feedback.
+        /// Attempts to decrypt an incoming Base64-encoded ciphertext using the locally stored private key.
+        /// Validates encryption settings, payload integrity, and key readiness before proceeding.
+        /// Logs each stage of the process and returns the plaintext on success or a localized error string on failure.
         /// </summary>
+        /// <param name="encryptedPayload">The Base64-encoded encrypted string to decrypt.</param>
+        /// <returns>
+        ///   The decrypted plaintext message if decryption succeeds; otherwise, a localized fallback message.
+        /// </returns>
         public static string TryDecryptMessage(string encryptedPayload)
         {
-            // Logs the initial decryption attempt
+            // Logs the invocation of the decryption routine.
             ClientLogger.Log("TryDecryptMessage called.", LogLevel.Debug);
 
-            // Validates encryption state and key readiness
-            if (!chat_client.Properties.Settings.Default.UseEncryption)
+            // Validates that encryption is enabled in application settings.
+            if (!Settings.Default.UseEncryption)
             {
                 ClientLogger.Log("Encryption is disabled in application settings.", LogLevel.Warn);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
-            if (string.IsNullOrEmpty(encryptedPayload))
+            // Validates that the encrypted payload is not null, empty, or whitespace.
+            if (string.IsNullOrWhiteSpace(encryptedPayload))
             {
                 ClientLogger.Log("Encrypted payload is null or empty.", LogLevel.Warn);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
+            // Validates that the RSA private key has been initialized and is valid.
             if (!EncryptionHelper.IsPrivateKeyValid())
             {
                 ClientLogger.Log("RSA private key is not valid or not initialized.", LogLevel.Warn);
@@ -861,29 +866,32 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Logs the raw payload before sanitization
+                // Logs the raw encrypted payload for diagnostics.
                 ClientLogger.Log($"Raw encrypted payload: {encryptedPayload}", LogLevel.Debug);
 
-                // Sanitizes the payload to remove invisible or invalid characters
+                // Sanitizes the payload by stripping control characters and trimming whitespace.
                 string sanitizedPayload = encryptedPayload
                     .Replace("\0", "")
                     .Replace("\r", "")
                     .Replace("\n", "")
                     .Trim();
-
                 ClientLogger.Log($"Sanitized encrypted payload: {sanitizedPayload}", LogLevel.Debug);
 
-                // Attempts decryption using the helper
-                string decrypted = EncryptionHelper.DecryptMessage(sanitizedPayload);
+                // Delegates decryption to the helper, using OAEP SHA-256 under the hood.
+                string decryptedMessage = EncryptionHelper.DecryptMessage(sanitizedPayload);
 
-                // Logs the decrypted result
-                ClientLogger.Log($"Decryption successful. Decrypted message: {decrypted}", LogLevel.Debug);
+                // Logs the successfully decrypted plaintext.
+                ClientLogger.Log($"Decryption successful. Decrypted message: {decryptedMessage}", LogLevel.Debug);
 
-                return decrypted;
+                // Returns the decrypted plaintext to the caller.
+                return decryptedMessage;
             }
             catch (Exception ex)
             {
+                // Logs any exception encountered during decryption.
                 ClientLogger.Log($"Exception during decryption: {ex.Message}", LogLevel.Error);
+
+                // Returns a localized error string for UI display.
                 return LocalizationManager.GetString("DecryptionFailed");
             }
         }
