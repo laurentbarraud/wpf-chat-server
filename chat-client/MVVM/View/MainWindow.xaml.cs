@@ -452,7 +452,6 @@ namespace chat_client
             // Re-enables the button and restores the default icon
             cmdEmojiPanel.IsEnabled = true;
             imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
-            isEmojiPanelOpen = false;
         }
 
         /// <summary>

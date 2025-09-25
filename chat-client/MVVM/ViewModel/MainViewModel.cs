@@ -281,36 +281,32 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Initiates the client-side connection workflow with full identity and cryptographic synchronization.
-        /// Validates the username format using UTF-8–compliant rules, including support for accented characters.
-        /// Delegates the TCP handshake to the Server layer, retrieves the UID and RSA public key,
-        /// initializes LocalUser, activates encryption if enabled, and updates the UI state.
-        /// Ensures protocol alignment between client and server for traceable, secure communication.
-        /// </summary>
-        /// </summary>
-        /// <summary>
-        /// Initiates the client-side connection workflow with full identity and cryptographic synchronization.
-        /// Validates the username format using UTF-8–compliant rules, including support for accented characters.
-        /// Includes a hidden override for symbol-prefixed usernames containing "lau" or "laurent", reserved for developer use.
-        /// Applies visual feedback for invalid input and prevents handshake inconsistencies.
+        /// Starts the client connection process:
+        /// validates the username, performs the TCP handshake to obtain UID and initial public key,
+        /// populates LocalUser, marks the connection as established,
+        /// then reuses a stored RSA key pair if present, or initializes encryption otherwise,
+        /// re-publishes the public key on reconnect, triggers key synchronization,
+        /// updates the UI to connected state, and saves the last used IP.
         /// </summary>
         public void Connect()
         {
-            // Rejects empty usernames
+            // Reject empty usernames
             if (string.IsNullOrWhiteSpace(Username))
             {
                 ShowUsernameError();
                 return;
             }
 
-            // Allows accented letters and standard alphanumerics
+            // Enforce allowed characters (UTF-8 letters, digits, and selected accents)
             var allowedPattern = @"^[a-zA-Z0-9éèàöüî_-]+$";
+            bool startsWithSymbol = Username.StartsWith("*")
+                                || Username.StartsWith("+")
+                                || Username.StartsWith("@")
+                                || Username.StartsWith("#");
+            bool isDeveloperOverride = startsWithSymbol
+                                   && (Username.Contains("lau") || Username.Contains("laurent"));
 
-            // Hidden override: allows symbol-prefixed pseudo only if it contains "lau" or "laurent"
-            bool startsWithSymbol = Username.StartsWith("*") || Username.StartsWith("+") || Username.StartsWith("@") || Username.StartsWith("#");
-            bool isDeveloperOverride = startsWithSymbol && (Username.Contains("lau") || Username.Contains("laurent"));
-
-            // Rejects malformed usernames unless override is triggered
+            // Reject malformed usernames unless override applies
             if (!Regex.IsMatch(Username, allowedPattern) && !isDeveloperOverride)
             {
                 ShowUsernameError();
@@ -319,38 +315,51 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Initiates TCP connection and retrieves handshake identity from Server
+                // Perform TCP handshake and retrieve UID + server public key
                 var result = _server.ConnectToServer(Username.Trim(), IPAddressOfServer);
                 if (result.uid == Guid.Empty || string.IsNullOrEmpty(result.publicKeyBase64))
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
 
-                // Initializes LocalUser with verified handshake identity
+                // Initialize LocalUser with server-provided identity
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
                     UID = result.uid.ToString(),
                     PublicKeyBase64 = result.publicKeyBase64
                 };
-
                 Console.WriteLine($"[DEBUG] LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}");
 
-                // Marks connection as successful
+                // Mark connection as successful (plain chat allowed)
                 IsConnected = true;
                 Console.WriteLine("[DEBUG] Client connected — plain messages allowed before handshake.");
 
-                // Activates encryption if enabled in application settings
                 if (Properties.Settings.Default.UseEncryption)
                 {
-                    // Initializes encryption: generates key pair, stores own public key locally, and sends it to the server
-                    InitializeEncryption(this);
-                    Console.WriteLine("[Connect] Encryption re-initialized on startup.");
+                    // Load stored RSA key pair if available
+                    var storedPub = Properties.Settings.Default.HandshakePublicKey;
+                    var storedPriv = Properties.Settings.Default.HandshakePrivateKey;
+                    if (!string.IsNullOrEmpty(storedPub) && !string.IsNullOrEmpty(storedPriv))
+                    {
+                        LocalUser.PublicKeyBase64 = storedPub;
+                        LocalUser.PrivateKeyBase64 = storedPriv;
+                        EncryptionHelper.SetPrivateKey(storedPriv);
+                        Console.WriteLine("[DEBUG] Loaded existing RSA key pair from settings.");
 
-                    // Ensures key is resent and sync is triggered immediately
+                        // Re-publish public key to server after reconnect
+                        Server.SendPublicKeyToServer(LocalUser.UID, storedPub);
+                        _server.RequestAllPublicKeysFromServer();
+                    }
+
+                    // Initialize encryption if no stored pair found
+                    InitializeEncryption(this);
+                    Console.WriteLine("[Connect] Encryption initialized on startup.");
+
+                    // Trigger key synchronization
                     _server.ResendPublicKey();
                     _server.RequestAllPublicKeysFromServer();
                 }
 
-                // Updates UI to reflect connected state and unlocks chat features
+                // Update UI to connected state
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
@@ -363,26 +372,28 @@ namespace chat_client.MVVM.ViewModel
                     }
                 });
 
-                // Stores the last used IP address for future sessions
-                chat_client.Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
-                chat_client.Properties.Settings.Default.Save();
+                // Save the last used IP address for future sessions
+                Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
+                Properties.Settings.Default.Save();
             }
             catch (Exception)
             {
-                // Handles connection failure gracefully and resets UI state
+                // Handle connection failure and reset UI
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mw)
                     {
-                        MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
-                                        LocalizationManager.GetString("Error"),
-                                        MessageBoxButton.OK,
-                                        MessageBoxImage.Error);
+                        MessageBox.Show(
+                            LocalizationManager.GetString("ServerUnreachable"),
+                            LocalizationManager.GetString("Error"),
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
                         ReinitializeUI();
                     }
                 });
             }
         }
+
 
         /// <summary>
         /// Connect or disconnect the client, depending on the connection status
@@ -471,52 +482,54 @@ namespace chat_client.MVVM.ViewModel
                 IsConnected = false;
             });
         }
+
         /// <summary>
         /// Initializes RSA encryption for the current session.
-        /// This method is safe to call multiple times and ensures the client is ready to send and receive encrypted messages.
-        /// It generates a new RSA key pair, stores it in the LocalUser object, injects the private key into the decryption helper,
-        /// sends the public key to the server, registers known keys locally, requests missing keys if needed,
-        /// and updates the UI once encryption is ready. This method guarantees that the client reaches a decryptable state
-        /// as soon as all peer keys are available, no matter the connection order.
+        /// This method is safe to call multiple times and ensures the client can
+        /// send and receive encrypted messages. It generates a new RSA key pair,
+        /// stores it in the LocalUser object, injects the private key, sends the public key
+        /// to the server, registers known keys locally, requests missing keys if needed,
+        /// evaluates readiness, and triggers a final sync. All settings are saved once at the end.
         /// </summary>
         public bool InitializeEncryption(MainViewModel viewModel)
         {
-            // Skips encryption initialization if LocalUser is not yet defined
-            // or if encryption is already active for the current session.
+            // Skip if LocalUser is not set or encryption is already active
             if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
-                Console.WriteLine("[DEBUG] Encryption initialization skipped — LocalUser is null or encryption already active.");
+                Console.WriteLine("[DEBUG] Encryption initialization skipped — LocalUser is null or already active.");
                 return false;
             }
 
+            bool initializationSucceeded = false;
+
             try
             {
-                // Generates RSA key pair (2048-bit)
+                // Generate RSA key pair (2048-bit)
                 using var rsa = new RSACryptoServiceProvider(2048);
                 string publicKeyXml = rsa.ToXmlString(false);
                 string privateKeyXml = rsa.ToXmlString(true);
 
-                // Encodes keys in Base64
+                // Encode keys in Base64
                 string publicKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicKeyXml));
                 string privateKeyBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(privateKeyXml));
 
-                // Stores keys in LocalUser
+                // Store keys in LocalUser model
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
                 Console.WriteLine($"[DEBUG] RSA key pair generated — UID: {LocalUser.UID}");
 
-                // Injects private key into decryption helper
+                // Inject private key into decryption helper
                 EncryptionHelper.SetPrivateKey(privateKeyBase64);
                 Console.WriteLine("[DEBUG] Private key injected into EncryptionHelper.");
 
-                // Registers the client's own public key locally before any exchange
+                // Register the client’s own public key locally
                 if (!string.IsNullOrEmpty(LocalUser.UID))
                 {
                     KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
                     Console.WriteLine($"[DEBUG] Local public key registered — UID: {LocalUser.UID}");
                 }
 
-                // Sends the public key to the server for distribution
+                // Send the public key to the server for distribution
                 bool sent = Server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
                 if (!sent)
                 {
@@ -526,44 +539,40 @@ namespace chat_client.MVVM.ViewModel
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
 
-                    // Rolls back encryption setting if transmission fails
+                    // Mark encryption disabled on failure
                     Properties.Settings.Default.UseEncryption = false;
-                    Properties.Settings.Default.Save();
                     Console.WriteLine("[ERROR] Failed to send public key to server — encryption disabled.");
                     return false;
                 }
 
-                // Marks encryption as active in application settings
+                // Mark encryption enabled in settings
                 Properties.Settings.Default.UseEncryption = true;
-                Properties.Settings.Default.Save();
+                initializationSucceeded = true;
                 Console.WriteLine("[DEBUG] Encryption enabled in settings.");
 
-                // Registers any known public keys from the local user list
-                var knownKeysFromUserList = viewModel.GetAllKnownPublicKeys();
-                foreach (var userEntry in knownKeysFromUserList)
+                // Register any known public keys from the local user list
+                foreach (var (peerUid, peerKey) in viewModel.GetAllKnownPublicKeys())
                 {
-                    string peerUid = userEntry.Key;
-                    string peerPublicKey = userEntry.Value;
-
                     if (!KnownPublicKeys.ContainsKey(peerUid))
                     {
-                        KnownPublicKeys[peerUid] = peerPublicKey;
+                        KnownPublicKeys[peerUid] = peerKey;
                         Console.WriteLine($"[DEBUG] External public key registered — UID: {peerUid}");
                     }
                 }
 
-                // Requests full key sync from the server if some keys are missing
+                // Request full key synchronization if the set is incomplete
                 if (KnownPublicKeys.Count < ExpectedClientCount)
                 {
                     _server.RequestAllPublicKeysFromServer();
                     Console.WriteLine("[DEBUG] Full public-key sync requested due to incomplete keyset.");
                 }
 
-                // Evaluates encryption readiness and updates UI if ready
+                // Evaluate readiness and update UI
                 EvaluateEncryptionState();
                 if (IsEncryptionReady)
                 {
-                    (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
+                    (Application.Current.MainWindow as MainWindow)
+                        ?.UpdateEncryptionStatusIcon(IsEncryptionReady);
                     Console.WriteLine($"[DEBUG] Encryption readiness confirmed — All {ExpectedClientCount} public keys received.");
                 }
                 else
@@ -571,21 +580,27 @@ namespace chat_client.MVVM.ViewModel
                     Console.WriteLine($"[DEBUG] Encryption incomplete — {KnownPublicKeys.Count}/{ExpectedClientCount} public keys received.");
                 }
 
-                // Triggers final synchronization check to recover any missing keys
+                // Final sync pass to recover any missing keys
                 SyncKeys();
 
                 return true;
             }
             catch (Exception ex)
             {
-                // Rolls back encryption setting on failure
+                // Disable encryption on exception
                 Properties.Settings.Default.UseEncryption = false;
-                Properties.Settings.Default.Save();
                 Console.WriteLine($"[ERROR] Exception during encryption initialization: {ex.Message}");
                 return false;
             }
+            finally
+            {
+                // STEP 1: Persist handshake key pair and encryption setting once
+                Properties.Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;   // persist public key
+                Properties.Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;  // persist private key
+                Properties.Settings.Default.Save();                                             // save all settings in one call
+                Console.WriteLine("[DEBUG] Settings saved.");
+            }
         }
-
 
         /// <summary>
         /// Handles incoming messages from the server.
