@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
 using System;
 
 namespace chat_server.Helpers
@@ -30,7 +29,7 @@ namespace chat_server.Helpers
     /// Supports localized output using resource keys and optional formatting arguments.  
     /// Intended for use across all server components to ensure consistent and maintainable log output.
     /// </summary>
-    public static class ServerLogger
+    public static class ServerLogHelper
     {
         /// <summary>
         /// Indicates whether debug-level logs should be displayed.  

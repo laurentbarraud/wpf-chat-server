@@ -44,28 +44,26 @@ namespace chat_client.Helpers
         // The public key is shared externally; the private key remains local.
         private static RSAParameters publicKey;
         private static RSAParameters privateKey;
-  
+
         /// <summary>
-        /// Initializes the EncryptionHelper by creating a single 2048-bit RSA instance.
-        /// Exports the public key as Base64-encoded XML for distribution,
-        /// and retains the private key XML for all subsequent decryptions.
+        /// Generates a 2048-bit RSA key pair once at startup.
+        /// Exports the public key as DER and encodes it in Base64 for distribution.
+        /// Retains the private key DER for all decryptions.
         /// </summary>
         static EncryptionHelper()
         {
-            // Creates and retains one RSA instance for key generation.
-            var rsa = RSA.Create(2048);
+            using var rsa = RSA.Create(2048);
 
-            // Exports public key to XML, then Base64-encodes it for safe transport.
-            string publicXml = rsa.ToXmlString(false);
-            PublicKeyXmlBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(publicXml));
+            // Export public key in PKCS#1 DER format, then Base64-encode it
+            PublicKeyBase64 = Convert.ToBase64String(rsa.ExportRSAPublicKey());
 
-            // Exports private key to XML (never shared externally).
-            PrivateKeyXml = rsa.ToXmlString(true);
+            // Export private key in PKCS#1 DER format (full key)
+            PrivateKeyDer = rsa.ExportRSAPrivateKey();
         }
 
-        // Backing fields in the same class:
-        private static readonly string PrivateKeyXml;
-        public static readonly string PublicKeyXmlBase64;
+        // Backing fields
+        public static readonly string PublicKeyBase64;
+        private static readonly byte[] PrivateKeyDer;
 
         /// <summary>
         /// Clears the currently loaded RSA private key from memory.  
@@ -94,63 +92,48 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Decrypts a Base64-encoded OAEP/SHA-256 ciphertext using the local private key XML.
-        /// Returns the UTF-8 plaintext or a localized error on failure.
+        /// Decrypts the Base64-encoded OAEP/SHA-256 ciphertext using local private key DER.
+        /// Returns the UTF-8 plaintext or a localized fallback on error.
         /// </summary>
-        /// <param name="encryptedMessage">The Base64 ciphertext to decrypt.</param>
-        /// <returns>The decrypted text, or a fallback message on error.</returns>
+        /// <param name="encryptedMessage">Base64-encoded ciphertext.</param>
+        /// <returns>Decrypted UTF-8 string or localized error.</returns>
         public static string DecryptMessage(string encryptedMessage)
         {
             try
             {
-                // Decodes the Base64 into raw cipher bytes.
+                using var rsa = RSA.Create();
+                rsa.ImportRSAPrivateKey(PrivateKeyDer, out _);
+
                 byte[] cipherBytes = Convert.FromBase64String(encryptedMessage);
+                byte[] plainBytes = rsa.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
 
-                // Instantiates a fresh RSA context and imports the private key.
-                using var rsaDec = RSA.Create();
-                rsaDec.FromXmlString(PrivateKeyXml);
-
-                // Decrypts with the same OAEP/SHA-256 padding.
-                byte[] plainBytes = rsaDec.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
-
-                // Returns the UTF-8 string.
                 return Encoding.UTF8.GetString(plainBytes);
             }
             catch (Exception ex)
             {
-                // Logs the failure and returns a localized fallback.
                 ClientLogger.Log($"RSA decryption failed: {ex.Message}", LogLevel.Error);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
         }
 
         /// <summary>
-        /// Encrypts the given plaintext with the recipient’s public key XML.
-        /// Uses OAEP with SHA-256 padding to ensure semantic security.
+        /// Encrypts the UTF-8 plaintext using the recipient’s Base64-DER public key.
+        /// Uses OAEP with SHA-256 padding for maximum security.
         /// </summary>
-        /// <param name="plainMessage">The UTF-8 text to encrypt.</param>
-        /// <param name="recipientPublicKeyXmlBase64">
-        ///   The Base64-encoded XML public key of the recipient.
-        /// </param>
-        /// <returns>
-        ///   A Base64-encoded ciphertext safe for network transmission.
-        /// </returns>
-        public static string EncryptMessage(string plainMessage, string recipientPublicKeyXmlBase64)
+        /// <param name="plainMessage">UTF-8 text to encrypt.</param>
+        /// <param name="recipientPublicKeyBase64">Base64-encoded DER public key.</param>
+        /// <returns>Base64-encoded ciphertext.</returns>
+        public static string EncryptMessage(string plainMessage, string recipientPublicKeyBase64)
         {
-            // Instantiates a fresh RSA context for encryption.
-            using var rsaEnc = RSA.Create();
+            using var rsa = RSA.Create();
+            byte[] publicDer = Convert.FromBase64String(recipientPublicKeyBase64);
+            rsa.ImportRSAPublicKey(publicDer, out _);
 
-            // Imports recipient’s public key from Base64-encoded XML.
-            string recipientXml = Encoding.UTF8.GetString(Convert.FromBase64String(recipientPublicKeyXmlBase64));
-            rsaEnc.FromXmlString(recipientXml);
-
-            // Encrypts the UTF-8 bytes with OAEP/SHA-256 padding.
-            byte[] cipherBytes = rsaEnc.Encrypt(
+            byte[] cipher = rsa.Encrypt(
                 Encoding.UTF8.GetBytes(plainMessage),
                 RSAEncryptionPadding.OaepSHA256);
 
-            // Returns the result as Base64 for sending.
-            return Convert.ToBase64String(cipherBytes);
+            return Convert.ToBase64String(cipher);
         }
 
         /// <summary>
