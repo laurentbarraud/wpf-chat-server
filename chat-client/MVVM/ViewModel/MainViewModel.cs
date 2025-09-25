@@ -683,6 +683,49 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Executes the full encryption activation cycle end-to-end:
+        /// 1. Clears any stale local and peer key state.
+        /// 2. Generates a fresh RSA key pair and stores it on LocalUser.
+        /// 3. Sends the public key to the server for distribution.
+        /// 4. Marks encryption enabled in settings.
+        /// 5. Imports any keys already known on startup.
+        /// 6. Requests missing keys from server and synchronizes peer keys.
+        /// 7. Recalculates readiness and returns true only if all keys are present.
+        /// </summary>
+        /// <returns>
+        /// True if encryption was successfully initialized and is fully ready (colored lock-icon);
+        /// false if any step failed (toggle rollback possible).
+        /// </returns>
+        public bool InitializeEncryptionFull()
+        {
+            // 1. Clear stale key material
+            KnownPublicKeys.Clear();
+            LocalUser.PublicKeyBase64 = null;
+            LocalUser.PrivateKeyBase64 = null;
+            EncryptionHelper.ClearPrivateKey();
+            ClientLogger.Log("Cleared all previous key state.", LogLevel.Debug);
+
+            // 2–6. Delegates to existing InitializeEncryption() for core RSA generation + server publish
+            bool coreOk = InitializeEncryption(this);
+            if (!coreOk)
+            {
+                ClientLogger.Log("Core InitializeEncryption() failed.", LogLevel.Error);
+                return false;
+            }
+
+            // 7. Ensures peer keys are fetched and ready
+            SyncKeys();
+
+            // 8. Final evaluation: IsEncryptionReady true only if all keys received
+            EvaluateEncryptionState();
+
+            ClientLogger.Log($"InitializeEncryptionFull completed — Ready: {IsEncryptionReady}",
+                IsEncryptionReady ? LogLevel.Info : LogLevel.Warn);
+
+            return IsEncryptionReady;
+        }
+
+        /// <summary>
         /// Processes incoming chat packets (opcode 5) in a safe and robust manner.  
         /// Reads the sender UID, recipient UID, and raw content sequentially from the packet reader.  
         /// Filters out unicast messages not addressed to this client.  
