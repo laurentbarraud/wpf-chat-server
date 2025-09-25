@@ -366,11 +366,11 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends a chat message to the server (opcode 5).
-        /// Validates connection, LocalUser initialization, handshake completion, and full key synchronization before encrypting.
-        /// When encryption is enabled and ready, encrypts the message separately for each peer using its public key,
-        /// embeds senderUid and recipientUid in each packet, and logs every step.
-        /// When encryption is disabled or not ready, falls back to a single plain‐text broadcast packet.
+        /// Sends a chat message to the server (opcode 5).  
+        /// Validates connection state, LocalUser initialization, handshake completion, and key synchronization before encrypting.  
+        /// When encryption is enabled and ready, it encrypts the message separately for each peer using its public key,  
+        /// embeds senderUid and recipientUid in each packet, and logs every step.  
+        /// When encryption is disabled or not ready, it falls back to a single plain-text broadcast packet.  
         /// </summary>
         /// <param name="message">The plain-text message to send.</param>
         public void SendMessageToServer(string message)
@@ -404,7 +404,7 @@ namespace chat_client.Net
 
             string senderUid = localUser.UID;
 
-            // Encrypt per peer only when encryption is enabled, handshake is complete, and all keys are received
+            // Encrypts per peer only when encryption is enabled, handshake is complete, and all keys are synchronized
             if (Properties.Settings.Default.UseEncryption
                 && HandshakeCompleted
                 && viewModel.IsEncryptionReady)
@@ -427,10 +427,16 @@ namespace chat_client.Net
                     packet.WriteMessage(peerUid);
                     packet.WriteMessage(payload);
 
-                    // Sends the encrypted packet
+                    // Sends the encrypted packet to the server
                     _client.Client.Send(packet.GetPacketBytes());
                     Console.WriteLine($"[DEBUG] Sends encrypted packet for recipient {peerUid}.");
                 }
+
+                // Adds a local echo so the sender sees his own message immediately
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    viewModel.Messages.Add($"{localUser.Username}: {message}");
+                });
             }
             else
             {
@@ -446,7 +452,7 @@ namespace chat_client.Net
                 packet.WriteMessage(senderUid);
                 packet.WriteMessage(message);
 
-                // Sends the plain-text packet
+                // Sends the plain-text packet to the server
                 _client.Client.Send(packet.GetPacketBytes());
                 Console.WriteLine("[DEBUG] Sends plain-text packet.");
             }
