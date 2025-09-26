@@ -1,18 +1,18 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using chat_server.Net.IO;
 using System;
-using System.Collections.Generic;
 using System.Net.Sockets;
 
 namespace chat_server
 {
     /// <summary>
-    /// Represents a connected client on the server side.
-    /// Manages identity, incoming packet processing, and network communication.
+    /// Continuously listens for incoming packets from the connected client.
+    /// Dispatches each packet to the appropriate handler based on its opcode.
+    /// Logs unknown opcodes and handles disconnection gracefully.
     /// </summary>
     public class Client
     {
@@ -164,8 +164,9 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Continuously listens for incoming packets, dispatching to
-        /// the appropriate handler by opcode. Logs errors and triggers cleanup.
+        /// Continuously listens for incoming packets from the connected client.
+        /// Uses a classic switch statement for clarity and beginner-friendly readability.
+        /// Each case matches a named opcode from the ClientPacketOpcode enum.
         /// </summary>
         internal void ListenForMessages()
         {
@@ -174,32 +175,33 @@ namespace chat_server
                 try
                 {
                     // Reads the next opcode from the packet stream
-                    byte opcode = _packetReader.ReadByte();
+                    // and casts in one go
+                    var opcode = _packetReader.ReadOpCode();
 
-                    // Dispatches based on opcode value
                     switch (opcode)
                     {
-                        case 3:
+                        case ServerPacketOpCode.KeyRequest:
                             HandlePublicKeySyncRequest();
                             break;
-                        case 5:
+
+                        case ServerPacketOpCode.PlainMessage:
                             HandleChatMessage();
                             break;
-                        case 6:
+
+                        case ServerPacketOpCode.PublicKeyResponse:
                             HandlePublicKeyExchange();
                             break;
+
                         default:
-                            // Logs unsupported opcode values
-                            Console.WriteLine(
-                                $"[ERROR] Unknown opcode from {Username}: {opcode}");
+                            // Logs unsupported or unknown opcode values
+                            Console.WriteLine($"[ERROR] Unknown opcode from {Username}: {opcode}");
                             break;
                     }
                 }
                 catch (Exception ex)
                 {
                     // Logs the disconnection event and performs cleanup
-                    Console.WriteLine(
-                        $"[INFO] Client disconnected: {Username} — {ex.Message}");
+                    Console.WriteLine($"[INFO] Client disconnected: {Username} — {ex.Message}");
                     CleanupAfterDisconnect();
                     break;
                 }

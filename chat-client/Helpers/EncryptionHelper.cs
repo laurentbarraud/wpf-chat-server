@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 ///<summary>
 ///Technical note : 

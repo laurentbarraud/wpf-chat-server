@@ -1,11 +1,10 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using System.IO;
 using System.Text;
-
 
 namespace chat_client.Net.IO
 {

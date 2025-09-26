@@ -1,7 +1,7 @@
 ﻿/// <file>ConsoleManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using ChatClient.Helpers;
 using System;
@@ -17,7 +17,7 @@ namespace chat_client.Helpers
         public static void Show()
         {
             AllocConsole();
-            ClientLogger.Log("[Console] Debug console activated.", LogLevel.Info);
+            ClientLogger.Log("[Console] Debug console activated.", ClientLogLevel.Info);
         }
     }
 }

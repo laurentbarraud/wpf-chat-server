@@ -1,37 +1,38 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 26th, 2025</date>
 
-using chat_client.Helpers;
-using chat_client.MVVM.Model;
 using chat_client.MVVM.ViewModel;
+using chat_client.Net;
 using chat_client.Net.IO;
-using ChatClient.Helpers;
-using System.Drawing;
+using chat_client.Helpers;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
-using System.Security.Principal;
-using System.Text;
 using System.Windows;
+using ChatClient.Helpers;
 
 namespace chat_client.Net
 {
     /// <summary>
     /// Represents the client-side connection to the server.
-    /// Manages packet construction and reading, and exposes events for packet-driven updates.
-    /// Events are subscribed by MainViewModel to handle user connection, message reception, and disconnection.
+    /// Manages packet construction, reading, and dispatching.
+    /// Exposes events for connection, message reception, and disconnection.
+    /// Handles encryption handshake and maintains local identity.
     /// </summary>
     public class Server
     {
-        TcpClient _client;
-
         /// <summary>Used to build outgoing packets.</summary>
-        public PacketBuilder PacketBuilder;
+        public PacketBuilder _packetBuilder;
 
         /// <summary>Used to read incoming packets from the server stream.</summary>
-        public PacketReader PacketReader;
+        public PacketReader _packetReader;
+
+        /// <summary>Indicates whether the client is currently connected to the server.</summary>
+        public bool IsConnected => _client?.Connected ?? false;
+
+        /// <summary>Indicates whether the server has acknowledged the client's identity.</summary>
+        public bool HandshakeCompleted { get; private set; } = false;
 
         /// <summary>Triggered when a new user joins (opcode 1).</summary>
         public event Action connectedEvent;
@@ -42,29 +43,26 @@ namespace chat_client.Net
         /// <summary>Triggered when a user disconnects (opcode 10).</summary>
         public event Action userDisconnectEvent;
 
+        /// <summary>Returns the UID assigned to the local user.</summary>
+        public Guid GetLocalUid() => _localUid;
+
+        /// <summary>Returns the public key assigned to the local user.</summary>
+        public string GetLocalPublicKey() => _localPublicKey;
+
+        private TcpClient _client;
         private Guid _localUid;
         private string _localPublicKey;
 
-        public Guid GetLocalUid() => _localUid;
-        public string GetLocalPublicKey() => _localPublicKey;
-
-
         /// <summary>
-        /// Indicates whether the client is currently connected to the server.
-        /// Returns true if the TCP client exists and is connected; otherwise, false.
+        /// Initializes a new instance of the Server class.
+        /// Creates a TCP client and prepares packet handling.
         /// </summary>
-        public bool IsConnected => _client?.Connected ?? false;
-
-        /// <summary>
-        /// Indicates whether the server has acknowledged the client's identity.
-        /// Blocks outgoing packets until the handshake is complete.
-        /// </summary>
-        public bool HandshakeCompleted { get; private set; } = false;
-
         public Server()
         {
             _client = new TcpClient();
         }
+
+
 
         /// <summary>
         /// Establishes a TCP connection to the chat server using the specified IP address and username.
@@ -97,17 +95,17 @@ namespace chat_client.Net
 
                 // Establishes the TCP connection
                 _client.Connect(ipToConnect, portToUse);
-                ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {portToUse}", LogLevel.Debug);
+                ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {portToUse}", ClientLogLevel.Debug);
 
                 // Initializes the packet reader from the network stream
-                PacketReader = new PacketReader(_client.GetStream());
+                PacketReader _packetReader = new PacketReader(_client.GetStream());
 
                 // Generates UID and retrieves the client's RSA public key for handshake
                 Guid uid = Guid.NewGuid();
                 string publicKeyBase64 = EncryptionHelper.PublicKeyBase64;
 
-                ClientLogger.Log($"UID generated for handshake: {uid}", LogLevel.Debug);
-                ClientLogger.Log($"RSA public key generated: {publicKeyBase64}", LogLevel.Debug);
+                ClientLogger.Log($"UID generated for handshake: {uid}", ClientLogLevel.Debug);
+                ClientLogger.Log($"RSA public key generated: {publicKeyBase64}", ClientLogLevel.Debug);
 
                 // Sends the initial connection packet and starts listening
                 if (!SendInitialConnectionPacket(username, uid, publicKeyBase64))
@@ -121,7 +119,7 @@ namespace chat_client.Net
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"[ERROR] Connection failed: {ex.Message}", LogLevel.Error);
+                ClientLogger.Log($"[ERROR] Connection failed: {ex.Message}", ClientLogLevel.Error);
                 return (Guid.Empty, null);
             }
         }
@@ -141,8 +139,8 @@ namespace chat_client.Net
                 }
 
                 // Reset internal objects
-                PacketReader = null;
-                PacketBuilder = null;
+                _packetReader.Dispose();
+                _packetBuilder.Dispose();
 
                 // Reinitialize the TcpClient so we can reconnect later
                 _client = new TcpClient();
@@ -203,7 +201,7 @@ namespace chat_client.Net
                 }
                 else
                 {
-                    ClientLogger.Log($"Cannot register public key for {senderUid}: ViewModel unavailable.", LogLevel.Warn);
+                    ClientLogger.Log($"Cannot register public key for {senderUid}: ViewModel unavailable.", ClientLogLevel.Warn);
                 }
             });
         }
@@ -226,43 +224,44 @@ namespace chat_client.Net
                 {
                     while (_client.Connected)
                     {
-                        // Reads the first byte from the stream — this is the opcode
-                        var opcode = PacketReader.ReadByte();
+                        // Reads and casts in one call via the extension method
+                        ClientPacketOpCode opcode = _packetReader.ReadOpCode();
 
-                        // Dispatches logic based on opcode value
+                        // Dispatches logic based on the named enum
                         switch (opcode)
                         {
-                            case 1:
+                            
+                            case ClientPacketOpCode.ConnectionBroadcast:
                                 // Triggers connection event (e.g., user joined)
                                 connectedEvent?.Invoke();
                                 HandshakeCompleted = true;
-                                ClientLogger.Log("Handshake completed — client may now send packets.", LogLevel.Debug);
+                                ClientLogger.Log("Handshake completed — client may now send packets.", ClientLogLevel.Debug);
                                 break;
 
-                            case 5:
+                            case ClientPacketOpCode.PlainMessage:
                                 // Triggers message received event
                                 msgReceivedEvent?.Invoke();
                                 break;
 
-                            case 6:
+                            case ClientPacketOpCode.PublicKeyResponse:
                                 // Handles incoming public key from another client
-                                HandleIncomingPublicKey(PacketReader);
+                                HandleIncomingPublicKey(_packetReader);
                                 break;
 
-                            case 10:
+                            case ClientPacketOpCode.DisconnectNotify:
                                 // Triggers user disconnect event
                                 userDisconnectEvent?.Invoke();
                                 break;
 
                             default:
-                                ClientLogger.Log($"Unknown opcode received: {opcode}", LogLevel.Warn);
+                                ClientLogger.Log($"Unknown opcode received: {opcode}", ClientLogLevel.Warn);
                                 break;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    ClientLogger.Log($"Packet reading failed: {ex.Message}", LogLevel.Error);
+                    ClientLogger.Log($"Packet reading failed: {ex.Message}", ClientLogLevel.Error);
 
                     // Handles disconnection or stream failure gracefully
                     Application.Current.Dispatcher.Invoke(() =>
@@ -284,18 +283,18 @@ namespace chat_client.Net
         /// </summary>
         public void RequestAllPublicKeysFromServer()
         {
-            var packet = new PacketBuilder();
-            packet.WriteOpCode(3); // Opcode for public key sync request
-            packet.WriteMessage(_localUid.ToString());
+            var requestOfPublicKeysPacket = new PacketBuilder();
+            requestOfPublicKeysPacket.WriteOpCode(ClientPacketOpCode.KeyRequest); // Opcode for public key sync request
+            requestOfPublicKeysPacket.WriteMessage(_localUid.ToString());
 
             // Sends the packet to the server via the active socket stream
             _client.GetStream().Write(
-                packet.GetPacketBytes(),
+                requestOfPublicKeysPacket.GetPacketBytes(),
                 0,
-                packet.GetPacketBytes().Length
+                requestOfPublicKeysPacket.GetPacketBytes().Length
             );
 
-            ClientLogger.Log($"Public key sync request sent — UID: {_localUid.ToString()}", LogLevel.Debug);
+            ClientLogger.Log($"Public key sync request sent — UID: {_localUid.ToString()}", ClientLogLevel.Debug);
         }
 
 
@@ -310,215 +309,130 @@ namespace chat_client.Net
             // Validates prerequisites before attempting to resend
             if (_localUid == Guid.Empty || string.IsNullOrEmpty(_localPublicKey))
             {
-                ClientLogger.Log("Cannot resend public key — UID or key is missing.", LogLevel.Warn);
+                ClientLogger.Log("Cannot resend public key — UID or key is missing.", ClientLogLevel.Warn);
                 return;
             }
 
             // Sends the public key to the server for redistribution
             SendPublicKeyToServer(_localUid.ToString(), _localPublicKey);
-            ClientLogger.Log("Public key resent manually — UID: " + _localUid, LogLevel.Debug);
+            ClientLogger.Log("Public key resent manually — UID: " + _localUid, ClientLogLevel.Debug);
         }
-
-/// <summary>
-/// Sends the initial connection packet to the server using opcode 0.  
-/// Includes the username, UID, and public RSA key for handshake identity.
-/// Starts listening for incoming packets.  
-/// Returns true if the packet is sent successfully; false otherwise.
-/// </summary>
-/// <param name="username">The display name of the user.</param>
-/// <param name="uid">The unique identifier assigned to the client during connection.</param>
-/// <param name="publicKeyBase64">The RSA public key used for encryption handshake.</param>
-/// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
-public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
-    {
-        if (string.IsNullOrEmpty(username))
-            return false;
-
-        try
-        {
-            // Constructs the handshake packet with identity and encryption capability
-            var connectPacket = new PacketBuilder();
-            connectPacket.WriteOpCode(0);                       // Opcode 0 = new user connection
-            connectPacket.WriteMessage(username);               // Writes the Username
-            connectPacket.WriteMessage(uid.ToString());         // Writes the UID
-            connectPacket.WriteMessage(publicKeyBase64);        // Writes the Base64 public key
-
-            // Logs the packet structure for debugging
-            ClientLogger.Log("Handshake packet structure:", LogLevel.Debug);
-            ClientLogger.Log($"  → Username: {username}", LogLevel.Debug);
-            ClientLogger.Log($"  → UID: {uid}", LogLevel.Debug);
-            ClientLogger.Log($"  → PublicKeyBase64 fragment: {publicKeyBase64.Substring(0, 32)}…", LogLevel.Debug);
-
-            // Sends the packet bytes and flushes to ensure immediate transmission
-            NetworkStream stream = _client.GetStream();
-            byte[] packetBytes = connectPacket.GetPacketBytes();
-            stream.Write(packetBytes, 0, packetBytes.Length);
-            stream.Flush();                                     // Ensures data is sent now
-
-            // Logs success and spawns the packet reader
-            ClientLogger.Log($"Initial connection packet sent — Username: {username}, UID: {uid}", LogLevel.Debug);
-            Task.Run(() => ReadPackets());
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            // Logs any error that occurs during handshake send
-            ClientLogger.Log($"Failed to send initial connection packet: {ex.Message}", LogLevel.Error);
-            return false;
-        }
-    }
 
         /// <summary>
-        /// Sends a chat message to the server (opcode 5).
-        /// Validates message content, ViewModel availability, TCP connection state, and local user identity before proceeding.
-        /// If encryption is enabled, handshake is complete, and all public keys are ready,  
-        /// it encrypts the message separately for each peer under a lock, handles per-peer errors,  
-        /// and posts a local echo on the UI thread.  
-        /// Otherwise, it sends a single plain-text broadcast packet under exception handling.
-        /// All steps log their progress or failure to the client logger to avoid crashing the client.
+        /// Sends the initial connection packet to the server using opcode 0.  
+        /// Includes the username, UID, and public RSA key for handshake identity.
+        /// Starts listening for incoming packets.  
+        /// Returns true if the packet is sent successfully; false otherwise.
         /// </summary>
-        /// <param name="message">The plain-text message to send.</param>
-        public void SendMessageToServer(string message)
+        /// <param name="username">The display name of the user.</param>
+        /// <param name="uid">The unique identifier assigned to the client during connection.</param>
+        /// <param name="publicKeyBase64">The RSA public key used for encryption handshake.</param>
+        /// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
+        public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
         {
+            if (string.IsNullOrEmpty(username))
+                return false;
+
             try
             {
-                // Aborts immediately if the message is null, empty, or whitespace
-                if (string.IsNullOrWhiteSpace(message))
-                    return;
+                // Constructs the handshake packet with identity and encryption capability
+                var connectPacket = new PacketBuilder();
+                connectPacket.WriteOpCode(ClientPacketOpCode.Handshake);                       // Opcode 0 = new user connection
+                connectPacket.WriteMessage(username);               // Writes the Username
+                connectPacket.WriteMessage(uid.ToString());         // Writes the UID
+                connectPacket.WriteMessage(publicKeyBase64);        // Writes the Base64 public key
 
-                // Retrieves the main window and its ViewModel for data context
-                if (Application.Current.MainWindow is not MainWindow mainWindow
-                    || mainWindow.ViewModel is not MainViewModel viewModel)
-                {
-                    ClientLogger.Log("Cannot send message — ViewModel is not available.", LogLevel.Error);
-                    return;
-                }
+                // Logs the packet structure for debugging
+                ClientLogger.Log("Handshake packet structure:", ClientLogLevel.Debug);
+                ClientLogger.Log($"  → Username: {username}", ClientLogLevel.Debug);
+                ClientLogger.Log($"  → UID: {uid}", ClientLogLevel.Debug);
+                ClientLogger.Log($"  → PublicKeyBase64 fragment: {publicKeyBase64.Substring(0, 32)}…", ClientLogLevel.Debug);
 
-                // Aborts if the TCP socket is not connected
-                if (_client?.Connected != true)
-                {
-                    ClientLogger.LogLocalized(
-                        LocalizationManager.GetString("ClientSocketNotConnected"),
-                        LogLevel.Error);
-                    return;
-                }
+                // Sends the packet bytes and flushes to ensure immediate transmission
+                NetworkStream stream = _client.GetStream();
+                byte[] packetBytes = connectPacket.GetPacketBytes();
+                stream.Write(packetBytes, 0, packetBytes.Length);
+                stream.Flush();                                     // Ensures data is sent now
 
-                // Verifies that the local user is initialized and has a valid UID
-                var localUser = viewModel.LocalUser;
-                if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
-                {
-                    ClientLogger.Log("Cannot send message — LocalUser is not initialized.", LogLevel.Error);
-                    return;
-                }
+                // Logs success and spawns the packet reader
+                ClientLogger.Log($"Initial connection packet sent — Username: {username}, UID: {uid}", ClientLogLevel.Debug);
+                Task.Run(() => ReadPackets());
 
-                // Captures the sender's UID for packet construction
-                string senderUid = localUser.UID;
-
-                // Determines whether to use encrypted or plain-text path
-                bool useEncryption = Properties.Settings.Default.UseEncryption
-                                     && HandshakeCompleted
-                                     && viewModel.IsEncryptionReady;
-
-                if (useEncryption)
-                {
-                    // Encrypts and sends one packet per peer under a lock on the shared key dictionary
-                    lock (viewModel.KnownPublicKeys)
-                    {
-                        foreach (var kvp in viewModel.KnownPublicKeys)
-                        {
-                            string peerUid = kvp.Key;
-
-                            // Skips sending to self
-                            if (peerUid == senderUid)
-                                continue;
-
-                            // Verifies that encryption can proceed for this recipient
-                            if (!viewModel.CanEncryptMessageFor(peerUid))
-                            {
-                                ClientLogger.Log(
-                                    $"Cannot encrypt for {peerUid} — missing key or encryption disabled.",
-                                    LogLevel.Warn);
-                                continue;
-                            }
-
-                            try
-                            {
-                                // Encrypts the message payload using the peer's public key
-                                string encryptedPayload = EncryptionHelper.EncryptMessage(message, kvp.Value);
-                                string payloadMarker = "[ENC]" + encryptedPayload;
-                                ClientLogger.Log(
-                                    $"Encrypts message for recipient {peerUid}.",
-                                    LogLevel.Debug);
-
-                                // Builds the packet: [OpCode][SenderUid][RecipientUid][Payload]
-                                var packet = new PacketBuilder();
-                                packet.WriteOpCode(5);
-                                packet.WriteMessage(senderUid);
-                                packet.WriteMessage(peerUid);
-                                packet.WriteMessage(payloadMarker);
-
-                                // Sends the encrypted packet over the socket
-                                _client.Client.Send(packet.GetPacketBytes());
-                                ClientLogger.Log(
-                                    $"Sends encrypted packet to {peerUid}.",
-                                    LogLevel.Debug);
-                            }
-                            catch (Exception exPeer)
-                            {
-                                // Logs any failure for this peer without crashing the client
-                                ClientLogger.Log(
-                                    $"Failed to send encrypted packet to {peerUid}: {exPeer.Message}",
-                                    LogLevel.Error);
-                            }
-                        }
-                    }
-
-                    // Posts a local echo on the UI thread so the sender sees their own message immediately
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        viewModel.Messages.Add($"{localUser.Username}: {message}");
-                    });
-                }
-                else
-                {
-                    // Warns if handshake or key synchronization is not complete
-                    if (!HandshakeCompleted)
-                        ClientLogger.Log(
-                            "Handshake not completed — sending plain-text message.",
-                            LogLevel.Warn);
-
-                    ClientLogger.Log("Sends plain-text message.", LogLevel.Debug);
-
-                    try
-                    {
-                        // Builds the plain-text broadcast packet: [OpCode][SenderUid][Content]
-                        var packet = new PacketBuilder();
-                        packet.WriteOpCode(5);
-                        packet.WriteMessage(senderUid);
-                        packet.WriteMessage(message);
-
-                        // Sends the plain-text packet over the socket
-                        _client.Client.Send(packet.GetPacketBytes());
-                        ClientLogger.Log(
-                            "Plain-text packet sent successfully.",
-                            LogLevel.Debug);
-                    }
-                    catch (Exception exPlain)
-                    {
-                        // Logs failure to send without crashing the client
-                        ClientLogger.Log(
-                            $"Failed to send plain-text packet: {exPlain.Message}",
-                            LogLevel.Error);
-                    }
-                }
+                return true;
             }
             catch (Exception ex)
             {
-                // Catches any unexpected exception and log it to prevent client termination
-                ClientLogger.Log(
-                    $"Unexpected error in SendMessageToServer: {ex.Message}",
-                    LogLevel.Error);
+                // Logs any error that occurs during handshake send
+                ClientLogger.Log($"Failed to send initial connection packet: {ex.Message}", ClientLogLevel.Error);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Sends a plain-text chat message to the server (opcode 5).
+        /// Validates input, connection state, and user identity before sending.
+        /// Catches all exceptions to avoid client crash.
+        /// On success, echoes the message in the local chat UI; on failure, logs and shows an error line.
+        /// </summary>
+        /// <param name="message">The message text to send.</param>
+        /// <returns>True if the message was sent and echoed; false otherwise.</returns>
+        public bool SendMessageToServer(string message)
+        {
+            // Validates message content
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+
+            // Retrieves MainWindow and its ViewModel
+            if (Application.Current.MainWindow is not MainWindow mainWindow
+                || mainWindow.ViewModel is not MainViewModel viewModel)
+            {
+                ClientLogger.Log("Cannot send message – ViewModel is not available.", ClientLogLevel.Error);
+                return false;
+            }
+
+            // Checks TCP connection
+            if (_client?.Connected != true)
+            {
+                ClientLogger.Log("Cannot send message – socket not connected.", ClientLogLevel.Error);
+                return false;
+            }
+
+            // Verifies local user identity
+            var localUser = viewModel.LocalUser;
+            if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
+            {
+                ClientLogger.Log("Cannot send message – LocalUser is not initialized.", ClientLogLevel.Error);
+                return false;
+            }
+
+            try
+            {
+                // Builds and sends the plain-text packet
+                var packet = new PacketBuilder();
+                packet.WriteOpCode(ClientOpCode.PlainMessage); // opcode for plain message
+                packet.WriteMessage(localUser.UID);         // sender UID
+                packet.WriteMessage(message.Trim());        // message content
+                _client.Client.Send(packet.GetPacketBytes());
+
+                ClientLogger.Log("Plain-text message sent.", ClientLogLevel.Debug);
+
+                // Local echo on the UI thread
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    viewModel.Messages.Add($"{localUser.Username}: {message.Trim()}");
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Logs and echoes failure without crashing
+                ClientLogger.Log($"Failed to send plain-text message: {ex.Message}", ClientLogLevel.Error);
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    viewModel.Messages.Add($"[Error sending message: {ex.Message}]");
+                });
+                return false;
             }
         }
 
@@ -537,14 +451,14 @@ public bool SendInitialConnectionPacket(string username, Guid uid, string public
             // Validates socket connection before attempting to send
             if (_client?.Client == null || !_client.Connected)
             {
-                ClientLogger.Log("Cannot send public key — client is not connected.", LogLevel.Error);
+                ClientLogger.Log("Cannot send public key — client is not connected.", ClientLogLevel.Error);
                 return false;
             }
 
             // Logs handshake status for debugging
             if (!HandshakeCompleted)
             {
-                ClientLogger.Log("Handshake not completed — sending public key anyway.", LogLevel.Warn);
+                ClientLogger.Log("Handshake not completed — sending public key anyway.", ClientLogLevel.Warn);
             }
 
             // Builds the packet with required fields
@@ -553,12 +467,12 @@ public bool SendInitialConnectionPacket(string username, Guid uid, string public
             packet.WriteMessage(uid);
             packet.WriteMessage(publicKeyBase64);
 
-            ClientLogger.Log($"Sending public key — UID: {uid}, Key length: {publicKeyBase64.Length}", LogLevel.Debug);
+            ClientLogger.Log($"Sending public key — UID: {uid}, Key length: {publicKeyBase64.Length}", ClientLogLevel.Debug);
 
             // Sends the packet to the server
             _client.Client.Send(packet.GetPacketBytes());
 
-            ClientLogger.Log("Public key packet sent successfully.", LogLevel.Debug);
+            ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
             return true;
         }
     }

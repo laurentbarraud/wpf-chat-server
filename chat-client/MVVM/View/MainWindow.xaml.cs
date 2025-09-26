@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -11,20 +11,13 @@ using chat_client.Properties;
 using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
-using System.Configuration;
-using System.Diagnostics;
-using System.Net.Sockets;
-using System.Text.RegularExpressions;
-using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace chat_client
 {
@@ -692,7 +685,7 @@ namespace chat_client
                     imgEncryptionStatus.ToolTip = null;
                     ClientLogger.Log(
                         "Encryption disabled — icon hidden.",
-                        LogLevel.Info);
+                        ClientLogLevel.Info);
                     return;
                 }
 
@@ -714,7 +707,7 @@ namespace chat_client
 
                     ClientLogger.Log(
                         $"Encryption in progress — gray icon displayed; tooltip: {tooltipKey}.",
-                        LogLevel.Debug);
+                        ClientLogLevel.Debug);
                     return;
                 }
 
@@ -729,14 +722,14 @@ namespace chat_client
 
                 ClientLogger.Log(
                     "Encryption fully active — colored icon displayed with Zoom animation.",
-                    LogLevel.Info);
+                    ClientLogLevel.Info);
             }
             catch (Exception ex)
             {
                 // Logs any unexpected error and hides the icon to prevent UI disruption
                 ClientLogger.Log(
                     $"Error in UpdateEncryptionStatusIcon: {ex.Message}",
-                    LogLevel.Error);
+                    ClientLogLevel.Error);
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;
             }
         }

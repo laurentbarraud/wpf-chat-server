@@ -1,17 +1,13 @@
 ﻿/// <file>App.xaml.cs</fil
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.Properties;
 using ChatClient.Helpers;
-using System.Configuration;
-using System.Data;
 using System.Globalization;
-using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Markup;
 
 namespace chat_client
 {

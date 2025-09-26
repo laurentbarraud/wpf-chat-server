@@ -1,7 +1,7 @@
 ﻿/// <file>ServerLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace chat_server.Helpers
     /// <summary>
     /// Defines severity levels for log messages.
     /// </summary>
-    public enum LogLevel
+    public enum ServerLogLevel
     {
         Info,
         Debug,
@@ -43,16 +43,16 @@ namespace chat_server.Helpers
         /// </summary>
         /// <param name="message">The message to display.</param>
         /// <param name="level">The severity level of the message.</param>
-        public static void Log(string message, LogLevel level = LogLevel.Info)
+        public static void Log(string message, ServerLogLevel level = ServerLogLevel.Info)
         {
-            if (level == LogLevel.Debug && !IsDebugEnabled)
+            if (level == ServerLogLevel.Debug && !IsDebugEnabled)
                 return;
 
             string prefix = level switch
             {
-                LogLevel.Info => "[INFO] ",
-                LogLevel.Warn => "[WARN] ",
-                LogLevel.Error => "[ERROR]",
+                ServerLogLevel.Info => "[INFO] ",
+                ServerLogLevel.Warn => "[WARN] ",
+                ServerLogLevel.Error => "[ERROR]",
                 _ => "[DEBUG] "
             };
 
@@ -67,7 +67,7 @@ namespace chat_server.Helpers
         /// <param name="resourceKey">The key used to retrieve the localized string template.</param>
         /// <param name="level">The severity level of the message.</param>
         /// <param name="args">Optional arguments to format into the localized string.</param>
-        public static void LogLocalized(string resourceKey, LogLevel level = LogLevel.Info, params object[] args)
+        public static void LogLocalized(string resourceKey, ServerLogLevel level = ServerLogLevel.Info, params object[] args)
         {
             string template = LocalizationManager.GetString(resourceKey);
             string message = args.Length > 0 ? string.Format(template, args) : template;

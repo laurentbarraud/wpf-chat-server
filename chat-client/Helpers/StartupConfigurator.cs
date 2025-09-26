@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using chat_client.View;
 using ChatClient.Helpers;
@@ -136,16 +136,16 @@ namespace chat_client.Helpers
             // Displays help message and exits if --help is passed
             if (showHelp)
             {
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine1"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine2"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine3"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine4"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine5"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine6"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine7"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine8"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine9"), LogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine10"), LogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine1"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine2"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine3"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine4"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine5"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine6"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine7"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine8"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine9"), ClientLogLevel.Info);
+                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine10"), ClientLogLevel.Info);
                 return;
             }
 
@@ -166,11 +166,11 @@ namespace chat_client.Helpers
                 {
                     LocalizationManager.Initialize(language);
                     Properties.Settings.Default.AppLanguage = language;
-                    ClientLogger.Log($"[Startup] Language set: {language}", LogLevel.Info);
+                    ClientLogger.Log($"[Startup] Language set: {language}", ClientLogLevel.Info);
                 }
                 else
                 {
-                    ClientLogger.Log($"[Startup] Unsupported language: {language}. Defaulting to 'en'.", LogLevel.Info);
+                    ClientLogger.Log($"[Startup] Unsupported language: {language}. Defaulting to 'en'.", ClientLogLevel.Info);
                     LocalizationManager.Initialize("en");
                     Properties.Settings.Default.AppLanguage = "en";
                 }
@@ -188,7 +188,7 @@ namespace chat_client.Helpers
                 // Initializes encryption: generates key pair, stores own public key locally, and sends it to the server
                 viewModel.InitializeEncryption(viewModel);
 
-                ClientLogger.Log("[Startup] Encryption enabled.", LogLevel.Info);
+                ClientLogger.Log("[Startup] Encryption enabled.", ClientLogLevel.Info);
             }
 
 
@@ -198,28 +198,28 @@ namespace chat_client.Helpers
                 bool isDark = theme.ToLower() == "dark";
                 ThemeManager.ApplyTheme(isDark);
                 Properties.Settings.Default.AppTheme = isDark ? "Dark" : "Light";
-                ClientLogger.Log($"[Startup] Theme applied: {(isDark ? "dark" : "light")}", LogLevel.Info);
+                ClientLogger.Log($"[Startup] Theme applied: {(isDark ? "dark" : "light")}", ClientLogLevel.Info);
             }
 
             // Enables tray minimization if requested
             if (reduceInTray)
             {
                 Properties.Settings.Default.ReduceToTray = true;
-                ClientLogger.Log("[Startup] Reduce to tray enabled.", LogLevel.Info);
+                ClientLogger.Log("[Startup] Reduce to tray enabled.", ClientLogLevel.Info);
             }
 
             // Shows debug console if requested
             if (debugMode)
             {
                 ConsoleManager.Show();
-                ClientLogger.Log("[Startup] Debug console shown.", LogLevel.Info);
+                ClientLogger.Log("[Startup] Debug console shown.", ClientLogLevel.Info);
             }
 
             // Applies username and triggers auto-connect
             if (!string.IsNullOrEmpty(username) && mainWindow != null)
             {
                 mainWindow.txtUsername.Text = username;
-                ClientLogger.Log($"[Startup] Username set: {username}", LogLevel.Info);
+                ClientLogger.Log($"[Startup] Username set: {username}", ClientLogLevel.Info);
 
                 mainWindow.cmdConnectDisconnect_Click(new object(), new RoutedEventArgs());
             }

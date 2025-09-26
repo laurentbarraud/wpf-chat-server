@@ -1,18 +1,16 @@
 ﻿/// <file>ClientLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using chat_client.Helpers;
 
 namespace ChatClient.Helpers
 {
-    public enum LogLevel
+    /// <summary>
+    /// Defines severity levels for client-side logging.
+    /// </summary>
+    public enum ClientLogLevel
     {
         Info,
         Debug,
@@ -20,33 +18,58 @@ namespace ChatClient.Helpers
         Error
     }
 
+    /// <summary>
+    /// Provides static methods to log messages with timestamps and severity prefixes.
+    /// Supports raw and localized logging without crashing the client.
+    /// </summary>
     public static class ClientLogger
     {
-        // Set to true to enable verbose debug output
+        /// <summary>
+        /// When true, allows debug-level messages to be written to the console.
+        /// Default is false to suppress verbose output in production.
+        /// </summary>
         public static bool IsDebugEnabled { get; set; } = false;
 
-        public static void Log(string message, LogLevel level = LogLevel.Info)
+        /// <summary>
+        /// Writes a formatted message to the console with a timestamp and severity prefix.
+        /// Debug messages are skipped unless <see cref="IsDebugEnabled"/> is true.
+        /// </summary>
+        /// <param name="message">The raw text to log.</param>
+        /// <param name="level">
+        /// The severity level of the log entry.
+        /// Defaults to <see cref="ClientLogLevel.Info"/>.
+        /// </param>
+        public static void Log(string message, ClientLogLevel level = ClientLogLevel.Info)
         {
-            if (level == LogLevel.Debug && !IsDebugEnabled)
+            if (level == ClientLogLevel.Debug && !IsDebugEnabled)
                 return;
 
             string prefix = level switch
             {
-                LogLevel.Info => "[INFO] ",
-                LogLevel.Warn => "[WARN] ",
-                LogLevel.Error => "[ERROR]",
-                _ => "[DEBUG]"
+                ClientLogLevel.Info => "[INFO]  ",
+                ClientLogLevel.Warn => "[WARN]  ",
+                ClientLogLevel.Error => "[ERROR] ",
+                _ => "[DEBUG] "
             };
 
             string timestamp = DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss");
             Console.WriteLine($"{prefix}[{timestamp}] {message}");
         }
 
-        public static void LogLocalized(string resourceKey, LogLevel level = LogLevel.Info)
+        /// <summary>
+        /// Retrieves a localized string by key and logs it with the specified severity.
+        /// </summary>
+        /// <param name="resourceKey">The key identifying the localized resource.</param>
+        /// <param name="level">
+        /// The severity level of the log entry.
+        /// Defaults to <see cref="ClientLogLevel.Info"/>.
+        /// </param>
+        public static void LogLocalized(string resourceKey, ClientLogLevel level = ClientLogLevel.Info)
         {
             string message = LocalizationManager.GetString(resourceKey);
             Log(message, level);
         }
     }
 }
+
 

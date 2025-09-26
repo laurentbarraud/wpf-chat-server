@@ -1,33 +1,23 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
-using chat_client.MVVM.View;
 using chat_client.Net;
-using chat_client.Net.IO;
 using chat_client.Properties;
 using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
-using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
-using System.Runtime.ConstrainedExecution;
 using System.Security.Cryptography;
-using System.Security.Policy;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Documents;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
+
 
 
 
@@ -231,14 +221,14 @@ namespace chat_client.MVVM.ViewModel
             // Logs the current encryption setting for debugging
             ClientLogger.Log(
                 $"Checking encryption readiness — UseEncryption={Settings.Default.UseEncryption}",
-                LogLevel.Debug);
+                ClientLogLevel.Debug);
 
             // Skips if encryption is disabled or if the local user is not initialized
             if (!Settings.Default.UseEncryption || LocalUser == null)
             {
                 ClientLogger.Log(
                     "Skipping encryption readiness check — encryption disabled or local user not initialized.",
-                    LogLevel.Info);
+                    ClientLogLevel.Info);
                 return false;
             }
 
@@ -246,13 +236,13 @@ namespace chat_client.MVVM.ViewModel
             bool hasLocalKey = !string.IsNullOrEmpty(LocalUser.PublicKeyBase64);
             ClientLogger.Log(
                 $"Local public key present: {hasLocalKey}",
-                LogLevel.Debug);
+                ClientLogLevel.Debug);
 
             if (!hasLocalKey)
             {
                 ClientLogger.Log(
                     "Skipping encryption readiness check — local public key not yet generated.",
-                    LogLevel.Info);
+                    ClientLogLevel.Info);
                 return false;
             }
 
@@ -261,11 +251,11 @@ namespace chat_client.MVVM.ViewModel
             {
                 ClientLogger.Log(
                     "Solo mode detected — no peers; encryption considered ready.",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
 
                 ClientLogger.Log(
                     "Encryption is fully activated and ready (solo mode).",
-                    LogLevel.Info);
+                    ClientLogLevel.Info);
                 return true;
             }
 
@@ -277,7 +267,7 @@ namespace chat_client.MVVM.ViewModel
                 var peerUids = Users.Select(u => u.UID).ToList();
                 ClientLogger.Log(
                     $"Peer UIDs to verify: {string.Join(", ", peerUids)}",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
 
                 missingKeys = peerUids
                     .Except(KnownPublicKeys.Keys)
@@ -285,7 +275,7 @@ namespace chat_client.MVVM.ViewModel
 
                 ClientLogger.Log(
                     $"Number of missing keys detected: {missingKeys.Count}",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
             }
 
             // Logs and aborts if any peer keys are missing
@@ -293,14 +283,14 @@ namespace chat_client.MVVM.ViewModel
             {
                 ClientLogger.Log(
                     $"Encryption not ready — missing keys for: {string.Join(", ", missingKeys)}",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
                 return false;
             }
 
             // All checks passed: logs activation and returns readiness
             ClientLogger.Log(
                 "Encryption is fully activated and ready.",
-                LogLevel.Info);
+                ClientLogLevel.Info);
             return true;
         }
 
@@ -371,17 +361,17 @@ namespace chat_client.MVVM.ViewModel
                     UID = result.uid.ToString(),
                     PublicKeyBase64 = result.publicKeyBase64
                 };
-                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", LogLevel.Debug);
+                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
 
                 // Marks connection as successful (plain chat allowed)
                 IsConnected = true;
-                ClientLogger.Log("Client connected — plain messages allowed before handshake.", LogLevel.Debug);
+                ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
 
                 if (Properties.Settings.Default.UseEncryption)
                 {
                     // Assigns the in-memory public key for this client session
                     LocalUser.PublicKeyBase64 = EncryptionHelper.PublicKeyBase64;
-                    ClientLogger.Log("Uses in-memory RSA public key for this session.", LogLevel.Debug);
+                    ClientLogger.Log("Uses in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
                     // Publishes the public key to the server for the handshake
                     Server.SendPublicKeyToServer(LocalUser.UID, LocalUser.PublicKeyBase64);
@@ -389,7 +379,7 @@ namespace chat_client.MVVM.ViewModel
 
                     // Initializes the local encryption helpers for message processing
                     InitializeEncryption(this);
-                    ClientLogger.Log("Encryption initialized on startup.", LogLevel.Info);
+                    ClientLogger.Log("Encryption initialized on startup.", ClientLogLevel.Info);
 
                     // Ensures all peers are synced by re-sending and re-requesting keys
                     _server.ResendPublicKey();
@@ -486,7 +476,7 @@ namespace chat_client.MVVM.ViewModel
             // Logs the new encryption state for traceability
             ClientLogger.Log(
                 $"EvaluateEncryptionState called — Ready: {IsEncryptionReady}",
-                LogLevel.Debug);
+                ClientLogLevel.Debug);
         }
 
         /// <summary>
@@ -556,7 +546,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 ClientLogger.Log(
                     "Encryption initialization skipped — no LocalUser or already active.",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
                 return false;
             }
 
@@ -578,7 +568,7 @@ namespace chat_client.MVVM.ViewModel
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
                 ClientLogger.Log(
                     $"RSA key pair generated for UID {LocalUser.UID}.",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
 
                 // 4. Registers own public key locally under lock
                 lock (KnownPublicKeys)
@@ -586,7 +576,7 @@ namespace chat_client.MVVM.ViewModel
                     KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
                     ClientLogger.Log(
                         $"Local public key added to KnownPublicKeys for UID {LocalUser.UID}.",
-                        LogLevel.Debug);
+                        ClientLogLevel.Debug);
                 }
 
                 // 5. Sends public key to server
@@ -595,7 +585,7 @@ namespace chat_client.MVVM.ViewModel
                 {
                     ClientLogger.Log(
                         "Failed to send public key to server — disabling encryption.",
-                        LogLevel.Error);
+                        ClientLogLevel.Error);
                     MessageBox.Show(
                         LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
@@ -611,7 +601,7 @@ namespace chat_client.MVVM.ViewModel
                 initializationSucceeded = true;
                 ClientLogger.Log(
                     "Encryption enabled in application settings.",
-                    LogLevel.Info);
+                    ClientLogLevel.Info);
 
                 // 7. Imports peer keys from ViewModel under lock
                 lock (KnownPublicKeys)
@@ -623,7 +613,7 @@ namespace chat_client.MVVM.ViewModel
                             KnownPublicKeys[peerUid] = peerKey;
                             ClientLogger.Log(
                                 $"Imported external public key for peer UID {peerUid}.",
-                                LogLevel.Debug);
+                                ClientLogLevel.Debug);
                         }
                     }
                 }
@@ -634,14 +624,14 @@ namespace chat_client.MVVM.ViewModel
                     _server.RequestAllPublicKeysFromServer();
                     ClientLogger.Log(
                         "Requested full public-key synchronization from server.",
-                        LogLevel.Debug);
+                        ClientLogLevel.Debug);
                 }
 
                 // 9. Recalculates readiness (logs only, no UI update)
                 EvaluateEncryptionState();
                 ClientLogger.Log(
                     $"Post-init readiness: {IsEncryptionReady} with {KnownPublicKeys.Count}/{viewModel.ExpectedClientCount} keys.",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
 
                 // 10. Performs final synchronization pass
                 SyncKeys();
@@ -654,7 +644,7 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.UseEncryption = false;
                 ClientLogger.Log(
                     $"Exception during encryption initialization: {ex.Message}",
-                    LogLevel.Error);
+                    ClientLogLevel.Error);
                 return false;
             }
             finally
@@ -665,7 +655,7 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.Save();
                 ClientLogger.Log(
                     "Handshake keys and encryption settings persisted.",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
 
                 // Only now updates the UI lock-icon if initialization succeeded
                 if (initializationSucceeded)
@@ -677,7 +667,7 @@ namespace chat_client.MVVM.ViewModel
                     });
                     ClientLogger.Log(
                         "UI lock-icon updated to reflect final encryption readiness.",
-                        LogLevel.Info);
+                        ClientLogLevel.Info);
                 }
             }
         }
@@ -703,13 +693,13 @@ namespace chat_client.MVVM.ViewModel
             LocalUser.PublicKeyBase64 = null;
             LocalUser.PrivateKeyBase64 = null;
             EncryptionHelper.ClearPrivateKey();
-            ClientLogger.Log("Cleared all previous key state.", LogLevel.Debug);
+            ClientLogger.Log("Cleared all previous key state.", ClientLogLevel.Debug);
 
             // 2–6. Delegates to existing InitializeEncryption() for core RSA generation + server publish
             bool coreOk = InitializeEncryption(this);
             if (!coreOk)
             {
-                ClientLogger.Log("Core InitializeEncryption() failed.", LogLevel.Error);
+                ClientLogger.Log("Core InitializeEncryption() failed.", ClientLogLevel.Error);
                 return false;
             }
 
@@ -720,7 +710,7 @@ namespace chat_client.MVVM.ViewModel
             EvaluateEncryptionState();
 
             ClientLogger.Log($"InitializeEncryptionFull completed — Ready: {IsEncryptionReady}",
-                IsEncryptionReady ? LogLevel.Info : LogLevel.Warn);
+                IsEncryptionReady ? ClientLogLevel.Info : ClientLogLevel.Warn);
 
             return IsEncryptionReady;
         }
@@ -794,7 +784,7 @@ namespace chat_client.MVVM.ViewModel
                         // Logs decryption errors and uses a localized fallback message
                         ClientLogger.Log(
                             $"Decryption error for sender {senderUid}: {exDecrypt.Message}",
-                            LogLevel.Error);
+                            ClientLogLevel.Error);
                         string errorText = LocalizationManager.GetString("DecryptionFailed");
                         finalMessage = $"{displayName}: {errorText}";
                     }
@@ -816,7 +806,7 @@ namespace chat_client.MVVM.ViewModel
                 // Catches any unexpected exception to prevent client termination
                 ClientLogger.Log(
                     $"Unexpected error in MessageReceived: {ex.Message}",
-                    LogLevel.Error);
+                    ClientLogLevel.Error);
             }
         }
 
@@ -834,7 +824,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 ClientLogger.Log(
                     $"Discarded incoming public key — uid or key is empty.",
-                    LogLevel.Warn);
+                    ClientLogLevel.Warn);
                 return;
             }
 
@@ -850,7 +840,7 @@ namespace chat_client.MVVM.ViewModel
                     {
                         ClientLogger.Log(
                             $"Received duplicate public key for UID {uid}; no change.",
-                            LogLevel.Debug);
+                            ClientLogLevel.Debug);
                     }
                     else
                     {
@@ -859,7 +849,7 @@ namespace chat_client.MVVM.ViewModel
                         isNewOrUpdated = true;
                         ClientLogger.Log(
                             $"Updated public key for UID {uid}.",
-                            LogLevel.Info);
+                            ClientLogLevel.Info);
                     }
                 }
                 else
@@ -869,7 +859,7 @@ namespace chat_client.MVVM.ViewModel
                     isNewOrUpdated = true;
                     ClientLogger.Log(
                         $"Registered new public key for UID {uid}.",
-                        LogLevel.Info);
+                        ClientLogLevel.Info);
                 }
             }
 
@@ -883,7 +873,7 @@ namespace chat_client.MVVM.ViewModel
                     ?.UpdateEncryptionStatusIcon(IsEncryptionReady);
                 ClientLogger.Log(
                     $"Encryption readiness confirmed after key registration for UID {uid}.",
-                    LogLevel.Debug);
+                    ClientLogLevel.Debug);
             }
         }
 
@@ -1003,20 +993,20 @@ namespace chat_client.MVVM.ViewModel
                 {
                     ClientLogger.Log(
                         $"SyncKeys detected missing keys for: {string.Join(", ", missingKeys)}",
-                        LogLevel.Debug);
+                        ClientLogLevel.Debug);
 
                     try
                     {
                         _server.ResendPublicKey();
                         ClientLogger.Log(
                             "Requests resend of local public key from server.",
-                            LogLevel.Debug);
+                            ClientLogLevel.Debug);
                     }
                     catch (Exception exRequest)
                     {
                         ClientLogger.Log(
                             $"Failed to request public key resend: {exRequest.Message}",
-                            LogLevel.Error);
+                            ClientLogLevel.Error);
                     }
                 }
 
@@ -1037,7 +1027,7 @@ namespace chat_client.MVVM.ViewModel
                 // Catches any unexpected error to prevent the client from terminating
                 ClientLogger.Log(
                     $"Unexpected error in SyncKeys: {ex.Message}",
-                    LogLevel.Error);
+                    ClientLogLevel.Error);
             }
         }
 
@@ -1050,23 +1040,23 @@ namespace chat_client.MVVM.ViewModel
         /// <returns>The decrypted plaintext if successful; otherwise, a fallback message.</returns>
         public static string TryDecryptMessage(string encryptedPayload)
         {
-            ClientLogger.Log("TryDecryptMessage called.", LogLevel.Debug);
+            ClientLogger.Log("TryDecryptMessage called.", ClientLogLevel.Debug);
 
             if (!Settings.Default.UseEncryption)
             {
-                ClientLogger.Log("Encryption is disabled in application settings.", LogLevel.Warn);
+                ClientLogger.Log("Encryption is disabled in application settings.", ClientLogLevel.Warn);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
             if (string.IsNullOrWhiteSpace(encryptedPayload))
             {
-                ClientLogger.Log("Encrypted payload is null or empty.", LogLevel.Warn);
+                ClientLogger.Log("Encrypted payload is null or empty.", ClientLogLevel.Warn);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
 
             try
             {
-                ClientLogger.Log($"Raw encrypted payload: {encryptedPayload}", LogLevel.Debug);
+                ClientLogger.Log($"Raw encrypted payload: {encryptedPayload}", ClientLogLevel.Debug);
 
                 // Sanitizes payload: strips control chars and trims whitespace.
                 string sanitized = encryptedPayload
@@ -1074,17 +1064,17 @@ namespace chat_client.MVVM.ViewModel
                     .Replace("\r", "")
                     .Replace("\n", "")
                     .Trim();
-                ClientLogger.Log($"Sanitized encrypted payload: {sanitized}", LogLevel.Debug);
+                ClientLogger.Log($"Sanitized encrypted payload: {sanitized}", ClientLogLevel.Debug);
 
                 // Delegates to EncryptionHelper for the actual decrypt.
                 string result = EncryptionHelper.DecryptMessage(sanitized);
-                ClientLogger.Log($"Decryption successful. Decrypted message: {result}", LogLevel.Debug);
+                ClientLogger.Log($"Decryption successful. Decrypted message: {result}", ClientLogLevel.Debug);
 
                 return result;
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"Exception during decryption: {ex.Message}", LogLevel.Error);
+                ClientLogger.Log($"Exception during decryption: {ex.Message}", ClientLogLevel.Error);
                 return LocalizationManager.GetString("DecryptionFailed");
             }
         }
@@ -1121,12 +1111,12 @@ namespace chat_client.MVVM.ViewModel
                 foreach (var user in Users)
                 {
                     bool hasKey = KnownPublicKeys.ContainsKey(user.UID);
-                    ClientLogger.Log($"User in list of users — UID: {user.UID}, HasKey: {hasKey}", LogLevel.Debug);
+                    ClientLogger.Log($"User in list of users — UID: {user.UID}, HasKey: {hasKey}", ClientLogLevel.Debug);
                 }
             }
 
             // Logs the readiness state before updating the icon
-            ClientLogger.Log($"UpdateEncryptionStatusIcon called — isReady: {IsEncryptionReady}", LogLevel.Debug);
+            ClientLogger.Log($"UpdateEncryptionStatusIcon called — isReady: {IsEncryptionReady}", ClientLogLevel.Debug);
 
             // Delegates icon update to the UI layer
             (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
@@ -1134,7 +1124,7 @@ namespace chat_client.MVVM.ViewModel
             // Logs summary of list of users and key distribution
             int userCount = Users?.Count ?? 0;
             int keyCount = KnownPublicKeys?.Count ?? 0;
-            ClientLogger.Log($"Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}", LogLevel.Debug);
+            ClientLogger.Log($"Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}", ClientLogLevel.Debug);
         }
 
         /// <summary>
@@ -1170,13 +1160,13 @@ namespace chat_client.MVVM.ViewModel
 
                     // Updates the expected client count for encryption readiness evaluation
                     ExpectedClientCount = Users.Count;
-                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", LogLevel.Debug);
+                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", ClientLogLevel.Debug);
 
                     // Registers the public key if not already known
                     if (!KnownPublicKeys.ContainsKey(user.UID))
                     {
                         KnownPublicKeys[user.UID] = publicKey;
-                        ClientLogger.Log($"Public key registered for {username} — UID: {uid}", LogLevel.Debug);
+                        ClientLogger.Log($"Public key registered for {username} — UID: {uid}", ClientLogLevel.Debug);
                     }
 
                     // Re-evaluates encryption readiness after adding the new user
@@ -1213,7 +1203,7 @@ namespace chat_client.MVVM.ViewModel
 
                     // Updates the expected client count after user removal
                     ExpectedClientCount = Users.Count;
-                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", LogLevel.Debug);
+                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", ClientLogLevel.Debug);
 
                     // Posts a localized system message to the chat
                     Messages.Add("# - " + user.Username + " " + LocalizationManager.GetString("HasDisconnected") + ". #");
@@ -1224,7 +1214,7 @@ namespace chat_client.MVVM.ViewModel
                         UpdateEncryptionStatus();
                     }
 
-                    ClientLogger.Log($"User disconnected — Username: {user.Username}, UID: {uid}", LogLevel.Debug);
+                    ClientLogger.Log($"User disconnected — Username: {user.Username}, UID: {uid}", ClientLogLevel.Debug);
                 });
             }
         }

@@ -1,24 +1,32 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 25th, 2025</date>
+/// <date>September 27th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net.IO;
-using Microsoft.VisualBasic.Logging;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
+using chat_server;
 
 namespace chat_server
 {
+    /// <summary>
+    /// Defines the opcodes a client can send to the server.
+    /// Must match the values the client will emit.
+    /// </summary>
+    public enum ServerPacketOpCode : byte
+    {
+        KeyRequest = 3,   // client asks a peer’s public key
+        PlainMessage = 5,   // client sends a plain-text message
+        PublicKeyResponse = 6,   // client answers with its public key
+        EncryptedMessage = 11   // client sends an encrypted message
+    }
+
     /// <summary>
     /// Entry point and coordinator for the server-side chat system.
     /// Manages client connections, handshakes, and broadcasts for presence,
@@ -337,7 +345,7 @@ namespace chat_server
 
                     // Reads the handshake opcode byte
                     int opcode = stream.ReadByte();
-                    if (opcode != 0)
+                    if (opcode != ServerPacketOpCode.)
                     {
                         Log(LogLevelLocal.Error, $"Unexpected handshake opcode: {opcode}. Disconnecting.");
                         tcpClient.Close();
