@@ -64,7 +64,7 @@ namespace chat_client.MVVM.View
 
                 // Synchronizes toggle states and port field with saved settings
                 UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
-                txtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
+                TxtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
                 ReduceToTrayToggle.IsChecked = Properties.Settings.Default.ReduceToTray;
                 UseEncryptionToggle.IsChecked = chat_client.Properties.Settings.Default.UseEncryption;
 
@@ -91,7 +91,7 @@ namespace chat_client.MVVM.View
             aboutWindow.ShowDialog();
         }
 
-        private void cmdValidate_Click(object sender, RoutedEventArgs e)
+        private void CmdValidate_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
@@ -165,9 +165,9 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Rolls back the encryption toggle when initialization fails.  
-        /// 1. Unchecks the encryption toggle.  
-        /// 2. Disables the encryption flag in user settings.  
-        /// 3. Persists the change to application settings.  
+        /// Unchecks the encryption toggle.  
+        /// Disables the encryption flag in user settings.  
+        /// Persists the change to application settings.  
         /// This method centralizes rollback logic to maintain UI and configuration consistency.
         /// </summary>
         private void RollbackEncryptionToggle()
@@ -177,7 +177,12 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.Save();
         }
 
-        private void txtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
+        /// <summary>
+        /// Validates the custom port value as the user edits the text, if the custom port option is enabled.
+        /// </summary>
+        /// <param name="sender">The TextBox whose content has changed.</param>
+        /// <param name="e">Event data for the text change.</param>
+        private void TxtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (UseCustomPortToggle.IsChecked == true)
             {
@@ -185,16 +190,26 @@ namespace chat_client.MVVM.View
             }
         }
 
+        /// <summary>
+        /// Enables the custom port input field and persists the setting when the toggle is checked.
+        /// </summary>
+        /// <param name="sender">The toggle button that was checked.</param>
+        /// <param name="e">Event data for the toggle event.</param>
         private void UseCustomPortToggle_Checked(object sender, RoutedEventArgs e)
         {
-            txtCustomPort.IsEnabled = true;
+            TxtCustomPort.IsEnabled = true;
             Properties.Settings.Default.UseCustomPort = true;
             Properties.Settings.Default.Save();
         }
 
+        /// <summary>
+        /// Disables the custom port input field, hides the status indicator, and persists the setting when the toggle is unchecked.
+        /// </summary>
+        /// <param name="sender">The toggle button that was unchecked.</param>
+        /// <param name="e">Event data for the toggle event.</param>
         private void UseCustomPortToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            txtCustomPort.IsEnabled = false;
+            TxtCustomPort.IsEnabled = false;
             imgPortStatus.Visibility = Visibility.Collapsed;
             Properties.Settings.Default.UseCustomPort = false;
             Properties.Settings.Default.Save();
@@ -202,12 +217,12 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles the Checked event of the encryption toggle.  
-        /// 1. Enables the encryption flag in user settings and persists it.  
-        /// 2. Validates that the client is connected and LocalUser is initialized.  
-        /// 3. Clears stale key material to guarantee a clean start.  
-        /// 4. Invokes ViewModel.InitializeEncryption() to execute the full encryption setup.  
-        /// 5. Rolls back the toggle and settings on failure.  
-        /// 6. Logs the successful initialization and awaits UI update.  
+        /// Enables the encryption flag in user settings and persists it.  
+        /// Validates that the client is connected and LocalUser is initialized.  
+        /// Clears stale key material to guarantee a clean start.  
+        /// Invokes ViewModel.InitializeEncryption() to execute the full encryption setup.  
+        /// Rolls back the toggle and settings on failure.  
+        /// Logs the successful initialization and awaits UI update.  
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
@@ -216,43 +231,40 @@ namespace chat_client.MVVM.View
                 return;
             }
 
-            // 1. Enables the encryption flag and persists it
+            // Enables the encryption flag and persists it
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // 2. Validates that the client is connected and LocalUser is initialized
-            var viewModel = (Application.Current.MainWindow as MainWindow)?._viewModel;
+            // Validates that the client is connected and LocalUser is initialized
+            var mainWindow = Application.Current.MainWindow as MainWindow;
+            var viewModel = mainWindow?.ViewModel;
             if (viewModel?.LocalUser == null || !viewModel.IsConnected)
             {
-                ClientLogger.Log("Cannot enable encryption – client not connected or LocalUser missing.",
-                    ClientLogLevel.Warn);
+                ClientLogger.Log("Cannot enable encryption – client not connected or LocalUser missing.", ClientLogLevel.Warn);
                 RollbackEncryptionToggle();
                 return;
             }
 
-            // 3. Clears stale key material to guarantee a clean start
+            // Clears stale key material to guarantee a clean start
             viewModel.KnownPublicKeys.Clear();
             viewModel.LocalUser.PublicKeyBase64 = string.Empty;
             viewModel.LocalUser.PrivateKeyBase64 = string.Empty;
             EncryptionHelper.ClearPrivateKey();
             ClientLogger.Log(
-                "Clears old key state before re-initialization.",
-                ClientLogLevel.Debug);
+                "Clears old key state before re-initialization.", ClientLogLevel.Debug);
 
-            // 4. Executes full encryption setup and captures the result
+            // Executes full encryption setup and captures the result
             bool isEncryptionReady = viewModel.InitializeEncryption();
             if (!isEncryptionReady)
             {
-                // 5. Rolls back the toggle and settings on failure
-                ClientLogger.Log("InitializeEncryption() failed – rolling back encryption toggle.",
-                    ClientLogLevel.Error);
+                // Rolls back the toggle and settings on failure
+                ClientLogger.Log("InitializeEncryption() failed – rolling back encryption toggle.", ClientLogLevel.Error);
                 RollbackEncryptionToggle();
                 return;
             }
 
-            // 6. Logs the successful initialization and awaits UI update
-            ClientLogger.Log("Encryption fully initialized on toggle ON; awaiting green lock icon.",
-                ClientLogLevel.Info);
+            // Logs the successful initialization and awaits UI update
+            ClientLogger.Log("Encryption fully initialized on toggle ON; awaiting green lock icon.", ClientLogLevel.Info);
         }
 
         /// <summary>
@@ -281,7 +293,7 @@ namespace chat_client.MVVM.View
                 return;
             }
             
-            var viewModel = mainWindow._viewModel;
+            var viewModel = mainWindow.ViewModel;
             
             if (viewModel?.LocalUser == null)
             {
@@ -303,7 +315,7 @@ namespace chat_client.MVVM.View
         private void ValidatePortInput()
         {
             int portChosen;
-            Int32.TryParse(txtCustomPort.Text, out portChosen);
+            Int32.TryParse(TxtCustomPort.Text, out portChosen);
 
             string imagePath;
             string tooltip;

@@ -19,23 +19,21 @@ namespace chat_client.Net
     /// <summary>
     /// Represents the client-side connection to the server.
     /// Manages packet construction, reading, and dispatching.
-    /// Exposes events for connection, message reception, and disconnection.
-    /// Handles encryption handshake and maintains local identity.
     /// </summary>
     public class Server
     {
-        /// <summary>Used to build outgoing packets.</summary>
-        public PacketBuilder _packetBuilder;
+        /// <summary>Used to build outgoing packets. Never null.</summary>
+        public PacketBuilder packetBuilder { get; } = new PacketBuilder();
 
-        /// <summary>Used to read incoming packets from the server stream.</summary>
-        public PacketReader _packetReader;
+        /// <summary>Provides the PacketReader used to read incoming packets; initialized after establishing the connection.</summary>
+        public PacketReader packetReader { get; private set; } = null!;
 
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _client?.Connected ?? false;
 
         /// <summary>Indicates whether the server has acknowledged the client's identity.</summary>
         public bool HandshakeCompleted { get; private set; } = false;
-        
+
         /// <summary>Triggered when a new user joins (opcode 1).</summary>
         public event Action? ConnectedEvent;
 
@@ -154,10 +152,10 @@ namespace chat_client.Net
                 }
 
                 // Disposes the packet reader if it exists
-                _packetReader?.Dispose();
+                packetReader?.Dispose();
 
                 // Disposes the packet builder if it exists
-                _packetBuilder?.Dispose();
+                packetBuilder?.Dispose();
 
                 // Prepares for future reconnection
                 _client = new TcpClient();
@@ -209,7 +207,9 @@ namespace chat_client.Net
             {
                 try
                 {
-                    var opcode = _packetReader.ReadOpCode();
+                    // Reads a single byte and casts it to the packet opcode enum
+                    ClientPacketOpCode opcode = (ClientPacketOpCode)packetReader.ReadByte();
+
                     switch (opcode)
                     {
                         case ClientPacketOpCode.ConnectionBroadcast:
@@ -259,7 +259,9 @@ namespace chat_client.Net
         public void RequestAllPublicKeysFromServer()
         {
             var requestOfPublicKeysPacket = new PacketBuilder();
-            requestOfPublicKeysPacket.WriteOpCode(ClientPacketOpCode.KeyRequest); // Opcode for public key sync request
+            // Casts the enum to byte and writes it directly
+            requestOfPublicKeysPacket.Write((byte)ClientPacketOpCode.KeyRequest);
+            // Opcode for public key sync request
             requestOfPublicKeysPacket.WriteMessage(LocalUid.ToString());
 
             // Sends the packet to the server via the active socket stream
@@ -269,7 +271,7 @@ namespace chat_client.Net
                 requestOfPublicKeysPacket.GetPacketBytes().Length
             );
 
-            ClientLogger.Log($"Public key sync request sent — UID: {LocalUid.ToString()}", ClientLogLevel.Debug);
+            ClientLogger.Log($"Public key sync request sent — UID: {LocalUid}", ClientLogLevel.Debug);
         }
 
         /// <summary>
@@ -279,11 +281,11 @@ namespace chat_client.Net
         {
             try
             {
-                var pkt = new PacketBuilder();
-                pkt.WriteOpCode(ClientPacketOpCode.KeyRequest);
-                pkt.WriteMessage(LocalUid.ToString());
-                pkt.WriteMessage(targetUid);
-                _client.Client.Send(pkt.GetPacketBytes());
+                var requestPeerPublicKeyPacket = new PacketBuilder();
+                requestPeerPublicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.KeyRequest);
+                requestPeerPublicKeyPacket.WriteMessage(LocalUid.ToString());
+                requestPeerPublicKeyPacket.WriteMessage(targetUid);
+                _client.Client.Send(requestPeerPublicKeyPacket.GetPacketBytes());
                 ClientLogger.Log($"Requested public key for {targetUid}.", ClientLogLevel.Debug);
             }
             catch (Exception ex)
@@ -327,33 +329,33 @@ namespace chat_client.Net
 
             // Retrieves view model and sender UID
             if (Application.Current.MainWindow is not MainWindow _mainWindow
-                || _mainWindow._viewModel is not MainViewModel _viewModel
-                || _viewModel.LocalUser == null)
+                || _mainWindow.ViewModel is not MainViewModel ViewModel
+                || ViewModel.LocalUser == null)
             {
                 return false;
             }
 
-            string senderUid = _viewModel.LocalUser.UID;
+            string senderUid = ViewModel.LocalUser.UID;
             bool anySent = false;
 
-            lock (_viewModel.KnownPublicKeys)
+            lock (ViewModel.KnownPublicKeys)
             {
-                foreach (var peer in _viewModel.Users.Where(u => u.UID != senderUid))
+                foreach (var peer in ViewModel.Users.Where(u => u.UID != senderUid))
                 {
                     string recipientUid = peer.UID;
 
                     // Requests missing public key if encryption prerequisites are not met
-                    if (!_viewModel.CanEncryptMessageFor(recipientUid))
+                    if (!ViewModel.CanEncryptMessageFor(recipientUid))
                     {
                         RequestPeerPublicKey(recipientUid);
                         continue;
                     }
 
                     // Ensure local key has been sent to this peer once
-                    if (!_viewModel.HasSentKeyTo(recipientUid))
+                    if (!ViewModel.HasSentKeyTo(recipientUid))
                     {
                         // Before sending, ensure the local public key is non‐null/non‐empty
-                        string localKey = _viewModel.LocalUser.PublicKeyBase64;
+                        string localKey = ViewModel.LocalUser.PublicKeyBase64;
                         if (string.IsNullOrWhiteSpace(localKey))
                         {
                             ClientLogger.Log(
@@ -362,10 +364,10 @@ namespace chat_client.Net
                         }
                         else
                         {
-                            _viewModel._server.SendPublicKeyToServer(recipientUid, localKey);
+                            ViewModel._server.SendPublicKeyToServer(recipientUid, localKey);
                         }
 
-                        _viewModel.MarkKeyAsSentTo(recipientUid);
+                        ViewModel.MarkKeyAsSentTo(recipientUid);
                     }
 
                     try
@@ -373,15 +375,15 @@ namespace chat_client.Net
                         // Encrypt the message for the peer
                         string cipher = EncryptionHelper.EncryptMessage(
                             plainText,
-                            _viewModel.KnownPublicKeys[recipientUid]);
+                            ViewModel.KnownPublicKeys[recipientUid]);
 
                         // Build and send the encrypted‐message packet
-                        var pkt = new PacketBuilder();
-                        pkt.WriteOpCode(ClientPacketOpCode.EncryptedMessage);
-                        pkt.WriteMessage(senderUid);
-                        pkt.WriteMessage(recipientUid);
-                        pkt.WriteMessage(cipher);
-                        _client.Client.Send(pkt.GetPacketBytes());
+                        var encryptedMessagePacket = new PacketBuilder();
+                        encryptedMessagePacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                        encryptedMessagePacket.WriteMessage(senderUid);
+                        encryptedMessagePacket.WriteMessage(recipientUid);
+                        encryptedMessagePacket.WriteMessage(cipher);
+                        _client.Client.Send(encryptedMessagePacket.GetPacketBytes());
 
                         ClientLogger.Log(
                             $"Encrypted message sent to {recipientUid}.",
@@ -403,11 +405,11 @@ namespace chat_client.Net
             {
                 if (anySent)
                 {
-                    _viewModel.Messages.Add($"{_viewModel.LocalUser.Username}: {plainText}");
+                    ViewModel.Messages.Add($"{ViewModel.LocalUser.Username}: {plainText}");
                 }
                 else
                 {
-                    _viewModel.Messages.Add(
+                    ViewModel.Messages.Add(
                         LocalizationManager.GetString("MessageSendingFailed"));
                 }
             });
@@ -434,7 +436,7 @@ namespace chat_client.Net
             {
                 // Constructs the handshake packet with identity and encryption capability
                 var connectPacket = new PacketBuilder();
-                connectPacket.WriteOpCode(ClientPacketOpCode.Handshake);                       // Opcode 0 = new user connection
+                connectPacket.WriteOpCode((byte)ClientPacketOpCode.Handshake); // Opcode 0 = new user connection
                 connectPacket.WriteMessage(username);               // Writes the Username
                 connectPacket.WriteMessage(uid.ToString());         // Writes the UID
                 connectPacket.WriteMessage(publicKeyBase64);        // Writes the Base64 public key
@@ -468,10 +470,10 @@ namespace chat_client.Net
         /// <summary>
         /// Chooses between plain or encrypted send based on application UseEncryption setting.
         /// </summary>
-        public bool SendMessageToServer(string text)
+        public bool SendMessageToServer(string message)
             => Properties.Settings.Default.UseEncryption
-               ? SendEncryptedMessageToServer(text)
-               : SendPlainMessageToServer(text);
+               ? SendEncryptedMessageToServer(message)
+               : SendPlainMessageToServer(message);
 
         /// <summary>
         /// Sends a clear‐text chat message to the server and echoes it in the UI.
@@ -490,7 +492,7 @@ namespace chat_client.Net
             // Attempts to get the main window and its view model.
             // If unavailable, we cannot display or tag this message.
             if (Application.Current.MainWindow is not MainWindow _mainWindow ||
-                _mainWindow._viewModel is not MainViewModel _viewModel)
+                _mainWindow.ViewModel is not MainViewModel ViewModel)
             {
                 ClientLogger.Log("SendMessageToServer failed: UI context missing.", ClientLogLevel.Error);
                 return false;
@@ -505,7 +507,7 @@ namespace chat_client.Net
             }
 
             // Makes sure the local user identity is set up correctly.
-            var local = _viewModel.LocalUser;
+            var local = ViewModel.LocalUser;
             if (local == null || string.IsNullOrWhiteSpace(local.UID))
             {
                 ClientLogger.Log("SendMessageToServer failed: LocalUser not initialized.", ClientLogLevel.Error);
@@ -518,19 +520,19 @@ namespace chat_client.Net
             try
             {
                 // Build the packet: write opcode then sender UID and the message text.
-                var _packetBuilder = new PacketBuilder();
-                _packetBuilder.WriteOpCode(ClientPacketOpCode.PlainMessage);
-                _packetBuilder.WriteMessage(local.UID);
-                _packetBuilder.WriteMessage(payload);
+                var _plainMessagePacket = new PacketBuilder();
+                _plainMessagePacket.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                _plainMessagePacket.WriteMessage(local.UID);
+                _plainMessagePacket.WriteMessage(payload);
 
                 // Send the raw bytes over the network.
-                _client.Client.Send(_packetBuilder.GetPacketBytes());
+                _client.Client.Send(_plainMessagePacket.GetPacketBytes());
                 ClientLogger.Log("Plain‐text packet sent.", ClientLogLevel.Debug);
 
                 // Safely update the UI on the main thread: echo the message.
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    _viewModel.Messages.Add($"{local.Username}: {payload}");
+                    ViewModel.Messages.Add($"{local.Username}: {payload}");
                 });
 
                 return true;
@@ -541,7 +543,7 @@ namespace chat_client.Net
                 ClientLogger.Log($"SendMessageToServer exception: {ex.Message}", ClientLogLevel.Error);
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    _viewModel.Messages.Add(
+                    ViewModel.Messages.Add(
                         LocalizationManager.GetString("MessageSendingFailed"));
                 });
                 return false;
@@ -574,15 +576,15 @@ namespace chat_client.Net
             }
 
             // Builds the packet with required fields
-            var packet = new PacketBuilder();
-            packet.WriteOpCode(ClientPacketOpCode.PublicKeyResponse); 
-            packet.WriteMessage(uid);
-            packet.WriteMessage(publicKeyBase64);
+            var publicKeyPacket = new PacketBuilder();
+            publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
+            publicKeyPacket.WriteMessage(uid);
+            publicKeyPacket.WriteMessage(publicKeyBase64);
 
             ClientLogger.Log($"Sending public key — UID: {uid}, Key length: {publicKeyBase64.Length}", ClientLogLevel.Debug);
 
             // Sends the packet to the server
-            _client.Client.Send(packet.GetPacketBytes());
+            _client.Client.Send(publicKeyPacket.GetPacketBytes());
 
             ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
             return true;

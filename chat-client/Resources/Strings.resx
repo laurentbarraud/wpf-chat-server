@@ -293,4 +293,7 @@ Example:
   <data name="MessageSendingFailed" xml:space="preserve">
     <value>[Error : Your message failed to send.]</value>
   </data>
+  <data name="SendingFailed" xml:space="preserve">
+    <value>Failed to send message.</value>
+  </data>
 </root>

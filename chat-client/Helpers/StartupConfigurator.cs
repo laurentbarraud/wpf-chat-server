@@ -178,7 +178,7 @@ namespace chat_client.Helpers
 
             // Retrieves main window and its view model
             var mainWindow = Application.Current.MainWindow as MainWindow;
-            var viewModel = mainWindow?._viewModel;
+            var viewModel = mainWindow?.ViewModel;
 
             // Enables encryption if requested
             if (enableEncryption && viewModel != null)
@@ -219,10 +219,10 @@ namespace chat_client.Helpers
             // Applies username and triggers auto-connect
             if (!string.IsNullOrEmpty(username) && mainWindow != null)
             {
-                mainWindow.txtUsername.Text = username;
+                mainWindow.TxtUsername.Text = username;
                 ClientLogger.Log($"[Startup] Username set: {username}", ClientLogLevel.Info);
 
-                mainWindow.cmdConnectDisconnect_Click(new object(), new RoutedEventArgs());
+                mainWindow.CmdConnectDisconnect_Click(new object(), new RoutedEventArgs());
             }
 
             // Saves all updated settings

@@ -3,6 +3,7 @@
 /// <version>1.0</version>
 /// <date>September 27th, 2025</date>
 
+using chat_client.Net;
 using chat_server.Net;
 using chat_server.Net.IO;
 using System;
@@ -175,9 +176,8 @@ namespace chat_server
             {
                 try
                 {
-                    // Reads the next opcode from the packet stream
-                    // and casts in one go
-                    var opcode = _packetReader.ReadOpCode();
+                    // Reads a single byte and casts it to the packet opcode enum
+                    ServerPacketOpCode opcode = (ServerPacketOpCode)_packetReader.ReadByte();
 
                     switch (opcode)
                     {

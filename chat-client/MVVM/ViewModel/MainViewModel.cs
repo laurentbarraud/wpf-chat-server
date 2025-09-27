@@ -227,9 +227,9 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Determines whether encryption can proceed by checking:
-        ///   1. Encryption is enabled in settings  
-        ///   2. Local user and its public key are initialized  
-        ///   3. All connected peers have published a valid public key  
+        ///  - if encryption is enabled in settings  
+        ///  - if Local user and its public key are initialized  
+        ///  - if all connected peers have published a valid public key  
         /// Uses a lock on the shared key dictionary to ensure thread safety
         /// and logs each decision point for detailed troubleshooting.
         /// </summary>
@@ -297,7 +297,7 @@ namespace chat_client.MVVM.ViewModel
             }
 
             // Logs and aborts if any peer keys are missing
-            if (missingKeys.Any())
+            if (missingKeys.Count > 0)
             {
                 ClientLogger.Log(
                     $"Encryption not ready — missing keys for: {string.Join(", ", missingKeys)}",
@@ -416,10 +416,10 @@ namespace chat_client.MVVM.ViewModel
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                     {
                         mainWindow.Title += " - " + LocalizationManager.GetString("Connected");
-                        mainWindow.cmdConnectDisconnect.Content = "_Disconnect";
-                        mainWindow.spnDown.Visibility = Visibility.Visible;
-                        mainWindow.spnEmojiPanel.Visibility = Visibility.Visible;
-                        mainWindow.txtMessageToSend.Focus();
+                        mainWindow.CmdConnectDisconnect.Content = "_Disconnect";
+                        mainWindow.SpnDown.Visibility = Visibility.Visible;
+                        mainWindow.SpnEmojiPanel.Visibility = Visibility.Visible;
+                        mainWindow.TxtMessageToSend.Focus();
                     }
                 });
 
@@ -507,8 +507,8 @@ namespace chat_client.MVVM.ViewModel
             try
             {
                 // Reads sender and recipient UIDs
-                string senderUid = _server._packetReader.ReadMessage();
-                string recipientUid = _server._packetReader.ReadMessage();
+                string senderUid = _server.packetReader.ReadMessage();
+                string recipientUid = _server.packetReader.ReadMessage();
 
                 // Ignores messages not intended for this client
                 if (LocalUser is not null
@@ -519,7 +519,7 @@ namespace chat_client.MVVM.ViewModel
                 }
 
                 // Reads and sanitizes the Base64‐encoded ciphertext
-                string encryptedBase64 = _server._packetReader
+                string encryptedBase64 = _server.packetReader
                     .ReadMessage()
                     .Replace("\0", "")
                     .Replace("\r", "")
@@ -598,19 +598,19 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Executes the complete encryption setup:
-        /// 1. Skips if no LocalUser is set or encryption is already active.  
-        /// 2. Clears all stale peer public key data.  
-        /// 3. Clears local key material from memory.  
-        /// 4. Generates a new RSA key pair, registers it locally, and publishes the public key to the server.  
-        /// 5. Synchronizes peer public keys, requesting missing ones if necessary.  
-        /// 6. Recalculates encryption readiness and updates the UI lock icon if ready.  
-        /// 7. Persists handshake keys and the encryption flag to application settings.  
+        /// Executes the complete encryption setu:
+        /// Skips if no LocalUser is set or encryption is already active.  
+        /// Clears all stale peer public key data.  
+        /// Clears local key material from memory.  
+        /// Generates a new RSA key pair, registers it locally, and publishes the public key to the server.  
+        /// Synchronizes peer public keys, requesting missing ones if necessary.  
+        /// Recalculates encryption readiness and updates the UI lock icon if ready.  
+        /// Persists handshake keys and the encryption flag to application settings.  
         /// </summary>
         /// <returns>True if encryption is successfully initialized and ready; false otherwise.</returns>
         public bool InitializeEncryption()
         {
-            // 1. Skips if no LocalUser is set or encryption is already active
+            // Skips if no LocalUser is set or encryption is already active
             if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
                 ClientLogger.Log("Skips encryption initialization — LocalUser is null or encryption already active.",
@@ -620,16 +620,16 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // 2. Clears all stale peer public key data
+                // Clears all stale peer public key data
                 KnownPublicKeys.Clear();
 
-                // 3. Clears local key material from memory
+                // Clears local key material from memory
                 LocalUser.PublicKeyBase64 = string.Empty;
                 LocalUser.PrivateKeyBase64 = string.Empty;
                 EncryptionHelper.ClearPrivateKey();
                 ClientLogger.Log("Clears all previous key state.", ClientLogLevel.Debug);
 
-                // 4. Generates a new RSA key pair, registers it, and publishes the public key
+                // Generates a new RSA key pair, registers it, and publishes the public key
                 using var rsa = new RSACryptoServiceProvider(2048);
                 string publicKeyXml = rsa.ToXmlString(false);
                 string privateKeyXml = rsa.ToXmlString(true);
@@ -665,14 +665,14 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.UseEncryption = true;
                 ClientLogger.Log("Enables encryption in application settings.", ClientLogLevel.Info);
 
-                // 5. Synchronizes peer public keys and aborts on failure
+                // Synchronizes peer public keys and aborts on failure
                 if (!SyncKeys())
                 {
                     ClientLogger.Log("Peer key synchronization failed — aborts encryption setup.", ClientLogLevel.Error);
                     return false;
                 }
 
-                // 6. Recalculates encryption readiness and updates UI if ready
+                // Recalculates encryption readiness and updates UI if ready
                 bool isEncryptionReady = EvaluateEncryptionState();
                 OnPropertyChanged(nameof(IsEncryptionReady));
                 if (isEncryptionReady)
@@ -695,7 +695,7 @@ namespace chat_client.MVVM.ViewModel
             }
             finally
             {
-                // 7. Persists handshake keys and the encryption flag to settings
+                // Persists handshake keys and the encryption flag to settings
                 Properties.Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;
                 Properties.Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;
                 Properties.Settings.Default.Save();
@@ -714,11 +714,11 @@ namespace chat_client.MVVM.ViewModel
             try
             {
                 // Reads sender and recipient UIDs
-                string senderUid = _server._packetReader.ReadMessage();
-                string recipientUid = _server._packetReader.ReadMessage();
+                string senderUid = _server.packetReader.ReadMessage();
+                string recipientUid = _server.packetReader.ReadMessage();
 
                 // Reads the message content
-                string content = _server._packetReader.ReadMessage();
+                string content = _server.packetReader.ReadMessage();
 
                 // Gives up if LocalUser isn’t initialized
                 if (LocalUser is null)
@@ -759,8 +759,8 @@ namespace chat_client.MVVM.ViewModel
         public void PublicKeyReceived()
         {
             // Reads sender UID & key
-            string senderUid = _server._packetReader.ReadMessage();
-            string publicKeyBase64 = _server._packetReader.ReadMessage();
+            string senderUid = _server.packetReader.ReadMessage();
+            string publicKeyBase64 = _server.packetReader.ReadMessage();
 
             // Discards if either value is missing
             if (string.IsNullOrWhiteSpace(senderUid) || string.IsNullOrWhiteSpace(publicKeyBase64))
@@ -860,15 +860,15 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (Application.Current.MainWindow is MainWindow mainWindow)
                 {
-                    mainWindow.cmdConnectDisconnect.Content = LocalizationManager.GetString("ConnectButton");
+                    mainWindow.CmdConnectDisconnect.Content = LocalizationManager.GetString("ConnectButton");
 
-                    mainWindow.txtUsername.IsEnabled = true;
-                    mainWindow.txtIPAddress.IsEnabled = true;
+                    mainWindow.TxtUsername.IsEnabled = true;
+                    mainWindow.TxtIPAddress.IsEnabled = true;
                     mainWindow.Title = "WPF chat client";
 
                     // Hides the down and toolbar panels
-                    mainWindow.spnDown.Visibility = Visibility.Hidden;
-                    mainWindow.spnEmojiPanel.Visibility = Visibility.Hidden;
+                    mainWindow.SpnDown.Visibility = Visibility.Hidden;
+                    mainWindow.SpnEmojiPanel.Visibility = Visibility.Hidden;
                 }
             });
         }
@@ -894,27 +894,27 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Applies a red border style to the username textbox to visually indicate invalid input.
         /// </summary>
-        private void ShowUsernameError()
+        private static void ShowUsernameError()
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mainWindow)
                 {
-                    mainWindow.txtUsername.Style = mainWindow.TryFindResource("ErrorTextBoxStyle") as Style;
-                    mainWindow.txtUsername.Focus();
+                    mainWindow.TxtUsername.Style = mainWindow.TryFindResource("ErrorTextBoxStyle") as Style;
+                    mainWindow.TxtUsername.Focus();
                 }
             });
         }
 
         /// <summary>
-        /// Attempts to synchronize public keys with connected peers.  
-        /// 1. Verifies that encryption is enabled and context objects are initialized.  
-        /// 2. Builds a snapshot of peer UIDs to avoid concurrent collection issues.  
-        /// 3. Returns true immediately if no peers are connected.  
-        /// 4. Identifies missing keys under a thread-safe lock.  
-        /// 5. Requests a resend of the local public key for any missing entries.  
-        /// 6. Re-evaluates encryption state.  
-        /// 7. Updates the UI lock icon on the Dispatcher thread with current readiness and syncing status.  
+        /// Attempts to synchronize public keys with connected peers:
+        /// Verifies that encryption is enabled and context objects are initialized.  
+        /// Builds a snapshot of peer UIDs to avoid concurrent collection issues.  
+        /// Returns true immediately if no peers are connected.  
+        /// Identifies missing keys under a thread-safe lock.  
+        /// Requests a resend of the local public key for any missing entries.  
+        /// Re-evaluates encryption state.  
+        /// Updates the UI lock icon on the Dispatcher thread with current readiness and syncing status.  
         /// Wraps all steps in exception handling to prevent client crashes.
         /// </summary>
         /// <returns>True if synchronization completes without error; false otherwise.</returns>
@@ -922,25 +922,25 @@ namespace chat_client.MVVM.ViewModel
         {
             try
             {
-                // 1. Verifies that encryption is enabled and context objects are initialized
+                // Verifies that encryption is enabled and context objects are initialized
                 if (!Settings.Default.UseEncryption || Users == null || LocalUser == null)
                     return false;
 
-                // 2. Builds a snapshot of peer UIDs, excluding the local client
+                // Builds a snapshot of peer UIDs, excluding the local client
                 var localGuid = LocalUser.UID;
                 var peerUids = Users
                     .Where(u => u.UID != localGuid)
                     .Select(u => u.UID)
                     .ToList();
 
-                // 3. Returns true immediately if no peers are connected
+                // Returns true immediately if no peers are connected
                 if (peerUids.Count == 0)
                 {
                     EvaluateEncryptionState();
                     return true;
                 }
 
-                // 4. Identifies missing keys under a thread-safe lock
+                // Identifies missing keys under a thread-safe lock
                 List<string> missingKeys;
                 lock (KnownPublicKeys)
                 {
@@ -949,7 +949,7 @@ namespace chat_client.MVVM.ViewModel
                         .ToList();
                 }
 
-                // 5. Requests a resend for any missing keys
+                // Requests a resend for any missing keys
                 if (missingKeys.Count > 0)
                 {
                     ClientLogger.Log(
@@ -970,10 +970,10 @@ namespace chat_client.MVVM.ViewModel
                     }
                 }
 
-                // 6. Re-evaluates encryption state
+                // Re-evaluates encryption state
                 EvaluateEncryptionState();
 
-                // 7. Updates the lock icon on the UI thread
+                // Updates the lock icon on the UI thread
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     (Application.Current.MainWindow as MainWindow)
@@ -1103,9 +1103,9 @@ namespace chat_client.MVVM.ViewModel
         public void UserConnected()
         {
             // Reads identity fields from the incoming packet in expected order
-            var uid = _server._packetReader.ReadMessage();         // First: UID
-            var username = _server._packetReader.ReadMessage();    // Second: Username
-            var publicKey = _server._packetReader.ReadMessage();   // Third: RSA public key
+            var uid = _server.packetReader.ReadMessage();         // First: UID
+            var username = _server.packetReader.ReadMessage();    // Second: Username
+            var publicKey = _server.packetReader.ReadMessage();   // Third: RSA public key
 
             // Prevents duplicate entries by checking if the UID already exists
             if (!Users.Any(x => x.UID == uid))
@@ -1154,7 +1154,7 @@ namespace chat_client.MVVM.ViewModel
         public void UserDisconnected()
         {
             // Reads the UID of the disconnected user from the incoming packet
-            var uid = _server._packetReader.ReadMessage();
+            var uid = _server.packetReader.ReadMessage();
 
             // Locates the user in the current Users collection
             var user = Users.FirstOrDefault(x => x.UID == uid);

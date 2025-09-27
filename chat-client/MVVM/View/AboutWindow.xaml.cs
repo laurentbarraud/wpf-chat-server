@@ -38,7 +38,7 @@ namespace chat_client.View
         /// Closes the About window when the OK button is clicked.
         /// Used in CLI mode to terminate the application after displaying version info.
         /// </summary>
-        private void cmdOk_Click(object sender, RoutedEventArgs e)
+        private void CmdOk_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
@@ -48,7 +48,7 @@ namespace chat_client.View
         /// Retrieves the CLI help text and title from resource files using LocalizationManager.
         /// Converts escaped newline characters into actual line breaks for proper formatting.
         /// </summary>
-        private void ShowCliHelp()
+        private static void ShowCliHelp()
         {
             string raw = LocalizationManager.GetString("CliHelpText") ?? "[[CliHelpText]]";
             string title = LocalizationManager.GetString("CliHelpTitle") ?? "[[CliHelpTitle]]";

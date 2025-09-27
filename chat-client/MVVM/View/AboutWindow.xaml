@@ -94,13 +94,13 @@
             </StackPanel>
 
             <!-- OK button aligned to the right -->
-            <Button x:Name="cmdOk"
+            <Button x:Name="CmdOk"
             Content="OK"
             Width="90"
             HorizontalAlignment="Right"
             VerticalAlignment="Center"
             Margin="0,0,20,0"
-            Click="cmdOk_Click"
+            Click="CmdOk_Click"
             DockPanel.Dock="Right"
             IsDefault="True"
             IsCancel="True" />

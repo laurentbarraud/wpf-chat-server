@@ -61,7 +61,7 @@
         <viewmodel:MainViewModel/>
     </Window.DataContext>
 
-    <Grid x:Name="grdMain" Background="{DynamicResource BackgroundBrush}">
+    <Grid x:Name="GrdMain" Background="{DynamicResource BackgroundBrush}">
 
         <!-- Always start with structural definitions -->
         <Grid.ColumnDefinitions>
@@ -69,20 +69,20 @@
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
 
-        <DockPanel x:Name="dpnLeft">
+        <DockPanel x:Name="DpnLeft">
             <Grid DockPanel.Dock="Top" Height="25">
 
                 <!-- TextBox -->
-                <TextBox x:Name="txtUsername"
+                <TextBox x:Name="TxtUsername"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="txtUsername_TextChanged"
+                         TextChanged="TxtUsername_TextChanged"
                          FontSize="14"
                          MaxLines="1"
                          MaxLength="50"
                          TabIndex="0"
-                         PreviewKeyDown="txtUsername_PreviewKeyDown"
+                         PreviewKeyDown="TxtUsername_PreviewKeyDown"
                          VerticalAlignment="Center"
                          HorizontalAlignment="Left"
                          Width="200"
@@ -92,8 +92,8 @@
                        IsHitTestVisible="False"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=txtUsername}"
-                       Height="{Binding ActualHeight, ElementName=txtUsername}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+                       Width="{Binding ActualWidth, ElementName=TxtUsername}"
+                       Height="{Binding ActualHeight, ElementName=TxtUsername}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
 
                 <!-- Watermark -->
             </Grid>
@@ -101,16 +101,16 @@
             <Grid DockPanel.Dock="Top" Height="25">
 
                 <!-- TextBox -->
-                <TextBox x:Name="txtIPAddress"
+                <TextBox x:Name="TxtIPAddress"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding IPAddressOfServer}"
-                         TextChanged="txtIPAddress_TextChanged"
+                         TextChanged="TxtIPAddress_TextChanged"
                          FontSize="14"
                          MaxLines="1"
                          MaxLength="15"
                          TabIndex="1"
-                         PreviewKeyDown="txtIPAddress_PreviewKeyDown"
+                         PreviewKeyDown="TxtIPAddress_PreviewKeyDown"
                          VerticalAlignment="Center"
                          HorizontalAlignment="Left"
                          Width="200"
@@ -120,16 +120,16 @@
                        IsHitTestVisible="False"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=txtIPAddress}"
-                       Height="{Binding ActualHeight, ElementName=txtIPAddress}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
+                       Width="{Binding ActualWidth, ElementName=TxtIPAddress}"
+                       Height="{Binding ActualHeight, ElementName=TxtIPAddress}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
                 <!-- Watermark -->
             </Grid>
 
-            <Button x:Name="cmdConnectDisconnect" Height="25"
+            <Button x:Name="CmdConnectDisconnect" Height="25"
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"
                     DockPanel.Dock="Top"
-                    Click="cmdConnectDisconnect_Click" TabIndex="2" IsEnabled="False"/>
+                    Click="CmdConnectDisconnect_Click" TabIndex="2" IsEnabled="False"/>
             <StackPanel DockPanel.Dock="Top"
                 Orientation="Vertical"
                 Margin="0,0,0,0" Height="356">
@@ -172,7 +172,7 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <StackPanel x:Name="spnToolbar"
+                <StackPanel x:Name="SpnToolbar"
                             Orientation="Horizontal"
                             Height="32"
                             HorizontalAlignment="Left"
@@ -242,13 +242,13 @@
                     </ToggleButton>
 
                     <!-- Settings Button -->
-                    <Button x:Name="cmdSettings"
+                    <Button x:Name="CmdSettings"
                               Width="32"
                               Height="32"
                               Background="Transparent"
                               BorderThickness="0"
                               VerticalAlignment="Center"
-                              ToolTip="Settings" TabIndex="7" Click="cmdSettings_Click">
+                              ToolTip="Settings" TabIndex="7" Click="CmdSettings_Click">
                         <Image x:Name="imgSettings" 
                                Source="/Resources/settings.png"
                                Stretch="Uniform"
@@ -270,7 +270,7 @@
             </StackPanel>
         </DockPanel>
 
-        <StackPanel x:Name="spnCenter" Grid.Column="1">
+        <StackPanel x:Name="SpnCenter" Grid.Column="1">
 
             <ListView x:Name="lstMessagesReceived"
                         Height="382"
@@ -306,16 +306,16 @@
 
             </ListView>
 
-            <StackPanel x:Name="spnEmojiPanel" Orientation="Horizontal" Height="20" Visibility="Collapsed">
-                <Button x:Name="cmdEmojiPanel"
-                        Height="{Binding ActualHeight, ElementName=spnEmojiPanel}"
-                        Width="{Binding ActualHeight, ElementName=spnEmojiPanel}"
+            <StackPanel x:Name="SpnEmojiPanel" Orientation="Horizontal" Height="20" Visibility="Collapsed">
+                <Button x:Name="CmdEmojiPanel"
+                        Height="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
+                        Width="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
                         Background="Transparent"
                         BorderThickness="0"
                         VerticalAlignment="Center"
                         ToolTip="Emoji bar"
                         TabIndex="5"
-                        Click="cmdEmojiPanel_Click"
+                        Click="CmdEmojiPanel_Click"
                         Margin="4,0,4,0">
                     <Button.Style>
                         <Style TargetType="{x:Type Button}">
@@ -327,7 +327,7 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
-                    <Image x:Name="imgEmojiPanel" 
+                    <Image x:Name="ImgEmojiPanel" 
                            Source="/Resources/right-arrow.png"
                            Stretch="Uniform"
                            VerticalAlignment="Center"
@@ -372,12 +372,11 @@
                     </Rectangle>
                 </Grid>
 
-                <!-- This Popup is linked to the cmdEmojiPanel button and opens right with a slide animation. -->
+                <!-- This Popup is linked to the CmdEmojiPanel button and opens right with a slide animation. -->
                 <!-- The emojis are bound to an EmojiList list defined in code-behind. -->
                 <Popup x:Name="popupEmojiPanel"
                        Placement="Custom"
-                       CustomPopupPlacementCallback="OnCustomPopupPlacement"
-                       PlacementTarget="{Binding ElementName=txtMessageToSend}"
+                       PlacementTarget="{Binding ElementName=TxtMessageToSend}"
                        StaysOpen="False"
                        AllowsTransparency="True"
                        PopupAnimation="Slide"
@@ -407,15 +406,15 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Left scroll button -->
-                            <Button x:Name="cmdScrollLeft"
+                            <Button x:Name="CmdScrollLeft"
                                     Grid.Column="0"
                                     Width="20"
                                     Height="20"
                                     VerticalAlignment="Center"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    MouseEnter="cmdScrollLeft_MouseEnter"
-                                    MouseLeave="cmdScrollLeft_MouseLeave"
+                                    MouseEnter="CmdScrollLeft_MouseEnter"
+                                    MouseLeave="CmdScrollLeft_MouseLeave"
                                     ToolTip="Scroll left">
                                 <Button.Style>
                                     <Style TargetType="{x:Type Button}">
@@ -448,7 +447,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Button Width="20"
-                                                    Height="{Binding ActualHeight, ElementName=spnEmojiPanel}"
+                                                    Height="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
                                                     Margin="2"
                                                     Padding="0"
                                                     Background="{DynamicResource PrimaryBrush}"
@@ -477,15 +476,15 @@
                             </ScrollViewer>
 
                             <!-- Right scroll button -->
-                            <Button x:Name="cmdScrollRight"
+                            <Button x:Name="CmdScrollRight"
                                     Grid.Column="2"
                                     Width="20"
-                                    Height="{Binding ActualHeight, ElementName=spnEmojiPanel}"
+                                    Height="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
                                     VerticalAlignment="Center"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    MouseEnter="cmdScrollRight_MouseEnter"
-                                    MouseLeave="cmdScrollRight_MouseLeave"
+                                    MouseEnter="CmdScrollRight_MouseEnter"
+                                    MouseLeave="CmdScrollRight_MouseLeave"
                                     ToolTip="Scroll right">
                                 <Button.Style>
                                     <Style TargetType="{x:Type Button}">
@@ -506,17 +505,17 @@
 
             </StackPanel>
 
-            <StackPanel x:Name="spnDown" Orientation="Horizontal" Visibility="Collapsed">
-                <TextBox x:Name="txtMessageToSend" Height="32"
+            <StackPanel x:Name="SpnDown" Orientation="Horizontal" Visibility="Collapsed">
+                <TextBox x:Name="TxtMessageToSend" Height="32"
                          Width="545"
                          Background="{DynamicResource BackgroundBrush}"
                          Foreground="{DynamicResource ForegroundBrush}"
                          VerticalContentAlignment="Center"
-                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="txtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500" PreviewKeyDown="txtMessageToSend_PreviewKeyDown" TabIndex="3" FontFamily="Segoe UI Emoji"/>
-                <Button x:Name="cmdSend"
+                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="TxtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500" PreviewKeyDown="TxtMessageToSend_PreviewKeyDown" TabIndex="3" FontFamily="Segoe UI Emoji"/>
+                <Button x:Name="CmdSend"
                         Height="32"
                         Width="48"
-                        Click="cmdSend_Click"
+                        Click="CmdSend_Click"
                         IsEnabled="False"
                         Background="{DynamicResource PrimaryBrush}"
                         Foreground="{DynamicResource ForegroundBrush}" TabIndex="4">

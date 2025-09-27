@@ -3,15 +3,13 @@
 /// <version>1.0</version>
 /// <date>September 27th, 2025</date>
 
-using chat_client.MVVM.View;
-using chat_client.Net;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
 using System.Resources;
+using System.Globalization;
+using System.Diagnostics;
+using System.Threading;
 using System.Windows;
+using chat_client.Resources;
+using chat_client.MVVM.View;
 
 namespace chat_client.Helpers
 {
@@ -21,48 +19,72 @@ namespace chat_client.Helpers
     /// </summary>
     public static class LocalizationManager
     {
-        public static ResourceManager _ResourceManager { get; private set; }
+        /// <summary>
+        /// Holds the ResourceManager for retrieving localized strings.
+        /// </summary>
+        public static ResourceManager ResourceManager { get; private set; }
 
+        /// <summary>
+        /// Holds the current CultureInfo used for string lookups.
+        /// </summary>
         public static CultureInfo CurrentCulture { get; private set; }
 
-        public static string GetFormattedString(string key)
+        static LocalizationManager()
         {
-            var raw = GetString(key);
-            return raw?.Replace("\\n", "\n").Replace("\\t", "\t") ?? $"[[{key}]]";
+            // Initializes ResourceManager from the auto-generated Strings class
+            ResourceManager = Strings.ResourceManager;
+            // Sets the default culture to the current UI culture
+            CurrentCulture = CultureInfo.CurrentUICulture;
         }
 
+        /// <summary>
+        /// Retrieves and formats a localized string by replacing escaped newline and tab markers.
+        /// </summary>
+        /// <param name="key">The resource key to look up.</param>
+        /// <returns>The formatted localized string or a fallback marker if not found.</returns>
+        public static string GetFormattedString(string key)
+        {
+            string raw = GetString(key);
+            return raw.Replace("\\n", "\n")
+                      .Replace("\\t", "\t");
+        }
 
         /// <summary>
         /// Retrieves a localized string from the resource file using the specified key.
-        /// Returns the key itself if the resource manager is not initialized,
-        /// the culture is missing, or the key is not found.
+        /// Returns a fallback marker if the key is missing or the lookup fails.
         /// </summary>
         /// <param name="key">The resource key to look up.</param>
-        /// <returns>The localized string corresponding to the key, or the key itself if not found.</returns>
+        /// <returns>The localized string or a fallback marker if not found.</returns>
         public static string GetString(string key)
         {
-            // Validate input
+            // Validates that key is not null or whitespace
             if (string.IsNullOrWhiteSpace(key))
                 return string.Empty;
 
-            // Ensure localization system is initialized
-            if (_ResourceManager == null || CurrentCulture == null)
-                return $"[[{key}]]"; // Fallback marker for debugging
+            // Returns fallback marker if ResourceManager or CurrentCulture is uninitialized
+            if (ResourceManager == null || CurrentCulture == null)
+                return $"[[{key}]]";
 
             try
             {
-                string value = _ResourceManager.GetString(key, CurrentCulture);
+                // Attempts to retrieve the localized value
+                string value = ResourceManager.GetString(key, CurrentCulture) ?? string.Empty;
 
-                // Return fallback if value is missing or empty
-                return string.IsNullOrWhiteSpace(value) ? $"[[{key}]]" : value;
+                // Returns fallback marker if retrieved value is null or whitespace
+                if (string.IsNullOrWhiteSpace(value))
+                    return $"[[{key}]]";
+
+                return value;
             }
             catch (MissingManifestResourceException ex)
             {
+                // Logs missing resource exceptions for troubleshooting
                 Debug.WriteLine($"Localization error: missing resource for key '{key}' — {ex.Message}");
                 return $"[[{key}]]";
             }
             catch (Exception ex)
             {
+                // Logs unexpected exceptions without interrupting application flow
                 Debug.WriteLine($"Unexpected localization error for key '{key}' — {ex.Message}");
                 return $"[[{key}]]";
             }
@@ -71,33 +93,34 @@ namespace chat_client.Helpers
         /// <summary>
         /// Initializes the localization system with the specified language code.
         /// </summary>
-        /// <param name="languageCode">A valid language code ("en" or "fr").</param>
+        /// <param name="languageCode">The culture code to set (e.g., "en" or "fr").</param>
         public static void Initialize(string languageCode)
         {
+            // Sets CurrentCulture to the new language code
             CurrentCulture = new CultureInfo(languageCode);
 
-            // Force thread culture
+            // Updates thread UI culture settings
             Thread.CurrentThread.CurrentUICulture = CurrentCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CurrentCulture;
 
-            _ResourceManager = new ResourceManager("chat_client.Resources.Strings", typeof(LocalizationManager).Assembly);
+            // Re-initializes ResourceManager to account for culture change
+            ResourceManager = Strings.ResourceManager;
 
-
-            // Force UI refresh
+            // Applies localized strings to all open windows
             UpdateLocalizedUI();
         }
 
         /// <summary>
-        /// Applies localized strings to UI elements across all open windows.
-        /// This method updates labels and buttons based on the current language setting.
+        /// Updates UI elements across all open windows to reflect the current culture.
         /// </summary>
         public static void UpdateLocalizedUI()
         {
+            // Iterates through each open window in the application
             foreach (Window window in Application.Current.Windows)
             {
                 if (window is SettingsWindow settings)
                 {
-                    // Updates labels
+                    // Updates labels in the SettingsWindow
                     settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
                     settings.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
                     settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
@@ -106,32 +129,24 @@ namespace chat_client.Helpers
                 }
                 else if (window is MainWindow mainWindow)
                 {
+                    // Updates dynamic UI elements in MainWindow
                     mainWindow.UpdateConnectButtonText();
                     mainWindow.ApplyWatermarkImages();
 
-                    // Updates tooltips
-                    mainWindow.cmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftTooltip");
-                    mainWindow.cmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightTooltip");
-                    mainWindow.cmdSettings.ToolTip = LocalizationManager.GetString("Settings");
+                    // Updates tooltip texts
+                    mainWindow.CmdScrollLeft.ToolTip = GetString("ScrollLeftTooltip");
+                    mainWindow.CmdScrollRight.ToolTip = GetString("ScrollRightTooltip");
+                    mainWindow.CmdSettings.ToolTip = GetString("Settings");
 
-                    // Updates window title
-                    if (mainWindow.Title != "WPF chat client")
-                    {
-                        mainWindow.Title = "WPF chat client - " + LocalizationManager.GetString("Connected");;
-                    }
-                    
-                    // Updates tray menu labels
-                    if (mainWindow.TrayMenuOpen != null)
-                    {
-                        mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
-                    }
+                    // Updates window title to include localized "Connected" status
+                    mainWindow.Title = $"WPF chat client - {GetString("Connected")}";
 
-                    if (mainWindow.TrayMenuQuit != null)
-                    {
-                        mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
-                    }
+                    // Updates tray menu headers if they exist
+                    mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
+                    mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
                 }
             }
         }
     }
 }
+

@@ -101,14 +101,14 @@ namespace chat_server
             {
                 foreach (var usr in Users)
                 {
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode(ServerPacketOpCode.ConnectionBroadcast);
-                    packet.WriteMessage(usr.UID.ToString());
-                    packet.WriteMessage(usr.Username);
-                    packet.WriteMessage(usr.PublicKeyBase64);
+                    var broadcastConnectionPacket = new PacketBuilder();
+                    broadcastConnectionPacket.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
+                    broadcastConnectionPacket.WriteMessage(usr.UID.ToString());
+                    broadcastConnectionPacket.WriteMessage(usr.Username);
+                    broadcastConnectionPacket.WriteMessage(usr.PublicKeyBase64);
 
                     receiver.ClientSocket.Client
-                        .Send(packet.GetPacketBytes());
+                        .Send(broadcastConnectionPacket.GetPacketBytes());
 
                     Log(ServerLogLevel.Debug, "[SERVER] Broadcasting user list entry");
                 }
@@ -126,15 +126,15 @@ namespace chat_server
             {
                 try
                 {
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode(ServerPacketOpCode.DisconnectNotify);
-                    packet.WriteMessage(uid);
+                    var broadcastDisconnectPacket = new PacketBuilder();
+                    broadcastDisconnectPacket.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
+                    broadcastDisconnectPacket.WriteMessage(uid);
 
                     if (user.ClientSocket.Connected)
                     {
                         user.ClientSocket.GetStream()
-                            .Write(packet.GetPacketBytes(), 0,
-                                   packet.GetPacketBytes().Length);
+                            .Write(broadcastDisconnectPacket.GetPacketBytes(), 0,
+                                   broadcastDisconnectPacket.GetPacketBytes().Length);
                     }
                     Log(ServerLogLevel.Debug,
                         $"[SERVER] Notified {user.Username} of disconnection");
@@ -147,7 +147,7 @@ namespace chat_server
             }
         }
 
-        /// <summary>Routes a chat packet (opcode 5) to one or all clients.</summary>
+        /// <summary>Routes a plain message packet (opcode 5) to all clients.</summary>
         public static void BroadcastMessage(string content, Guid senderUid, Guid? recipientUid = null)
         {
             var sender = Users.FirstOrDefault(u => u.UID == senderUid);
@@ -173,15 +173,15 @@ namespace chat_server
 
                 try
                 {
-                    var _packetBuilder = new PacketBuilder();
-                    _packetBuilder.WriteOpCode(ServerPacketOpCode.PlainMessage);
-                    _packetBuilder.WriteMessage(senderUid.ToString());
-                    _packetBuilder.WriteMessage(recipientUid?.ToString() ?? "");
-                    _packetBuilder.WriteMessage(content);
+                    var broadcastPlainMessagePacket = new PacketBuilder();
+                    broadcastPlainMessagePacket.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
+                    broadcastPlainMessagePacket.WriteMessage(senderUid.ToString());
+                    broadcastPlainMessagePacket.WriteMessage(recipientUid?.ToString() ?? "");
+                    broadcastPlainMessagePacket.WriteMessage(content);
 
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
-                            .Write(_packetBuilder.GetPacketBytes(), 0, _packetBuilder.GetPacketBytes().Length);
+                            .Write(broadcastPlainMessagePacket.GetPacketBytes(), 0, broadcastPlainMessagePacket.GetPacketBytes().Length);
                 }
                 catch (Exception ex)
                 {
@@ -199,13 +199,13 @@ namespace chat_server
                 if (user.UID == sender.UID) continue;
                 try
                 {
-                    var _packetBuilder = new PacketBuilder();
-                    _packetBuilder.WriteOpCode(ServerPacketOpCode.PublicKeyResponse);
-                    _packetBuilder.WriteMessage(sender.UID.ToString());
-                    _packetBuilder.WriteMessage(sender.PublicKeyBase64);
+                    var broadcastPublicKeyPacket = new PacketBuilder();
+                    broadcastPublicKeyPacket.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
+                    broadcastPublicKeyPacket.WriteMessage(sender.UID.ToString());
+                    broadcastPublicKeyPacket.WriteMessage(sender.PublicKeyBase64);
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
-                            .Write(_packetBuilder.GetPacketBytes(), 0, _packetBuilder.GetPacketBytes().Length);
+                            .Write(broadcastPublicKeyPacket.GetPacketBytes(), 0, broadcastPublicKeyPacket.GetPacketBytes().Length);
 
                     Log(ServerLogLevel.Debug,
                         $"[SERVER] Transmitted public key from {sender.Username} to {user.Username}");

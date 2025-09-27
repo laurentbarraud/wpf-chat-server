@@ -6,7 +6,6 @@
 using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
-using chat_client.Net;
 using chat_client.Properties;
 using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -29,24 +28,41 @@ namespace chat_client
     /// </summary>
     public partial class MainWindow : Window
     {
-        public MainViewModel _viewModel { get; set; }
+        public MainViewModel ViewModel { get; set; }
         
         /// <summary>
         /// Indicates whether the client is currently connected to the server.
         /// Uses null-conditional access to safely evaluate connection state. 
         /// </summary>
-        public bool IsConnected => _viewModel?._server != null && _viewModel._server.IsConnected;
+        public bool IsConnected => ViewModel?._server != null && ViewModel._server.IsConnected;
+
+        /// <summary>
+        /// Height of the emoji panel
+        /// </summary>
+        public static double EmojiPanelHeight => 30;
+
+        /// <summary>
+        /// Represents the tray menu item used to reopen the main application window.
+        /// Typically bound to the system tray context menu for restoring visibility when minimized.
+        /// </summary>
+        public MenuItem TrayMenuOpen { get; private set; }
+        
+        /// <summary>
+        /// Represents the tray menu item used to exit the application.
+        /// Bound to the system tray context menu to allow clean shutdown from the tray icon.
+        /// </summary>
+        public MenuItem TrayMenuQuit { get; private set; }
+
+        /// <summary>
+        /// Tray icon variables
+        /// </summary>
+        private TaskbarIcon trayIcon;
 
         /// <summary>
         /// Stores the timestamp of the last Ctrl key press.
         /// Used for detecting double-press or timing-based shortcuts.
         /// </summary>
         private DateTime lastCtrlPress = DateTime.MinValue;
-
-        /// <summary>
-        /// Tray icon variables
-        /// </summary>
-        private TaskbarIcon trayIcon;
 
         /// <summary>
         /// Scoll variables
@@ -61,30 +77,12 @@ namespace chat_client
         private bool IsInitializing = true;
 
         /// <summary>
-        /// Height of the emoji panel
-        /// </summary>
-        public double EmojiPanelHeight => 30;
-
-        /// <summary>
-        /// Represents the tray menu item used to reopen the main application window.
-        /// Typically bound to the system tray context menu for restoring visibility when minimized.
-        /// </summary>
-
-        public MenuItem TrayMenuOpen { get; private set; }
-        /// <summary>
-        /// Represents the tray menu item used to exit the application.
-        /// Bound to the system tray context menu to allow clean shutdown from the tray icon.
-        /// </summary>
-
-        public MenuItem TrayMenuQuit { get; private set; }
-
-        /// <summary>
         /// Initializes the main window and sets up all UI bindings, event handlers, and initial state for the encrypted chat client.
-        /// 1. Loads XAML-defined components and resources.
-        /// 2. Instantiates the MainViewModel and assigns it to DataContext.
-        /// 3. Registers collection and property-changed handlers for auto-scroll and dynamic UI updates (connect button text and lock icon).
-        /// 4. Applies the initial connect button text and encryption lock icon based on ViewModel state.
-        /// 5. Configures and starts the dispatcher timer for emoji panel auto-scrolling.
+        /// Loads XAML-defined components and resources.
+        /// Instantiates the MainViewModel and assigns it to DataContext.
+        /// Registers collection and property-changed handlers for auto-scroll and dynamic UI updates (connect button text and lock icon).
+        /// Applies the initial connect button text and encryption lock icon based on ViewModel state.
+        /// Configures and starts the dispatcher timer for emoji panel auto-scrolling.
         /// </summary>
         public MainWindow()
         {
@@ -92,35 +90,36 @@ namespace chat_client
             InitializeComponent();
 
             // Instantiates the view model and binds it to the window
-            _viewModel = new MainViewModel();
-            DataContext = _viewModel;
+            ViewModel = new MainViewModel();
+            DataContext = ViewModel;
+
+            // Attempts to bind the custom placement callback for the emoji popup
+            AttachEmojiPanelCallback();
 
             // Registers handler to auto-scroll chat when new messages arrive
-            _viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+            ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
             // Subscribes to property changes to keep connect button and lock icon in sync with ViewModel
-            _viewModel.PropertyChanged += (sender, e) =>
+            ViewModel.PropertyChanged += (sender, e) =>
             {
                 // Updates the connect/disconnect button label on connection state changes
-                if (e.PropertyName == nameof(_viewModel.IsConnected))
+                if (e.PropertyName == nameof(ViewModel.IsConnected))
                 {
                     UpdateConnectButtonText();
                 }
                 // Updates the encryption lock icon and tooltip when readiness or syncing flags change
-                else if (e.PropertyName == nameof(_viewModel.IsEncryptionReady) ||
-                         e.PropertyName == nameof(_viewModel.IsEncryptionSyncing))
+                else if (e.PropertyName == nameof(ViewModel.IsEncryptionReady) ||
+                         e.PropertyName == nameof(ViewModel.IsEncryptionSyncing))
                 {
                     UpdateEncryptionStatusIcon(
-                        _viewModel.IsEncryptionReady,
-                        _viewModel.IsEncryptionSyncing);
+                        ViewModel.IsEncryptionReady,
+                        ViewModel.IsEncryptionSyncing);
                 }
             };
 
             // Applies the initial UI state immediately after construction
             UpdateConnectButtonText();
-            UpdateEncryptionStatusIcon(
-                _viewModel.IsEncryptionReady,
-                _viewModel.IsEncryptionSyncing);
+            UpdateEncryptionStatusIcon(ViewModel.IsEncryptionReady, ViewModel.IsEncryptionSyncing);
 
             // Configures the emoji panel auto-scroll timer (ticks every 50 ms)
             scrollTimer = new DispatcherTimer
@@ -139,7 +138,7 @@ namespace chat_client
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             // Restores last used IP address
-            txtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
+            TxtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
             // Applies localization if language is not English
             string lang = Properties.Settings.Default.AppLanguage;
@@ -156,7 +155,7 @@ namespace chat_client
             ApplyWatermarkImages();
 
             // Sets focus to the username input field
-            txtUsername.Focus();
+            TxtUsername.Focus();
 
             IsInitializing = false;
         }
@@ -210,6 +209,27 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Attempts to bind the custom placement callback for the emoji popup.
+        /// Falls back silently if the signature isn’t compatible or something else goes wrong.
+        /// </summary>
+        private void AttachEmojiPanelCallback()
+        {
+            if (popupEmojiPanel == null)
+                return;
+
+            try
+            {
+                popupEmojiPanel.CustomPopupPlacementCallback = OnCustomPopupPlacement;
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log(
+                    $"Could not assign custom popup placement callback: {ex.Message}",
+                    ClientLogLevel.Warn);
+            }
+        }
+
         private ContextMenu BuildLocalizedTrayMenu()
         {
             var contextMenu = new ContextMenu();
@@ -232,41 +252,41 @@ namespace chat_client
             return contextMenu;
         }
 
-        private void cmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
+        private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
         {
             scrollDirection = -1;
             scrollTimer.Start();
         }
 
-        private void cmdScrollLeft_MouseLeave(object sender, MouseEventArgs e)
+        private void CmdScrollLeft_MouseLeave(object sender, MouseEventArgs e)
         {
             scrollTimer.Stop();
         }
 
-        private void cmdScrollRight_MouseEnter(object sender, MouseEventArgs e)
+        private void CmdScrollRight_MouseEnter(object sender, MouseEventArgs e)
         {
             scrollDirection = 1;
             scrollTimer.Start();
         }
 
-        private void cmdScrollRight_MouseLeave(object sender, MouseEventArgs e)
+        private void CmdScrollRight_MouseLeave(object sender, MouseEventArgs e)
         {
             scrollTimer.Stop();
         }
 
-        public void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
+        public void CmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
         {
-            _viewModel.ConnectDisconnect();
+            ViewModel.ConnectDisconnect();
         }
 
         /// <summary>
         /// Toggles the emoji popup panel and updates the arrow icon based on its state.
         /// </summary>
-        private void cmdEmojiPanel_Click(object sender, RoutedEventArgs e)
+        private void CmdEmojiPanel_Click(object sender, RoutedEventArgs e)
         {
             // Disable the button immediately to prevent double clicks
-            cmdEmojiPanel.IsEnabled = false;
-            imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow-disabled.png", UriKind.Relative));
+            CmdEmojiPanel.IsEnabled = false;
+            ImgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow-disabled.png", UriKind.Relative));
 
             if (popupEmojiPanel.IsOpen)
             {
@@ -280,22 +300,42 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Sends a message to the server
+        /// Handles the Send button click event.  
+        /// Prevents sending if the message is empty or the client is disconnected.  
+        /// Attempts to send the current message to the server.  
+        /// Clears and refocuses the input box on success.  
+        /// Logs an error and adds a localized failure notice to the ViewModel’s Messages on failure.  
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void cmdSend_Click(object sender, RoutedEventArgs e)
+        private void CmdSend_Click(object sender, RoutedEventArgs e)
         {
-            // Prevent sending if message is empty or client is not connected
-            if (!string.IsNullOrEmpty(MainViewModel.Message) && _viewModel._server?.IsConnected == true)
+            // Prevents sending if the message is empty or the client is disconnected
+            var content = MainViewModel.Message;
+            var server = ViewModel._server;
+            if (string.IsNullOrEmpty(content) || server?.IsConnected != true)
+                return;
+
+            // Attempts to send the current message to the server
+            bool sendSucceeded = server.SendMessageToServer(content);
+
+            if (sendSucceeded)
             {
-                _viewModel._server.SendMessageToServer(MainViewModel.Message);
-                txtMessageToSend.Text = "";
-                txtMessageToSend.Focus();
+                // Clears and refocuses the input box on success
+                TxtMessageToSend.Text = "";
+                TxtMessageToSend.Focus();
+            }
+            else
+            {
+                // Logs an error and adds a localized failure notice to the ViewModel’s Messages
+                ClientLogger.Log(
+                    $"Failed to send message: {content}",
+                    ClientLogLevel.Error);
+
+                ViewModel.Messages.Add(
+                    $"# {LocalizationManager.GetString("SendingFailed")} #");
             }
         }
 
-        private void cmdSettings_Click(object sender, RoutedEventArgs e)
+        private void CmdSettings_Click(object sender, RoutedEventArgs e)
         {
             var settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
@@ -303,25 +343,20 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Calculates a custom placement for the emoji popup so that it appears
-        /// directly above the target control (in this 
-        /// , the message input field).
-        /// This ensures precise vertical positioning regardless of layout or control size.
+        /// Positions the emoji popup directly above the message input field.
         /// </summary>
-        /// <param name="popupSize">The measured size of the popup content.</param>
-        /// <param name="targetSize">The size of the control the popup is anchored to.</param>
-        /// <param name="offset">The default offset.</param>
-        /// <returns>A single CustomPopupPlacement that positions the popup above the target.</returns>
-        private CustomPopupPlacement[] OnCustomPopupPlacement(Size popupSize, Size targetSize, Point offset)
+        /// <param name="popupSize">The size of the popup content.</param>
+        /// <param name="_unusedTargetSize">Unused.</param>
+        /// <param name="_unusedOffset">Unused.</param>
+        /// <returns>A single placement directly above the target.</returns>
+        /// Supprime l’avertissement de paramètre inutilisé
+        private static CustomPopupPlacement[] OnCustomPopupPlacement(Size popupSize, Size _unusedTargetSize, Point _unusedOffset)
         {
-            // Position the popup just above the input field
-            double x = 40; // horizontal offset to the right
-            double y = -popupSize.Height; // position above the target
-
-            // Return a single placement option with the calculated position
+            double posX = 40;
+            double posY = -popupSize.Height;
             return new[]
             {
-                new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal)
+                new CustomPopupPlacement(new Point(posX, posY), PopupPrimaryAxis.Horizontal)
             };
         }
 
@@ -341,9 +376,9 @@ namespace chat_client
         {
             if (sender is Button btn && btn.Content is TextBlock tb)
             {
-                txtMessageToSend.Text += tb.Text;
-                txtMessageToSend.Focus();
-                txtMessageToSend.CaretIndex = txtMessageToSend.Text.Length;
+                TxtMessageToSend.Text += tb.Text;
+                TxtMessageToSend.Focus();
+                TxtMessageToSend.CaretIndex = TxtMessageToSend.Text.Length;
             }
         }
 
@@ -448,8 +483,8 @@ namespace chat_client
         private void PopupEmojiPanel_Closed(object sender, EventArgs e)
         {
             // Re-enables the button and restores the default icon
-            cmdEmojiPanel.IsEnabled = true;
-            imgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
+            CmdEmojiPanel.IsEnabled = true;
+            ImgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
         }
 
         /// <summary>
@@ -546,45 +581,45 @@ namespace chat_client
             Application.Current.Shutdown();
         }
 
-        private void txtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void TxtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
                 // Simulate the click on the cmdConnect button
-                cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                CmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
 
-        private void txtMessageToSend_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private void TxtMessageToSend_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-                // Simulate the click on the cmdSend button
-                cmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                // Simulate the click on the CmdSend button
+                CmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
                 // Prevents the line break in the textBox
                 e.Handled = true;
             }
         }
 
-        private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
+        private void TxtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (txtMessageToSend.Text == "" || _viewModel._server.IsConnected == false)
+            if (TxtMessageToSend.Text == "" || ViewModel._server.IsConnected == false)
             {
-                cmdSend.IsEnabled = false;
+                CmdSend.IsEnabled = false;
             }
             else
             {
-                cmdSend.IsEnabled = true;
+                CmdSend.IsEnabled = true;
             }
         }
 
-        private void txtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void TxtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
                 // Simulate the click on the cmdConnect button
-                cmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                CmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
 
@@ -593,20 +628,20 @@ namespace chat_client
         /// Toggles watermark visibility and connection button state based on input.
         /// Clears the error style if previously applied, restoring the default textbox appearance.
         /// </summary>
-        private void txtUsername_TextChanged(object sender, TextChangedEventArgs e)
+        private void TxtUsername_TextChanged(object sender, TextChangedEventArgs e)
         {
-            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(txtUsername.Text);
+            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(TxtUsername.Text);
 
             // Shows watermark when textbox is empty
             imgUsernameWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
 
             // Enables the connect button only when input is non-empty
-            cmdConnectDisconnect.IsEnabled = !textBoxIsEmpty;
+            CmdConnectDisconnect.IsEnabled = !textBoxIsEmpty;
 
             // Removes the error style if it was previously applied
-            if (txtUsername.Style != null)
+            if (TxtUsername.Style != null)
             {
-                txtUsername.ClearValue(Control.StyleProperty);
+                TxtUsername.ClearValue(Control.StyleProperty);
             }
         }
 
@@ -614,10 +649,10 @@ namespace chat_client
         /// Handles live updates to the IP address textbox.
         /// Toggles the visibility of the watermark image based on whether the input field is empty.
         /// </summary>
-        private void txtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
+        private void TxtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
         {
             // Checks if the textbox is empty or contains only whitespace
-            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(txtIPAddress.Text);
+            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(TxtIPAddress.Text);
 
             // Shows or hides the watermark image depending on input state
             imgIPAddressWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
@@ -629,17 +664,17 @@ namespace chat_client
         /// </summary>
         public void UpdateConnectButtonText()
         {
-            cmdConnectDisconnect.Content = _viewModel.IsConnected
+                CmdConnectDisconnect.Content = ViewModel.IsConnected
                 ? LocalizationManager.GetString("DisconnectButton")
                 : LocalizationManager.GetString("ConnectButton");
         }
         
         /// <summary>
         /// Updates the encryption status icon and tooltip above the message input field in real time.
-        /// 1. Hides the icon entirely if encryption is disabled in settings.
-        /// 2. Displays a gray lock icon during public-key sending or key synchronization phases.
-        /// 3. Updates the tooltip to reflect current state: sending key, syncing, or ready.
-        /// 4. Triggers the Ultra Zoom animation and the colored lock icon when encryption becomes fully active.
+        /// Hides the icon entirely if encryption is disabled in settings.
+        /// Displays a gray lock icon during public-key sending or key synchronization phases.
+        /// Updates the tooltip to reflect current state: sending key, syncing, or ready.
+        /// Triggers the Ultra Zoom animation and the colored lock icon when encryption becomes fully active.
         /// </summary>
         /// <param name="isReady">True when all peer keys are synchronized and encryption is ready.</param>
         /// <param name="isSyncing">True while key exchange or synchronization is in progress.</param>
@@ -651,7 +686,7 @@ namespace chat_client
                 if (DataContext is not MainViewModel viewModel)
                     return;
 
-                // 1. Hides icon when encryption is globally disabled
+                // Hides icon when encryption is globally disabled
                 if (!Settings.Default.UseEncryption)
                 {
                     imgEncryptionStatus.Visibility = Visibility.Collapsed;
@@ -666,7 +701,7 @@ namespace chat_client
                 // Ensures icon is visible when encryption is enabled
                 imgEncryptionStatus.Visibility = Visibility.Visible;
 
-                // 2 & 3. Shows gray icon and sets appropriate tooltip during key send or sync
+                // Shows gray icon and sets appropriate tooltip during key send or sync
                 if (!isReady)
                 {
                     // Displays gray lock icon during key exchange or synchronization
@@ -685,7 +720,7 @@ namespace chat_client
                     return;
                 }
 
-                // 4. Displays colored lock icon and triggers Zoom animation when fully ready
+                // Displays colored lock icon and triggers Zoom animation when fully ready
                 imgEncryptionStatus.Source = new BitmapImage(
                     new Uri("/Resources/encrypted.png", UriKind.Relative));
                 imgEncryptionStatus.ToolTip = LocalizationManager.GetString("EncryptionEnabled");

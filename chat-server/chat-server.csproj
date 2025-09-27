@@ -11,6 +11,7 @@
     <FileVersion>1.0</FileVersion>
     <Company>Laurent Barraud</Company>
     <Authors>$(Authors)</Authors>
+    <Title>chat-server</Title>
   </PropertyGroup>
 
   <ItemGroup>
