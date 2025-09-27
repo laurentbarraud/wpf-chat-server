@@ -163,6 +163,20 @@ namespace chat_client.MVVM.View
             }
         }
 
+        /// <summary>
+        /// Rolls back the encryption toggle when initialization fails.  
+        /// 1. Unchecks the encryption toggle.  
+        /// 2. Disables the encryption flag in user settings.  
+        /// 3. Persists the change to application settings.  
+        /// This method centralizes rollback logic to maintain UI and configuration consistency.
+        /// </summary>
+        private void RollbackEncryptionToggle()
+        {
+            UseEncryptionToggle.IsChecked = false;
+            Properties.Settings.Default.UseEncryption = false;
+            Properties.Settings.Default.Save();
+        }
+
         private void txtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (UseCustomPortToggle.IsChecked == true)
@@ -187,100 +201,105 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
-        /// Handles the Checked event of the encryption toggle.
-        /// 1. Enables the encryption flag and persists it to user settings.
-        /// 2. Clears any stale key material (local and peer) to guarantee a clean start.
-        /// 3. Calls InitializeEncryptionFull() on the ViewModel to run the complete RSA generation, publish, and sync pipeline.
-        /// 4. If initialization fails, rolls back the toggle and leaves encryption disabled.
-        /// 5. Logs success; MainWindow’s PropertyChanged handlers will display the colored lock icon when ready.
+        /// Handles the Checked event of the encryption toggle.  
+        /// 1. Enables the encryption flag in user settings and persists it.  
+        /// 2. Validates that the client is connected and LocalUser is initialized.  
+        /// 3. Clears stale key material to guarantee a clean start.  
+        /// 4. Invokes ViewModel.InitializeEncryption() to execute the full encryption setup.  
+        /// 5. Rolls back the toggle and settings on failure.  
+        /// 6. Logs the successful initialization and awaits UI update.  
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
             if (IsInitializing)
-                return;
-
-            // 1. Enable encryption in settings
-            Properties.Settings.Default.UseEncryption = true;
-            Properties.Settings.Default.Save();
-
-            // Retrieves the shared ViewModel from MainWindow
-            var viewModel = (Application.Current.MainWindow as MainWindow)?._viewModel;
-            if (viewModel?.LocalUser == null || !viewModel.IsConnected)
             {
-                ClientLogger.Log(
-                    "Cannot enable encryption – client not connected or LocalUser missing.",
-                    ClientLogLevel.Warn);
-
-                UseEncryptionToggle.IsChecked = false;
                 return;
             }
 
-            // 2. Clear previous crypto state
+            // 1. Enables the encryption flag and persists it
+            Properties.Settings.Default.UseEncryption = true;
+            Properties.Settings.Default.Save();
+
+            // 2. Validates that the client is connected and LocalUser is initialized
+            var viewModel = (Application.Current.MainWindow as MainWindow)?._viewModel;
+            if (viewModel?.LocalUser == null || !viewModel.IsConnected)
+            {
+                ClientLogger.Log("Cannot enable encryption – client not connected or LocalUser missing.",
+                    ClientLogLevel.Warn);
+                RollbackEncryptionToggle();
+                return;
+            }
+
+            // 3. Clears stale key material to guarantee a clean start
             viewModel.KnownPublicKeys.Clear();
             viewModel.LocalUser.PublicKeyBase64 = string.Empty;
             viewModel.LocalUser.PrivateKeyBase64 = string.Empty;
             EncryptionHelper.ClearPrivateKey();
             ClientLogger.Log(
-                "Cleared all old key state before re-initialization.",
+                "Clears old key state before re-initialization.",
                 ClientLogLevel.Debug);
 
-            // 3. Run the full E2E encryption initialization pipeline
-            bool isReady = viewModel.InitializeEncryptionFull();
-            if (!isReady)
+            // 4. Executes full encryption setup and captures the result
+            bool isEncryptionReady = viewModel.InitializeEncryption();
+            if (!isEncryptionReady)
             {
-                // 4. Roll back on failure
-                ClientLogger.Log(
-                    "InitializeEncryptionFull() failed – rolling back toggle.",
+                // 5. Rolls back the toggle and settings on failure
+                ClientLogger.Log("InitializeEncryption() failed – rolling back encryption toggle.",
                     ClientLogLevel.Error);
-
-                UseEncryptionToggle.IsChecked = false;
-                Properties.Settings.Default.UseEncryption = false;
-                Properties.Settings.Default.Save();
+                RollbackEncryptionToggle();
                 return;
             }
 
-            // 5. Initialization succeeded; MainWindow will update the lock icon when IsEncryptionReady=true
+            // 6. Logs the successful initialization and awaits UI update
             ClientLogger.Log("Encryption fully initialized on toggle ON; awaiting green lock icon.",
                 ClientLogLevel.Info);
         }
 
         /// <summary>
         /// Handles the Unchecked event of the encryption toggle.
-        /// 1. Disables the encryption flag and persists it to user settings.
-        /// 2. Clears all local and peer key material to reset encryption.
-        /// 3. Invokes ViewModel.EvaluateEncryptionState() to update IsEncryptionReady/IsEncryptionSyncing.
-        /// 4. Relies on MainWindow’s PropertyChanged subscription to update the lock icon accordingly.
+        /// 1. Disables the encryption flag and persists it to user settings.  
+        /// 2. Clears all local and peer key material to reset encryption.  
+        /// 3. Invokes ViewModel.EvaluateEncryptionState() to update readiness.  
+        /// 4. Logs the outcome; MainWindow’s PropertyChanged subscription will update the lock icon accordingly.  
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             if (IsInitializing)
+            {
                 return;
+            }
 
-            // 1. Disables encryption in settings
+            // 1. Disables the encryption flag in settings and persists it
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // 2. Retrieves MainViewModel and ensure LocalUser is initialized;
-            //    if MainWindow, ViewModel or LocalUser is null, abort.
+            // 2. Retrieves the MainViewModel and verifies LocalUser initialization
             var mainWindow = Application.Current.MainWindow as MainWindow;
+            
             if (mainWindow == null)
+            {
                 return;
+            }
+            
             var viewModel = mainWindow._viewModel;
+            
             if (viewModel?.LocalUser == null)
+            {
                 return;
+            }
+
             var localUser = viewModel.LocalUser;
 
-            // 3. Clears all encryption state
+            // 3. Clears all local and peer key material to reset encryption
             EncryptionHelper.ClearPrivateKey();
             localUser.PublicKeyBase64 = string.Empty;
             localUser.PrivateKeyBase64 = string.Empty;
             viewModel.KnownPublicKeys.Clear();
 
-            // 4. Recalculates encryption state (raises PropertyChanged for UI handlers)
+            // 4. Invokes ViewModel.EvaluateEncryptionState() to update readiness
             viewModel.EvaluateEncryptionState();
             ClientLogger.Log("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
         }
-
         private void ValidatePortInput()
         {
             int portChosen;

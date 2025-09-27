@@ -26,9 +26,9 @@ namespace chat_client.Helpers
                 return;
 
             // Declares variables to store parsed arguments
-            string username = null;
-            string theme = null;
-            string language = null;
+            string username = "";
+            string theme = "";
+            string language = "";
             int port = 7123;
             bool enableEncryption = false;
             bool reduceInTray = false;
@@ -185,10 +185,11 @@ namespace chat_client.Helpers
             {
                 Properties.Settings.Default.UseEncryption = true;
 
-                // Initializes encryption: generates key pair, stores own public key locally, and sends it to the server
-                viewModel.InitializeEncryption(viewModel);
-
-                ClientLogger.Log("[Startup] Encryption enabled.", ClientLogLevel.Info);
+                // Attempts to initialize encryption; logs outcome based on the return value
+                if (viewModel.InitializeEncryption())
+                    ClientLogger.Log("[Startup] Encryption enabled.", ClientLogLevel.Info);
+                else
+                    ClientLogger.Log("[Startup] Encryption initialization failed.", ClientLogLevel.Error);
             }
 
 
