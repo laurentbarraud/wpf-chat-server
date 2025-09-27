@@ -37,19 +37,22 @@ namespace chat_client.Net
         public bool HandshakeCompleted { get; private set; } = false;
         
         /// <summary>Triggered when a new user joins (opcode 1).</summary>
-        public event Action ConnectedEvent;
+        public event Action? ConnectedEvent;
 
         /// <summary>Triggered when a plain‐text message is received (opcode 5).</summary>
-        public event Action PlainMessageReceivedEvent;
+        public event Action? PlainMessageReceivedEvent;
 
         /// <summary>Triggered when an encrypted message is received (opcode 11).</summary>
-        public event Action EncryptedMessageReceivedEvent;
+        public event Action? EncryptedMessageReceivedEvent;
 
         /// <summary>Triggered when a peer’s public key is received (opcode 8).</summary>
-        public event Action PublicKeyReceivedEvent;
+        public event Action? PublicKeyReceivedEvent;
 
         /// <summary>Triggered when a user disconnects (opcode 10).</summary>
-        public event Action UserDisconnectEvent;
+        public event Action? UserDisconnectEvent;
+
+        /// <summary>Triggered when the server instructs this client to disconnect (opcode 12).</summary>
+        public event Action? ServerDisconnectedClientEvent;
 
         /// <summary>Gets the UID assigned to the local user.</summary>
         public Guid LocalUid { get; private set; }
@@ -231,6 +234,12 @@ namespace chat_client.Net
                                     $"[ERROR] {LocalizationManager.GetString("DecryptionFailed")}: {ex.Message}",
                                     ClientLogLevel.Error);
                             }
+                            break;
+
+                        case ClientPacketOpCode.DisconnectClient:
+                            string targetUid = _packetReader.ReadMessage();
+                            if (LocalUid.ToString() == targetUid)
+                                ServerDisconnectedClientEvent?.Invoke();
                             break;
 
                         case ClientPacketOpCode.PublicKeyResponse:
@@ -580,7 +589,7 @@ namespace chat_client.Net
 
             // Builds the packet with required fields
             var packet = new PacketBuilder();
-            packet.WriteOpCode(6); // Opcode for public key exchange
+            packet.WriteOpCode(ClientPacketOpCode.PublicKeyResponse); 
             packet.WriteMessage(uid);
             packet.WriteMessage(publicKeyBase64);
 

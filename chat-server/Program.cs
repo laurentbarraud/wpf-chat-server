@@ -283,7 +283,11 @@ namespace chat_server
         }
 
 
-        /// <summary>Sends "/disconnect" to all clients then exits.</summary>
+        /// <summary>
+        /// Gracefully shuts down the server by broadcasting a DisconnectClient packet
+        /// (opcode 12) to each connected client, 
+        /// then logs the initiation and completion of the shutdown sequence.
+        /// </summary>
         public static void Shutdown()
         {
             LogL(ServerLogLevel.Info, "ShutdownStart");

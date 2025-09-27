@@ -195,6 +195,7 @@ namespace chat_client.MVVM.ViewModel
             _server.EncryptedMessageReceivedEvent += EncryptedMessageReceived;
             _server.UserDisconnectEvent += UserDisconnected;
             _server.PublicKeyReceivedEvent += PublicKeyReceived;
+            _server.ServerDisconnectedClientEvent += ServerDisconnectedClient;
         }
 
         /// <summary>
@@ -490,13 +491,6 @@ namespace chat_client.MVVM.ViewModel
                     .Replace("\n", "")
                     .Trim();
 
-                // Handle system‐issued disconnect command
-                if (encryptedBase64 == "/disconnect" && senderUid == SystemUID.ToString())
-                {
-                    HandleSystemDisconnect();
-                    return;
-                }
-
                 // Resolve sender’s display name or fall back to UID
                 string displayName = Users
                     .FirstOrDefault(u => u.UID.ToString() == senderUid)?.Username
@@ -565,22 +559,6 @@ namespace chat_client.MVVM.ViewModel
         public static int GetCurrentPort()
         {
             return chat_client.Properties.Settings.Default.CustomPortNumber;
-        }
-
-        /// <summary>
-        /// Handles a system-issued disconnect command.
-        /// Clears the user list, posts a system message, and updates connection status.
-        /// </summary>
-        private void HandleSystemDisconnect()
-        {
-            // Executes UI-bound actions on the main thread
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                Users.Clear();
-                Messages.Add("# - " + LocalizationManager.GetString("SystemDisconnected") + " #");
-                OnPropertyChanged(nameof(IsConnected));
-
-            });
         }
 
         /// <summary>
@@ -806,17 +784,10 @@ namespace chat_client.MVVM.ViewModel
                 if (LocalUser is null)
                     return;
 
-                // Ignore messages not intended for this client
+                // Ignores messages not intended for this client
                 if (!string.IsNullOrEmpty(recipientUid)
                     && recipientUid != LocalUser.UID)
                 {
-                    return;
-                }
-
-                // Handle system-issued disconnect command
-                if (content == "/disconnect" && senderUid == SystemUID.ToString())
-                {
-                    HandleSystemDisconnect();
                     return;
                 }
 
@@ -964,6 +935,24 @@ namespace chat_client.MVVM.ViewModel
                     mainWindow.spnDown.Visibility = Visibility.Hidden;
                     mainWindow.spnEmojiPanel.Visibility = Visibility.Hidden;
                 }
+            });
+        }
+
+        /// <summary>
+        /// Handles a server-initiated disconnect command.
+        /// Clears the user list, adds a localized system message, and notifies the UI that the connection status changed.
+        /// </summary>
+        private void ServerDisconnectedClient()
+        {
+            // Executes UI-bound actions on the main thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Users.Clear();
+                Messages.Add("# - " + LocalizationManager.GetString("SystemDisconnected") + " #");
+
+                // It is acceptable to call OnPropertyChanged here
+                // so that any binding to IsConnected will refresh immediately.
+                OnPropertyChanged(nameof(IsConnected));
             });
         }
 
