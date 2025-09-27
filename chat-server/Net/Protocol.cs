@@ -30,7 +30,7 @@ namespace chat_server.Net
         /// <summary>
         /// Client requests a peer's public key.
         /// Contains: RequesterUserId; TargetUserId.</summary>
-        KeyRequest = 3,
+        PublicKeyRequest = 3,
 
         /// <summary>
         /// Client sends a plain-text chat message.

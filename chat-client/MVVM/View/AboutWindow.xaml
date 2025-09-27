@@ -13,10 +13,14 @@
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <!-- Top-left: bright white -->
                 <GradientStop Color="#FFFFFF" Offset="0"/>
-                <!-- Center: desaturated light blue -->
-                <GradientStop Color="#D3E4E4" Offset="0.4"/>
-                <!-- Bottom-right: near-black blue -->
-                <GradientStop Color="#10141C" Offset="1"/>
+                
+                <!-- Desaturated light blues -->
+                <GradientStop Color="#D3E4E4" Offset="0.2"/>
+                <GradientStop Color="#6594A3" Offset="0.3"/>
+                <GradientStop Color="#37525B" Offset="0.5"/>
+                
+                <!-- Bottom-right: black -->
+                <GradientStop Color="#000000" Offset="1"/>
             </LinearGradientBrush>
         </Grid.Background>
 
@@ -60,7 +64,7 @@
 
         <!-- Bottom panel -->
         <DockPanel VerticalAlignment="Bottom"
-           Height="60"
+           Height="50"
            Background="#000000"
            LastChildFill="False">
 
@@ -83,7 +87,7 @@
                    VerticalAlignment="Center" />
 
                 <!-- Spacer between CLI link and licence text -->
-                <Rectangle Width="120" Fill="Transparent" />
+                <Rectangle Width="60" Fill="Transparent" />
 
                 <!-- Licence and version text -->
                 <TextBlock x:Name="LicenceFinalText"
@@ -100,6 +104,8 @@
             HorizontalAlignment="Right"
             VerticalAlignment="Center"
             Margin="0,0,20,0"
+            HorizontalContentAlignment="Center"
+            VerticalContentAlignment="Center"
             Click="CmdOk_Click"
             DockPanel.Dock="Right"
             IsDefault="True"

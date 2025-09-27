@@ -115,12 +115,10 @@ namespace chat_client.Helpers
         /// </summary>
         public static void UpdateLocalizedUI()
         {
-            // Iterates through each open window in the application
             foreach (Window window in Application.Current.Windows)
             {
                 if (window is SettingsWindow settings)
                 {
-                    // Updates labels in the SettingsWindow
                     settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
                     settings.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
                     settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
@@ -129,21 +127,21 @@ namespace chat_client.Helpers
                 }
                 else if (window is MainWindow mainWindow)
                 {
-                    // Updates dynamic UI elements in MainWindow
                     mainWindow.UpdateConnectButtonText();
                     mainWindow.ApplyWatermarkImages();
 
-                    // Updates tooltip texts
                     mainWindow.CmdScrollLeft.ToolTip = GetString("ScrollLeftTooltip");
                     mainWindow.CmdScrollRight.ToolTip = GetString("ScrollRightTooltip");
                     mainWindow.CmdSettings.ToolTip = GetString("Settings");
 
-                    // Updates window title to include localized "Connected" status
                     mainWindow.Title = $"WPF chat client - {GetString("Connected")}";
 
-                    // Updates tray menu headers if they exist
-                    mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
-                    mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
+                    // Guard against null before updating tray menu
+                    if (mainWindow.TrayMenuOpen != null)
+                        mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
+
+                    if (mainWindow.TrayMenuQuit != null)
+                        mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
                 }
             }
         }

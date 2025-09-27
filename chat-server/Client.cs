@@ -5,7 +5,6 @@
 
 using chat_client.Net;
 using chat_server.Net;
-using chat_server.Net.IO;
 using System;
 using System.Net.Sockets;
 
@@ -181,7 +180,7 @@ namespace chat_server
 
                     switch (opcode)
                     {
-                        case ServerPacketOpCode.KeyRequest:
+                        case ServerPacketOpCode.PublicKeyRequest:
                             HandlePublicKeySyncRequest();
                             break;
 

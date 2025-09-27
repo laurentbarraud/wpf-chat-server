@@ -210,7 +210,7 @@ namespace chat_client.MVVM.View
         private void UseCustomPortToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             TxtCustomPort.IsEnabled = false;
-            imgPortStatus.Visibility = Visibility.Collapsed;
+            ImgPortStatus.Visibility = Visibility.Collapsed;
             Properties.Settings.Default.UseCustomPort = false;
             Properties.Settings.Default.Save();
         }
@@ -331,9 +331,9 @@ namespace chat_client.MVVM.View
                 tooltip = LocalizationManager.GetString("PortNumberInvalid") + "\n" + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
             }
 
-            imgPortStatus.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
-            imgPortStatus.ToolTip = tooltip;
-            imgPortStatus.Visibility = Visibility.Visible;
+            ImgPortStatus.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
+            ImgPortStatus.ToolTip = tooltip;
+            ImgPortStatus.Visibility = Visibility.Visible;
         }
     }
 }

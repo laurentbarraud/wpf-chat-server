@@ -149,21 +149,21 @@
                     <ControlTemplate TargetType="ToggleButton">
                         <Grid>
                             <Border x:Name="SwitchBackground"
-                            CornerRadius="16"
-                            Background="{DynamicResource BackgroundBrush}"
-                            BorderBrush="{DynamicResource AccentBrush}"
-                            BorderThickness="1" />
+                                    CornerRadius="16"
+                                    Background="{DynamicResource BackgroundBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="1" />
 
                             <Grid x:Name="ThumbContainer"
-                          Width="30" Height="30"
-                          VerticalAlignment="Center"
-                          Margin="2,2,28,2">
+                                  Width="30" Height="30"
+                                  VerticalAlignment="Center"
+                                  Margin="2,2,28,2">
                                 <Ellipse Fill="{DynamicResource PrimaryBrush}" />
                                 <Image x:Name="SwitchIcon"
-                               Width="16" Height="16"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Source="/Resources/encrypted-disabled.png" />
+                                       Width="16" Height="16"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Source="/Resources/encrypted-disabled.png" />
                             </Grid>
                         </Grid>
 
@@ -337,7 +337,7 @@
                          TabIndex="1" />
 
                 <!-- Port status icon -->
-                <Image x:Name="imgPortStatus"
+                <Image x:Name="ImgPortStatus"
                        Grid.Column="3"
                        Width="18" Height="18"
                        Margin="0,0,0,0"
