@@ -46,7 +46,7 @@ namespace chat_client.Net
         /// <summary>
         /// Client sends an encrypted chat message.
         /// Contains: SenderUserId; RecipientUserId; CipherText.</summary>
-        EncryptedMessage = 11
+        EncryptedMessage = 11,
 
         /// <summary>
         /// Server instructs this client to disconnect.

@@ -24,7 +24,7 @@ namespace chat_client.MVVM.View
     /// </summary>
     public partial class SettingsWindow : Window
     {
-        public MainViewModel ViewModel { get; set; }
+        public MainViewModel? ViewModel { get; set; }
 
         private bool IsInitializing = true;
 
@@ -103,11 +103,8 @@ namespace chat_client.MVVM.View
         /// </summary>
         private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (LanguageComboBox.SelectedItem is ComboBoxItem selectedItem)
+            if (LanguageComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string languageCodeSelected)
             {
-                // Get the newly selected language code
-                string languageCodeSelected = selectedItem.Tag.ToString(); // "en" or "fr"
-
                 // Get the currently saved language
                 string AppLanguageSaved = Properties.Settings.Default.AppLanguage;
 
@@ -207,7 +204,7 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.Save();
 
             // Retrieves the shared ViewModel from MainWindow
-            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
+            var viewModel = (Application.Current.MainWindow as MainWindow)?._viewModel;
             if (viewModel?.LocalUser == null || !viewModel.IsConnected)
             {
                 ClientLogger.Log(
@@ -220,8 +217,8 @@ namespace chat_client.MVVM.View
 
             // 2. Clear previous crypto state
             viewModel.KnownPublicKeys.Clear();
-            viewModel.LocalUser.PublicKeyBase64 = null;
-            viewModel.LocalUser.PrivateKeyBase64 = null;
+            viewModel.LocalUser.PublicKeyBase64 = string.Empty;
+            viewModel.LocalUser.PrivateKeyBase64 = string.Empty;
             EncryptionHelper.ClearPrivateKey();
             ClientLogger.Log(
                 "Cleared all old key state before re-initialization.",
@@ -263,18 +260,23 @@ namespace chat_client.MVVM.View
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // Retrieves the shared ViewModel from MainWindow
-            var viewModel = (Application.Current.MainWindow as MainWindow)?.ViewModel;
-            if (viewModel == null)
+            // 2. Retrieves MainViewModel and ensure LocalUser is initialized;
+            //    if MainWindow, ViewModel or LocalUser is null, abort.
+            var mainWindow = Application.Current.MainWindow as MainWindow;
+            if (mainWindow == null)
                 return;
+            var viewModel = mainWindow._viewModel;
+            if (viewModel?.LocalUser == null)
+                return;
+            var localUser = viewModel.LocalUser;
 
-            // 2. Clears all encryption state
+            // 3. Clears all encryption state
             EncryptionHelper.ClearPrivateKey();
-            viewModel.LocalUser.PublicKeyBase64 = null;
-            viewModel.LocalUser.PrivateKeyBase64 = null;
+            localUser.PublicKeyBase64 = string.Empty;
+            localUser.PrivateKeyBase64 = string.Empty;
             viewModel.KnownPublicKeys.Clear();
 
-            // 3. Recalculates encryption state (raises PropertyChanged for UI handlers)
+            // 4. Recalculates encryption state (raises PropertyChanged for UI handlers)
             viewModel.EvaluateEncryptionState();
             ClientLogger.Log("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
         }

@@ -217,29 +217,15 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.PlainMessage:
-                            // Reads the raw payload and raises the plain‐text event
-                            string plain = _packetReader.ReadMessage();
                             PlainMessageReceivedEvent?.Invoke();
                             break;
 
                         case ClientPacketOpCode.EncryptedMessage:
-                            try
-                            {
-                                // Raises the encrypted‐message received event
-                                EncryptedMessageReceivedEvent?.Invoke();
-                            }
-                            catch (Exception ex)
-                            {
-                                ClientLogger.Log(
-                                    $"[ERROR] {LocalizationManager.GetString("DecryptionFailed")}: {ex.Message}",
-                                    ClientLogLevel.Error);
-                            }
+                            EncryptedMessageReceivedEvent?.Invoke();
                             break;
 
                         case ClientPacketOpCode.DisconnectClient:
-                            string targetUid = _packetReader.ReadMessage();
-                            if (LocalUid.ToString() == targetUid)
-                                ServerDisconnectedClientEvent?.Invoke();
+                            ServerDisconnectedClientEvent?.Invoke();
                             break;
 
                         case ClientPacketOpCode.PublicKeyResponse:

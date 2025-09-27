@@ -473,17 +473,19 @@ namespace chat_client.MVVM.ViewModel
         {
             try
             {
-                // Read sender and recipient UIDs
+                // Reads sender and recipient UIDs
                 string senderUid = _server._packetReader.ReadMessage();
                 string recipientUid = _server._packetReader.ReadMessage();
 
-                // Ignore messages not addressed to this client
+                // Ignores messages not intended for this client
                 if (LocalUser is not null
                     && !string.IsNullOrEmpty(recipientUid)
                     && recipientUid != LocalUser.UID)
+                {
                     return;
+                }
 
-                // Read and sanitize the Base64‐encoded ciphertext
+                // Reads and sanitizes the Base64‐encoded ciphertext
                 string encryptedBase64 = _server._packetReader
                     .ReadMessage()
                     .Replace("\0", "")
@@ -491,12 +493,14 @@ namespace chat_client.MVVM.ViewModel
                     .Replace("\n", "")
                     .Trim();
 
-                // Resolve sender’s display name or fall back to UID
+                // Resolves sender’s display name or falls back to UID
                 string displayName = Users
                     .FirstOrDefault(u => u.UID.ToString() == senderUid)?.Username
-                    ?? (LocalUser?.UID == senderUid ? LocalUser.Username : senderUid);
+                    ?? (LocalUser != null && LocalUser.UID == senderUid
+                        ? LocalUser.Username
+                        : senderUid);
 
-                // Attempt decryption and fall back on localized error
+                // Attempts decryption and falls back on localized error
                 string decrypted;
                 try
                 {
@@ -510,7 +514,7 @@ namespace chat_client.MVVM.ViewModel
                     decrypted = LocalizationManager.GetString("DecryptionFailed");
                 }
 
-                // Format and display the decrypted message
+                // Formats and displays the decrypted message
                 string messageToDisplay = $"{displayName}: {decrypted}";
                 DisplayReceivedMessage(messageToDisplay);
             }
@@ -794,9 +798,9 @@ namespace chat_client.MVVM.ViewModel
                 // Resolves display name or falls back to UID
                 string displayName = Users
                     .FirstOrDefault(u => u.UID.ToString() == senderUid)?.Username
-                    ?? (LocalUser?.UID == senderUid ? LocalUser.Username : senderUid);
+                    ?? (LocalUser.UID == senderUid ? LocalUser.Username : senderUid);
 
-                // Formats and dispatch the message to the UI
+                // Formats and dispatches the message to the UI
                 string messageToDisplay = $"{displayName}: {content}";
                 Application.Current.Dispatcher.Invoke(() =>
                 {

@@ -178,7 +178,7 @@ namespace chat_client.Helpers
 
             // Retrieves main window and its view model
             var mainWindow = Application.Current.MainWindow as MainWindow;
-            var viewModel = mainWindow?.ViewModel;
+            var viewModel = mainWindow?._viewModel;
 
             // Enables encryption if requested
             if (enableEncryption && viewModel != null)
