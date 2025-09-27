@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
 using System;
 using System.IO;
@@ -9,7 +9,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace chat_client.Net
+namespace chat_client.Net.IO
 {
     /// <summary>
     /// Parses incoming protocol packets from a NetworkStream.
@@ -54,12 +54,11 @@ namespace chat_client.Net
         /// Reads a length-prefixed UTF-8 string.
         /// </summary>
         /// <returns>The deserialized string.</returns>
-        public string ReadString()
+        public new string ReadString()
         {
             byte[] data = ReadBytesWithLength();
             return Encoding.UTF8.GetString(data);
         }
-
 
         // ——— Models A–F ———
 

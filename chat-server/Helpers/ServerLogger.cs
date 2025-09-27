@@ -1,13 +1,8 @@
 ﻿/// <file>ServerLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System;
 
 namespace chat_server.Helpers
@@ -29,7 +24,7 @@ namespace chat_server.Helpers
     /// Supports localized output using resource keys and optional formatting arguments.  
     /// Intended for use across all server components to ensure consistent and maintainable log output.
     /// </summary>
-    public static class ServerLogHelper
+    public static class ServerLogger
     {
         /// <summary>
         /// Indicates whether debug-level logs should be displayed.  
@@ -43,7 +38,7 @@ namespace chat_server.Helpers
         /// </summary>
         /// <param name="message">The message to display.</param>
         /// <param name="level">The severity level of the message.</param>
-        public static void Log(string message, ServerLogLevel level = ServerLogLevel.Info)
+        public static void ServerLog(string message, ServerLogLevel level = ServerLogLevel.Info)
         {
             if (level == ServerLogLevel.Debug && !IsDebugEnabled)
                 return;
@@ -67,11 +62,11 @@ namespace chat_server.Helpers
         /// <param name="resourceKey">The key used to retrieve the localized string template.</param>
         /// <param name="level">The severity level of the message.</param>
         /// <param name="args">Optional arguments to format into the localized string.</param>
-        public static void LogLocalized(string resourceKey, ServerLogLevel level = ServerLogLevel.Info, params object[] args)
+        public static void ServerLogLocalized(string resourceKey, ServerLogLevel level = ServerLogLevel.Info, params object[] args)
         {
             string template = LocalizationManager.GetString(resourceKey);
             string message = args.Length > 0 ? string.Format(template, args) : template;
-            Log(message, level);
+            ServerLog(message, level);
         }
     }
 }

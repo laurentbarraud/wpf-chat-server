@@ -1,10 +1,11 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
-using chat_client.Net;
+using chat_server.Helpers;
 using chat_server.Net;
+using chat_server.Net.IO;
 using System;
 using System.Net.Sockets;
 
@@ -27,10 +28,10 @@ namespace chat_server
         public TcpClient ClientSocket { get; set; }
 
         /// <summary>Gets or sets the Base64-encoded RSA public key for encryption.</summary>
-        public string PublicKeyBase64 { get; set; }
+        public string? PublicKeyBase64 { get; set; }
 
         /// <summary>Gets or sets the raw DER bytes of the client's public key.</summary>
-        public byte[] PublicKeyDer { get; set; }
+        public byte[]? PublicKeyDer { get; set; }
 
         private readonly PacketReader _packetReader;
 
@@ -75,94 +76,104 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Handles opcode 5 by reading sender and recipient UIDs and content,
+        /// Handles opcode 5 by reading sender and recipient UIDs and the message content,
         /// then delegates to Program.BroadcastMessage for routing.
         /// </summary>
         private void HandleChatMessage()
         {
-            // Reads the sender UID string
-            string senderStr = _packetReader.ReadMessage();
+            // Reads the sender UID (16 bytes) and returns a Guid
+            Guid senderUid = _packetReader.ReadUid();
 
-            // Reads the recipient UID or empty
-            string recipientStr = _packetReader.ReadMessage();
+            // Reads the recipient UID (16 bytes); treats Guid.Empty as null
+            Guid rawRecipient = _packetReader.ReadUid();
+            Guid? recipientUid = rawRecipient == Guid.Empty
+                ? (Guid?)null
+                : rawRecipient;
 
-            // Reads the message content
-            string content = _packetReader.ReadMessage();
+            // Reads the length-prefixed UTF-8 payload as the message text
+            string content = _packetReader.ReadString();
 
-            // Parses UIDs and invokes broadcast
-            Guid senderUid = Guid.Parse(senderStr);
-            Guid? recipientUid = string.IsNullOrEmpty(recipientStr) ? (Guid?)null : Guid.Parse(recipientStr);
-
+            // Routes the chat message through the central dispatcher
             Program.BroadcastMessage(content, senderUid, recipientUid);
         }
 
         /// <summary>
-        /// Handles opcode 6 by reading a public key from the packet,
-        /// storing it, logging receipt, and broadcasting to other clients.
+        /// Model D: Processes an incoming public‐key exchange packet (opcode 6).
+        /// Reads the sender UID and Base64‐encoded RSA public key from the packet.
+        /// Stores the key locally in both Base64 and DER formats,
+        /// logs the receipt at debug level,
+        /// and forwards the key to other connected clients.
         /// </summary>
         private void HandlePublicKeyExchange()
         {
-            // Reads the sender UID for context
-            string senderUidStr = _packetReader.ReadMessage();
+            // Reads the sender UID (16 bytes) and converts it to Guid
+            Guid senderUid = _packetReader.ReadUid();
 
-            // Reads the Base64 public key
-            string publicKeyBase64 = _packetReader.ReadMessage();
+            // Reads the length‐prefixed UTF‐8 payload as the Base64 public key
+            string publicKeyBase64 = _packetReader.ReadString();
 
-            // Stores the public key locally
+            // Stores the Base64 key and decodes it into DER format
             PublicKeyBase64 = publicKeyBase64;
             PublicKeyDer = Convert.FromBase64String(publicKeyBase64);
 
             // Logs the reception of the public key
-            Console.WriteLine(
-                $"[DEBUG] Received public key from {Username} — UID: {senderUidStr}, length: {publicKeyBase64.Length}");
+            ServerLogger.ServerLog($"Received public key from {senderUid} (length: {publicKeyBase64.Length})",
+                ServerLogLevel.Debug);
 
             // Broadcasts the key to all other connected clients
             Program.BroadcastPublicKeyToOthers(this);
         }
 
         /// <summary>
-        /// Handles opcode 3 by reading the requester UID and sending
-        /// each connected client's public key in response.
+        /// Model D: Handles a public‐key sync request (opcode 3).
+        /// Reads the requester’s UID, then sends each connected user’s public key
+        /// in PublicKeyResponse packets. Logs each send operation or failure.
         /// </summary>
         private void HandlePublicKeySyncRequest()
         {
-            // Reads the UID of the client requesting a sync
-            string requesterUid = _packetReader.ReadMessage();
-
-            // Logs the public-key sync request
-            Console.WriteLine($"[DEBUG] Public key sync requested by UID: {requesterUid}");
-
-            // Iterates through all connected clients
-            foreach (var user in Program.Users)
+            try
             {
-                // Skips users without a public key
-                if (string.IsNullOrEmpty(user.PublicKeyBase64))
-                    continue;
+                // Reads the requester UID (16 bytes)
+                Guid requesterUid = _packetReader.ReadUid();
 
-                try
+                ServerLogger.ServerLog($"Public‐key sync requested by UID: {requesterUid}",
+                    ServerLogLevel.Debug);
+
+                // Iterates through all known users
+                foreach (var user in Program.Users)
                 {
-                    // Creates a packet for public key exchange
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode(6);
-                    packet.WriteMessage(user.UID.ToString());
-                    packet.WriteMessage(user.PublicKeyBase64);
+                    // Skips users without a public key
+                    if (string.IsNullOrWhiteSpace(user.PublicKeyBase64))
+                        continue;
 
-                    // Sends the packet back to the requester
-                    ClientSocket.GetStream()
-                        .Write(packet.GetPacketBytes(), 0, packet.GetPacketBytes().Length);
+                    try
+                    {
+                        // Builds the PublicKeyResponse packet
+                        var packet = new PacketBuilder();
+                        packet.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
+                        packet.WriteUid(user.UID);
+                        packet.WriteString(user.PublicKeyBase64);
 
-                    // Logs the successful key send
-                    Console.WriteLine(
-                        $"[DEBUG] Sent public key of {user.Username} to {Username}");
-                }
-                catch (Exception ex)
-                {
-                    // Logs any failure in sending the key
-                    Console.WriteLine(
-                        $"[ERROR] Failed to send key to {Username}: {ex.Message}");
+                        // Sends the packet back to the requester
+                        var bytes = packet.GetPacketBytes();
+                        ClientSocket.GetStream().Write(bytes, 0, bytes.Length);
+
+                        ServerLogger.ServerLog($"Sent public key of {user.Username} (UID: {user.UID}) to requester {requesterUid}",
+                            ServerLogLevel.Debug);
+                    }
+                    catch (Exception ex)
+                    {
+                        ServerLogger.ServerLog($"Failed to send public key of {user.Username} to {requesterUid}: {ex.Message}",
+                            ServerLogLevel.Error);
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                ServerLogger.ServerLog($"HandlePublicKeySyncRequest failed: {ex.Message}", ServerLogLevel.Error);
+            }
         }
+
 
         /// <summary>
         /// Continuously listens for incoming packets from the connected client.

@@ -1,12 +1,11 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
-using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Windows;
@@ -74,7 +73,7 @@ namespace chat_client.MVVM.View
             catch (Exception ex)
             {
                 // Logs the error to console to help diagnose crashes
-                ClientLogger.Log($"SettingsWindow_Loaded failed: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.ClientLog($"SettingsWindow_Loaded failed: {ex.Message}", ClientLogLevel.Error);
                 MessageBox.Show(LocalizationManager.GetString("ErrorLoadingThemeResources"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -240,7 +239,7 @@ namespace chat_client.MVVM.View
             var viewModel = mainWindow?.ViewModel;
             if (viewModel?.LocalUser == null || !viewModel.IsConnected)
             {
-                ClientLogger.Log("Cannot enable encryption – client not connected or LocalUser missing.", ClientLogLevel.Warn);
+                ClientLogger.ClientLog("Cannot enable encryption – client not connected or LocalUser missing.", ClientLogLevel.Warn);
                 RollbackEncryptionToggle();
                 return;
             }
@@ -250,7 +249,7 @@ namespace chat_client.MVVM.View
             viewModel.LocalUser.PublicKeyBase64 = string.Empty;
             viewModel.LocalUser.PrivateKeyBase64 = string.Empty;
             EncryptionHelper.ClearPrivateKey();
-            ClientLogger.Log(
+            ClientLogger.ClientLog(
                 "Clears old key state before re-initialization.", ClientLogLevel.Debug);
 
             // Executes full encryption setup and captures the result
@@ -258,13 +257,13 @@ namespace chat_client.MVVM.View
             if (!isEncryptionReady)
             {
                 // Rolls back the toggle and settings on failure
-                ClientLogger.Log("InitializeEncryption() failed – rolling back encryption toggle.", ClientLogLevel.Error);
+                ClientLogger.ClientLog("InitializeEncryption() failed – rolling back encryption toggle.", ClientLogLevel.Error);
                 RollbackEncryptionToggle();
                 return;
             }
 
             // Logs the successful initialization and awaits UI update
-            ClientLogger.Log("Encryption fully initialized on toggle ON; awaiting green lock icon.", ClientLogLevel.Info);
+            ClientLogger.ClientLog("Encryption fully initialized on toggle ON; awaiting green lock icon.", ClientLogLevel.Info);
         }
 
         /// <summary>
@@ -310,7 +309,7 @@ namespace chat_client.MVVM.View
 
             // 4. Invokes ViewModel.EvaluateEncryptionState() to update readiness
             viewModel.EvaluateEncryptionState();
-            ClientLogger.Log("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
+            ClientLogger.ClientLog("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
         }
         private void ValidatePortInput()
         {

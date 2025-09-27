@@ -1,13 +1,12 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
 using chat_client.Properties;
-using ChatClient.Helpers;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.Windows;
@@ -224,8 +223,7 @@ namespace chat_client
             }
             catch (Exception ex)
             {
-                ClientLogger.Log(
-                    $"Could not assign custom popup placement callback: {ex.Message}",
+                ClientLogger.ClientLog($"Could not assign custom popup placement callback: {ex.Message}",
                     ClientLogLevel.Warn);
             }
         }
@@ -326,7 +324,7 @@ namespace chat_client
             else
             {
                 // Logs an error and adds a localized failure notice to the ViewModel’s Messages
-                ClientLogger.Log(
+                ClientLogger.ClientLog(
                     $"Failed to send message: {content}",
                     ClientLogLevel.Error);
 
@@ -692,7 +690,7 @@ namespace chat_client
                     imgEncryptionStatus.Visibility = Visibility.Collapsed;
                     imgEncryptionStatus.Source = null;
                     imgEncryptionStatus.ToolTip = null;
-                    ClientLogger.Log(
+                    ClientLogger.ClientLog(
                         "Encryption disabled — icon hidden.",
                         ClientLogLevel.Info);
                     return;
@@ -714,7 +712,7 @@ namespace chat_client
                         : "SendingPublicKey";
                     imgEncryptionStatus.ToolTip = LocalizationManager.GetString(tooltipKey);
 
-                    ClientLogger.Log(
+                    ClientLogger.ClientLog(
                         $"Encryption in progress — gray icon displayed; tooltip: {tooltipKey}.",
                         ClientLogLevel.Debug);
                     return;
@@ -729,14 +727,14 @@ namespace chat_client
                 var storyboard = (Storyboard)FindResource("StarWarsLockDrop");
                 storyboard.Begin();
 
-                ClientLogger.Log(
+                ClientLogger.ClientLog(
                     "Encryption fully active — colored icon displayed with Zoom animation.",
                     ClientLogLevel.Info);
             }
             catch (Exception ex)
             {
                 // Logs any unexpected error and hides the icon to prevent UI disruption
-                ClientLogger.Log(
+                ClientLogger.ClientLog(
                     $"Error in UpdateEncryptionStatusIcon: {ex.Message}",
                     ClientLogLevel.Error);
                 imgEncryptionStatus.Visibility = Visibility.Collapsed;

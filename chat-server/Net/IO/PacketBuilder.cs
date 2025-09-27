@@ -1,14 +1,15 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
+using chat_client.Net;
 using System;
 using System.IO;
 using System.Net;
 using System.Text;
 
-namespace chat_server.Net
+namespace chat_server.Net.IO
 {
     /// <summary>
     /// Constructs protocol-compliant packets for the chat application.

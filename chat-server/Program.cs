@@ -1,10 +1,11 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
+using chat_server.Net.IO;
 using System;
 using System.Globalization;
 using System.Net;
@@ -102,9 +103,9 @@ namespace chat_server
                 {
                     var broadcastConnectionPacket = new PacketBuilder();
                     broadcastConnectionPacket.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
-                    broadcastConnectionPacket.WriteMessage(usr.UID.ToString());
-                    broadcastConnectionPacket.WriteMessage(usr.Username);
-                    broadcastConnectionPacket.WriteMessage(usr.PublicKeyBase64);
+                    broadcastConnectionPacket.WriteUid(usr.UID);
+                    broadcastConnectionPacket.WriteString(usr.Username);
+                    broadcastConnectionPacket.WriteString(usr.PublicKeyBase64);
 
                     receiver.ClientSocket.Client
                         .Send(broadcastConnectionPacket.GetPacketBytes());
@@ -119,7 +120,8 @@ namespace chat_server
         public static void BroadcastDisconnect(string uid)
         {
             var disc = Users.FirstOrDefault(u => u.UID.ToString() == uid);
-            if (disc == null) return;
+            if (disc == null)
+                return;
 
             foreach (var user in Users)
             {
@@ -127,24 +129,28 @@ namespace chat_server
                 {
                     var broadcastDisconnectPacket = new PacketBuilder();
                     broadcastDisconnectPacket.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
-                    broadcastDisconnectPacket.WriteMessage(uid);
+                    broadcastDisconnectPacket.WriteUid(Guid.Parse(uid));   // replaced WriteMessage(uid)
 
                     if (user.ClientSocket.Connected)
                     {
+                        byte[] packetBytes = broadcastDisconnectPacket.GetPacketBytes();
                         user.ClientSocket.GetStream()
-                            .Write(broadcastDisconnectPacket.GetPacketBytes(), 0,
-                                   broadcastDisconnectPacket.GetPacketBytes().Length);
+                            .Write(packetBytes, 0, packetBytes.Length);
                     }
-                    Log(ServerLogLevel.Debug,
+
+                    Log(
+                        ServerLogLevel.Debug,
                         $"[SERVER] Notified {user.Username} of disconnection");
                 }
                 catch (Exception ex)
                 {
-                    Log(ServerLogLevel.Error,
+                    Log(
+                        ServerLogLevel.Error,
                         $"[SERVER] Disconnect notification failed: {ex.Message}");
                 }
             }
         }
+
 
         /// <summary>Routes a plain message packet (opcode 5) to all clients.</summary>
         public static void BroadcastMessage(string content, Guid senderUid, Guid? recipientUid = null)
@@ -174,13 +180,16 @@ namespace chat_server
                 {
                     var broadcastPlainMessagePacket = new PacketBuilder();
                     broadcastPlainMessagePacket.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
-                    broadcastPlainMessagePacket.WriteMessage(senderUid.ToString());
-                    broadcastPlainMessagePacket.WriteMessage(recipientUid?.ToString() ?? "");
-                    broadcastPlainMessagePacket.WriteMessage(content);
+                    broadcastPlainMessagePacket.WriteUid(senderUid);
+                    broadcastPlainMessagePacket.WriteUid(recipientUid ?? Guid.Empty);
+                    broadcastPlainMessagePacket.WriteString(content);
 
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
-                            .Write(broadcastPlainMessagePacket.GetPacketBytes(), 0, broadcastPlainMessagePacket.GetPacketBytes().Length);
+                            .Write(
+                                broadcastPlainMessagePacket.GetPacketBytes(),
+                                0,
+                                broadcastPlainMessagePacket.GetPacketBytes().Length);
                 }
                 catch (Exception ex)
                 {
@@ -200,8 +209,8 @@ namespace chat_server
                 {
                     var broadcastPublicKeyPacket = new PacketBuilder();
                     broadcastPublicKeyPacket.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-                    broadcastPublicKeyPacket.WriteMessage(sender.UID.ToString());
-                    broadcastPublicKeyPacket.WriteMessage(sender.PublicKeyBase64);
+                    broadcastPublicKeyPacket.WriteUid(sender.UID);
+                    broadcastPublicKeyPacket.WriteString(sender.PublicKeyBase64);
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
                             .Write(broadcastPublicKeyPacket.GetPacketBytes(), 0, broadcastPublicKeyPacket.GetPacketBytes().Length);
@@ -281,15 +290,14 @@ namespace chat_server
             return result ?? string.Empty;
         }
 
-
         /// <summary>
-        /// Gracefully shuts down the server by broadcasting a DisconnectClient packet
-        /// (opcode 12) to each connected client, 
+        /// Gracefully shuts down the server by broadcasting a DisconnectClient packet  
+        /// (opcode 12) to each connected client,
         /// then logs the initiation and completion of the shutdown sequence.
         /// </summary>
         public static void Shutdown()
         {
-            LogL(ServerLogLevel.Info, "ShutdownStart");
+            ServerLogger.ServerLogLocalized("ShutdownStart", ServerLogLevel.Info);
 
             foreach (var user in Users)
             {
@@ -297,12 +305,15 @@ namespace chat_server
                 {
                     var _packetBuilder = new PacketBuilder();
                     _packetBuilder.WriteOpCode(5);
-                    _packetBuilder.WriteMessage(SystemUID.ToString());
-                    _packetBuilder.WriteMessage("/disconnect");
+                    _packetBuilder.WriteUid(SystemUID);          // replaced WriteMessage(uid)
+                    _packetBuilder.WriteString("/disconnect");   // replaced WriteMessage("/disconnect")
 
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
-                            .Write(_packetBuilder.GetPacketBytes(), 0, _packetBuilder.GetPacketBytes().Length);
+                            .Write(
+                                _packetBuilder.GetPacketBytes(),
+                                0,
+                                _packetBuilder.GetPacketBytes().Length);
                 }
                 catch (Exception ex)
                 {
@@ -310,7 +321,8 @@ namespace chat_server
                         $"[SERVER] Shutdown notification failed: {ex.Message}");
                 }
             }
-            LogL(ServerLogLevel.Info, "ShutdownComplete");
+
+            ServerLogger.ServerLogLocalized("ShutdownComplete", ServerLogLevel.Info);
         }
 
         /// <summary>
@@ -327,7 +339,9 @@ namespace chat_server
             Console.WriteLine("\n");
 
             // Logs that the server has successfully started on the specified port
-            Log(ServerLogLevel.Info, string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
+            Log(ServerLogLevel.Info, string.Format(
+                    LocalizationManager.GetString("ServerStartedOnPort"),
+                    port));
 
             while (true)
             {
@@ -335,33 +349,36 @@ namespace chat_server
                 {
                     // Accepts an incoming TCP connection
                     TcpClient tcpClient = _listener.AcceptTcpClient();
-                    string endpoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown endpoint";
-                    Log(ServerLogLevel.Info, $"Incoming connection from {endpoint}");
+                    string endpoint = tcpClient.Client
+                                              .RemoteEndPoint?
+                                              .ToString()
+                                      ?? "Unknown endpoint";
+                    Log(ServerLogLevel.Info,
+                        $"Incoming connection from {endpoint}");
 
                     NetworkStream stream = tcpClient.GetStream();
 
                     // Reads the handshake opcode byte
-                    int opcode = stream.ReadByte();
-                    if ((ServerPacketOpCode)opcode != ServerPacketOpCode.Handshake)
+                    int raw = stream.ReadByte();
+                    if ((ServerPacketOpCode)raw != ServerPacketOpCode.Handshake)
                     {
-                        Log(ServerLogLevel.Error, $"Unexpected handshake opcode: {opcode}. Disconnecting.");
+                        Log(
+                            ServerLogLevel.Error,
+                            $"Unexpected handshake opcode: {raw}. Disconnecting.");
                         tcpClient.Close();
                         continue;
                     }
 
-                    // Parses the Username, UID string, and Base64 public key
-                    var _packetReader = new PacketReader(stream);
-                    string username = _packetReader.ReadMessage();
-                    string uidString = _packetReader.ReadMessage();
-                    string publicKeyBase64 = _packetReader.ReadMessage();
+                    // Parses the Username, UID, and Base64 public key
+                    var packetReader = new PacketReader(stream);
+                    string username = packetReader.ReadString();
+                    Guid uid = packetReader.ReadUid();
+                    string publicKeyBase64 = packetReader.ReadString();
 
                     Log(ServerLogLevel.Debug, "[SERVER] Handshake received:");
                     Log(ServerLogLevel.Debug, $"  → Username: {username}");
-                    Log(ServerLogLevel.Debug, $"  → UID: {uidString}");
+                    Log(ServerLogLevel.Debug, $"  → UID: {uid}");
                     Log(ServerLogLevel.Debug, $"  → Key fragment: {publicKeyBase64.Substring(0, 32)}…");
-
-                    // Parses and validates the client's GUID
-                    Guid uid = Guid.Parse(uidString);
 
                     // Imports the RSA public key in PKCS#1 DER format
                     byte[] derBytes = Convert.FromBase64String(publicKeyBase64);
@@ -392,5 +409,7 @@ namespace chat_server
                 }
             }
         }
+
     }
 }
+

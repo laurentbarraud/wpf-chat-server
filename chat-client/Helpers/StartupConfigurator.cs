@@ -1,13 +1,9 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
 using chat_client.View;
-using ChatClient.Helpers;
-using System;
-using System.Globalization;
-using System.Linq;
 using System.Windows;
 
 namespace chat_client.Helpers
@@ -136,16 +132,16 @@ namespace chat_client.Helpers
             // Displays help message and exits if --help is passed
             if (showHelp)
             {
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine1"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine2"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine3"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine4"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine5"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine6"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine7"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine8"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine9"), ClientLogLevel.Info);
-                ClientLogger.Log(LocalizationManager.GetString("CliOptionsHelpLine10"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine1"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine2"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine3"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine4"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine5"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine6"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine7"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine8"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine9"), ClientLogLevel.Info);
+                ClientLogger.ClientLog(LocalizationManager.GetString("CliOptionsHelpLine10"), ClientLogLevel.Info);
                 return;
             }
 
@@ -166,11 +162,11 @@ namespace chat_client.Helpers
                 {
                     LocalizationManager.Initialize(language);
                     Properties.Settings.Default.AppLanguage = language;
-                    ClientLogger.Log($"[Startup] Language set: {language}", ClientLogLevel.Info);
+                    ClientLogger.ClientLog($"[Startup] Language set: {language}", ClientLogLevel.Info);
                 }
                 else
                 {
-                    ClientLogger.Log($"[Startup] Unsupported language: {language}. Defaulting to 'en'.", ClientLogLevel.Info);
+                    ClientLogger.ClientLog($"[Startup] Unsupported language: {language}. Defaulting to 'en'.", ClientLogLevel.Info);
                     LocalizationManager.Initialize("en");
                     Properties.Settings.Default.AppLanguage = "en";
                 }
@@ -187,9 +183,9 @@ namespace chat_client.Helpers
 
                 // Attempts to initialize encryption; logs outcome based on the return value
                 if (viewModel.InitializeEncryption())
-                    ClientLogger.Log("[Startup] Encryption enabled.", ClientLogLevel.Info);
+                    ClientLogger.ClientLog("[Startup] Encryption enabled.", ClientLogLevel.Info);
                 else
-                    ClientLogger.Log("[Startup] Encryption initialization failed.", ClientLogLevel.Error);
+                    ClientLogger.ClientLog("[Startup] Encryption initialization failed.", ClientLogLevel.Error);
             }
 
 
@@ -199,28 +195,28 @@ namespace chat_client.Helpers
                 bool isDark = theme.ToLower() == "dark";
                 ThemeManager.ApplyTheme(isDark);
                 Properties.Settings.Default.AppTheme = isDark ? "Dark" : "Light";
-                ClientLogger.Log($"[Startup] Theme applied: {(isDark ? "dark" : "light")}", ClientLogLevel.Info);
+                ClientLogger.ClientLog($"[Startup] Theme applied: {(isDark ? "dark" : "light")}", ClientLogLevel.Info);
             }
 
             // Enables tray minimization if requested
             if (reduceInTray)
             {
                 Properties.Settings.Default.ReduceToTray = true;
-                ClientLogger.Log("[Startup] Reduce to tray enabled.", ClientLogLevel.Info);
+                ClientLogger.ClientLog("[Startup] Reduce to tray enabled.", ClientLogLevel.Info);
             }
 
             // Shows debug console if requested
             if (debugMode)
             {
                 ConsoleManager.Show();
-                ClientLogger.Log("[Startup] Debug console shown.", ClientLogLevel.Info);
+                ClientLogger.ClientLog("[Startup] Debug console shown.", ClientLogLevel.Info);
             }
 
             // Applies username and triggers auto-connect
             if (!string.IsNullOrEmpty(username) && mainWindow != null)
             {
                 mainWindow.TxtUsername.Text = username;
-                ClientLogger.Log($"[Startup] Username set: {username}", ClientLogLevel.Info);
+                ClientLogger.ClientLog($"[Startup] Username set: {username}", ClientLogLevel.Info);
 
                 mainWindow.CmdConnectDisconnect_Click(new object(), new RoutedEventArgs());
             }

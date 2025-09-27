@@ -1,12 +1,11 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
 using System.Resources;
 using System.Globalization;
 using System.Diagnostics;
-using System.Threading;
 using System.Windows;
 using chat_client.Resources;
 using chat_client.MVVM.View;

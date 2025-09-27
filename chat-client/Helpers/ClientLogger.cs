@@ -1,11 +1,9 @@
 ﻿/// <file>ClientLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 27th, 2025</date>
+/// <date>September 28th, 2025</date>
 
-using chat_client.Helpers;
-
-namespace ChatClient.Helpers
+namespace chat_client.Helpers
 {
     /// <summary>
     /// Defines severity levels for client-side logging.
@@ -39,7 +37,7 @@ namespace ChatClient.Helpers
         /// The severity level of the log entry.
         /// Defaults to <see cref="ClientLogLevel.Info"/>.
         /// </param>
-        public static void Log(string message, ClientLogLevel level = ClientLogLevel.Info)
+        public static void ClientLog(string message, ClientLogLevel level = ClientLogLevel.Info)
         {
             if (level == ClientLogLevel.Debug && !IsDebugEnabled)
                 return;
@@ -64,10 +62,10 @@ namespace ChatClient.Helpers
         /// The severity level of the log entry.
         /// Defaults to <see cref="ClientLogLevel.Info"/>.
         /// </param>
-        public static void LogLocalized(string resourceKey, ClientLogLevel level = ClientLogLevel.Info)
+        public static void ClientLogLocalized(string resourceKey, ClientLogLevel level = ClientLogLevel.Info)
         {
             string message = LocalizationManager.GetString(resourceKey);
-            Log(message, level);
+            ClientLog(message, level);
         }
     }
 }
