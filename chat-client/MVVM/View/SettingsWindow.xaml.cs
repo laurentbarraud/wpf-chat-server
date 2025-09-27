@@ -28,9 +28,6 @@ namespace chat_client.MVVM.View
 
         private bool IsInitializing = true;
 
-        // Flag to prevent re-entrance during toggle processing
-        private bool IsEncryptionToggleBusy = false;
-
         public SettingsWindow()
         {
             InitializeComponent();

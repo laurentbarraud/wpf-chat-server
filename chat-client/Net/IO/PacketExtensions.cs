@@ -8,26 +8,33 @@ using static chat_client.Net.Server;
 namespace chat_client.Net.IO
 {
     /// <summary>
-    /// Provides extension methods for PacketBuilder and PacketReader
-    /// to work directly with opcode enums instead of raw bytes.
+    /// Helpers that let us use easy names instead of numbers
+    /// when we write and read packet types.
     /// </summary>
     public static class PacketExtensions
     {
         /// <summary>
-        /// Writes the given opcode enum as a single byte.
+        /// Takes a packet type name (like PlainMessage)
+        /// and writes its number into the packet.
+        /// This way, the other side knows what kind of packet it is.
         /// </summary>
-        public static void WriteOpCode(this PacketBuilder _packetBuilder, ClientPacketOpCode _opCode)
+        public static void WriteOpCode(this PacketBuilder builder, ClientPacketOpCode code)
         {
-            _packetBuilder.WriteOpCode((byte)_opCode);
+            // Convert the name to its number and write it
+            builder.WriteOpCode((byte)code);
         }
 
         /// <summary>
-        /// Reads a single byte from the stream and casts it to ClientOpCode.
+        /// Reads the first byte from incoming data,
+        /// turns that number back into the packet type name,
+        /// and returns it so we know what to do next.
         /// </summary>
         public static ClientPacketOpCode ReadOpCode(this PacketReader reader)
         {
-            return (ClientPacketOpCode)reader.ReadByte();
+            byte number = reader.ReadByte();
+            return (ClientPacketOpCode)number;
         }
     }
 }
+
 

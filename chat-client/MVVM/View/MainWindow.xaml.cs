@@ -29,13 +29,13 @@ namespace chat_client
     /// </summary>
     public partial class MainWindow : Window
     {
-        public MainViewModel ViewModel { get; set; }
+        public MainViewModel _viewModel { get; set; }
         
         /// <summary>
         /// Indicates whether the client is currently connected to the server.
         /// Uses null-conditional access to safely evaluate connection state. 
         /// </summary>
-        public bool IsConnected => ViewModel?.Server != null && ViewModel.Server.IsConnected;
+        public bool IsConnected => _viewModel?._server != null && _viewModel._server.IsConnected;
 
         /// <summary>
         /// Stores the timestamp of the last Ctrl key press.
@@ -77,32 +77,6 @@ namespace chat_client
         /// </summary>
 
         public MenuItem TrayMenuQuit { get; private set; }
-        /// <summary>
-        /// Provides access to the current server instance managed by the ViewModel.
-        /// Used for sending and receiving packets, managing connections, and handling encryption exchange.
-        /// </summary>
-
-        /// <summary>
-        /// Indicates whether the encryption initialization process is currently active.
-        /// Used to temporarily disable UI interactions (encryption toggle button in settings window) 
-        /// during RSA key generation, public key transmission, and synchronization steps.
-        /// Prevents concurrent or repeated activation while the encryption setup is in progress. 
-        /// </summary>
-        private bool _isEncryptionInitializing = false;
-
-        /// <summary>
-        /// Gets the Server instance managed by the view model.
-        /// Throws an InvalidOperationException if the view model has not been initialized.
-        /// </summary>
-        public Server Server
-        {
-            get
-            {
-                if (ViewModel is null)
-                    throw new InvalidOperationException("MainWindow.ViewModel is not initialized; cannot retrieve Server.");
-                return ViewModel.Server;
-            }
-        }
 
         /// <summary>
         /// Initializes the main window and sets up all UI bindings, event handlers, and initial state for the encrypted chat client.
@@ -118,35 +92,35 @@ namespace chat_client
             InitializeComponent();
 
             // Instantiates the view model and binds it to the window
-            ViewModel = new MainViewModel();
-            DataContext = ViewModel;
+            _viewModel = new MainViewModel();
+            DataContext = _viewModel;
 
             // Registers handler to auto-scroll chat when new messages arrive
-            ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+            _viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
             // Subscribes to property changes to keep connect button and lock icon in sync with ViewModel
-            ViewModel.PropertyChanged += (sender, e) =>
+            _viewModel.PropertyChanged += (sender, e) =>
             {
                 // Updates the connect/disconnect button label on connection state changes
-                if (e.PropertyName == nameof(ViewModel.IsConnected))
+                if (e.PropertyName == nameof(_viewModel.IsConnected))
                 {
                     UpdateConnectButtonText();
                 }
                 // Updates the encryption lock icon and tooltip when readiness or syncing flags change
-                else if (e.PropertyName == nameof(ViewModel.IsEncryptionReady) ||
-                         e.PropertyName == nameof(ViewModel.IsEncryptionSyncing))
+                else if (e.PropertyName == nameof(_viewModel.IsEncryptionReady) ||
+                         e.PropertyName == nameof(_viewModel.IsEncryptionSyncing))
                 {
                     UpdateEncryptionStatusIcon(
-                        ViewModel.IsEncryptionReady,
-                        ViewModel.IsEncryptionSyncing);
+                        _viewModel.IsEncryptionReady,
+                        _viewModel.IsEncryptionSyncing);
                 }
             };
 
             // Applies the initial UI state immediately after construction
             UpdateConnectButtonText();
             UpdateEncryptionStatusIcon(
-                ViewModel.IsEncryptionReady,
-                ViewModel.IsEncryptionSyncing);
+                _viewModel.IsEncryptionReady,
+                _viewModel.IsEncryptionSyncing);
 
             // Configures the emoji panel auto-scroll timer (ticks every 50 ms)
             scrollTimer = new DispatcherTimer
@@ -282,7 +256,7 @@ namespace chat_client
 
         public void cmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
         {
-            ViewModel.ConnectDisconnect();
+            _viewModel.ConnectDisconnect();
         }
 
         /// <summary>
@@ -313,9 +287,9 @@ namespace chat_client
         private void cmdSend_Click(object sender, RoutedEventArgs e)
         {
             // Prevent sending if message is empty or client is not connected
-            if (!string.IsNullOrEmpty(MainViewModel.Message) && ViewModel.Server?.IsConnected == true)
+            if (!string.IsNullOrEmpty(MainViewModel.Message) && _viewModel._server?.IsConnected == true)
             {
-                ViewModel.Server.SendMessageToServer(MainViewModel.Message);
+                _viewModel._server.SendMessageToServer(MainViewModel.Message);
                 txtMessageToSend.Text = "";
                 txtMessageToSend.Focus();
             }
@@ -595,7 +569,7 @@ namespace chat_client
 
         private void txtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (txtMessageToSend.Text == "" || ViewModel._server.IsConnected == false)
+            if (txtMessageToSend.Text == "" || _viewModel._server.IsConnected == false)
             {
                 cmdSend.IsEnabled = false;
             }
@@ -655,7 +629,7 @@ namespace chat_client
         /// </summary>
         public void UpdateConnectButtonText()
         {
-            cmdConnectDisconnect.Content = ViewModel.IsConnected
+            cmdConnectDisconnect.Content = _viewModel.IsConnected
                 ? LocalizationManager.GetString("DisconnectButton")
                 : LocalizationManager.GetString("ConnectButton");
         }

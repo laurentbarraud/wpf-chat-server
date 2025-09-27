@@ -3,6 +3,7 @@
 /// <version>1.0</version>
 /// <date>September 27th, 2025</date>
 
+using chat_server.Net;
 using chat_server.Net.IO;
 using System;
 using System.Net.Sockets;

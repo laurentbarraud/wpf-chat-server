@@ -19,7 +19,7 @@ namespace chat_client.Net
         Handshake = 0,
 
         /// <summary>
-        /// Broadcast a user's information when they connect.
+        /// Broadcasts a user's information when they connect.
         /// Contains: UserId; Username; PublicKeyBase64.</summary>
         ConnectionBroadcast = 1,
 

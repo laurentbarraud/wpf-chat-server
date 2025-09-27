@@ -8,7 +8,7 @@ using System.Text;
 
 namespace chat_client.Net.IO
 {
-    public class PacketBuilder
+    public class PacketBuilder : BinaryWriter
     {
         MemoryStream _ms;
         public PacketBuilder()

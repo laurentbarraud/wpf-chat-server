@@ -4,6 +4,7 @@
 /// <date>September 27th, 2025</date>
 
 using chat_server.Helpers;
+using chat_server.Net;
 using chat_server.Net.IO;
 using System;
 using System.Globalization;
@@ -11,44 +12,32 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
-using chat_server;
 
 namespace chat_server
 {
     /// <summary>
-    /// Defines the opcodes a client can send to the server.
-    /// Must match the values the client will emit.
-    /// </summary>
-    public enum ServerPacketOpCode : byte
-    {
-        KeyRequest = 3,   // client asks a peer’s public key
-        PlainMessage = 5,   // client sends a plain-text message
-        PublicKeyResponse = 6,   // client answers with its public key
-        EncryptedMessage = 11   // client sends an encrypted message
-    }
-
-    /// <summary>
-    /// Entry point and coordinator for the server-side chat system.
-    /// Manages client connections, handshakes, and broadcasts for presence,
-    /// messages, public keys, and disconnections using a local console logger.
+    /// Serves as the application entry point.
+    /// Configures console encoding, registers shutdown handlers,
+    /// initializes localization, prompts for a listening port,
+    /// instantiates the TCP listener on that port, and starts the client-accept loop.
     /// </summary>
     public class Program
     {
-        private static TcpListener _listener;
+        // Holds the server’s TCP listener instance; is instantiated before use.
+        private static TcpListener _listener = default!;
+
         public static readonly List<Client> Users = new();
         public static string AppLanguage = "en";
         public static readonly Guid SystemUID =
             Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        private enum LogLevelLocal { Debug, Info, Warn, Error }
-
-        private static void Log(LogLevelLocal level, string message)
+        private static void Log(ServerLogLevel level, string message)
         {
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             Console.WriteLine($"[{timestamp}][{level}] {message}");
         }
 
-        private static void LogL(LogLevelLocal level, string resourceKey)
+        private static void LogL(ServerLogLevel level, string resourceKey)
         {
             string text = LocalizationManager.GetString(resourceKey);
             Log(level, text);
@@ -56,15 +45,17 @@ namespace chat_server
 
         /// <summary>
         /// Serves as the application entry point.
-        /// Sets up console encoding, localization, and debug settings;
-        /// prompts for a server port; and launches the TCP listener.
-        /// Handles Ctrl+C to perform a graceful shutdown.
+        /// Sets up console encoding, installs Ctrl+C handler,
+        /// initializes localization, displays the banner,
+        /// prompts for the server port, creates the listener,
+        /// and launches client-accept logic.
         /// </summary>
         public static void Main(string[] args)
         {
+            // Configures the console to use UTF-8 encoding.
             Console.OutputEncoding = Encoding.UTF8;
 
-            // Gracefully handle Ctrl+C to shut down the server
+            // Registers a handler to perform a graceful shutdown on Ctrl+C.
             Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
@@ -72,30 +63,33 @@ namespace chat_server
                 Environment.Exit(0);
             };
 
-            // Detect system language and initialize localization
+            // Determines system language and initializes localization.
             string systemCulture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
             AppLanguage = systemCulture == "fr" ? "fr" : "en";
             LocalizationManager.Initialize(AppLanguage);
 
-            // Display localized banner
+            // Displays the localized startup banner.
             DisplayBanner();
 
-            // Prompt user for TCP port or use default
+            // Prompts the administrator to enter the TCP listening port.
             int portToListenTo = GetPortFromUser();
 
             try
             {
-                // Start listening for incoming clients
+                // Instantiates the TCP listener on the specified port.
+                _listener = new TcpListener(IPAddress.Any, portToListenTo);
+
+                // Starts listening for incoming client connections.
                 StartServerListener(portToListenTo);
             }
             catch (Exception ex)
             {
-                // Logs failure when server fails to start on the chosen port
-                Log(LogLevelLocal.Error, $"{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}");
+                // Logs failure to start the listener on the chosen port.
+                Log(ServerLogLevel.Error,
+                    $"{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}");
 
-                // Logs that the application is exiting
-                Log(LogLevelLocal.Info, LocalizationManager.GetString("Exiting"));
-
+                // Logs that the application is exiting and then terminates.
+                Log(ServerLogLevel.Info, LocalizationManager.GetString("Exiting"));
                 Environment.Exit(1);
             }
         }
@@ -108,7 +102,7 @@ namespace chat_server
                 foreach (var usr in Users)
                 {
                     var packet = new PacketBuilder();
-                    packet.WriteOpCode(1);
+                    packet.WriteOpCode(ServerPacketOpCode.ConnectionBroadcast);
                     packet.WriteMessage(usr.UID.ToString());
                     packet.WriteMessage(usr.Username);
                     packet.WriteMessage(usr.PublicKeyBase64);
@@ -116,10 +110,10 @@ namespace chat_server
                     receiver.ClientSocket.Client
                         .Send(packet.GetPacketBytes());
 
-                    Log(LogLevelLocal.Debug, "[SERVER] Broadcasting user list entry");
+                    Log(ServerLogLevel.Debug, "[SERVER] Broadcasting user list entry");
                 }
             }
-            Log(LogLevelLocal.Debug, "[SERVER] Completed user list broadcast");
+            Log(ServerLogLevel.Debug, "[SERVER] Completed user list broadcast");
         }
 
         /// <summary>Notifies clients of a disconnection (opcode 10) and logs each send.</summary>
@@ -133,7 +127,7 @@ namespace chat_server
                 try
                 {
                     var packet = new PacketBuilder();
-                    packet.WriteOpCode(10);
+                    packet.WriteOpCode(ServerPacketOpCode.DisconnectNotify);
                     packet.WriteMessage(uid);
 
                     if (user.ClientSocket.Connected)
@@ -142,12 +136,12 @@ namespace chat_server
                             .Write(packet.GetPacketBytes(), 0,
                                    packet.GetPacketBytes().Length);
                     }
-                    Log(LogLevelLocal.Debug,
+                    Log(ServerLogLevel.Debug,
                         $"[SERVER] Notified {user.Username} of disconnection");
                 }
                 catch (Exception ex)
                 {
-                    Log(LogLevelLocal.Error,
+                    Log(ServerLogLevel.Error,
                         $"[SERVER] Disconnect notification failed: {ex.Message}");
                 }
             }
@@ -164,12 +158,12 @@ namespace chat_server
             if (recipientUid.HasValue)
             {
                 var r = Users.FirstOrDefault(u => u.UID == recipientUid);
-                Log(LogLevelLocal.Debug,
+                Log(ServerLogLevel.Debug,
                     $"[{time}] Message from {sName} to {r?.Username ?? "Unknown"}: {disp}");
             }
             else
             {
-                Log(LogLevelLocal.Debug,
+                Log(ServerLogLevel.Debug,
                     $"[{time}] Broadcast message from {sName}: {disp}");
             }
 
@@ -179,19 +173,19 @@ namespace chat_server
 
                 try
                 {
-                    var b = new PacketBuilder();
-                    b.WriteOpCode(5);
-                    b.WriteMessage(senderUid.ToString());
-                    b.WriteMessage(recipientUid?.ToString() ?? "");
-                    b.WriteMessage(content);
+                    var _packetBuilder = new PacketBuilder();
+                    _packetBuilder.WriteOpCode(ServerPacketOpCode.PlainMessage);
+                    _packetBuilder.WriteMessage(senderUid.ToString());
+                    _packetBuilder.WriteMessage(recipientUid?.ToString() ?? "");
+                    _packetBuilder.WriteMessage(content);
 
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
-                            .Write(b.GetPacketBytes(), 0, b.GetPacketBytes().Length);
+                            .Write(_packetBuilder.GetPacketBytes(), 0, _packetBuilder.GetPacketBytes().Length);
                 }
                 catch (Exception ex)
                 {
-                    Log(LogLevelLocal.Debug,
+                    Log(ServerLogLevel.Debug,
                         $"[SERVER] Send failed to {user.Username}: {ex.Message}");
                 }
             }
@@ -205,24 +199,24 @@ namespace chat_server
                 if (user.UID == sender.UID) continue;
                 try
                 {
-                    var p = new PacketBuilder();
-                    p.WriteOpCode(6);
-                    p.WriteMessage(sender.UID.ToString());
-                    p.WriteMessage(sender.PublicKeyBase64);
+                    var _packetBuilder = new PacketBuilder();
+                    _packetBuilder.WriteOpCode(ServerPacketOpCode.PublicKeyResponse);
+                    _packetBuilder.WriteMessage(sender.UID.ToString());
+                    _packetBuilder.WriteMessage(sender.PublicKeyBase64);
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
-                            .Write(p.GetPacketBytes(), 0, p.GetPacketBytes().Length);
+                            .Write(_packetBuilder.GetPacketBytes(), 0, _packetBuilder.GetPacketBytes().Length);
 
-                    Log(LogLevelLocal.Debug,
+                    Log(ServerLogLevel.Debug,
                         $"[SERVER] Transmitted public key from {sender.Username} to {user.Username}");
                 }
                 catch (Exception ex)
                 {
-                    Log(LogLevelLocal.Error,
+                    Log(ServerLogLevel.Error,
                         $"[SERVER] Public key transmission failed: {ex.Message}");
                 }
             }
-            Log(LogLevelLocal.Debug,
+            Log(ServerLogLevel.Debug,
                 "[SERVER] Completed public key broadcast");
         }
 
@@ -262,7 +256,7 @@ namespace chat_server
                 else
                 {
                     Console.Write(LocalizationManager.GetString("InvalidPortPrompt"));
-                    string confirm = Console.ReadLine()?.Trim().ToLower();
+                    string? confirm = Console.ReadLine()?.Trim().ToLower();
 
                     if (confirm == "y" || confirm == "o") // "o" for "oui" in French
                     {
@@ -283,7 +277,7 @@ namespace chat_server
         /// <summary>Reads a console line with a timeout.</summary>
         private static string ReadLineWithTimeout(int timeoutMs)
         {
-            string result = null;
+            string? result = null;
             Task.Run(() => result = Console.ReadLine()).Wait(timeoutMs);
             return result ?? string.Empty;
         }
@@ -292,28 +286,28 @@ namespace chat_server
         /// <summary>Sends "/disconnect" to all clients then exits.</summary>
         public static void Shutdown()
         {
-            LogL(LogLevelLocal.Info, "ShutdownStart");
+            LogL(ServerLogLevel.Info, "ShutdownStart");
 
             foreach (var user in Users)
             {
                 try
                 {
-                    var p = new PacketBuilder();
-                    p.WriteOpCode(5);
-                    p.WriteMessage(SystemUID.ToString());
-                    p.WriteMessage("/disconnect");
+                    var _packetBuilder = new PacketBuilder();
+                    _packetBuilder.WriteOpCode(5);
+                    _packetBuilder.WriteMessage(SystemUID.ToString());
+                    _packetBuilder.WriteMessage("/disconnect");
 
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
-                            .Write(p.GetPacketBytes(), 0, p.GetPacketBytes().Length);
+                            .Write(_packetBuilder.GetPacketBytes(), 0, _packetBuilder.GetPacketBytes().Length);
                 }
                 catch (Exception ex)
                 {
-                    Log(LogLevelLocal.Error,
+                    Log(ServerLogLevel.Error,
                         $"[SERVER] Shutdown notification failed: {ex.Message}");
                 }
             }
-            LogL(LogLevelLocal.Info, "ShutdownComplete");
+            LogL(ServerLogLevel.Info, "ShutdownComplete");
         }
 
         /// <summary>
@@ -330,7 +324,7 @@ namespace chat_server
             Console.WriteLine("\n");
 
             // Logs that the server has successfully started on the specified port
-            Log(LogLevelLocal.Info, string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
+            Log(ServerLogLevel.Info, string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
 
             while (true)
             {
@@ -339,29 +333,29 @@ namespace chat_server
                     // Accepts an incoming TCP connection
                     TcpClient tcpClient = _listener.AcceptTcpClient();
                     string endpoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown endpoint";
-                    Log(LogLevelLocal.Info, $"Incoming connection from {endpoint}");
+                    Log(ServerLogLevel.Info, $"Incoming connection from {endpoint}");
 
                     NetworkStream stream = tcpClient.GetStream();
 
                     // Reads the handshake opcode byte
                     int opcode = stream.ReadByte();
-                    if (opcode != ServerPacketOpCode.)
+                    if ((ServerPacketOpCode)opcode != ServerPacketOpCode.Handshake)
                     {
-                        Log(LogLevelLocal.Error, $"Unexpected handshake opcode: {opcode}. Disconnecting.");
+                        Log(ServerLogLevel.Error, $"Unexpected handshake opcode: {opcode}. Disconnecting.");
                         tcpClient.Close();
                         continue;
                     }
 
                     // Parses the Username, UID string, and Base64 public key
-                    var reader = new PacketReader(stream);
-                    string username = reader.ReadMessage();
-                    string uidString = reader.ReadMessage();
-                    string publicKeyBase64 = reader.ReadMessage();
+                    var _packetReader = new PacketReader(stream);
+                    string username = _packetReader.ReadMessage();
+                    string uidString = _packetReader.ReadMessage();
+                    string publicKeyBase64 = _packetReader.ReadMessage();
 
-                    Log(LogLevelLocal.Debug, "[SERVER] Handshake received:");
-                    Log(LogLevelLocal.Debug, $"  → Username: {username}");
-                    Log(LogLevelLocal.Debug, $"  → UID: {uidString}");
-                    Log(LogLevelLocal.Debug, $"  → Key fragment: {publicKeyBase64.Substring(0, 32)}…");
+                    Log(ServerLogLevel.Debug, "[SERVER] Handshake received:");
+                    Log(ServerLogLevel.Debug, $"  → Username: {username}");
+                    Log(ServerLogLevel.Debug, $"  → UID: {uidString}");
+                    Log(ServerLogLevel.Debug, $"  → Key fragment: {publicKeyBase64.Substring(0, 32)}…");
 
                     // Parses and validates the client's GUID
                     Guid uid = Guid.Parse(uidString);
@@ -379,10 +373,10 @@ namespace chat_server
                     };
                     Users.Add(client);
 
-                    Log(LogLevelLocal.Info, $"Client connected: {username} ({uid})");
-                    Log(LogLevelLocal.Info, $"[SERVER] User count: {Users.Count}");
+                    Log(ServerLogLevel.Info, $"Client connected: {username} ({uid})");
+                    Log(ServerLogLevel.Info, $"[SERVER] User count: {Users.Count}");
                     foreach (var u in Users)
-                        Log(LogLevelLocal.Debug, $"  → {u.Username} ({u.UID})");
+                        Log(ServerLogLevel.Debug, $"  → {u.Username} ({u.UID})");
 
                     // Spawns the message listener and updates the roster
                     Task.Run(() => client.ListenForMessages());
@@ -391,7 +385,7 @@ namespace chat_server
                 catch (Exception ex)
                 {
                     // Logs any exception during the handshake process
-                    Log(LogLevelLocal.Error, $"[SERVER] Handshake error: {ex.Message}");
+                    Log(ServerLogLevel.Error, $"[SERVER] Handshake error: {ex.Message}");
                 }
             }
         }

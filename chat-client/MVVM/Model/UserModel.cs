@@ -33,7 +33,7 @@ namespace chat_client.MVVM.Model
         /// Base64-encoded XML RSA public key used to encrypt outgoing messages to this user.
         /// Assigned during encryption setup and transmitted to other clients.
         /// </summary>
-        public string? PublicKeyBase64 { get; set; }
+        public string PublicKeyBase64 { get; set; } = string.Empty;
 
         /// <summary>
         /// Base64-encoded XML RSA private key used to decrypt incoming messages.

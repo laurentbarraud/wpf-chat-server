@@ -290,4 +290,7 @@ Example:
   <data name="CliOptionsHelpLine10" xml:space="preserve">
     <value>  --help, -h, -?                Show this help message</value>
   </data>
+  <data name="MessageSendingFailed" xml:space="preserve">
+    <value>[Error : Your message failed to send.]</value>
+  </data>
 </root>
