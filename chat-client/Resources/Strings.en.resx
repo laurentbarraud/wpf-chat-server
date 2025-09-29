@@ -296,4 +296,7 @@ Example:
   <data name="SendingFailed" xml:space="preserve">
     <value>Failed to send message.</value>
   </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
 </root>

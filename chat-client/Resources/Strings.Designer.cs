@@ -22,7 +22,7 @@ namespace chat_client.Resources {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Strings {
+    public class Strings {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,7 +36,7 @@ namespace chat_client.Resources {
         ///   Retourne l'instance ResourceManager mise en cache utilisée par cette classe.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("chat_client.Resources.Strings", typeof(Strings).Assembly);
@@ -51,7 +51,7 @@ namespace chat_client.Resources {
         ///   les recherches de ressources à l'aide de cette classe de ressource fortement typée.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +63,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à About this software.
         /// </summary>
-        internal static string About {
+        public static string About {
             get {
                 return ResourceManager.GetString("About", resourceCulture);
             }
@@ -72,7 +72,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à App language.
         /// </summary>
-        internal static string AppLanguageLabel {
+        public static string AppLanguageLabel {
             get {
                 return ResourceManager.GetString("AppLanguageLabel", resourceCulture);
             }
@@ -81,7 +81,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Please choose a number between 1000 and 65535..
         /// </summary>
-        internal static string ChooseAnAppropriatePortNumber {
+        public static string ChooseAnAppropriatePortNumber {
             get {
                 return ResourceManager.GetString("ChooseAnAppropriatePortNumber", resourceCulture);
             }
@@ -90,7 +90,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Client socket is not connected..
         /// </summary>
-        internal static string ClientSocketNotConnected {
+        public static string ClientSocketNotConnected {
             get {
                 return ResourceManager.GetString("ClientSocketNotConnected", resourceCulture);
             }
@@ -108,7 +108,7 @@ namespace chat_client.Resources {
         ///  --encrypted, -e     Enables message encryption
         ///  --reduceInTray, -r  Minimizes to tray on [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
-        internal static string CliHelpText {
+        public static string CliHelpText {
             get {
                 return ResourceManager.GetString("CliHelpText", resourceCulture);
             }
@@ -117,7 +117,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Command Line Help.
         /// </summary>
-        internal static string CliHelpTitle {
+        public static string CliHelpTitle {
             get {
                 return ResourceManager.GetString("CliHelpTitle", resourceCulture);
             }
@@ -126,7 +126,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Client command-Line options:.
         /// </summary>
-        internal static string CliOptionsHelpLine1 {
+        public static string CliOptionsHelpLine1 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine1", resourceCulture);
             }
@@ -135,7 +135,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --help, -h, -?                Show this help message.
         /// </summary>
-        internal static string CliOptionsHelpLine10 {
+        public static string CliOptionsHelpLine10 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine10", resourceCulture);
             }
@@ -144,7 +144,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --username, -u, -user         Set username and auto-connect to localhost.
         /// </summary>
-        internal static string CliOptionsHelpLine2 {
+        public static string CliOptionsHelpLine2 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine2", resourceCulture);
             }
@@ -153,7 +153,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --port, -p                    Set server port (default: 7123).
         /// </summary>
-        internal static string CliOptionsHelpLine3 {
+        public static string CliOptionsHelpLine3 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine3", resourceCulture);
             }
@@ -162,7 +162,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --theme, -t, --dark, --light Apply UI theme.
         /// </summary>
-        internal static string CliOptionsHelpLine4 {
+        public static string CliOptionsHelpLine4 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine4", resourceCulture);
             }
@@ -171,7 +171,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --language, -l, --lang        Set UI language (en or fr).
         /// </summary>
-        internal static string CliOptionsHelpLine5 {
+        public static string CliOptionsHelpLine5 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine5", resourceCulture);
             }
@@ -180,7 +180,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --encrypted, -e               Enable message encryption.
         /// </summary>
-        internal static string CliOptionsHelpLine6 {
+        public static string CliOptionsHelpLine6 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine6", resourceCulture);
             }
@@ -189,7 +189,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --reduceInTray, -r, --reduce Minimize to tray on startup.
         /// </summary>
-        internal static string CliOptionsHelpLine7 {
+        public static string CliOptionsHelpLine7 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine7", resourceCulture);
             }
@@ -198,7 +198,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --debug, -d                   Show debug console.
         /// </summary>
-        internal static string CliOptionsHelpLine8 {
+        public static string CliOptionsHelpLine8 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine8", resourceCulture);
             }
@@ -207,7 +207,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à   --about                       Show About window.
         /// </summary>
-        internal static string CliOptionsHelpLine9 {
+        public static string CliOptionsHelpLine9 {
             get {
                 return ResourceManager.GetString("CliOptionsHelpLine9", resourceCulture);
             }
@@ -216,7 +216,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Command-line arguments.
         /// </summary>
-        internal static string CommandLineArguments {
+        public static string CommandLineArguments {
             get {
                 return ResourceManager.GetString("CommandLineArguments", resourceCulture);
             }
@@ -225,7 +225,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Connect.
         /// </summary>
-        internal static string ConnectButton {
+        public static string ConnectButton {
             get {
                 return ResourceManager.GetString("ConnectButton", resourceCulture);
             }
@@ -234,7 +234,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Connected.
         /// </summary>
-        internal static string Connected {
+        public static string Connected {
             get {
                 return ResourceManager.GetString("Connected", resourceCulture);
             }
@@ -243,7 +243,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Connection failed..
         /// </summary>
-        internal static string ConnectionFailed {
+        public static string ConnectionFailed {
             get {
                 return ResourceManager.GetString("ConnectionFailed", resourceCulture);
             }
@@ -252,7 +252,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à [Decryption failed].
         /// </summary>
-        internal static string DecryptionFailed {
+        public static string DecryptionFailed {
             get {
                 return ResourceManager.GetString("DecryptionFailed", resourceCulture);
             }
@@ -261,7 +261,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Disconnect.
         /// </summary>
-        internal static string DisconnectButton {
+        public static string DisconnectButton {
             get {
                 return ResourceManager.GetString("DisconnectButton", resourceCulture);
             }
@@ -270,7 +270,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Disconnect error.
         /// </summary>
-        internal static string DisconnectError {
+        public static string DisconnectError {
             get {
                 return ResourceManager.GetString("DisconnectError", resourceCulture);
             }
@@ -279,7 +279,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Message encryption enabled..
         /// </summary>
-        internal static string EncryptionEnabled {
+        public static string EncryptionEnabled {
             get {
                 return ResourceManager.GetString("EncryptionEnabled", resourceCulture);
             }
@@ -288,7 +288,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à You must be connected to the server to enable encryption..
         /// </summary>
-        internal static string EncryptionRequiresConnection {
+        public static string EncryptionRequiresConnection {
             get {
                 return ResourceManager.GetString("EncryptionRequiresConnection", resourceCulture);
             }
@@ -297,7 +297,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Error.
         /// </summary>
-        internal static string Error {
+        public static string Error {
             get {
                 return ResourceManager.GetString("Error", resourceCulture);
             }
@@ -306,7 +306,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Encryption could not be activated..
         /// </summary>
-        internal static string ErrorInActivatingEncryption {
+        public static string ErrorInActivatingEncryption {
             get {
                 return ResourceManager.GetString("ErrorInActivatingEncryption", resourceCulture);
             }
@@ -315,7 +315,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à An error occurred while loading settings. Please check your theme resources..
         /// </summary>
-        internal static string ErrorLoadingThemeResources {
+        public static string ErrorLoadingThemeResources {
             get {
                 return ResourceManager.GetString("ErrorLoadingThemeResources", resourceCulture);
             }
@@ -324,7 +324,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Error while disconnecting : .
         /// </summary>
-        internal static string ErrorWhileDisconnecting {
+        public static string ErrorWhileDisconnecting {
             get {
                 return ResourceManager.GetString("ErrorWhileDisconnecting", resourceCulture);
             }
@@ -333,7 +333,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Getting missing keys....
         /// </summary>
-        internal static string GettingMissingKeys {
+        public static string GettingMissingKeys {
             get {
                 return ResourceManager.GetString("GettingMissingKeys", resourceCulture);
             }
@@ -342,7 +342,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à has connected.
         /// </summary>
-        internal static string HasConnected {
+        public static string HasConnected {
             get {
                 return ResourceManager.GetString("HasConnected", resourceCulture);
             }
@@ -351,7 +351,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à has disconnected.
         /// </summary>
-        internal static string HasDisconnected {
+        public static string HasDisconnected {
             get {
                 return ResourceManager.GetString("HasDisconnected", resourceCulture);
             }
@@ -360,7 +360,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Invalid public key. Encryption was not enabled..
         /// </summary>
-        internal static string InvalidPublicKey {
+        public static string InvalidPublicKey {
             get {
                 return ResourceManager.GetString("InvalidPublicKey", resourceCulture);
             }
@@ -369,7 +369,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à The IP address is incorrect. Leave it blank to connect locally..
         /// </summary>
-        internal static string IPAddressInvalid {
+        public static string IPAddressInvalid {
             get {
                 return ResourceManager.GetString("IPAddressInvalid", resourceCulture);
             }
@@ -378,7 +378,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à  v1.0 - sept. 2025 - Laurent Barraud .
         /// </summary>
-        internal static string LicenceFinal {
+        public static string LicenceFinal {
             get {
                 return ResourceManager.GetString("LicenceFinal", resourceCulture);
             }
@@ -387,7 +387,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à This software is for education purposes only and is provided &quot;as is&quot;,\nwithout any kind of warranty..
         /// </summary>
-        internal static string LicenceInfo1 {
+        public static string LicenceInfo1 {
             get {
                 return ResourceManager.GetString("LicenceInfo1", resourceCulture);
             }
@@ -396,7 +396,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits, o\nbusiness interruption with the use of this software..
         /// </summary>
-        internal static string LicenceInfo2 {
+        public static string LicenceInfo2 {
             get {
                 return ResourceManager.GetString("LicenceInfo2", resourceCulture);
             }
@@ -405,7 +405,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Button images inspired by resources available on Flaticon.com..
         /// </summary>
-        internal static string LicenceInfoResources {
+        public static string LicenceInfoResources {
             get {
                 return ResourceManager.GetString("LicenceInfoResources", resourceCulture);
             }
@@ -414,7 +414,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à [Error : Your message failed to send.].
         /// </summary>
-        internal static string MessageSendingFailed {
+        public static string MessageSendingFailed {
             get {
                 return ResourceManager.GetString("MessageSendingFailed", resourceCulture);
             }
@@ -423,7 +423,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Port number is not valid..
         /// </summary>
-        internal static string PortNumberInvalid {
+        public static string PortNumberInvalid {
             get {
                 return ResourceManager.GetString("PortNumberInvalid", resourceCulture);
             }
@@ -432,7 +432,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Port number is valid..
         /// </summary>
-        internal static string PortNumberValid {
+        public static string PortNumberValid {
             get {
                 return ResourceManager.GetString("PortNumberValid", resourceCulture);
             }
@@ -441,7 +441,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à The public key was rejected by the server. Encryption was not enabled..
         /// </summary>
-        internal static string PublicKeyRejected {
+        public static string PublicKeyRejected {
             get {
                 return ResourceManager.GetString("PublicKeyRejected", resourceCulture);
             }
@@ -450,7 +450,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Reduce in system tray.
         /// </summary>
-        internal static string ReduceToTrayLabel {
+        public static string ReduceToTrayLabel {
             get {
                 return ResourceManager.GetString("ReduceToTrayLabel", resourceCulture);
             }
@@ -459,7 +459,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Scroll left.
         /// </summary>
-        internal static string ScrollLeft {
+        public static string ScrollLeft {
             get {
                 return ResourceManager.GetString("ScrollLeft", resourceCulture);
             }
@@ -468,7 +468,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Scroll right.
         /// </summary>
-        internal static string ScrollRight {
+        public static string ScrollRight {
             get {
                 return ResourceManager.GetString("ScrollRight", resourceCulture);
             }
@@ -477,7 +477,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Failed to send the public RSA key to the server. Please check your connection..
         /// </summary>
-        internal static string SendingClientsPublicRSAKeyToTheServerFailed {
+        public static string SendingClientsPublicRSAKeyToTheServerFailed {
             get {
                 return ResourceManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed", resourceCulture);
             }
@@ -486,7 +486,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Failed to send message..
         /// </summary>
-        internal static string SendingFailed {
+        public static string SendingFailed {
             get {
                 return ResourceManager.GetString("SendingFailed", resourceCulture);
             }
@@ -495,7 +495,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Sending public key....
         /// </summary>
-        internal static string SendingPublicKey {
+        public static string SendingPublicKey {
             get {
                 return ResourceManager.GetString("SendingPublicKey", resourceCulture);
             }
@@ -504,7 +504,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Server has closed. You will be disconnected shortly....
         /// </summary>
-        internal static string ServerHasClosed {
+        public static string ServerHasClosed {
             get {
                 return ResourceManager.GetString("ServerHasClosed", resourceCulture);
             }
@@ -513,16 +513,25 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à The server is unreachable or has refused the connection..
         /// </summary>
-        internal static string ServerUnreachable {
+        public static string ServerUnreachable {
             get {
                 return ResourceManager.GetString("ServerUnreachable", resourceCulture);
             }
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Settings.
+        /// </summary>
+        public static string Settings {
+            get {
+                return ResourceManager.GetString("Settings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Open.
         /// </summary>
-        internal static string TrayOpen {
+        public static string TrayOpen {
             get {
                 return ResourceManager.GetString("TrayOpen", resourceCulture);
             }
@@ -531,7 +540,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Quit.
         /// </summary>
-        internal static string TrayQuit {
+        public static string TrayQuit {
             get {
                 return ResourceManager.GetString("TrayQuit", resourceCulture);
             }
@@ -540,7 +549,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Use custom TCP port.
         /// </summary>
-        internal static string UseCustomPortLabel {
+        public static string UseCustomPortLabel {
             get {
                 return ResourceManager.GetString("UseCustomPortLabel", resourceCulture);
             }
@@ -549,7 +558,7 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Use encryption for messages.
         /// </summary>
-        internal static string UseEncryptionLabel {
+        public static string UseEncryptionLabel {
             get {
                 return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
             }

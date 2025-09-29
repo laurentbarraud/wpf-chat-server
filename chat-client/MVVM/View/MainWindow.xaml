@@ -248,7 +248,7 @@
                               Background="Transparent"
                               BorderThickness="0"
                               VerticalAlignment="Center"
-                              ToolTip="Settings" TabIndex="7" Click="CmdSettings_Click">
+                              TabIndex="7" Click="CmdSettings_Click">
                         <Image x:Name="imgSettings" 
                                Source="/Resources/settings.png"
                                Stretch="Uniform"

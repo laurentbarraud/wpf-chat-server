@@ -11,16 +11,10 @@
         <!-- Background gradient: bright white to desaturated blue to near-black -->
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <!-- Top-left: bright white -->
-                <GradientStop Color="#FFFFFF" Offset="0"/>
-                
-                <!-- Desaturated light blues -->
-                <GradientStop Color="#D3E4E4" Offset="0.2"/>
-                <GradientStop Color="#6594A3" Offset="0.3"/>
-                <GradientStop Color="#37525B" Offset="0.5"/>
-                
-                <!-- Bottom-right: black -->
-                <GradientStop Color="#000000" Offset="1"/>
+                <!-- Very pale sky blue at top-left -->
+                <GradientStop Color="#F5F7FA" Offset="0.0"/>
+                <!-- Deep, almost-navy blue at bottom-right -->
+                <GradientStop Color="#000A25" Offset="1.1"/>
             </LinearGradientBrush>
         </Grid.Background>
 
@@ -65,7 +59,7 @@
         <!-- Bottom panel -->
         <DockPanel VerticalAlignment="Bottom"
            Height="50"
-           Background="#000000"
+           Background="#000A25"
            LastChildFill="False">
 
             <!-- Horizontal container for CLI link, spacer, licence text, and OK button -->

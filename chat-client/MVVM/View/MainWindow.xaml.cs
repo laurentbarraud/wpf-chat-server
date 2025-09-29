@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 28th, 2025</date>
+/// <date>September 29th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -147,13 +147,14 @@ namespace chat_client
                 LocalizationManager.UpdateLocalizedUI();
             }
 
+            CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
+
             // Synchronizes theme toggle with saved preference
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme?.ToLower() == "dark";
 
             // Applies watermark visuals on startup
             ApplyWatermarkImages();
 
-            // Sets focus to the username input field
             TxtUsername.Focus();
 
             IsInitializing = false;

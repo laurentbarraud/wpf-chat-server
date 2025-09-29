@@ -1,38 +1,43 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 28th, 2025</date>
+/// <date>September 29th, 2025</date>
 
+using System;
+using System;
 using System.Resources;
 using System.Globalization;
+using System.Reflection;
 using System.Diagnostics;
+using System.Threading;
 using System.Windows;
-using chat_client.Resources;
 using chat_client.MVVM.View;
 
 namespace chat_client.Helpers
 {
     /// <summary>
     /// Provides centralized localization support for the application.
-    /// Loads resource strings based on the selected language and updates UI elements accordingly.
+    /// Loads resource strings from embedded .resx files based on the current culture,
+    /// and applies them to UI elements across open windows.
     /// </summary>
     public static class LocalizationManager
     {
         /// <summary>
-        /// Holds the ResourceManager for retrieving localized strings.
+        /// Manages lookup of localized strings from the embedded Strings.resx resources.
         /// </summary>
         public static ResourceManager ResourceManager { get; private set; }
 
         /// <summary>
-        /// Holds the current CultureInfo used for string lookups.
+        /// The CultureInfo used for all string lookups.
         /// </summary>
         public static CultureInfo CurrentCulture { get; private set; }
 
         static LocalizationManager()
         {
-            // Initializes ResourceManager from the auto-generated Strings class
-            ResourceManager = Strings.ResourceManager;
-            // Sets the default culture to the current UI culture
+            // Point to the base-name of your Strings.resx in this assembly
+            ResourceManager = new ResourceManager("chat_client.Resources.Strings",
+                                                  Assembly.GetExecutingAssembly());
+            // Default to the system UI culture at startup
             CurrentCulture = CultureInfo.CurrentUICulture;
         }
 
@@ -40,77 +45,70 @@ namespace chat_client.Helpers
         /// Retrieves and formats a localized string by replacing escaped newline and tab markers.
         /// </summary>
         /// <param name="key">The resource key to look up.</param>
-        /// <returns>The formatted localized string or a fallback marker if not found.</returns>
+        /// <returns>
+        /// The formatted localized string, or a fallback marker [[key]] if missing.
+        /// </returns>
         public static string GetFormattedString(string key)
         {
-            string raw = GetString(key);
-            return raw.Replace("\\n", "\n")
-                      .Replace("\\t", "\t");
+            var raw = GetString(key);
+            return raw
+                .Replace("\\n", "\n")
+                .Replace("\\t", "\t");
         }
 
         /// <summary>
         /// Retrieves a localized string from the resource file using the specified key.
-        /// Returns a fallback marker if the key is missing or the lookup fails.
+        /// Returns [[key]] if the key is missing or if any error occurs.
         /// </summary>
         /// <param name="key">The resource key to look up.</param>
-        /// <returns>The localized string or a fallback marker if not found.</returns>
+        /// <returns>The localized string or a fallback marker.</returns>
         public static string GetString(string key)
         {
-            // Validates that key is not null or whitespace
             if (string.IsNullOrWhiteSpace(key))
                 return string.Empty;
 
-            // Returns fallback marker if ResourceManager or CurrentCulture is uninitialized
             if (ResourceManager == null || CurrentCulture == null)
                 return $"[[{key}]]";
 
             try
             {
-                // Attempts to retrieve the localized value
-                string value = ResourceManager.GetString(key, CurrentCulture) ?? string.Empty;
-
-                // Returns fallback marker if retrieved value is null or whitespace
-                if (string.IsNullOrWhiteSpace(value))
-                    return $"[[{key}]]";
-
-                return value;
+                var value = ResourceManager.GetString(key, CurrentCulture);
+                return string.IsNullOrWhiteSpace(value)
+                     ? $"[[{key}]]"
+                     : value;
             }
-            catch (MissingManifestResourceException ex)
+            catch (MissingManifestResourceException mex)
             {
-                // Logs missing resource exceptions for troubleshooting
-                Debug.WriteLine($"Localization error: missing resource for key '{key}' — {ex.Message}");
+                Debug.WriteLine($"Localization error: missing resource for key '{key}' — {mex.Message}");
                 return $"[[{key}]]";
             }
             catch (Exception ex)
             {
-                // Logs unexpected exceptions without interrupting application flow
                 Debug.WriteLine($"Unexpected localization error for key '{key}' — {ex.Message}");
                 return $"[[{key}]]";
             }
         }
 
         /// <summary>
-        /// Initializes the localization system with the specified language code.
+        /// Initializes the localization system to use the specified culture code (e.g., "en", "fr").
+        /// Updates CurrentCulture, reloads the ResourceManager, and refreshes all open windows.
         /// </summary>
-        /// <param name="languageCode">The culture code to set (e.g., "en" or "fr").</param>
+        /// <param name="languageCode">The culture code to apply.</param>
         public static void Initialize(string languageCode)
         {
-            // Sets CurrentCulture to the new language code
             CurrentCulture = new CultureInfo(languageCode);
-
-            // Updates thread UI culture settings
             Thread.CurrentThread.CurrentUICulture = CurrentCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CurrentCulture;
 
-            // Re-initializes ResourceManager to account for culture change
-            ResourceManager = Strings.ResourceManager;
+            // Reset ResourceManager in case satellite assemblies are now loaded
+            ResourceManager = new ResourceManager("chat_client.Resources.Strings",
+                                                  Assembly.GetExecutingAssembly());
 
-            // Applies localized strings to all open windows
             UpdateLocalizedUI();
         }
 
         /// <summary>
-        /// Updates UI elements across all open windows to reflect the current culture.
+        /// Applies the current culture’s localized strings to all open SettingsWindow and MainWindow instances.
         /// </summary>
         public static void UpdateLocalizedUI()
         {
@@ -135,7 +133,6 @@ namespace chat_client.Helpers
 
                     mainWindow.Title = $"WPF chat client - {GetString("Connected")}";
 
-                    // Guard against null before updating tray menu
                     if (mainWindow.TrayMenuOpen != null)
                         mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
 
