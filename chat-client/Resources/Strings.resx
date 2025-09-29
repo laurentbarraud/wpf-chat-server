@@ -250,8 +250,7 @@
   --reduceInTray, -r  Minimizes to tray on startup
   --help, -h, -?      Displays this help message
 
-All command-line arguments support both Windows-style notation 
-(/debug) and Unix-style notation (--debug or -d).
+All command-line arguments support both Windows-style notation (/debug) and Unix-style notation (--debug or -d).
 
 Example:
   chat-client.exe --dark /e /r /u Laurent

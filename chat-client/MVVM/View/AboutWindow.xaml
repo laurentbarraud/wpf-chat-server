@@ -8,15 +8,18 @@
         Background="Transparent" WindowStartupLocation="CenterScreen" Loaded="Window_Loaded">
 
     <Grid>
-        <!-- Background gradient: bright white to desaturated blue to near-black -->
+        <!-- Grid background: a smooth diagonal slash-gradient
+        from left (#F8F7FB) to right (#000C23) -->
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <!-- Very pale sky blue at top-left -->
-                <GradientStop Color="#F5F7FA" Offset="0.0"/>
-                <!-- Deep, almost-navy blue at bottom-right -->
-                <GradientStop Color="#000A25" Offset="1.1"/>
+                <!-- Far left: almost-white -->
+                <GradientStop Color="#F4F5FF" Offset="0.1"/>
+                <!-- Far right: deep navy -->
+                <GradientStop Color="#040F25" Offset="0.5"/>
+                <GradientStop Color="Black" Offset="1.0"/>
             </LinearGradientBrush>
         </Grid.Background>
+
 
         <!-- Top content area -->
         <Grid Margin="0,0,0,60">
@@ -34,23 +37,23 @@
                    FontSize="34"                
                    FontWeight="Normal"
                    Foreground="Black"
-                   Margin="20,30,0,0"
+                   Margin="24,20,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"/>
 
             <!-- Licence info block -->
             <TextBlock x:Name="LicenceInfo1Text"
                        FontSize="12"
-                       Foreground="Black"
-                       Margin="20,80,0,0"
+                       Foreground="WhiteSmoke"
+                       Margin="80,80,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap"/>
 
             <TextBlock x:Name="LicenceInfo2Text"
                        FontSize="12"
-                       Foreground="Black"
-                       Margin="20,130,0,0"
+                       Foreground="WhiteSmoke"
+                       Margin="80,110,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap"/>
@@ -58,8 +61,8 @@
 
         <!-- Bottom panel -->
         <DockPanel VerticalAlignment="Bottom"
-           Height="50"
-           Background="#000A25"
+           Height="42"
+           Background="Black"
            LastChildFill="False">
 
             <!-- Horizontal container for CLI link, spacer, licence text, and OK button -->

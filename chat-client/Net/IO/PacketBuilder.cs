@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 29th, 2025</date>
+/// <date>September 30th, 2025</date>
 
 using chat_client.Net;
 using System;

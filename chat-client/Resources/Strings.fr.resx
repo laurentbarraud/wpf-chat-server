@@ -250,8 +250,7 @@
   --reduceInTray, -r  Réduit dans la barre d’état au démarrage
   --help, -h, -?      Affiche ce message d’aide
 
-Tous les arguments de la ligne de commande prennent en charge la notation de style Windows 
-(/debug) et la notation de style Unix (--debug ou -d).
+Tous les arguments de la ligne de commande prennent en charge la notation de style Windows (/debug) et la notation de style Unix (--debug ou -d).
 
 Exemple :
   chat-client.exe --dark /e /r /u Laurent

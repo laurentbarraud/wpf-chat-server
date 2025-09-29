@@ -1,17 +1,19 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 29th, 2025</date>
+/// <date>September 30th, 2025</date>
 
-using chat_client.Helpers;
-using chat_client.MVVM.ViewModel;
-using chat_client.View;
-using Hardcodet.Wpf.TaskbarNotification;
 using System;
-using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using System.ComponentModel;                 // For PropertyChangedEventArgs
+using System.Windows;
+using Hardcodet.Wpf.TaskbarNotification;     // For TaskbarIcon
+using chat_client.MVVM.ViewModel;            // For SettingsViewModel
+using chat_client.Helpers;                   // For EncryptionHelper, ClientLogger
+using chat_client.View;                      // For AboutWindow
+
 
 namespace chat_client.MVVM.View
 {
@@ -25,11 +27,43 @@ namespace chat_client.MVVM.View
     {
         public MainViewModel? ViewModel { get; set; }
 
-        private bool IsInitializing = true;
+        // Holds the SettingsViewModel instance for data binding
+        private readonly SettingsViewModel _settingsViewModel;
 
         public SettingsWindow()
         {
             InitializeComponent();
+
+            // Instantiates SettingsViewModel
+            _settingsViewModel = new SettingsViewModel();
+
+            // Assigns SettingsViewModel as DataContext
+            DataContext = _settingsViewModel;
+
+            // Subscribes to view-model property changes
+            _settingsViewModel.PropertyChanged += SettingsViewModel_PropertyChanged;
+        }
+
+        // Handles ReduceToTray property change to update tray icon
+        private void SettingsViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(SettingsViewModel.CustomPortNumber):
+                    ValidatePortInput();                                       // Validates port and updates image
+                    break;
+
+                case nameof(SettingsViewModel.UseCustomPort):
+                    ImgPortStatus.Visibility =                                 // Shows/hides status icon
+                        _settingsViewModel.UseCustomPort
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                    break;
+
+                case nameof(SettingsViewModel.ReduceToTray):
+                    HandleTrayIcon();                                          // Manages tray icon visibility
+                    break;
+            }
         }
 
         /// <summary>
@@ -62,13 +96,8 @@ namespace chat_client.MVVM.View
                 }
 
                 // Synchronizes toggle states and port field with saved settings
-                UseCustomPortToggle.IsChecked = Properties.Settings.Default.UseCustomPort;
                 TxtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
-                ReduceToTrayToggle.IsChecked = Properties.Settings.Default.ReduceToTray;
                 UseEncryptionToggle.IsChecked = chat_client.Properties.Settings.Default.UseEncryption;
-
-                // Initialization complete — toggle events may now fire
-                IsInitializing = false;
             }
             catch (Exception ex)
             {
@@ -96,6 +125,25 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
+        /// Initializes or hides the tray icon based on ReduceToTray.
+        /// </summary>
+        private void HandleTrayIcon()
+        {
+            var main = Application.Current.MainWindow as MainWindow;
+            if (main?.TryFindResource("TrayIcon") is not TaskbarIcon icon)
+                return;
+
+            if (_settingsViewModel.ReduceToTray)
+            {
+                main.EnsureTrayIconReady();                                // Creates tray icon once
+            }
+            else
+            {
+                icon.Visibility = Visibility.Collapsed;                    // Hides tray icon
+            }
+        }
+
+        /// <summary>
         /// Handles language selection change from the ComboBox.
         /// Updates the application language only if the selected language is different,
         /// then reinitializes localization and refreshes UI texts.
@@ -116,48 +164,6 @@ namespace chat_client.MVVM.View
 
                     // Reinitialize localization manager with the new language
                     LocalizationManager.Initialize(languageCodeSelected);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Triggered when the "Reduce to Tray" toggle is checked.
-        /// Updates the application setting and ensures the tray icon is initialized only if not already visible.
-        /// Prevents redundant initialization and visual flickering.
-        /// </summary>
-        private void ReduceToTrayToggle_Checked(object sender, RoutedEventArgs e)
-        {
-            chat_client.Properties.Settings.Default.ReduceToTray = true;
-            chat_client.Properties.Settings.Default.Save();
-
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                var trayIcon = mainWindow.TryFindResource("TrayIcon") as TaskbarIcon;
-
-                // Only initialize if tray icon is not already visible
-                if (trayIcon != null)
-                {
-                    mainWindow.EnsureTrayIconReady();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Triggered when the "Reduce to Tray" toggle is unchecked.
-        /// Updates the application setting and hides the tray icon if active.
-        /// Disables tray-based minimization behavior until re-enabled.
-        /// </summary>
-        private void ReduceToTrayToggle_Unchecked(object sender, RoutedEventArgs e)
-        {
-            chat_client.Properties.Settings.Default.ReduceToTray = false;
-            chat_client.Properties.Settings.Default.Save();
-
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                var trayIcon = mainWindow.TryFindResource("TrayIcon") as TaskbarIcon;
-                if (trayIcon != null)
-                {
-                    trayIcon.Visibility = Visibility.Collapsed;
                 }
             }
         }
@@ -190,31 +196,6 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
-        /// Enables the custom port input field and persists the setting when the toggle is checked.
-        /// </summary>
-        /// <param name="sender">The toggle button that was checked.</param>
-        /// <param name="e">Event data for the toggle event.</param>
-        private void UseCustomPortToggle_Checked(object sender, RoutedEventArgs e)
-        {
-            TxtCustomPort.IsEnabled = true;
-            Properties.Settings.Default.UseCustomPort = true;
-            Properties.Settings.Default.Save();
-        }
-
-        /// <summary>
-        /// Disables the custom port input field, hides the status indicator, and persists the setting when the toggle is unchecked.
-        /// </summary>
-        /// <param name="sender">The toggle button that was unchecked.</param>
-        /// <param name="e">Event data for the toggle event.</param>
-        private void UseCustomPortToggle_Unchecked(object sender, RoutedEventArgs e)
-        {
-            TxtCustomPort.IsEnabled = false;
-            ImgPortStatus.Visibility = Visibility.Collapsed;
-            Properties.Settings.Default.UseCustomPort = false;
-            Properties.Settings.Default.Save();
-        }
-
-        /// <summary>
         /// Handles the Checked event of the encryption toggle.  
         /// Enables the encryption flag in user settings and persists it.  
         /// Validates that the client is connected and LocalUser is initialized.  
@@ -225,114 +206,79 @@ namespace chat_client.MVVM.View
         /// </summary>
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            if (IsInitializing)
-            {
-                return;
-            }
-
-            // Enables the encryption flag and persists it
+            // Updates setting and persists
             Properties.Settings.Default.UseEncryption = true;
             Properties.Settings.Default.Save();
 
-            // Validates that the client is connected and LocalUser is initialized
-            var mainWindow = Application.Current.MainWindow as MainWindow;
-            var viewModel = mainWindow?.ViewModel;
-            if (viewModel?.LocalUser == null || !viewModel.IsConnected)
+            var main = Application.Current.MainWindow as MainWindow;
+            var settingsViewModel = main?.ViewModel;
+            if (settingsViewModel?.LocalUser == null || !settingsViewModel.IsConnected)
             {
-                ClientLogger.ClientLog("Cannot enable encryption – client not connected or LocalUser missing.", ClientLogLevel.Warn);
-                RollbackEncryptionToggle();
+                ClientLogger.ClientLog("Cannot enable encryption – prerequisites missing.", ClientLogLevel.Warn);
+                UseEncryptionToggle.IsChecked = false;
                 return;
             }
 
-            // Clears stale key material to guarantee a clean start
-            viewModel.KnownPublicKeys.Clear();
-            viewModel.LocalUser.PublicKeyBase64 = string.Empty;
-            viewModel.LocalUser.PrivateKeyBase64 = string.Empty;
+            // Clears old key state before reinitialization
+            settingsViewModel.KnownPublicKeys.Clear();
+            settingsViewModel.LocalUser.PublicKeyBase64 = string.Empty;
+            settingsViewModel.LocalUser.PrivateKeyBase64 = string.Empty;
             EncryptionHelper.ClearPrivateKey();
-            ClientLogger.ClientLog(
-                "Clears old key state before re-initialization.", ClientLogLevel.Debug);
 
-            // Executes full encryption setup and captures the result
-            bool isEncryptionReady = viewModel.InitializeEncryption();
-            if (!isEncryptionReady)
+            // Executes full encryption setup
+            if (!settingsViewModel.InitializeEncryption())
             {
-                // Rolls back the toggle and settings on failure
-                ClientLogger.ClientLog("InitializeEncryption() failed – rolling back encryption toggle.", ClientLogLevel.Error);
-                RollbackEncryptionToggle();
-                return;
+                ClientLogger.ClientLog("Encryption init failed – rolling back.", ClientLogLevel.Error);
+                UseEncryptionToggle.IsChecked = false;
             }
-
-            // Logs the successful initialization and awaits UI update
-            ClientLogger.ClientLog("Encryption fully initialized on toggle ON; awaiting green lock icon.", ClientLogLevel.Info);
+            else
+            {
+                ClientLogger.ClientLog("Encryption initialized successfully.", ClientLogLevel.Info);
+            }
         }
 
         /// <summary>
         /// Handles the Unchecked event of the encryption toggle.
-        /// 1. Disables the encryption flag and persists it to user settings.  
-        /// 2. Clears all local and peer key material to reset encryption.  
-        /// 3. Invokes ViewModel.EvaluateEncryptionState() to update readiness.  
-        /// 4. Logs the outcome; MainWindow’s PropertyChanged subscription will update the lock icon accordingly.  
+        /// Disables the encryption flag and persists it to user settings.  
+        /// Clears all local and peer key material to reset encryption.  
+        /// Invokes ViewModel.EvaluateEncryptionState() to update readiness.  
+        /// Logs the outcome; MainWindow’s PropertyChanged subscription will update the lock icon accordingly.  
         /// </summary>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            if (IsInitializing)
-            {
-                return;
-            }
-
-            // 1. Disables the encryption flag in settings and persists it
+            // Disables the encryption flag in settings and persists it
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // 2. Retrieves the MainViewModel and verifies LocalUser initialization
-            var mainWindow = Application.Current.MainWindow as MainWindow;
-            
-            if (mainWindow == null)
-            {
-                return;
-            }
-            
-            var viewModel = mainWindow.ViewModel;
-            
-            if (viewModel?.LocalUser == null)
-            {
-                return;
-            }
+            // Retrieves the MainViewModel and verifies LocalUser initialization
+            var _mainWindow = Application.Current.MainWindow as MainWindow;
 
-            var localUser = viewModel.LocalUser;
+            var _SettingsViewModel = _mainWindow?.ViewModel;
+            if (_SettingsViewModel?.LocalUser == null) return;
 
-            // 3. Clears all local and peer key material to reset encryption
             EncryptionHelper.ClearPrivateKey();
-            localUser.PublicKeyBase64 = string.Empty;
-            localUser.PrivateKeyBase64 = string.Empty;
-            viewModel.KnownPublicKeys.Clear();
+            _SettingsViewModel.LocalUser.PublicKeyBase64 = string.Empty;
+            _SettingsViewModel.LocalUser.PrivateKeyBase64 = string.Empty;
+            _SettingsViewModel.KnownPublicKeys.Clear();
+            _SettingsViewModel.EvaluateEncryptionState();
 
-            // 4. Invokes ViewModel.EvaluateEncryptionState() to update readiness
-            viewModel.EvaluateEncryptionState();
-            ClientLogger.ClientLog("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
+            ClientLogger.ClientLog("Encryption disabled and keys cleared.", ClientLogLevel.Info);
         }
         private void ValidatePortInput()
         {
-            int portChosen;
-            Int32.TryParse(TxtCustomPort.Text, out portChosen);
+            if (!int.TryParse(TxtCustomPort.Text, out int port)) return;
 
-            string imagePath;
-            string tooltip;
+            bool isValid = MainViewModel.TrySavePort(port);
+            var uri = isValid
+                      ? new Uri("/Resources/greendot.png", UriKind.Relative)
+                      : new Uri("/Resources/reddot.png", UriKind.Relative);
 
-            if (MainViewModel.TrySavePort(portChosen))
-            {
-                imagePath = "/Resources/greendot.png";
-                tooltip = LocalizationManager.GetString("PortNumberValid");
-            }
-            else
-            {
-                imagePath = "/Resources/reddot.png";
-                tooltip = LocalizationManager.GetString("PortNumberInvalid") + "\n" + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
-            }
-
-            ImgPortStatus.Source = new BitmapImage(new Uri(imagePath, UriKind.Relative));
-            ImgPortStatus.ToolTip = tooltip;
-            ImgPortStatus.Visibility = Visibility.Visible;
+            ImgPortStatus.Source = new BitmapImage(uri);
+            ImgPortStatus.ToolTip = isValid
+                ? LocalizationManager.GetString("PortNumberValid")
+                : LocalizationManager.GetString("PortNumberInvalid")
+                  + "\n"
+                  + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
         }
     }
 }

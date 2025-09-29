@@ -272,6 +272,9 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+    
+        <!-- Converts bool to Visibility (true → Visible, false → Collapsed) -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
     </Window.Resources>
 
@@ -285,65 +288,53 @@
             <!-- About label -->
         </Grid.RowDefinitions>
 
-        <!-- Options -->
+        <!-- Options 
+        All controls are binded to the SettingsViewModel. 
+        Only the toggle UseEncryption keeps its checked/unchecked 
+        (this pipeline is too complex for a pure binding).
+        -->
         <StackPanel Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Top">
 
             <!-- Row 1: Custom TCP Port -->
-            <!-- 
-            Aligns label, toggle, textbox, and status icon using a 4-column grid.
-            Ensures consistent spacing and visual alignment with other rows.
-            -->
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <!-- Label -->
                     <ColumnDefinition Width="Auto"/>
-                    <!-- Toggle -->
                     <ColumnDefinition Width="Auto"/>
-                    <!-- TextBox -->
                     <ColumnDefinition Width="Auto"/>
-                    <!-- Status Icon -->
                 </Grid.ColumnDefinitions>
 
-                <!-- Label for custom TCP port -->
                 <Label x:Name="UseCustomPortLabel"
-                       Grid.Column="0"
-                       Content="Use custom TCP port"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}"
-                       Margin="0,0,10,0"
-                       TabIndex="4" />
+           Grid.Column="0"
+           Content="Use custom TCP port"
+           VerticalAlignment="Center"
+           Foreground="{DynamicResource ForegroundBrush}"
+           Margin="0,0,10,0"
+           TabIndex="4" />
 
-                <!-- Toggle for enabling custom TCP port -->
                 <ToggleButton x:Name="UseCustomPortToggle"
-                              Grid.Column="1"
-                              Style="{StaticResource CustomPortToggleStyle}"
-                              IsChecked="{Binding UseCustomPort, Mode=TwoWay}"
-                              Width="60" Height="30"
-                              Margin="0,0,10,0"
-                              Checked="UseCustomPortToggle_Checked"
-                              Unchecked="UseCustomPortToggle_Unchecked"
-                              TabIndex="0" />
+                  Grid.Column="1"
+                  Style="{StaticResource CustomPortToggleStyle}"
+                  IsChecked="{Binding UseCustomPort, Mode=TwoWay}"
+                  Width="60" Height="30"
+                  Margin="0,0,10,0"
+                  TabIndex="0" />
 
-                <!-- Port input field -->
                 <TextBox x:Name="TxtCustomPort"
-                         Grid.Column="2"
-                         Width="80" Height="20"
-                         Margin="0,0,10,0"
-                         HorizontalContentAlignment="Center"
-                         TextChanged="TxtCustomPort_TextChanged"
-                         ToolTip="Enter a port between 1000 and 65535"
-                         IsEnabled="False"
-                         TabIndex="1" />
+             Grid.Column="2"
+             Width="80" Height="20"
+             Margin="0,0,10,0"
+             HorizontalContentAlignment="Center"
+             Text="{Binding CustomPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+             ToolTip="Enter a port between 1000 and 65535"
+             IsEnabled="{Binding UseCustomPort}"
+             TabIndex="1" />
 
-                <!-- Port status icon -->
                 <Image x:Name="ImgPortStatus"
-                       Grid.Column="3"
-                       Width="18" Height="18"
-                       Margin="0,0,0,0"
-                       VerticalAlignment="Center"
-                       HorizontalAlignment="Left"
-                       Visibility="Collapsed" />
+           Grid.Column="3"
+           Width="18" Height="18"
+           VerticalAlignment="Center"
+           Visibility="{Binding UseCustomPort, Converter={StaticResource BoolToVis}}"/>
             </Grid>
 
             <!-- Row 2: Reduce to Tray -->
@@ -353,19 +344,20 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Label x:Name="ReduceToTrayLabel" Grid.Column="0" Content="Reduce in system tray"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="5" />
+                <Label x:Name="ReduceToTrayLabel"
+           Grid.Column="0"
+           Content="Reduce in system tray"
+           VerticalAlignment="Center"
+           Foreground="{DynamicResource ForegroundBrush}"
+           TabIndex="5" />
 
-                <!-- Toggle for minimizing app to system tray -->
-                <ToggleButton Grid.Column="1"
-                              x:Name="ReduceToTrayToggle"
-                              Style="{StaticResource ReduceTrayToggleStyle}"
-                              Width="60" Height="30"
-                              Margin="10,0,0,0"
-                              Checked="ReduceToTrayToggle_Checked"
-                              Unchecked="ReduceToTrayToggle_Unchecked"
-                              TabIndex="2" />
+                <ToggleButton x:Name="ReduceToTrayToggle"
+                  Grid.Column="1"
+                  Style="{StaticResource ReduceTrayToggleStyle}"
+                  IsChecked="{Binding ReduceToTray, Mode=TwoWay}"
+                  Width="60" Height="30"
+                  Margin="10,0,0,0"
+                  TabIndex="2" />
             </Grid>
 
             <!-- Row 3: Use Encryption -->
@@ -375,20 +367,23 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Label x:Name="UseEncryptionLabel" Grid.Column="0" Content="Use encryption for messages"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="6" />
+                <Label x:Name="UseEncryptionLabel"
+           Grid.Column="0"
+           Content="Use encryption for messages"
+           VerticalAlignment="Center"
+           Foreground="{DynamicResource ForegroundBrush}"
+           TabIndex="6" />
 
-                <!-- Toggle for enabling message encryption -->
-                <ToggleButton Grid.Column="1"
-                              x:Name="UseEncryptionToggle"
-                              Style="{StaticResource EncryptionToggleStyle}"
-                              Width="60" Height="30"
-                              Margin="10,0,0,0"
-                              Checked="UseEncryptionToggle_Checked"
-                              Unchecked="UseEncryptionToggle_Unchecked"
-                              TabIndex="7"
-                              IsEnabled="True" />
+                <ToggleButton x:Name="UseEncryptionToggle"
+                  Grid.Column="1"
+                  Style="{StaticResource EncryptionToggleStyle}"
+                  IsChecked="{Binding UseEncryption, Mode=TwoWay}"
+                  Width="60" Height="30"
+                  Margin="10,0,0,0"
+                  Checked="UseEncryptionToggle_Checked"
+                  Unchecked="UseEncryptionToggle_Unchecked"
+                  TabIndex="7"
+                  IsEnabled="True" />
             </Grid>
 
             <!-- Row 4: App Language -->
@@ -398,18 +393,20 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Label x:Name="AppLanguageLabel" Grid.Column="0" Content="App language"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="8" />
+                <Label x:Name="AppLanguageLabel"
+           Grid.Column="0"
+           Content="App language"
+           VerticalAlignment="Center"
+           Foreground="{DynamicResource ForegroundBrush}"
+           TabIndex="8" />
 
                 <ComboBox x:Name="LanguageComboBox"
-                          Grid.Column="1"
-                          Width="124"
-                          Margin="20,0,0,0"
-                          SelectionChanged="LanguageComboBox_SelectionChanged"
-                          TabIndex="9"
-                          Cursor="" >
-
+              Grid.Column="1"
+              Width="124"
+              Margin="20,0,0,0"
+              SelectedValuePath="Tag"
+              SelectedValue="{Binding AppLanguage, Mode=TwoWay}"
+              TabIndex="9">
                     <ComboBoxItem Tag="en">
                         <StackPanel Orientation="Horizontal">
                             <Image Source="/resources/English-flag.png" Width="20" Height="15" Margin="0,0,5,0"/>
