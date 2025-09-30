@@ -239,31 +239,44 @@ namespace chat_client.MVVM.View
 
         /// <summary>
         /// Handles the Unchecked event of the encryption toggle.
-        /// Disables the encryption flag and persists it to user settings.  
-        /// Clears all local and peer key material to reset encryption.  
-        /// Invokes ViewModel.EvaluateEncryptionState() to update readiness.  
-        /// Logs the outcome; MainWindow’s PropertyChanged subscription will update the lock icon accordingly.  
+        /// Resets the encryption pipeline by disabling encryption in settings,
+        /// clearing all key material, re-evaluating readiness, and hiding the lock icon.
+        /// This method showcases a clear, maintainable approach for disabling encryption.
         /// </summary>
+        /// <param name="sender">ToggleButton that raised the event.</param>
+        /// <param name="e">Event data for the toggle action.</param>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            // Disables the encryption flag in settings and persists it
+            // Disable encryption in application settings and persist the change
             Properties.Settings.Default.UseEncryption = false;
             Properties.Settings.Default.Save();
 
-            // Retrieves the MainViewModel and verifies LocalUser initialization
-            var _mainWindow = Application.Current.MainWindow as MainWindow;
+            // Retrieve MainViewModel from the main application window
+            if (Application.Current.MainWindow is not MainWindow mainWindow
+                || mainWindow.ViewModel?.LocalUser == null)
+            {
+                return;
+            }
 
-            var _SettingsViewModel = _mainWindow?.ViewModel;
-            if (_SettingsViewModel?.LocalUser == null) return;
+            var viewModel = mainWindow.ViewModel;
 
+            // Clear local RSA key material from memory
             EncryptionHelper.ClearPrivateKey();
-            _SettingsViewModel.LocalUser.PublicKeyBase64 = string.Empty;
-            _SettingsViewModel.LocalUser.PrivateKeyBase64 = string.Empty;
-            _SettingsViewModel.KnownPublicKeys.Clear();
-            _SettingsViewModel.EvaluateEncryptionState();
+            viewModel.LocalUser.PublicKeyBase64 = string.Empty;
+            viewModel.LocalUser.PrivateKeyBase64 = string.Empty;
 
-            ClientLogger.ClientLog("Encryption disabled and keys cleared.", ClientLogLevel.Info);
+            // Clear all known peer public keys
+            viewModel.KnownPublicKeys.Clear();
+
+            // Re-evaluate encryption readiness (will be false)
+            viewModel.EvaluateEncryptionState();
+            ClientLogger.ClientLog("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
+
+            // Hide the encryption lock icon to reflect disabled encryption
+            Application.Current.Dispatcher.Invoke(() =>
+                mainWindow.UpdateEncryptionStatusIcon(false));
         }
+
         private void ValidatePortInput()
         {
             if (!int.TryParse(TxtCustomPort.Text, out int port)) return;

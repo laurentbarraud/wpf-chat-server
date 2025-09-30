@@ -9,6 +9,7 @@ using chat_client.MVVM.ViewModel;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -16,6 +17,7 @@ using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+
 
 namespace chat_client
 {
@@ -57,6 +59,7 @@ namespace chat_client
         /// </summary>
         private TaskbarIcon trayIcon;
 
+
         /// <summary>
         /// Stores the timestamp of the last Ctrl key press.
         /// Used for detecting double-press or timing-based shortcuts.
@@ -76,57 +79,70 @@ namespace chat_client
         private bool IsInitializing = true;
 
         /// <summary>
-        /// Initializes the main window and sets up all UI bindings, event handlers, and initial state for the encrypted chat client.
-        /// Loads XAML-defined components and resources.
-        /// Instantiates the MainViewModel and assigns it to DataContext.
-        /// Registers collection and property-changed handlers for auto-scroll and dynamic UI updates (connect button text and lock icon).
-        /// Applies the initial connect button text and encryption lock icon based on ViewModel state.
-        /// Configures and starts the dispatcher timer for emoji panel auto-scrolling.
+        /// Initializes the main window for the encrypted chat client:
+        ///   • Loads XAML components and resources.
+        ///   • Instantiates and binds the MainViewModel.
+        ///   • Wires up chat auto‐scroll and dynamic UI updates (connect button & lock icon).
+        ///   • Applies initial UI state based on ViewModel properties.
+        ///   • Attaches the emoji panel placement callback.
+        ///   • Configures the emoji panel scroll timer.
+        ///   • Retrieves XAML‐named tray icon and menu items.
         /// </summary>
         public MainWindow()
         {
-            // Loads all XAML elements, styles, and resources
+            // Load all XAML‐defined elements, styles, and resources
             InitializeComponent();
 
-            // Instantiates the view model and binds it to the window
+            // Instantiate and bind the view model
             ViewModel = new MainViewModel();
             DataContext = ViewModel;
 
-            // Attempts to bind the custom placement callback for the emoji popup
-            AttachEmojiPanelCallback();
-
-            // Registers handler to auto-scroll chat when new messages arrive
+            // Auto‐scroll chat when new messages arrive
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            // Subscribes to property changes to keep connect button and lock icon in sync with ViewModel
-            ViewModel.PropertyChanged += (sender, e) =>
-            {
-                // Updates the connect/disconnect button label on connection state changes
-                if (e.PropertyName == nameof(ViewModel.IsConnected))
-                {
-                    UpdateConnectButtonText();
-                }
-                // Updates the encryption lock icon and tooltip when readiness or syncing flags change
-                else if (e.PropertyName == nameof(ViewModel.IsEncryptionReady) ||
-                         e.PropertyName == nameof(ViewModel.IsEncryptionSyncing))
-                {
-                    UpdateEncryptionStatusIcon(
-                        ViewModel.IsEncryptionReady,
-                        ViewModel.IsEncryptionSyncing);
-                }
-            };
+            // Dynamic UI updates: connect button text & encryption icon
+            ViewModel.PropertyChanged += ViewModel_PropertyChanged;
 
-            // Applies the initial UI state immediately after construction
+            // Apply initial button text and lock icon state
             UpdateConnectButtonText();
             UpdateEncryptionStatusIcon(ViewModel.IsEncryptionReady, ViewModel.IsEncryptionSyncing);
 
-            // Configures the emoji panel auto-scroll timer (ticks every 50 ms)
+            // Setup the emoji panel placement logic
+            AttachEmojiPanelCallback();
+
+            // Configure the auto‐scroll timer for the emoji panel
             scrollTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(50)
             };
             scrollTimer.Tick += ScrollTimer_Tick;
+
+            // Assign WPF‐generated named elements to strongly‐typed fields
+            trayIcon = (TaskbarIcon)FindName("TrayIcon");
+            TrayMenuOpen = (MenuItem)FindName("TrayMenuOpen");
+            TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
         }
+
+        /// <summary>
+        /// Handles PropertyChanged events from the MainViewModel to update UI elements:
+        ///   • Updates the connect/disconnect button label on IsConnected changes.
+        ///   • Updates the encryption lock icon on IsEncryptionReady or IsEncryptionSyncing changes.
+        /// </summary>
+        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(ViewModel.IsConnected):
+                    UpdateConnectButtonText();
+                    break;
+
+                case nameof(ViewModel.IsEncryptionReady):
+                case nameof(ViewModel.IsEncryptionSyncing):
+                    UpdateEncryptionStatusIcon(ViewModel.IsEncryptionReady, ViewModel.IsEncryptionSyncing);
+                    break;
+            }
+        }
+
 
         /// <summary>
         /// Handles window load events and applies persisted settings.
@@ -457,7 +473,16 @@ namespace chat_client
             }
         }
 
-        private void Messages_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        /// <summary>
+        /// Auto‐scrolls the chat view when new messages are added to the collection.
+        /// </summary>
+        /// <param name="sender">
+        /// The source collection that raised the event (nullable).
+        /// </param>
+        /// <param name="e">
+        /// Details about which items were added, removed, or moved (never null).
+        /// </param>
+        private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             // Scrolls to the last message when a new one is added
             if (e.Action == NotifyCollectionChangedAction.Add && lstMessagesReceived.Items.Count > 0)
@@ -511,8 +536,9 @@ namespace chat_client
 
         /// <summary>
         /// Handles continuous scrolling of the emoji panel when arrow buttons are hovered.
-        /// </summary>
-        private void ScrollTimer_Tick(object sender, EventArgs e)
+        /// <param name="sender">Timer instance firing the event (nullable).</param>
+        /// <param name="e">Event arguments (never null).</param>
+        private void ScrollTimer_Tick(object? sender, EventArgs e)
         {
             if (scrollDirection == -1)
             {

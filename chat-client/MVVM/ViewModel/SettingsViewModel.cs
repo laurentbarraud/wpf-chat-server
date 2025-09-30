@@ -23,7 +23,7 @@ namespace chat_client.MVVM.ViewModel
     /// </summary>
     public class SettingsViewModel : INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
        
         // Backing fields
         private int _customPortNumber;
@@ -78,8 +78,10 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.Save();
             }
         }
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         /// <summary>
         /// Minimizes the app to system tray when true.

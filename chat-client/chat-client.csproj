@@ -26,7 +26,6 @@
   <ItemGroup>
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\chat-client-icon.ico" />
-    <None Remove="Resources\encrypted-disabled.png" />
     <None Remove="Resources\encrypted.png" />
     <None Remove="Resources\english-flag.png" />
     <None Remove="Resources\french-flag.png" />
@@ -62,7 +61,7 @@
     <Resource Include="Resources\AboutWireframeOverlay.png" />
     <Resource Include="Resources\calc-icon.ico" />
     <Resource Include="Resources\chat-client-icon.ico" />
-    <Resource Include="Resources\encrypted-disabled.png" />
+    <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />
     <Resource Include="Resources\french-flag.png" />

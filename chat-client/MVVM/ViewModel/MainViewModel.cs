@@ -250,10 +250,10 @@ namespace chat_client.MVVM.ViewModel
                 return false;
             }
 
-            // Handles solo mode where no peers are connected
-            if (Users.Count == 0)
+            // Handles solo mode where no other peers are connected
+            if (Users.Count <= 1)        // Treats local user alone as ready
             {
-                ClientLogger.ClientLog("Solo mode detected — no peers; encryption considered ready.",
+                ClientLogger.ClientLog("Solo mode detected — only local user; encryption considered ready.",
                     ClientLogLevel.Debug);
 
                 ClientLogger.ClientLog("Encryption is fully activated and ready (solo mode).",
@@ -811,13 +811,13 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Attempts to synchronize public keys with connected peers:
-        /// Verifies that encryption is enabled and context objects are initialized.  
-        /// Builds a snapshot of peer UIDs to avoid concurrent collection issues.  
-        /// Returns true immediately if no peers are connected.  
-        /// Identifies missing keys under a thread-safe lock.  
-        /// Requests a resend of the local public key for any missing entries.  
-        /// Re-evaluates encryption state.  
-        /// Updates the UI lock icon on the Dispatcher thread with current readiness and syncing status.  
+        ///   • Verifies that encryption is enabled and context objects are initialized.  
+        ///   • Builds a snapshot of peer UIDs to avoid concurrent collection issues.  
+        ///   • Handles solo mode (no other peers): evaluates readiness and updates the lock icon.  
+        ///   • Identifies missing keys under a thread-safe lock.  
+        ///   • Requests a resend of the local public key for any missing entries.  
+        ///   • Re-evaluates encryption state after sync attempt.  
+        ///   • Updates the UI lock icon on the Dispatcher thread, indicating syncing or ready state.  
         /// Wraps all steps in exception handling to prevent client crashes.
         /// </summary>
         /// <returns>True if synchronization completes without error; false otherwise.</returns>
@@ -836,10 +836,23 @@ namespace chat_client.MVVM.ViewModel
                     .Select(u => u.UID)
                     .ToList();
 
-                // Returns true immediately if no peers are connected
+                // Handles solo mode (no other peers connected)
                 if (peerUids.Count == 0)
                 {
-                    EvaluateEncryptionState();
+                    ClientLogger.ClientLog(
+                        "SyncKeys detected solo mode — no peers to synchronize.",
+                        ClientLogLevel.Debug);
+
+                    // Evaluates readiness in solo mode
+                    bool readySolo = EvaluateEncryptionState();
+                    ClientLogger.ClientLog($"Solo mode: encryption readiness = {readySolo}",
+                        ClientLogLevel.Info);
+
+                    // Updates lock icon: ready state, not syncing
+                    Application.Current.Dispatcher.Invoke(() =>
+                        (Application.Current.MainWindow as MainWindow)
+                            ?.UpdateEncryptionStatusIcon(readySolo, false));
+
                     return true;
                 }
 
@@ -855,45 +868,43 @@ namespace chat_client.MVVM.ViewModel
                 // Requests a resend for any missing keys
                 if (missingKeys.Count > 0)
                 {
-                    ClientLogger.ClientLog($"SyncKeys detected missing keys for: {string.Join(", ", missingKeys)}",
+                    ClientLogger.ClientLog(
+                        $"SyncKeys detected missing keys for: {string.Join(", ", missingKeys)}",
                         ClientLogLevel.Debug);
                     try
                     {
                         _server.ResendPublicKey();
-                        ClientLogger.ClientLog("Requested resend of local public key from server.",
+                        ClientLogger.ClientLog(
+                            "Requested resend of local public key from server.",
                             ClientLogLevel.Debug);
                     }
                     catch (Exception exRequest)
                     {
-                        ClientLogger.ClientLog($"Failed to request public key resend: {exRequest.Message}",
+                        ClientLogger.ClientLog(
+                            $"Failed to request public key resend: {exRequest.Message}",
                             ClientLogLevel.Error);
                     }
                 }
 
-                // Re-evaluates encryption state
-                EvaluateEncryptionState();
+                // Re-evaluates encryption state after sync attempt
+                bool ready = EvaluateEncryptionState();
 
-                // Updates the lock icon on the UI thread
+                // Updates the lock icon: syncing if missingKeys>0, otherwise ready
                 Application.Current.Dispatcher.Invoke(() =>
-                {
                     (Application.Current.MainWindow as MainWindow)
-                        ?.UpdateEncryptionStatusIcon(
-                            IsEncryptionReady,
-                            missingKeys.Count > 0);
-                });
+                        ?.UpdateEncryptionStatusIcon(ready, missingKeys.Count > 0));
 
-                // Returns true on successful synchronization
                 return true;
             }
             catch (Exception ex)
             {
                 // Catches any unexpected error to prevent client termination
-                ClientLogger.ClientLog($"Unexpected error in SyncKeys: {ex.Message}",
+                ClientLogger.ClientLog(
+                    $"Unexpected error in SyncKeys: {ex.Message}",
                     ClientLogLevel.Error);
                 return false;
             }
         }
-
 
         /// <summary>
         /// Attempts to decrypt the incoming Base64 ciphertext using EncryptionHelper.
