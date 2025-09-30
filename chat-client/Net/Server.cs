@@ -6,6 +6,7 @@
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
+using Microsoft.VisualBasic.ApplicationServices;
 using System.IO;
 using System.Net.Sockets;
 using System.Windows;
@@ -471,41 +472,52 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Encrypts and sends a secure message to each peer.
-        /// Validates input, user context, and encryption prerequisites.
-        /// Requests missing public keys and performs key exchange as needed.
-        /// Builds and sends encrypted‐message packets without throwing.
-        /// Echoes the plain text locally on success or displays an error on failure.
+        /// Encrypts and sends a secure message to each recipient:
+        ///   • Validates input and user context.
+        ///   • Determines recipients: all other users or the local user in solo mode.
+        ///   • Requests missing public keys and exchanges keys as needed (skip self in solo mode).
+        ///   • Builds and dispatches encrypted‐message packets via the TCP client.
+        ///   • Returns true if at least one packet was successfully sent.
         /// </summary>
         /// <param name="plainText">The text to encrypt and send.</param>
         public bool SendEncryptedMessageToServer(string plainText)
         {
-            // Avoids sending null, empty, or whitespace‐only messages
+            // Prevent sending empty or whitespace‐only messages
             if (string.IsNullOrWhiteSpace(plainText))
                 return false;
 
-            // Attempts to get MainWindow and its ViewModel
-            if (Application.Current.MainWindow is not MainWindow _mainWindow ||
-                _mainWindow.ViewModel is not MainViewModel ViewModel ||
-                ViewModel.LocalUser == null)
+            // Attempt to retrieve main window and its view model
+            if (Application.Current.MainWindow is not MainWindow mainWindow ||
+                mainWindow.ViewModel is not MainViewModel viewModel ||
+                viewModel.LocalUser == null)
             {
                 return false;
             }
 
-            string senderUid = ViewModel.LocalUser.UID;
-            bool anySent = false;
+            string senderUid = viewModel.LocalUser.UID;
+            bool messageSent = false;
 
-            // Locks KnownPublicKeys for thread‐safe access
-            lock (ViewModel.KnownPublicKeys)
+            // Determine recipients: exclude self for multi‐party, include self for solo mode
+            var recipients = viewModel.Users
+                .Where(u => u.UID != senderUid)
+                .ToList();
+            if (recipients.Count == 0)
             {
-                foreach (var peer in ViewModel.Users.Where(u => u.UID != senderUid))
-                {
-                    string recipientUid = peer.UID;
+                // Solo mode: add local user as sole recipient
+                recipients = new List<User> { viewModel.LocalUser };
+            }
 
-                    // Requests the peer’s public key if missing
-                    if (!ViewModel.CanEncryptMessageFor(recipientUid))
+            // Lock shared key store for thread‐safe access
+            lock (viewModel.KnownPublicKeys)
+            {
+                foreach (var recipient in recipients)
+                {
+                    string recipientUid = recipient.UID;
+
+                    // Request missing peer key (skip for solo mode/self)
+                    if (recipientUid != senderUid && !viewModel.CanEncryptMessageFor(recipientUid))
                     {
-                        if (Guid.TryParse(recipientUid, out Guid peerGuid))
+                        if (Guid.TryParse(recipientUid, out var peerGuid))
                         {
                             RequestPeerPublicKey(peerGuid);
                         }
@@ -518,48 +530,48 @@ namespace chat_client.Net
                         continue;
                     }
 
-                    // Ensures the server has the local public key for this peer
-                    if (!ViewModel.HasSentKeyTo(recipientUid))
+                    // Ensure server has the local public key for this recipient (skip self)
+                    if (recipientUid != senderUid && !viewModel.HasSentKeyTo(recipientUid))
                     {
-                        string localKey = ViewModel.LocalUser.PublicKeyBase64;
+                        var localKey = viewModel.LocalUser.PublicKeyBase64;
                         if (string.IsNullOrWhiteSpace(localKey))
                         {
                             ClientLogger.ClientLog(
-                                "Cannot send public key: LocalUser.PublicKeyBase64 is not initialized.",
+                                "Cannot send public key: LocalUser.PublicKeyBase64 is uninitialized.",
                                 ClientLogLevel.Warn);
                         }
                         else
                         {
-                            ViewModel._server.SendPublicKeyToServer(recipientUid, localKey);
+                            viewModel._server.SendPublicKeyToServer(recipientUid, localKey);
                         }
-                        ViewModel.MarkKeyAsSentTo(recipientUid);
+                        viewModel.MarkKeyAsSentTo(recipientUid);
                     }
 
                     try
                     {
-                        // Encrypts the message for this peer
-                        string cipher = EncryptionHelper.EncryptMessage(
+                        // Encrypt the message for this recipient
+                        var cipher = EncryptionHelper.EncryptMessage(
                             plainText,
-                            ViewModel.KnownPublicKeys[recipientUid]);
+                            viewModel.KnownPublicKeys[recipientUid]);
 
-                        // Builds the encrypted‐message packet: opcode + sender + recipient + cipher
-                        var encryptedMessagePacket = new PacketBuilder();
-                        encryptedMessagePacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
-                        encryptedMessagePacket.WriteUid(Guid.Parse(senderUid));
-                        encryptedMessagePacket.WriteUid(Guid.Parse(recipientUid));
-                        encryptedMessagePacket.WriteString(cipher);
+                        // Build the packet: opcode + sender UID + recipient UID + cipher text
+                        var packetBuilder = new PacketBuilder();
+                        packetBuilder.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                        packetBuilder.WriteUid(Guid.Parse(senderUid));
+                        packetBuilder.WriteUid(Guid.Parse(recipientUid));
+                        packetBuilder.WriteString(cipher);
 
-                        // Sends the raw packet bytes to the server
-                        _client.Client.Send(encryptedMessagePacket.GetPacketBytes());
+                        // Transmit the packet via the TCP client
+                        _client.Client.Send(packetBuilder.GetPacketBytes());
                         ClientLogger.ClientLog(
                             $"Encrypted message sent to {recipientUid}.",
                             ClientLogLevel.Debug);
 
-                        anySent = true;
+                        messageSent = true;
                     }
                     catch (Exception ex)
                     {
-                        // Logs any encryption or send failures per recipient
+                        // Log encryption or transmission failures without throwing
                         ClientLogger.ClientLog(
                             $"Failed to encrypt or send to {recipientUid}: {ex.Message}",
                             ClientLogLevel.Error);
@@ -567,7 +579,7 @@ namespace chat_client.Net
                 }
             }
 
-            return anySent;
+            return messageSent;
         }
 
         /// <summary>
