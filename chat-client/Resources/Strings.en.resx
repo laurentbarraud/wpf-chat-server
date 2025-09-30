@@ -181,7 +181,7 @@
     <value> v1.0 - sept. 2025 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo1" xml:space="preserve">
-    <value>This software is for education purposes only and is provided "as is",\nwithout any kind of warranty.</value>
+    <value>This software is provided "as is",\nwithout any kind of warranty.</value>
   </data>
   <data name="LicenceInfo2" xml:space="preserve">
     <value>In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits, or business interruption\nwith the use of this software.</value>

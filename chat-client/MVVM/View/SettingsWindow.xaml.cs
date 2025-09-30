@@ -45,7 +45,7 @@ namespace chat_client.MVVM.View
         }
 
         // Handles ReduceToTray property change to update tray icon
-        private void SettingsViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void SettingsViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
             {

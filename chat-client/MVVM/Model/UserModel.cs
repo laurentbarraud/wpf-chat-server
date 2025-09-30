@@ -16,20 +16,23 @@ namespace chat_client.MVVM.Model
         /// <summary>
         /// Display name chosen by the user.
         /// Used for identification in the UI and server logs.
+        /// Initialized to empty string to satisfy nullable warnings.
         /// </summary>
-        public string Username { get; set; }
+        public string Username { get; set; } = string.Empty;
 
         /// <summary>
         /// Globally unique identifier assigned to the user upon connection.
         /// Used for key exchange and message routing.
+        /// Initialized to empty string to satisfy nullable warnings.
         /// </summary>
-        public string UID { get; set; }
+        public string UID { get; set; } = string.Empty;
 
         /// <summary>
         /// Base64-encoded XML RSA public key used to encrypt outgoing messages to this user.
         /// Assigned during encryption setup and transmitted to other clients.
+        /// Null when no key is set or after ClearEncryption().
         /// </summary>
-        public string PublicKeyBase64 { get; set; } = string.Empty;
+        public string? PublicKeyBase64 { get; set; } 
 
         /// <summary>
         /// Base64-encoded XML RSA private key used to decrypt incoming messages.

@@ -385,7 +385,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à This software is for education purposes only and is provided &quot;as is&quot;,\nwithout any kind of warranty..
+        ///   Recherche une chaîne localisée semblable à This software is provided &quot;as is&quot;, without any kind of warranty..
         /// </summary>
         public static string LicenceInfo1 {
             get {

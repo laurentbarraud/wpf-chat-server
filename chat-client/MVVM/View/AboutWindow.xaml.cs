@@ -23,6 +23,7 @@ namespace chat_client.View
             LicenceFinalText.Text = LocalizationManager.GetFormattedString("LicenceFinal");
             LicenceInfo1Text.Text = LocalizationManager.GetFormattedString("LicenceInfo1");
             LicenceInfo2Text.Text = LocalizationManager.GetFormattedString("LicenceInfo2");
+            LicenceInfoResourcesText.Text = LocalizationManager.GetFormattedString("LicenceInfoResources");
             CliTextBlock.Text = LocalizationManager.GetFormattedString("CommandLineArguments");
         }
 

@@ -8,18 +8,17 @@
         Background="Transparent" WindowStartupLocation="CenterScreen" Loaded="Window_Loaded">
 
     <Grid>
-        <!-- Grid background: a smooth diagonal slash-gradient
-        from left (#F8F7FB) to right (#000C23) -->
+        <!-- Diagonal gradient background -->
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <!-- Far left: almost-white -->
-                <GradientStop Color="#F4F5FF" Offset="0.1"/>
-                <!-- Far right: deep navy -->
-                <GradientStop Color="#040F25" Offset="0.5"/>
+                <!-- Very light off-white at top-left -->
+                <GradientStop Color="#F9F9FF" Offset="0.0"/>
+                <!-- Soft periwinkle at mid-point -->
+                <GradientStop Color="#001F44" Offset="0.5"/>
+                <!-- Deep navy at bottom-right -->
                 <GradientStop Color="Black" Offset="1.0"/>
             </LinearGradientBrush>
         </Grid.Background>
-
 
         <!-- Top content area -->
         <Grid Margin="0,0,0,60">
@@ -45,7 +44,7 @@
             <TextBlock x:Name="LicenceInfo1Text"
                        FontSize="12"
                        Foreground="WhiteSmoke"
-                       Margin="80,80,0,0"
+                       Margin="56,80,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap"/>
@@ -53,10 +52,18 @@
             <TextBlock x:Name="LicenceInfo2Text"
                        FontSize="12"
                        Foreground="WhiteSmoke"
-                       Margin="80,110,0,0"
+                       Margin="56,98,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap"/>
+
+            <TextBlock x:Name="LicenceInfoResourcesText"
+                       FontSize="12"
+                       Foreground="WhiteSmoke"
+                       Margin="56,150,0,0"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       TextWrapping="Wrap" />
         </Grid>
 
         <!-- Bottom panel -->
