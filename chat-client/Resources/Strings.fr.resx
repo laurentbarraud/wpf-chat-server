@@ -181,7 +181,7 @@
     <value> v1.0 - sept. 2025 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo1" xml:space="preserve">
-    <value>Ce logiciel est fournitel quel, sans aucune garantie.</value>
+    <value>Ce logiciel est fourni tel quel, sans aucune garantie.</value>
   </data>
   <data name="LicenceInfo2" xml:space="preserve">
     <value>En aucun cas, l’auteur ne sera tenu responsable des dommages indirects,\naccessoires ou consécutifs, y compris la perte de données,\nle manque à gagner ou l’interruption d’activité liée à l’utilisation de ce logiciel.</value>
@@ -234,60 +234,36 @@
   <data name="ScrollRight" xml:space="preserve">
     <value>Faire défiler à droite</value>
   </data>
-  <data name="CliHelpTitle" xml:space="preserve">
+  <data name="CliOptionsHelpTitle" xml:space="preserve">
     <value>Aide en ligne de commande</value>
   </data>
-  <data name="CliHelpText" xml:space="preserve">
-    <value>  --about             Ouvre la fenêtre À propos
-  --debug, -d         Ouvre la console de débogage au démarrage
-  --username, -u      Définit le nom d’utilisateur et connecte à localhost
-  --port, -p          Définit le port du serveur (défaut : 7123)
-  --theme, -t         Définit le thème (clair ou sombre)
-  --dark              Raccourci pour le thème sombre
-  --light             Raccourci pour le thème clair
-  --language, -l      Définit la langue de l’interface (en ou fr)
-  --encrypted, -e     Active le chiffrement des messages
-  --reduceInTray, -r  Réduit dans la barre d’état au démarrage
-  --help, -h, -?      Affiche ce message d’aide
+  <data name="CliOptionsHelpText" xml:space="preserve">
+    <value>Usage : chat-client.exe [options]
 
-Tous les arguments de la ligne de commande prennent en charge la notation de style Windows (/debug) et la notation de style Unix (--debug ou -d).
+Options :  
+  -u, --username, --user &lt;nom&gt;   Définit le nom d’utilisateur et lance la connexion automatique à localhost  
+  -p, --port &lt;port&gt;   Définit le port du serveur (7123 par défaut)  
+  -t, --theme &lt;light|dark&gt;   Définit le thème de l’interface utilisateur  
+      --dark   Raccourci pour thème sombre  
+      --light   Raccourci pour thème clair  
+  -l, --language, --lang &lt;en|fr&gt;   Définit la langue de l’interface utilisateur  
+      --en --english --anglais   Raccourci pour anglais  
+      --fr --french --français --francais   Raccourci pour français  
+  -e, --encrypted   Active le chiffrement de bout en bout  
+  -r, -m, --reduceintray, --reduce, --tray, --systemtray, --min --minimized   Réduit dans la zone de notification       au démarrage                        
+  -d, --debug   Ouvre la console de débogage au démarrage  
+  -h, -?, --help   Affiche ce message d’aide  
+  --about   Ouvre la fenêtre À propos  
 
-Exemple :
-  chat-client.exe --dark /e /r /u Laurent
+Toutes les options acceptent la notation Windows (/option)  
+et Unix (--option).
+
+Exemple :  
+  chat-client.exe  --dark --french /e /r /u Laurent
 </value>
   </data>
   <data name="CommandLineArguments" xml:space="preserve">
     <value>Arguments de ligne de commande</value>
-  </data>
-  <data name="CliOptionsHelpLine1" xml:space="preserve">
-    <value>Options de ligne de commande du client :</value>
-  </data>
-  <data name="CliOptionsHelpLine2" xml:space="preserve">
-    <value>  --username, -u, -user         Définit le nom d’utilisateur et la connexion automatique en hôte local</value>
-  </data>
-  <data name="CliOptionsHelpLine3" xml:space="preserve">
-    <value>  --port, -p                    Définit le port du serveur (par défaut : 7123)</value>
-  </data>
-  <data name="CliOptionsHelpLine4" xml:space="preserve">
-    <value>  --theme, -t, --dark, --light Applique le thème UI</value>
-  </data>
-  <data name="CliOptionsHelpLine5" xml:space="preserve">
-    <value>  --language, -l, --lang        Définit la langue de l'UI (en ou fr)</value>
-  </data>
-  <data name="CliOptionsHelpLine6" xml:space="preserve">
-    <value>  --encrypted, -e               Active le chiffrage des messages</value>
-  </data>
-  <data name="CliOptionsHelpLine7" xml:space="preserve">
-    <value>  --reduceInTray, -r, --reduce Réduire dans la zone de notification</value>
-  </data>
-  <data name="CliOptionsHelpLine8" xml:space="preserve">
-    <value>  --debug, -d                   Afficher la console de débogage</value>
-  </data>
-  <data name="CliOptionsHelpLine9" xml:space="preserve">
-    <value>  --about                       Afficher la fenêtre A propos de</value>
-  </data>
-  <data name="CliOptionsHelpLine10" xml:space="preserve">
-    <value>  --help, -h, -?                Afficher ce message d'aide</value>
   </data>
   <data name="MessageSendingFailed" xml:space="preserve">
     <value>[Erreur : l’envoi du message a échoué.]</value>

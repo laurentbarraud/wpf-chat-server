@@ -32,7 +32,7 @@ namespace chat_client.View
         /// </summary>
         private void CliTextBlock_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            ShowCliHelp();
+            ShowCommandLineArgumentsHelp();
         }
 
         /// <summary>
@@ -45,18 +45,33 @@ namespace chat_client.View
         }
 
         /// <summary>
-        /// Displays a localized MessageBox listing all supported command-line arguments.
-        /// Retrieves the CLI help text and title from resource files using LocalizationManager.
-        /// Converts escaped newline characters into actual line breaks for proper formatting.
+        /// Shows a localized MessageBox listing all supported CLI arguments.
+        /// If this window was never shown (IsVisible==false), the app closes.
+        /// Otherwise, the help box is just closed.
         /// </summary>
-        private static void ShowCliHelp()
+        public void ShowCommandLineArgumentsHelp()
         {
-            string raw = LocalizationManager.GetString("CliHelpText") ?? "[[CliHelpText]]";
-            string title = LocalizationManager.GetString("CliHelpTitle") ?? "[[CliHelpTitle]]";
+            // Retrieves raw help text and title from resources
+            string rawCliOptionsHelpText = LocalizationManager.GetString("CliOptionsHelpText")
+                             ?? "[[CliOptionsHelpText]]";
+            string titleCliOptions = LocalizationManager.GetString("CliOptionsHelpTitle")
+                             ?? "[[CliOptionsHelpTitle]]";
 
-            string formatted = raw.Replace("\\n", "\n").Replace("\\t", "\t");
+            // Converts escaped sequences to real line breaks and tabs
+            string formattedCliOptionsHelpText = rawCliOptionsHelpText
+                .Replace("\\n", "\n")
+                .Replace("\\t", "\t");
 
-            MessageBox.Show(formatted, title, MessageBoxButton.OK, MessageBoxImage.Information);
+            // Shows the styled MessageBox
+            MessageBox.Show(
+                formattedCliOptionsHelpText,
+                titleCliOptions,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            // If the AboutWindow was never shown, then exits the application
+            if (!this.IsVisible)
+                Application.Current.Shutdown();
         }
     }
 }

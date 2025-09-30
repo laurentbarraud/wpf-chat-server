@@ -97,119 +97,31 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --about             Opens the About window
-        ///  --debug, -d         Opens debug console at startup
-        ///  --username, -u      Sets username and auto-connects to localhost
-        ///  --port, -p          Sets server port (default: 7123)
-        ///  --theme, -t         Sets theme (light or dark)
-        ///  --dark              Shortcut for dark theme
-        ///  --light             Shortcut for light theme
-        ///  --language, -l      Sets UI language (en or fr)
-        ///  --encrypted, -e     Enables message encryption
-        ///  --reduceInTray, -r  Minimizes to tray on [le reste de la chaîne a été tronqué]&quot;;.
+        ///   Recherche une chaîne localisée semblable à Usage: chat-client.exe [options]
+        ///
+        ///Options:
+        ///  -u, --username, -user &lt;name&gt;   Sets your username and auto-connects to localhost
+        ///  -p, --port &lt;number&gt;   Sets the server port (default: 7123)
+        ///  -t, --theme &lt;light|dark&gt;   Sets the UI theme
+        ///      --dark   Shortcut for dark theme
+        ///      --light   Shortcut for light theme
+        ///  -l, --language, --lang &lt;en|fr&gt;   Sets the UI language
+        ///      --en --english --anglais Shortcut for English
+        ///      --fr  --french --francais --français Shortcut for French
+        ///  -e, --encrypted   Enables [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
-        public static string CliHelpText {
+        public static string CliOptionsHelpText {
             get {
-                return ResourceManager.GetString("CliHelpText", resourceCulture);
+                return ResourceManager.GetString("CliOptionsHelpText", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Command Line Help.
         /// </summary>
-        public static string CliHelpTitle {
+        public static string CliOptionsHelpTitle {
             get {
-                return ResourceManager.GetString("CliHelpTitle", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à Client command-Line options:.
-        /// </summary>
-        public static string CliOptionsHelpLine1 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine1", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --help, -h, -?                Show this help message.
-        /// </summary>
-        public static string CliOptionsHelpLine10 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine10", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --username, -u, -user         Set username and auto-connect to localhost.
-        /// </summary>
-        public static string CliOptionsHelpLine2 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine2", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --port, -p                    Set server port (default: 7123).
-        /// </summary>
-        public static string CliOptionsHelpLine3 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine3", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --theme, -t, --dark, --light Apply UI theme.
-        /// </summary>
-        public static string CliOptionsHelpLine4 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine4", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --language, -l, --lang        Set UI language (en or fr).
-        /// </summary>
-        public static string CliOptionsHelpLine5 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine5", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --encrypted, -e               Enable message encryption.
-        /// </summary>
-        public static string CliOptionsHelpLine6 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine6", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --reduceInTray, -r, --reduce Minimize to tray on startup.
-        /// </summary>
-        public static string CliOptionsHelpLine7 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine7", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --debug, -d                   Show debug console.
-        /// </summary>
-        public static string CliOptionsHelpLine8 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine8", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à   --about                       Show About window.
-        /// </summary>
-        public static string CliOptionsHelpLine9 {
-            get {
-                return ResourceManager.GetString("CliOptionsHelpLine9", resourceCulture);
+                return ResourceManager.GetString("CliOptionsHelpTitle", resourceCulture);
             }
         }
         

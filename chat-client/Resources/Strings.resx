@@ -234,60 +234,38 @@
   <data name="ScrollRight" xml:space="preserve">
     <value>Scroll right</value>
   </data>
-  <data name="CliHelpTitle" xml:space="preserve">
+  <data name="CliOptionsHelpTitle" xml:space="preserve">
     <value>Command Line Help</value>
   </data>
-  <data name="CliHelpText" xml:space="preserve">
-    <value>  --about             Opens the About window
-  --debug, -d         Opens debug console at startup
-  --username, -u      Sets username and auto-connects to localhost
-  --port, -p          Sets server port (default: 7123)
-  --theme, -t         Sets theme (light or dark)
-  --dark              Shortcut for dark theme
-  --light             Shortcut for light theme
-  --language, -l      Sets UI language (en or fr)
-  --encrypted, -e     Enables message encryption
-  --reduceInTray, -r  Minimizes to tray on startup
-  --help, -h, -?      Displays this help message
+  <data name="CliOptionsHelpText" xml:space="preserve">
+    <value>Usage: chat-client.exe [options]
 
-All command-line arguments support both Windows-style notation (/debug) and Unix-style notation (--debug or -d).
+Options:
+  -u, --username, -user &lt;name&gt;   Sets your username and auto-connects to localhost
+  -p, --port &lt;number&gt;   Sets the server port (default: 7123)
+  -t, --theme &lt;light|dark&gt;   Sets the UI theme
+      --dark   Shortcut for dark theme
+      --light   Shortcut for light theme
+  -l, --language, --lang &lt;en|fr&gt;   Sets the UI language
+      --en --english --anglais Shortcut for English
+      --fr  --french --francais --français Shortcut for French
+  -e, --encrypted   Enables end-to-end encryption
+  -r, -m, --reduceintray, --reduce,
+      --tray, --systemtray, --min, 
+      --minimized   Minimizes to system tray on startup
+  -d, --debug   Opens debug console at startup
+  -h, -?, --help   Displays this help message
+  --about   Opens the About window
+
+All command-line arguments support Windows-style (/option)
+and Unix-style (--option) notation.
 
 Example:
-  chat-client.exe --dark /e /r /u Laurent
-  </value>
+  chat-client.exe --dark --french /e /r /u Laurent
+</value>
   </data>
   <data name="CommandLineArguments" xml:space="preserve">
     <value>Command-line arguments</value>
-  </data>
-  <data name="CliOptionsHelpLine1" xml:space="preserve">
-    <value>Client command-Line options:</value>
-  </data>
-  <data name="CliOptionsHelpLine2" xml:space="preserve">
-    <value>  --username, -u, -user         Set username and auto-connect to localhost</value>
-  </data>
-  <data name="CliOptionsHelpLine3" xml:space="preserve">
-    <value>  --port, -p                    Set server port (default: 7123)</value>
-  </data>
-  <data name="CliOptionsHelpLine4" xml:space="preserve">
-    <value>  --theme, -t, --dark, --light Apply UI theme</value>
-  </data>
-  <data name="CliOptionsHelpLine5" xml:space="preserve">
-    <value>  --language, -l, --lang        Set UI language (en or fr)</value>
-  </data>
-  <data name="CliOptionsHelpLine6" xml:space="preserve">
-    <value>  --encrypted, -e               Enable message encryption</value>
-  </data>
-  <data name="CliOptionsHelpLine7" xml:space="preserve">
-    <value>  --reduceInTray, -r, --reduce Minimize to tray on startup</value>
-  </data>
-  <data name="CliOptionsHelpLine8" xml:space="preserve">
-    <value>  --debug, -d                   Show debug console</value>
-  </data>
-  <data name="CliOptionsHelpLine9" xml:space="preserve">
-    <value>  --about                       Show About window</value>
-  </data>
-  <data name="CliOptionsHelpLine10" xml:space="preserve">
-    <value>  --help, -h, -?                Show this help message</value>
   </data>
   <data name="MessageSendingFailed" xml:space="preserve">
     <value>[Error : Your message failed to send.]</value>

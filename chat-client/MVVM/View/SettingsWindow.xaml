@@ -325,7 +325,7 @@
              Width="80" Height="20"
              Margin="0,0,10,0"
              HorizontalContentAlignment="Center"
-             Text="{Binding CustomPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+             Text="{Binding CustomPortNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
              ToolTip="Enter a port between 1000 and 65535"
              IsEnabled="{Binding UseCustomPort}"
              TabIndex="1" />

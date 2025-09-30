@@ -92,7 +92,22 @@ namespace chat_client.Helpers
                         themeChosen = "light";
                         break;
 
-                    // Explicit language flags and normalization
+                    // English/French flags apply immediately
+                    case "--english":
+                    case "--en":
+                    case "/english":
+                    case "/en":
+                        languageChosen = "en";
+                        break;
+
+                    case "--french":
+                    case "--fr":
+                    case "/french":
+                    case "/fr":
+                        languageChosen = "fr";
+                        break;
+
+                    // Explicit language flags with a parameter
                     case "--language":
                     case "-l":
                     case "/language":
@@ -101,32 +116,18 @@ namespace chat_client.Helpers
                     case "/lang":
                         if (i + 1 < args.Length)
                         {
-                            // Reads the raw language token and normalize it
-                            var langArgument = args[++i].ToLowerInvariant();
-
-                            // Map any French variant to "fr"
-                            if (langArgument == "french"
-                             || langArgument == "français"
-                             || langArgument == "francais"
-                             || langArgument == "fr")
-                            {
+                            var raw = args[++i].ToLowerInvariant();
+                            // French variants
+                            if (raw == "french" || raw == "français" || raw == "francais" || raw == "fr")
                                 languageChosen = "fr";
-                            }
-                            // Map any English variant to "en"
-                            else if (langArgument == "english"
-                                  || langArgument == "anglais"
-                                  || langArgument == "en")
-                            {
+                            // English variants
+                            else if (raw == "english" || raw == "anglais" || raw == "en")
                                 languageChosen = "en";
-                            }
+                            // Unrecognized: fallback to English
                             else
-                            {
-                                // Falls back on English if the language code is not recognized
                                 languageChosen = "en";
-                            }
                         }
                         break;
-
 
                     // Encryption flag
                     case "--encrypted":
@@ -143,6 +144,16 @@ namespace chat_client.Helpers
                     case "/r":
                     case "--reduce":
                     case "/reduce":
+                    case "--tray":
+                    case "/tray":
+                    case "--systemtray":
+                    case "/systemtray":
+                    case "--minimized":
+                    case "/minimized":
+                    case "--min":
+                    case "/min":
+                    case "-m":
+                    case "/m":
                         reduceInTray = true;
                         break;
 
@@ -172,32 +183,17 @@ namespace chat_client.Helpers
                 }
             }
 
+            // Applies language choice globally
+            if (!string.IsNullOrEmpty(languageChosen))
+            {
+                LocalizationManager.Initialize(languageChosen);
+            }
+
             // Shows help in a message box and exit early
             if (showHelp)
             {
-                var helpLines = new[]
-                {
-                    LocalizationManager.GetString("CliOptionsHelpLine1"),
-                    LocalizationManager.GetString("CliOptionsHelpLine2"),
-                    LocalizationManager.GetString("CliOptionsHelpLine3"),
-                    LocalizationManager.GetString("CliOptionsHelpLine4"),
-                    LocalizationManager.GetString("CliOptionsHelpLine5"),
-                    LocalizationManager.GetString("CliOptionsHelpLine6"),
-                    LocalizationManager.GetString("CliOptionsHelpLine7"),
-                    LocalizationManager.GetString("CliOptionsHelpLine8"),
-                    LocalizationManager.GetString("CliOptionsHelpLine9"),
-                    LocalizationManager.GetString("CliOptionsHelpLine10")
-                };
-                string helpText = string.Join(Environment.NewLine, helpLines);
-
-                // Displays a stylized message box containing usage instructions
-                MessageBox.Show(
-                    helpText,
-                    LocalizationManager.GetString("CliOptionsHelpTitle"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-
-                Application.Current.Shutdown();
+                var about = new AboutWindow();
+                about.ShowCommandLineArgumentsHelp();
                 return;
             }
 
@@ -261,7 +257,7 @@ namespace chat_client.Helpers
             if (!string.IsNullOrEmpty(usernameChosen) && mainWindow != null)
             {
                 mainWindow.TxtUsername.Text = usernameChosen;
-                mainWindow.CmdConnectDisconnect_Click(null, new RoutedEventArgs());
+                mainWindow.CmdConnectDisconnect_Click(mainWindow, new RoutedEventArgs());
             }
 
             // Persists all updated settings
