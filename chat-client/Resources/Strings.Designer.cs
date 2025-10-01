@@ -108,7 +108,7 @@ namespace chat_client.Resources {
         ///  -l, --language, --lang &lt;en|fr&gt;   Sets the UI language
         ///      --en --english --anglais Shortcut for English
         ///      --fr  --french --francais --français Shortcut for French
-        ///  -e, --encrypted   Enables [le reste de la chaîne a été tronqué]&quot;;.
+        ///  -e, --encrypte [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {
@@ -288,7 +288,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.0 - sept. 2025 - Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.0 - october 2025 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {

@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 30th, 2025</date>
+/// <date>October 1st, 2025</date>
 
 using System;
 using System.Windows.Controls;
@@ -102,7 +102,7 @@ namespace chat_client.MVVM.View
             catch (Exception ex)
             {
                 // Logs the error to console to help diagnose crashes
-                ClientLogger.ClientLog($"SettingsWindow_Loaded failed: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.Log($"SettingsWindow_Loaded failed: {ex.Message}", ClientLogLevel.Error);
                 MessageBox.Show(LocalizationManager.GetString("ErrorLoadingThemeResources"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -214,7 +214,7 @@ namespace chat_client.MVVM.View
             var settingsViewModel = main?.ViewModel;
             if (settingsViewModel?.LocalUser == null || !settingsViewModel.IsConnected)
             {
-                ClientLogger.ClientLog("Cannot enable encryption – prerequisites missing.", ClientLogLevel.Warn);
+                ClientLogger.Log("Cannot enable encryption – prerequisites missing.", ClientLogLevel.Warn);
                 UseEncryptionToggle.IsChecked = false;
                 return;
             }
@@ -228,12 +228,12 @@ namespace chat_client.MVVM.View
             // Executes full encryption setup
             if (!settingsViewModel.InitializeEncryption())
             {
-                ClientLogger.ClientLog("Encryption init failed – rolling back.", ClientLogLevel.Error);
+                ClientLogger.Log("Encryption init failed – rolling back.", ClientLogLevel.Error);
                 UseEncryptionToggle.IsChecked = false;
             }
             else
             {
-                ClientLogger.ClientLog("Encryption initialized successfully.", ClientLogLevel.Info);
+                ClientLogger.Log("Encryption initialized successfully.", ClientLogLevel.Info);
             }
         }
 
@@ -270,7 +270,7 @@ namespace chat_client.MVVM.View
 
             // Re-evaluate encryption readiness (will be false)
             viewModel.EvaluateEncryptionState();
-            ClientLogger.ClientLog("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
+            ClientLogger.Log("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
 
             // Hide the encryption lock icon to reflect disabled encryption
             Application.Current.Dispatcher.Invoke(() =>

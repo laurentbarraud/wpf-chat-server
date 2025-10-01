@@ -1,7 +1,7 @@
 ﻿/// <file>UserModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 30th, 2025</date>
+/// <date>October 1st, 2025</date>
 
 using System;
 
@@ -30,15 +30,16 @@ namespace chat_client.MVVM.Model
         /// <summary>
         /// Base64-encoded XML RSA public key used to encrypt outgoing messages to this user.
         /// Assigned during encryption setup and transmitted to other clients.
-        /// Null when no key is set or after ClearEncryption().
+        /// Initialized to empty string to satisfy nullable warnings.
         /// </summary>
-        public string? PublicKeyBase64 { get; set; } 
+        public string PublicKeyBase64 { get; set; } = string.Empty;
 
         /// <summary>
         /// Base64-encoded XML RSA private key used to decrypt incoming messages.
         /// Stored locally and never transmitted.
+        /// Initialized to empty string to satisfy nullable warnings.
         /// </summary>
-        public string? PrivateKeyBase64 { get; set; }
+        public string PrivateKeyBase64 { get; set; } = string.Empty;
 
         /// <summary>
         /// Clears all stored cryptographic keys from the user model.
@@ -47,8 +48,8 @@ namespace chat_client.MVVM.Model
         /// </summary>
         public void ClearEncryption()
         {
-            PublicKeyBase64 = null;
-            PrivateKeyBase64 = null;
+            PublicKeyBase64 = string.Empty;
+            PrivateKeyBase64 = string.Empty;
         }
     }
 }

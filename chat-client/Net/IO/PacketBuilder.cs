@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 30th, 2025</date>
+/// <date>October 1st, 2025</date>
 
 using chat_client.Net;
 using System;
@@ -48,13 +48,13 @@ namespace chat_client.Net
         /// <summary>
         /// Writes a length-prefixed UTF-8 string.
         /// </summary>
-        /// <param name="s">The string to serialize.</param>
-        public void WriteString(string s)
+        /// <param name="stringToWrite">The string to serialize.</param>
+        public void WriteString(string stringToWrite)
         {
-            byte[] data = Encoding.UTF8.GetBytes(s);
-            byte[] lenBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(data.Length));
+            byte[] stringEncoded = Encoding.UTF8.GetBytes(stringToWrite);
+            byte[] lenBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(stringEncoded.Length));
             _ms.Write(lenBytes, 0, lenBytes.Length);
-            _ms.Write(data, 0, data.Length);
+            _ms.Write(stringEncoded, 0, stringEncoded.Length);
         }
 
         /// <summary>

@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 30th, 2025</date>
+/// <date>October 1st, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -84,11 +84,8 @@ namespace chat_server
             // Reads the sender UID (16 bytes) and returns a Guid
             Guid senderUid = _packetReader.ReadUid();
 
-            // Reads the recipient UID (16 bytes); treats Guid.Empty as null
-            Guid rawRecipient = _packetReader.ReadUid();
-            Guid? recipientUid = rawRecipient == Guid.Empty
-                ? (Guid?)null
-                : rawRecipient;
+            // Reads the recipient UID (16 bytes);
+            Guid recipientUid = _packetReader.ReadUid();
 
             // Reads the length-prefixed UTF-8 payload as the message text
             string content = _packetReader.ReadString();
@@ -117,7 +114,7 @@ namespace chat_server
             PublicKeyDer = Convert.FromBase64String(publicKeyBase64);
 
             // Logs the reception of the public key
-            ServerLogger.ServerLog($"Received public key from {senderUid} (length: {publicKeyBase64.Length})",
+            ServerLogger.Log($"Received public key from {senderUid} (length: {publicKeyBase64.Length})",
                 ServerLogLevel.Debug);
 
             // Broadcasts the key to all other connected clients
@@ -136,7 +133,7 @@ namespace chat_server
                 // Reads the requester UID (16 bytes)
                 Guid requesterUid = _packetReader.ReadUid();
 
-                ServerLogger.ServerLog($"Public‐key sync requested by UID: {requesterUid}",
+                ServerLogger.Log($"Public‐key sync requested by UID: {requesterUid}",
                     ServerLogLevel.Debug);
 
                 // Iterates through all known users
@@ -158,36 +155,43 @@ namespace chat_server
                         var bytes = packet.GetPacketBytes();
                         ClientSocket.GetStream().Write(bytes, 0, bytes.Length);
 
-                        ServerLogger.ServerLog($"Sent public key of {user.Username} (UID: {user.UID}) to requester {requesterUid}",
+                        ServerLogger.Log($"Sent public key of {user.Username} (UID: {user.UID}) to requester {requesterUid}",
                             ServerLogLevel.Debug);
                     }
                     catch (Exception ex)
                     {
-                        ServerLogger.ServerLog($"Failed to send public key of {user.Username} to {requesterUid}: {ex.Message}",
+                        ServerLogger.Log($"Failed to send public key of {user.Username} to {requesterUid}: {ex.Message}",
                             ServerLogLevel.Error);
                     }
                 }
             }
             catch (Exception ex)
             {
-                ServerLogger.ServerLog($"HandlePublicKeySyncRequest failed: {ex.Message}", ServerLogLevel.Error);
+                ServerLogger.Log($"HandlePublicKeySyncRequest failed: {ex.Message}", ServerLogLevel.Error);
             }
         }
 
-
         /// <summary>
-        /// Continuously listens for incoming packets from the connected client.
-        /// Uses a classic switch statement for clarity and beginner-friendly readability.
-        /// Each case matches a named opcode from the ClientPacketOpcode enum.
+        /// Continuously listens for incoming packets from the connected client,
+        /// logs each step of the receive-and-dispatch process,
+        /// and invokes the appropriate handler based on the opcode.
         /// </summary>
         internal void ListenForMessages()
         {
+            // Logs the start of the message-listening loop for this client
+            ServerLogger.Log($"Starting message loop for {Username} ({UID})", ServerLogLevel.Info);
+
             while (true)
             {
+                ServerPacketOpCode opcode;
+
                 try
                 {
+                    // Logs attempt to read the next packet opcode
+                    ServerLogger.Log($"Waiting for next packet from {Username}", ServerLogLevel.Debug);
+
                     // Reads a single byte and casts it to the packet opcode enum
-                    ServerPacketOpCode opcode = (ServerPacketOpCode)_packetReader.ReadByte();
+                    opcode = (ServerPacketOpCode)_packetReader.ReadByte();
 
                     switch (opcode)
                     {
@@ -205,18 +209,22 @@ namespace chat_server
 
                         default:
                             // Logs unsupported or unknown opcode values
-                            Console.WriteLine($"[ERROR] Unknown opcode from {Username}: {opcode}");
+                            ServerLogger.Log($"Unknown opcode {opcode} received from {Username}", ServerLogLevel.Warn);
                             break;
                     }
+
+                    // Logs successful processing of the packet
+                    ServerLogger.Log($"Processed packet {opcode} from {Username}", ServerLogLevel.Debug);
                 }
                 catch (Exception ex)
                 {
-                    // Logs the disconnection event and performs cleanup
-                    Console.WriteLine($"[INFO] Client disconnected: {Username} — {ex.Message}");
+                    // Logs that the client has disconnected and terminates the listening loop
+                    ServerLogger.Log($"{Username} ({UID}) has disconnected: {ex.Message}", ServerLogLevel.Info);
                     CleanupAfterDisconnect();
                     break;
                 }
             }
         }
+
     }
 }

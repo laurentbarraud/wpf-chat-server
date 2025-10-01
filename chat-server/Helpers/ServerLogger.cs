@@ -1,7 +1,7 @@
 ﻿/// <file>ServerLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 30th, 2025</date>
+/// <date>October 1st, 2025</date>
 
 using System;
 
@@ -38,7 +38,7 @@ namespace chat_server.Helpers
         /// </summary>
         /// <param name="message">The message to display.</param>
         /// <param name="level">The severity level of the message.</param>
-        public static void ServerLog(string message, ServerLogLevel level = ServerLogLevel.Info)
+        public static void Log(string message, ServerLogLevel level = ServerLogLevel.Info)
         {
             if (level == ServerLogLevel.Debug && !IsDebugEnabled)
                 return;
@@ -62,11 +62,11 @@ namespace chat_server.Helpers
         /// <param name="resourceKey">The key used to retrieve the localized string template.</param>
         /// <param name="level">The severity level of the message.</param>
         /// <param name="args">Optional arguments to format into the localized string.</param>
-        public static void ServerLogLocalized(string resourceKey, ServerLogLevel level = ServerLogLevel.Info, params object[] args)
+        public static void LogLocalized(string resourceKey, ServerLogLevel level = ServerLogLevel.Info, params object[] args)
         {
             string template = LocalizationManager.GetString(resourceKey);
             string message = args.Length > 0 ? string.Format(template, args) : template;
-            ServerLog(message, level);
+            Log(message, level);
         }
     }
 }

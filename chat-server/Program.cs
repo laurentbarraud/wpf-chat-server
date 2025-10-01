@@ -1,16 +1,14 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>September 30th, 2025</date>
+/// <date>October 1st, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
-using System;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace chat_server
@@ -30,18 +28,6 @@ namespace chat_server
         public static string AppLanguage = "en";
         public static readonly Guid SystemUID =
             Guid.Parse("00000000-0000-0000-0000-000000000001");
-
-        private static void Log(ServerLogLevel level, string message)
-        {
-            string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            Console.WriteLine($"[{timestamp}][{level}] {message}");
-        }
-
-        private static void LogL(ServerLogLevel level, string resourceKey)
-        {
-            string text = LocalizationManager.GetString(resourceKey);
-            Log(level, text);
-        }
 
         /// <summary>
         /// Serves as the application entry point.
@@ -85,11 +71,10 @@ namespace chat_server
             catch (Exception ex)
             {
                 // Logs failure to start the listener on the chosen port.
-                Log(ServerLogLevel.Error,
-                    $"{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}");
+                ServerLogger.LogLocalized($"{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}", ServerLogLevel.Error);
 
                 // Logs that the application is exiting and then terminates.
-                Log(ServerLogLevel.Info, LocalizationManager.GetString("Exiting"));
+                ServerLogger.LogLocalized(LocalizationManager.GetString("Exiting"), ServerLogLevel.Info);
                 Environment.Exit(1);
             }
         }
@@ -105,22 +90,22 @@ namespace chat_server
                     broadcastConnectionPacket.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
                     broadcastConnectionPacket.WriteUid(usr.UID);
                     broadcastConnectionPacket.WriteString(usr.Username);
-                    broadcastConnectionPacket.WriteString(usr.PublicKeyBase64);
-
+                    // Fallback on string.Empty if the property is null
+                    broadcastConnectionPacket.WriteString(usr.PublicKeyBase64 ?? string.Empty);
                     receiver.ClientSocket.Client
                         .Send(broadcastConnectionPacket.GetPacketBytes());
 
-                    Log(ServerLogLevel.Debug, "[SERVER] Broadcasting user list entry");
+                    ServerLogger.Log("[SERVER] Broadcasting user list entry", ServerLogLevel.Debug);
                 }
             }
-            Log(ServerLogLevel.Debug, "[SERVER] Completed user list broadcast");
+            ServerLogger.Log("[SERVER] Completed user list broadcast", ServerLogLevel.Debug);
         }
 
         /// <summary>Notifies clients of a disconnection (opcode 10) and logs each send.</summary>
         public static void BroadcastDisconnect(string uid)
         {
-            var disc = Users.FirstOrDefault(u => u.UID.ToString() == uid);
-            if (disc == null)
+            var disconnectedUser = Users.FirstOrDefault(u => u.UID.ToString() == uid);
+            if (disconnectedUser == null)
                 return;
 
             foreach (var user in Users)
@@ -138,63 +123,73 @@ namespace chat_server
                             .Write(packetBytes, 0, packetBytes.Length);
                     }
 
-                    Log(
-                        ServerLogLevel.Debug,
-                        $"[SERVER] Notified {user.Username} of disconnection");
+                    ServerLogger.Log($"[SERVER] Notified {user.Username} of disconnection", ServerLogLevel.Debug);
                 }
                 catch (Exception ex)
                 {
-                    Log(
-                        ServerLogLevel.Error,
-                        $"[SERVER] Disconnect notification failed: {ex.Message}");
+                    ServerLogger.Log($"[SERVER] Disconnect notification failed: {ex.Message}", ServerLogLevel.Error);
                 }
             }
         }
 
-
-        /// <summary>Routes a plain message packet (opcode 5) to all clients.</summary>
-        public static void BroadcastMessage(string content, Guid senderUid, Guid? recipientUid = null)
+        /// <summary>
+        /// Dispatches a chat message packet (opcode 5) to a single recipient or to all connected clients.
+        /// Ensures reliable routing, detailed logging for audit, and proper network transmission to each client.
+        /// </summary>
+        public static void BroadcastMessage(string rawMessageContent, Guid senderId, Guid recipientId)
         {
-            var sender = Users.FirstOrDefault(u => u.UID == senderUid);
-            string sName = sender?.Username ?? "Unknown";
-            string disp = content.StartsWith("[ENC]") ? "[Encrypted]" : content;
-            string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            // Retrieves the sender’s user model from the active user list
+            var sendingUser = Users.FirstOrDefault(u => u.UID == senderId);
+            string sendingUserName = sendingUser?.Username ?? "Unknown";
 
-            if (recipientUid.HasValue)
+            // Prepares a masked version for logging if the message is encrypted
+            string displayMessageContent = rawMessageContent.StartsWith("[ENC]")
+                ? "[Encrypted]"
+                : rawMessageContent;
+
+            // Formats the current timestamp for inclusion in debug logs
+            string currentTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            // Logs routing details: either a private message or a broadcast
+            if (recipientId != Guid.Empty)
             {
-                var r = Users.FirstOrDefault(u => u.UID == recipientUid);
-                Log(ServerLogLevel.Debug,
-                    $"[{time}] Message from {sName} to {r?.Username ?? "Unknown"}: {disp}");
+                var targetUser = Users.FirstOrDefault(u => u.UID == recipientId);
+                ServerLogger.Log($"[{currentTimestamp}] Message from {sendingUserName} to {targetUser?.Username ?? "Unknown"}: {displayMessageContent}", ServerLogLevel.Debug);
             }
             else
             {
-                Log(ServerLogLevel.Debug,
-                    $"[{time}] Broadcast message from {sName}: {disp}");
+                ServerLogger.Log($"[{currentTimestamp}] Broadcast message from {sendingUserName}: {displayMessageContent}", ServerLogLevel.Debug);
             }
 
+            // Iterates through each connected user and sends the packet
             foreach (var user in Users)
             {
-                if (recipientUid.HasValue && user.UID != recipientUid) continue;
+                // Skips users outside of the private message’s recipient
+                if (recipientId != Guid.Empty && user.UID != recipientId)
+                    continue;
 
                 try
                 {
-                    var broadcastPlainMessagePacket = new PacketBuilder();
-                    broadcastPlainMessagePacket.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
-                    broadcastPlainMessagePacket.WriteUid(senderUid);
-                    broadcastPlainMessagePacket.WriteUid(recipientUid ?? Guid.Empty);
-                    broadcastPlainMessagePacket.WriteString(content);
+                    // Builds the PlainMessage packet with sender, recipient, and content
+                    var messagePacket = new PacketBuilder();
+                    messagePacket.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
+                    messagePacket.WriteUid(senderId);
+                    messagePacket.WriteUid(recipientId);
+                    messagePacket.WriteString(rawMessageContent);
 
+                    // Writes the packet bytes to the user’s network stream if still connected
                     if (user.ClientSocket.Connected)
-                        user.ClientSocket.GetStream()
-                            .Write(
-                                broadcastPlainMessagePacket.GetPacketBytes(),
-                                0,
-                                broadcastPlainMessagePacket.GetPacketBytes().Length);
+                    {
+                        var networkStream = user.ClientSocket.GetStream();
+                        byte[] packetBytes = messagePacket.GetPacketBytes();
+                        networkStream.Write(packetBytes, 0, packetBytes.Length);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Log(ServerLogLevel.Debug,
-                        $"[SERVER] Send failed to {user.Username}: {ex.Message}");
+                    // Logs any transmission failure per user for post-mortem analysis
+                    ServerLogger.Log($"[SERVER] Failed sending message to {user.Username}: {ex.Message}",
+                        ServerLogLevel.Debug);
                 }
             }
         }
@@ -210,22 +205,19 @@ namespace chat_server
                     var broadcastPublicKeyPacket = new PacketBuilder();
                     broadcastPublicKeyPacket.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
                     broadcastPublicKeyPacket.WriteUid(sender.UID);
-                    broadcastPublicKeyPacket.WriteString(sender.PublicKeyBase64);
+                    broadcastPublicKeyPacket.WriteString(sender.PublicKeyBase64!);
                     if (user.ClientSocket.Connected)
                         user.ClientSocket.GetStream()
                             .Write(broadcastPublicKeyPacket.GetPacketBytes(), 0, broadcastPublicKeyPacket.GetPacketBytes().Length);
 
-                    Log(ServerLogLevel.Debug,
-                        $"[SERVER] Transmitted public key from {sender.Username} to {user.Username}");
+                    ServerLogger.Log($"[SERVER] Transmitted public key from {sender.Username} to {user.Username}", ServerLogLevel.Debug);
                 }
                 catch (Exception ex)
                 {
-                    Log(ServerLogLevel.Error,
-                        $"[SERVER] Public key transmission failed: {ex.Message}");
+                    ServerLogger.Log($"[SERVER] Public key transmission failed: {ex.Message}", ServerLogLevel.Error);
                 }
             }
-            Log(ServerLogLevel.Debug,
-                "[SERVER] Completed public key broadcast");
+            ServerLogger.Log("[SERVER] Completed public key broadcast", ServerLogLevel.Debug);
         }
 
         /// <summary>Displays the localized startup banner.</summary>
@@ -281,11 +273,55 @@ namespace chat_server
             return chosenPort;
         }
 
+        /// <summary>
+        /// Handles a newly accepted TCP client:
+        /// performs handshake, registers the client,
+        /// broadcasts the roster, then starts its message loop.
+        /// </summary>
+        private static void HandleNewClient(TcpClient tcpClient)
+        {
+            // Logs the remote endpoint of the incoming connection
+            var endpoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown endpoint";
+            ServerLogger.Log($"Incoming connection from {endpoint}", ServerLogLevel.Info);
+
+            // Obtains the network stream for this client
+            NetworkStream stream = tcpClient.GetStream();
+
+            // Reads one byte for the handshake opcode
+            int opcode = stream.ReadByte();
+            if (opcode < 0 || (ServerPacketOpCode)opcode != ServerPacketOpCode.Handshake)
+            {
+                ServerLogger.Log($"Invalid handshake opcode: {opcode}. Disconnecting.", ServerLogLevel.Error);
+                tcpClient.Close();
+                return;
+            }
+
+            // Parses the username, UID, and public key from the stream
+            var reader = new PacketReader(stream);
+            string username = reader.ReadString();
+            Guid uid = reader.ReadUid();
+            string publicKeyB64 = reader.ReadString();
+
+            // Creates and registers the new client
+            var client = new Client(tcpClient, username, uid)
+            {
+                PublicKeyBase64 = publicKeyB64
+            };
+            Users.Add(client);
+            ServerLogger.Log($"Client connected: {username} ({uid})", ServerLogLevel.Info);
+
+            // Broadcasts the updated roster to all clients
+            BroadcastConnection();
+
+            // Starts the message-listening loop for this client
+            Task.Run(() => client.ListenForMessages());
+        }
+
 
         /// <summary>Reads a console line with a timeout.</summary>
         private static string ReadLineWithTimeout(int timeoutMs)
         {
-            string? result = null;
+            string? result = "";
             Task.Run(() => result = Console.ReadLine()).Wait(timeoutMs);
             return result ?? string.Empty;
         }
@@ -297,7 +333,7 @@ namespace chat_server
         /// </summary>
         public static void Shutdown()
         {
-            ServerLogger.ServerLogLocalized("ShutdownStart", ServerLogLevel.Info);
+            ServerLogger.LogLocalized("ShutdownStart", ServerLogLevel.Info);
 
             foreach (var user in Users)
             {
@@ -317,99 +353,47 @@ namespace chat_server
                 }
                 catch (Exception ex)
                 {
-                    Log(ServerLogLevel.Error,
-                        $"[SERVER] Shutdown notification failed: {ex.Message}");
+                    ServerLogger.Log($"[SERVER] Shutdown notification failed: {ex.Message}", ServerLogLevel.Error);
                 }
             }
 
-            ServerLogger.ServerLogLocalized("ShutdownComplete", ServerLogLevel.Info);
+            ServerLogger.LogLocalized("ShutdownComplete", ServerLogLevel.Info);
         }
 
         /// <summary>
-        /// Starts a TCP listener on the specified port, performs client handshakes,
-        /// validates RSA keys, registers new clients, and broadcasts the roster.
-        /// Logs each major step and handles unexpected conditions.
+        /// Starts the TCP listener and runs the client-accept loop in a background task.
         /// </summary>
         public static void StartServerListener(int port)
         {
-            // Creates and starts the TCP listener on all network interfaces
-            _listener = new TcpListener(IPAddress.Any, port);
+            // Starts the pre-instantiated listener
             _listener.Start();
+            Console.WriteLine();
 
-            Console.WriteLine("\n");
+            // Logs a localized “ServerStartedOnPort” message at Info level, formatting in the port
+            ServerLogger.LogLocalized("ServerStartedOnPort", ServerLogLevel.Info, port);
 
-            // Logs that the server has successfully started on the specified port
-            Log(ServerLogLevel.Info, string.Format(
-                    LocalizationManager.GetString("ServerStartedOnPort"),
-                    port));
-
-            while (true)
+            // Launches the accept loop in a background task
+            Task.Run(async () =>
             {
-                try
+                while (true)
                 {
-                    // Accepts an incoming TCP connection
-                    TcpClient tcpClient = _listener.AcceptTcpClient();
-                    string endpoint = tcpClient.Client
-                                              .RemoteEndPoint?
-                                              .ToString()
-                                      ?? "Unknown endpoint";
-                    Log(ServerLogLevel.Info,
-                        $"Incoming connection from {endpoint}");
-
-                    NetworkStream stream = tcpClient.GetStream();
-
-                    // Reads the handshake opcode byte
-                    int raw = stream.ReadByte();
-                    if ((ServerPacketOpCode)raw != ServerPacketOpCode.Handshake)
+                    try
                     {
-                        Log(
-                            ServerLogLevel.Error,
-                            $"Unexpected handshake opcode: {raw}. Disconnecting.");
-                        tcpClient.Close();
-                        continue;
+                        // Awaits an incoming TCP connection
+                        TcpClient tcpClient = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
+
+                        // Delegates new-connection handling to helper
+                        HandleNewClient(tcpClient);
                     }
-
-                    // Parses the Username, UID, and Base64 public key
-                    var packetReader = new PacketReader(stream);
-                    string username = packetReader.ReadString();
-                    Guid uid = packetReader.ReadUid();
-                    string publicKeyBase64 = packetReader.ReadString();
-
-                    Log(ServerLogLevel.Debug, "[SERVER] Handshake received:");
-                    Log(ServerLogLevel.Debug, $"  → Username: {username}");
-                    Log(ServerLogLevel.Debug, $"  → UID: {uid}");
-                    Log(ServerLogLevel.Debug, $"  → Key fragment: {publicKeyBase64.Substring(0, 32)}…");
-
-                    // Imports the RSA public key in PKCS#1 DER format
-                    byte[] derBytes = Convert.FromBase64String(publicKeyBase64);
-                    using var rsa = RSA.Create();
-                    rsa.ImportRSAPublicKey(derBytes, out _);
-
-                    // Instantiates and registers the client
-                    var client = new Client(tcpClient, username, uid)
+                    catch (Exception ex)
                     {
-                        PublicKeyDer = derBytes,
-                        PublicKeyBase64 = publicKeyBase64
-                    };
-                    Users.Add(client);
-
-                    Log(ServerLogLevel.Info, $"Client connected: {username} ({uid})");
-                    Log(ServerLogLevel.Info, $"[SERVER] User count: {Users.Count}");
-                    foreach (var u in Users)
-                        Log(ServerLogLevel.Debug, $"  → {u.Username} ({u.UID})");
-
-                    // Spawns the message listener and updates the roster
-                    Task.Run(() => client.ListenForMessages());
-                    BroadcastConnection();
+                        // Logs accept-loop failures without crashing the server
+                        ServerLogger.Log($"Accept loop failure: {ex.Message}", ServerLogLevel.Error);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    // Logs any exception during the handshake process
-                    Log(ServerLogLevel.Error, $"[SERVER] Handshake error: {ex.Message}");
-                }
-            }
+            });
         }
-
     }
 }
+
 
