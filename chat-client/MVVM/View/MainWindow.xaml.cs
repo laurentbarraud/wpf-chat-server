@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 1st, 2025</date>
+/// <date>October 2nd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -736,8 +736,7 @@ namespace chat_client
                         : "SendingPublicKey";
                     imgEncryptionStatus.ToolTip = LocalizationManager.GetString(tooltipKey);
 
-                    ClientLogger.Log($"Encryption in progress — gray icon displayed; tooltip: {tooltipKey}.",
-                        ClientLogLevel.Debug);
+                    ClientLogger.Log($"Encryption in progress.", ClientLogLevel.Debug);
                     return;
                 }
 
@@ -747,10 +746,10 @@ namespace chat_client
                 imgEncryptionStatus.ToolTip = LocalizationManager.GetString("EncryptionEnabled");
 
                 // Begins the Ultra Zoom animation defined in XAML
-                var storyboard = (Storyboard)FindResource("StarWarsLockDrop");
+                var storyboard = (Storyboard)FindResource("LockDropAnim");
                 storyboard.Begin();
 
-                ClientLogger.Log("Encryption fully active — colored icon displayed with Zoom animation.",
+                ClientLogger.Log("Encryption fully active.",
                     ClientLogLevel.Info);
             }
             catch (Exception ex)

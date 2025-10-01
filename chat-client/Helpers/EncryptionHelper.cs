@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 1st, 2025</date>
+/// <date>October 2nd, 2025</date>
 
 ///<summary>
 ///Technical note : 
@@ -78,28 +78,29 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Encrypts the given plaintext using the recipient's Base64-DER public key.
-        /// Uses OAEP with SHA-256 padding for maximum security.
+        /// Encrypts the provided UTF-8 plaintext with the recipient’s RSA public key.
+        /// Employs OAEP-SHA256 padding to maximize security.
         /// </summary>
-        /// <param name="plainMessage">The UTF-8 text to encrypt.</param>
-        /// <param name="recipientPublicKeyBase64">Recipient's Base64-DER public key.</param>
-        /// <returns>Base64-encoded ciphertext.</returns>
+        /// <param name="plainMessage">The plaintext string to encrypt.</param>
+        /// <param name="recipientPublicKeyBase64">The recipient’s RSA public key in Base64-DER format.</param>
+        /// <returns>A Base64-encoded ciphertext.</returns>
         public static string EncryptMessage(string plainMessage, string recipientPublicKeyBase64)
         {
-            // Creates a temporary RSA instance for encryption
+            // Instantiates an RSA provider for encryption
             using var rsa = RSA.Create();
 
-            // Imports the recipient's public key in DER PKCS#1 format
-            byte[] publicDer = Convert.FromBase64String(recipientPublicKeyBase64);
-            rsa.ImportRSAPublicKey(publicDer, out _);
+            // Decodes the Base64 key and imports it in DER PKCS#1 format
+            byte[] publicKeyDer = Convert.FromBase64String(recipientPublicKeyBase64);
+            rsa.ImportRSAPublicKey(publicKeyDer, out _);
 
-            // Encrypts the plaintext with OAEP SHA-256 padding
-            byte[] cipher = rsa.Encrypt(
-                Encoding.UTF8.GetBytes(plainMessage),
-                RSAEncryptionPadding.OaepSHA256);
+            // Encodes the plaintext as UTF-8 bytes
+            byte[] plaintextBytes = Encoding.UTF8.GetBytes(plainMessage);
 
-            // Returns the ciphertext as Base64
-            return Convert.ToBase64String(cipher);
+            // Encrypts the data using OAEP with SHA-256 padding
+            byte[] cipherBytes = rsa.Encrypt(plaintextBytes, RSAEncryptionPadding.OaepSHA256);
+
+            // Converts and returns the ciphertext as a Base64 string
+            return Convert.ToBase64String(cipherBytes);
         }
 
         /// <summary>

@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 1st, 2025</date>
+/// <date>October 2nd, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -76,10 +76,73 @@ namespace chat_server
         }
 
         /// <summary>
+        /// Handles opcode for encrypted chat messages.
+        /// Reads sender and recipient UIDs and Base64 ciphertext,
+        /// then forwards the encrypted payload to the appropriate clients.
+        /// Logs each forward operation or any failure.
+        /// </summary>
+        private void HandleEncryptedMessageReceived()
+        {
+            try
+            {
+                // Reads the sender’s UID (16 bytes)
+                Guid senderUid = _packetReader.ReadUid();
+
+                // Reads the recipient’s UID (16 bytes); Guid.Empty indicates broadcast
+                Guid recipientUid = _packetReader.ReadUid();
+
+                // Reads the Base64-encoded ciphertext
+                string cipherB64 = _packetReader.ReadString();
+
+                // Iterates through every connected user
+                foreach (var user in Program.Users)
+                {
+                    // Skips non–broadcast messages that are not addressed to this user
+                    if (recipientUid != Guid.Empty && user.UID != recipientUid)
+                        continue;
+
+                    try
+                    {
+                        // Constructs the Server→Client EncryptedMessage packet
+                        var forwardPacket = new PacketBuilder();
+                        forwardPacket.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
+                        forwardPacket.WriteUid(senderUid);
+                        forwardPacket.WriteUid(recipientUid);
+                        forwardPacket.WriteString(cipherB64);
+
+                        // Sends the packet to the user
+                        byte[] packetBytes = forwardPacket.GetPacketBytes();
+                        user.ClientSocket.GetStream().Write(packetBytes, 0, packetBytes.Length);
+
+                        // Logs successful forwarding
+                        var target = recipientUid == Guid.Empty ? "all users" : user.Username;
+                        ServerLogger.Log(
+                            $"Forwarded encrypted message from {senderUid} to {target}",
+                            ServerLogLevel.Debug);
+                    }
+                    catch (Exception exForward)
+                    {
+                        // Logs any failure to send to an individual user
+                        ServerLogger.Log(
+                            $"Failed to forward encrypted message to {user.Username} ({user.UID}): {exForward.Message}",
+                            ServerLogLevel.Error);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Logs any error during the encrypted-message handling workflow
+                ServerLogger.Log(
+                    $"HandleEncryptedMessageReceived failed: {ex.Message}",
+                    ServerLogLevel.Error);
+            }
+        }
+
+        /// <summary>
         /// Handles opcode 5 by reading sender and recipient UIDs and the message content,
         /// then delegates to Program.BroadcastMessage for routing.
         /// </summary>
-        private void HandleChatMessage()
+        private void HandlePlainMessageReceived()
         {
             // Reads the sender UID (16 bytes) and returns a Guid
             Guid senderUid = _packetReader.ReadUid();
@@ -101,7 +164,7 @@ namespace chat_server
         /// logs the receipt at debug level,
         /// and forwards the key to other connected clients.
         /// </summary>
-        private void HandlePublicKeyExchange()
+        private void HandlePublicKeyReceived()
         {
             // Reads the sender UID (16 bytes) and converts it to Guid
             Guid senderUid = _packetReader.ReadUid();
@@ -172,59 +235,70 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Continuously listens for incoming packets from the connected client,
-        /// logs each step of the receive-and-dispatch process,
-        /// and invokes the appropriate handler based on the opcode.
+        /// Continuously listens for incoming packets from this client connection,
+        /// logs each receive-and-dispatch step,
+        /// and invokes the appropriate handler based on the client→server opcode.
         /// </summary>
         internal void ListenForMessages()
         {
             // Logs the start of the message-listening loop for this client
-            ServerLogger.Log($"Starting message loop for {Username} ({UID})", ServerLogLevel.Info);
+            ServerLogger.Log(
+                $"Starting message loop for {Username} ({UID})",
+                ServerLogLevel.Info);
 
             while (true)
             {
-                ServerPacketOpCode opcode;
-
                 try
                 {
                     // Logs attempt to read the next packet opcode
-                    ServerLogger.Log($"Waiting for next packet from {Username}", ServerLogLevel.Debug);
+                    ServerLogger.Log(
+                        $"Waiting for next packet from {Username}",
+                        ServerLogLevel.Debug);
 
-                    // Reads a single byte and casts it to the packet opcode enum
-                    opcode = (ServerPacketOpCode)_packetReader.ReadByte();
+                    // Reads a single byte and casts it to the client→server opcode enum
+                    var opcode = (ServerPacketOpCode)_packetReader.ReadByte();
 
                     switch (opcode)
                     {
                         case ServerPacketOpCode.PublicKeyRequest:
+                            // Reads and handles a client’s public-key sync request
                             HandlePublicKeySyncRequest();
                             break;
 
                         case ServerPacketOpCode.PlainMessage:
-                            HandleChatMessage();
+                            // Reads and routes a clear-text chat message
+                            HandlePlainMessageReceived();
                             break;
 
-                        case ServerPacketOpCode.PublicKeyResponse:
-                            HandlePublicKeyExchange();
+                        case ServerPacketOpCode.EncryptedMessage:
+                            // Reads and forwards an encrypted chat message
+                            HandleEncryptedMessageReceived();
                             break;
 
                         default:
                             // Logs unsupported or unknown opcode values
-                            ServerLogger.Log($"Unknown opcode {opcode} received from {Username}", ServerLogLevel.Warn);
+                            ServerLogger.Log(
+                                $"Unknown opcode {opcode} received from {Username}",
+                                ServerLogLevel.Warn);
                             break;
                     }
 
                     // Logs successful processing of the packet
-                    ServerLogger.Log($"Processed packet {opcode} from {Username}", ServerLogLevel.Debug);
+                    ServerLogger.Log(
+                        $"Processed packet {opcode} from {Username}",
+                        ServerLogLevel.Debug);
                 }
                 catch (Exception ex)
                 {
-                    // Logs that the client has disconnected and terminates the listening loop
-                    ServerLogger.Log($"{Username} ({UID}) has disconnected: {ex.Message}", ServerLogLevel.Info);
+                    // Logs that the client has disconnected and performs cleanup
+                    ServerLogger.Log(
+                        $"{Username} ({UID}) has disconnected: {ex.Message}",
+                        ServerLogLevel.Info);
+
                     CleanupAfterDisconnect();
                     break;
                 }
             }
         }
-
     }
 }

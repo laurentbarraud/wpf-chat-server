@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 1st, 2025</date>
+/// <date>October 2nd, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;    // for ManualResetEventSlim
 
 namespace chat_server
 {
@@ -23,6 +24,9 @@ namespace chat_server
     {
         // Holds the server’s TCP listener instance; is instantiated before use.
         private static TcpListener _listener = default!;
+
+        // Used to block the Main thread until a shutdown is requested.
+        private static readonly ManualResetEventSlim _shutdownEvent = new(false);
 
         public static readonly List<Client> Users = new();
         public static string AppLanguage = "en";
@@ -44,9 +48,9 @@ namespace chat_server
             // Registers a handler to perform a graceful shutdown on Ctrl+C.
             Console.CancelKeyPress += (sender, e) =>
             {
-                e.Cancel = true;
-                Shutdown();
-                Environment.Exit(0);
+                e.Cancel = true;             // Prevent immediate process termination
+                Shutdown();                  // Notify all clients and clean up
+                _shutdownEvent.Set();        // Unblock the Main thread
             };
 
             // Determines system language and initializes localization.
@@ -67,14 +71,22 @@ namespace chat_server
 
                 // Starts listening for incoming client connections.
                 StartServerListener(portToListenTo);
+
+                // Blocks the main thread until a shutdown signal is received.
+                _shutdownEvent.Wait();
             }
             catch (Exception ex)
             {
                 // Logs failure to start the listener on the chosen port.
-                ServerLogger.LogLocalized($"{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}", ServerLogLevel.Error);
+                ServerLogger.LogLocalized(
+                    $"{LocalizationManager.GetString("ServerStartFailed")} {portToListenTo}: {ex.Message}",
+                    ServerLogLevel.Error);
 
                 // Logs that the application is exiting and then terminates.
-                ServerLogger.LogLocalized(LocalizationManager.GetString("Exiting"), ServerLogLevel.Info);
+                ServerLogger.LogLocalized(
+                    LocalizationManager.GetString("Exiting"),
+                    ServerLogLevel.Info);
+
                 Environment.Exit(1);
             }
         }

@@ -34,7 +34,7 @@
         </Storyboard>
 
         <!-- Style for lock coloured icon on encryption enabled -->
-        <Storyboard x:Key="StarWarsLockDrop">
+        <Storyboard x:Key="LockDropAnim">
             <!-- Rise from closer to the screen (less vertical travel) -->
             <DoubleAnimation Storyboard.TargetName="LockTranslate"
                      Storyboard.TargetProperty="Y"

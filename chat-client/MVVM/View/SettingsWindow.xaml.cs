@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 1st, 2025</date>
+/// <date>October 2nd, 2025</date>
 
 using System;
 using System.Windows.Controls;
