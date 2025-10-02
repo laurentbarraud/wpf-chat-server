@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 2nd, 2025</date>
+/// <date>October 3rd, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -91,26 +91,40 @@ namespace chat_server
             }
         }
 
-        /// <summary>Broadcasts full user list (opcode 1) to every client.</summary>
+        /// <summary>
+        /// Broadcasts the complete roster to each connected client except the sender.
+        /// Constructs a ConnectionBroadcast packet for each user entry and dispatches it.
+        /// Logs a single completion message for recruiter-ready documentation.
+        /// </summary>
         public static void BroadcastConnection()
         {
+            // Iterates through every recipient in the user list
             foreach (var receiver in Users)
             {
+                // Iterates through every user to include in the roster
                 foreach (var usr in Users)
                 {
+                    // Skips sending the roster entry back to its origin
+                    if (receiver.UID == usr.UID)
+                        continue;
+
+                    // Constructs the ConnectionBroadcast packet with UID, username, and public key
                     var broadcastConnectionPacket = new PacketBuilder();
                     broadcastConnectionPacket.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
                     broadcastConnectionPacket.WriteUid(usr.UID);
                     broadcastConnectionPacket.WriteString(usr.Username);
-                    // Fallback on string.Empty if the property is null
                     broadcastConnectionPacket.WriteString(usr.PublicKeyBase64 ?? string.Empty);
+
+                    // Sends the serialized packet to the recipient’s socket
                     receiver.ClientSocket.Client
                         .Send(broadcastConnectionPacket.GetPacketBytes());
-
-                    ServerLogger.Log("[SERVER] Broadcasting user list entry", ServerLogLevel.Debug);
                 }
             }
-            ServerLogger.Log("[SERVER] Completed user list broadcast", ServerLogLevel.Debug);
+
+            // Logs only once when the full roster broadcast completes
+            ServerLogger.Log(
+                "[SERVER] Completed user list broadcast",
+                ServerLogLevel.Debug);
         }
 
         /// <summary>Notifies clients of a disconnection (opcode 10) and logs each send.</summary>

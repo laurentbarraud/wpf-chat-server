@@ -1,7 +1,7 @@
 ﻿/// <file>Protocol.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 2nd, 2025</date>
+/// <date>October 3rd, 2025</date>
 
 using System;
 using System.Collections.Generic;
@@ -23,7 +23,7 @@ namespace chat_server.Net
         Handshake = 0,
 
         /// <summary>
-        /// Broadcast a user's information when they connect.
+        /// Broadcasts a user's information when they connect.
         /// Contains: UserId; Username; PublicKeyBase64.</summary>
         ConnectionBroadcast = 1,
 
@@ -50,7 +50,12 @@ namespace chat_server.Net
         /// <summary>
         /// Client sends an encrypted chat message.
         /// Contains: SenderUserId; RecipientUserId; CipherText.</summary>
-        EncryptedMessage = 11
+        EncryptedMessage = 11,
+
+        /// <summary>
+        /// Server instructs this client to disconnect.
+        /// Contains: TargetUserId.</summary>
+        DisconnectClient = 12
     }
 }
 

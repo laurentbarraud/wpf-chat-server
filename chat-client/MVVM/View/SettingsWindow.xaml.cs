@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 2nd, 2025</date>
+/// <date>October 3rd, 2025</date>
 
 using System;
 using System.Windows.Controls;
@@ -96,7 +96,7 @@ namespace chat_client.MVVM.View
                 }
 
                 // Synchronizes toggle states and port field with saved settings
-                TxtCustomPort.Text = MainViewModel.GetCurrentPort().ToString();
+                TxtCustomPort.Text = MainViewModel.GetCustomPort().ToString();
                 UseEncryptionToggle.IsChecked = chat_client.Properties.Settings.Default.UseEncryption;
             }
             catch (Exception ex)

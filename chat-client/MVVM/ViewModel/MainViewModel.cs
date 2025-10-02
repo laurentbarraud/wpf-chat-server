@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 2nd, 2025</date>
+/// <date>October 3rd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -38,30 +38,6 @@ namespace chat_client.MVVM.ViewModel
 
         public ObservableCollection<string> Messages { get; set; }
 
-        // What the user types in the first textbox on top left of
-        // the MainWindow in View gets stored in this property (bound in XAML).
-        public static string Username { get; set; } = string.Empty;
-
-        // What the user types in the second textbox on top left of
-        // the MainWindow in View gets stored in this property (bound in XAML).
-        public static string IPAddressOfServer { get; set; } = string.Empty;
-
-        // What the user types in the textbox on bottom right
-        // of the MainWindow in View gets stored in this property (bound in XAML).
-        public static string Message { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
-        /// This allows clients to verify message authenticity and prevent spoofed disconnects or control signals.
-        /// </summary>
-        public static readonly Guid SystemUID = Guid.Parse("00000000-0000-0000-0000-000000000001");
-
-        /// <summary>
-        /// Indicates whether the client is currently connected to the server.
-        /// Delegates to the Server’s IsConnected property.
-        /// </summary>
-        public bool IsConnected => _server.IsConnected;
-
         private static readonly Dictionary<string, string> dictionary = new();
 
         /// <summary>
@@ -71,10 +47,64 @@ namespace chat_client.MVVM.ViewModel
         public Dictionary<string, string> KnownPublicKeys { get; } = dictionary;
 
         /// <summary>
+        /// Command that invokes Connect() or Disconnect() based on current connection state.
+        /// </summary>
+        public RelayCommand ConnectDisconnectCommand { get; }
+
+        /// <summary>
         /// Represents the number of clients expected to be connected for encryption readiness.
         /// This value is updated dynamically based on the current user list.
         /// </summary>
         public int ExpectedClientCount { get; set; } = 1; // Starts at 1 (self)
+
+        /// <summary>
+        /// Checks whether the local user has already sent their public key to the specified UID.
+        /// </summary>
+        /// <param name="uid">Unique identifier of the remote user.</param>
+        /// <returns>True if the key has already been sent; otherwise, false.</returns>
+        public bool HasSentKeyTo(string uid) => _uidsKeySentTo.Contains(uid);
+
+
+        // What the user types in the second textbox on top left of
+        // the MainWindow in View gets stored in this property (bound in XAML).
+        public static string IPAddressOfServer { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets whether the client is currently connected.
+        /// Triggers UI updates for Title, ConnectButtonText,
+        /// credential inputs and chat panels.
+        /// </summary>
+        public bool IsConnected
+        {
+            get => _server.IsConnected;
+            private set
+            {
+                if (_isConnected == value) return;
+                _isConnected = value;
+                OnPropertyChanged();                            
+                OnPropertyChanged(nameof(WindowTitle));
+                OnPropertyChanged(nameof(ConnectButtonText));
+                OnPropertyChanged(nameof(AreCredentialsEditable));
+                OnPropertyChanged(nameof(AreChatControlsVisible));
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether end-to-end encryption is active.
+        /// When modified, raises PropertyChanged for IsEncryptionActive and WindowTitle
+        /// so the window title and lock icon reflect the current encryption state.
+        /// </summary>
+        public bool IsEncryptionActive
+        {
+            get => _isEncryptionActive;
+            set
+            {
+                if (_isEncryptionActive == value) return;
+                _isEncryptionActive = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(WindowTitle));
+            }
+        }
 
         /// <summary>
         /// Indicates whether encryption is fully ready for use.
@@ -121,18 +151,35 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Checks whether the local user has already sent their public key to the specified UID.
-        /// </summary>
-        /// <param name="uid">Unique identifier of the remote user.</param>
-        /// <returns>True if the key has already been sent; otherwise, false.</returns>
-        public bool HasSentKeyTo(string uid) => _uidsKeySentTo.Contains(uid);
-
-        /// <summary>
         /// Marks the specified UID as having received our public RSA key.
         /// Prevents duplicate transmissions during key exchange.
         /// </summary>
         /// <param name="uid">Unique identifier of the remote user.</param>
         public void MarkKeyAsSentTo(string uid) => _uidsKeySentTo.Add(uid);
+
+        // What the user types in the textbox on bottom right
+        // of the MainWindow in View gets stored in this property (bound in XAML).
+        public static string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
+        /// This allows clients to verify message authenticity and prevent spoofed disconnects or control signals.
+        /// </summary>
+        public static readonly Guid SystemUID = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+        // What the user types in the first textbox on top left of
+        // the MainWindow in View gets stored in this property (bound in XAML).
+        public static string Username { get; set; } = string.Empty;
+     
+        public UserModel? LocalUser { get; set; }
+
+        public Server _server = new Server();
+
+        /// <summary>
+        /// Event triggered when a property value changes, used to notify bound UI elements in data-binding scenarios.
+        /// Implements the INotifyPropertyChanged interface to support reactive updates in WPF.
+        /// </summary>
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         // Declaring the list as public ensures it can be resolved by WPF's binding system,
         // assuming the containing object is set as the DataContext.
@@ -143,16 +190,6 @@ namespace chat_client.MVVM.ViewModel
             "🍾", "🥳", "🍰", "🍱", "😁", "😇", "🤨", "🤷", "🤐", "😘", "❤️", "😲", "😬",
             "😷", "😴", "💤", "🔧", "🚗", "🏡", "☀️",  "🔥", "⭐", "🌟", "✨", "🌧️", "🕒"
         };
-
-        public UserModel? LocalUser { get; set; }
-
-        public Server _server = new Server();
-
-        /// <summary>
-        /// Event triggered when a property value changes, used to notify bound UI elements in data-binding scenarios.
-        /// Implements the INotifyPropertyChanged interface to support reactive updates in WPF.
-        /// </summary>
-        public event PropertyChangedEventHandler? PropertyChanged;
 
         // PROTECTED METHODS
 
@@ -166,53 +203,60 @@ namespace chat_client.MVVM.ViewModel
 
         // PRIVATE FIELDS
 
+        /// <summary>
+        /// Tracks which users have already received our public RSA key.
+        /// A HashSet is fast, especially for the Contains and Add operations.
+        /// A UID can only be added once. This prevents redundant key transmissions.
+        /// </summary>
+        private readonly HashSet<string> _uidsKeySentTo = new();
+
         // Backing field for change notification
         private bool _isEncryptionReady;
 
         // Flag for ongoing key exchange
         private bool _isKeyExchangeInProgress;
 
-        /// <summary>
-        /// Tracks which users have already received our public RSA key.
-        /// A HashSet has these advantages :
-        /// - No duplicates: a UID can only be added once. This prevents redundant key transmissions.
-        /// - Fast: the Contains and Add operations are in constant time.
-        /// - Readable: the logic is clear and explicit.
-        /// </summary>
-        private readonly HashSet<string> _uidsKeySentTo = new();
+        private bool _isEncryptionActive;
+
+        // Flag for the status of the client
+        private bool _isConnected;
 
         /// <summary>
-        /// Initializes the ViewModel, sets up collections,
-        /// instantiates the Server client, and wires its events to Raise helpers.
+        /// Initializes the MainViewModel instance.
+        /// Sets up user and message collections, creates the server client,
+        /// wires server events to handlers, and configures the Connect/Disconnect command.
         /// </summary>
         public MainViewModel()
         {
-            // Initializes the collections bound to the UI
+            // Initializes the collection of connected users
             Users = new ObservableCollection<UserModel>();
+
+            // Initializes the collection of chat messages
             Messages = new ObservableCollection<string>();
 
-            // Creates the server‐side client and hooks its events
+            // Instantiates the server client and subscribes to its events
             _server = new Server();
-
-            // Model A: new user joined → (uid, username, publicKey)
             _server.ConnectedEvent += UserConnected;
-
-            // Model C: plain-text message arrives → (formattedMessage)
             _server.PlainMessageReceivedEvent += PlainMessageReceived;
-
-            // Model E: encrypted message arrives → (formattedMessage)
             _server.EncryptedMessageReceivedEvent += EncryptedMessageReceived;
-
-            // Model D: peer public key arrives → (senderUid, publicKeyBase64)
             _server.PublicKeyReceivedEvent += PublicKeyReceived;
-
-            // Model A: a user disconnected → (uid, username)
             _server.UserDisconnectedEvent += UserDisconnected;
-
-            // Model F: server-initiated disconnect → no arguments
             _server.DisconnectedByServerEvent += ServerDisconnectedClient;
+
+            // Creates the Connect/Disconnect command and binds its Execute and CanExecute logic
+            ConnectDisconnectCommand = new RelayCommand(
+                () => ConnectDisconnect(),
+                () => AreCredentialsEditable
+            );
+
+            // Registers to reevaluate the Connect/Disconnect command when connection state changes
+            PropertyChanged += (sender, args) =>
+            {
+                if (args.PropertyName == nameof(IsConnected))
+                    ConnectDisconnectCommand.RaiseCanExecuteChanged();
+            };
         }
- 
+
         /// <summary>
         /// Determines whether encryption can proceed by checking:
         ///  - if encryption is enabled in settings  
@@ -225,7 +269,7 @@ namespace chat_client.MVVM.ViewModel
         public bool AreAllKeysReceived()
         {
             // Logs the current encryption setting for debugging
-            ClientLogger.Log($"Checking encryption readiness — UseEncryption={Settings.Default.UseEncryption}",
+            ClientLogger.Log($"EvaluateEncryptionState: UseEncryption={Settings.Default.UseEncryption}, LocalUserReady={LocalUser != null}",
                 ClientLogLevel.Debug);
 
             // Skips if encryption is disabled or if the local user is not initialized
@@ -294,6 +338,17 @@ namespace chat_client.MVVM.ViewModel
             return true;
         }
 
+        /// <summary>
+        /// Gets whether the chat panels (SpnDown, SpnEmojiPanel) are visible.
+        /// They’re visible only when connected.
+        /// </summary>
+        public bool AreChatControlsVisible => IsConnected;
+
+        /// <summary>
+        /// Gets whether the username/IP textboxes are editable.
+        /// They’re editable only when not connected.
+        /// </summary>
+        public bool AreCredentialsEditable => !IsConnected;
 
         /// <summary>
         /// Determines whether a message can be encrypted for the specified recipient.
@@ -329,23 +384,13 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public void Connect()
         {
-            // Reject empty usernames
-            if (string.IsNullOrWhiteSpace(Username))
-            {
-                ShowUsernameError();
-                return;
-            }
-            
-            // Enforces allowed characters: A-Z, a-z, digits, and selected accented letters only
+            // Rejects empty or malformed usernames
             var allowedPattern = @"^[a-zA-Z0-9éèàöüî_-]+$";
-
-            // Rejects malformed usernames that contain any other character
-            if (!Regex.IsMatch(Username, allowedPattern))
+            if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, allowedPattern))
             {
                 ShowUsernameError();
                 return;
             }
-
 
             try
             {
@@ -392,18 +437,20 @@ namespace chat_client.MVVM.ViewModel
                     _server.RequestAllPublicKeysFromServer();
                 }
 
-                // Updates UI to connected state
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    // Gets the MainWindow instance and its DataContext
+                    if (Application.Current.MainWindow is MainWindow mainWindow &&
+                        mainWindow.DataContext is MainViewModel viewModel)
                     {
-                        mainWindow.Title += " - " + LocalizationManager.GetString("Connected");
-                        mainWindow.CmdConnectDisconnect.Content = "_Disconnect";
-                        mainWindow.SpnDown.Visibility = Visibility.Visible;
-                        mainWindow.SpnEmojiPanel.Visibility = Visibility.Visible;
+                        // Updates the connection state in the ViewModel
+                        viewModel.IsConnected = true;
+
+                        // Sets focus to the message input box
                         mainWindow.TxtMessageToSend.Focus();
                     }
                 });
+
 
                 // Save the last used IP address for future sessions
                 Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
@@ -427,9 +474,14 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+        /// <summary>
+        /// Gets the localized text for the connect/disconnect button.
+        /// </summary>
+        public string ConnectButtonText =>
+            LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
 
         /// <summary>
-        /// Connects or disconnects the client, depending on the connection status
+        /// Connects or disconnects the client, depending on the server state.
         /// </summary>
         public void ConnectDisconnect()
         {
@@ -442,6 +494,7 @@ namespace chat_client.MVVM.ViewModel
                 Connect();
             }
         }
+
 
         /// <summary>
         /// Disconnects the client from the server and resets the UI state.
@@ -510,12 +563,28 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Returns the current port number stored in application settings.
+        /// Returns the current custom port number stored in application settings.
         /// </summary>
-        public static int GetCurrentPort()
+        public static int GetCustomPort()
         {
             return chat_client.Properties.Settings.Default.CustomPortNumber;
         }
+
+        /// <summary>
+        /// Returns the base title when not connected;
+        /// appends " - Connected" when the client is connected.
+        /// </summary>
+        public string WindowTitle =>
+            "WPF chat client"
+            + (IsConnected
+                ? " - " + LocalizationManager.GetString("Connected")
+                : string.Empty);
+
+        /// <summary>
+        /// Gets the localized text for the connect/disconnect button.
+        /// </summary>
+        public string GetConnectButtonText =>
+            LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
 
         /// <summary>
         /// Executes the complete encryption setu:
@@ -618,6 +687,10 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log("Persists handshake keys and encryption flag.", ClientLogLevel.Debug);
             }
         }
+
+        public void NotifyConnected() => IsConnected = true;
+
+        public void NotifyDisconnected() => IsConnected = false;
 
         /// <summary>
         /// Handles a delivered plain‐text message.
@@ -738,33 +811,45 @@ namespace chat_client.MVVM.ViewModel
                 }
             }
         }
+        
+        /// <summary>
+        /// Raises PropertyChanged for all connection-related bindings.
+        /// </summary>
+        public void RefreshConnectionBindings()
+        {
+            // Force WPF to re-lire toutes nos propriétés
+            OnPropertyChanged(nameof(IsConnected));
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(ConnectButtonText));
+            OnPropertyChanged(nameof(AreCredentialsEditable));
+            OnPropertyChanged(nameof(AreChatControlsVisible));
+        }
 
         /// <summary>
-        /// Clears user and message data and restores the UI to its initial state.
-        /// </summary>
-        public void ReinitializeUI()
+/// Clears all chat data and resets the ViewModel connection state,
+/// causing the UI to return to its initial (disconnected) layout via bindings.
+/// </summary>
+public void ReinitializeUI()
+{
+    // Clears the collections bound to the user list and chat window
+    Users.Clear();
+    Messages.Clear();
+
+    // Updates the ViewModel on the UI thread to trigger all connection-related bindings
+    Application.Current.Dispatcher.Invoke(() =>
+    {
+        // Retrieves MainWindow and its DataContext ViewModel
+        if (Application.Current.MainWindow is MainWindow mainWindow
+            && mainWindow.DataContext is MainViewModel viewModel)
         {
-            // Clears the collections bound to the UI
-            Users.Clear();
-            Messages.Clear();
-
-            // Updates UI elements on the main thread
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                if (Application.Current.MainWindow is MainWindow mainWindow)
-                {
-                    mainWindow.CmdConnectDisconnect.Content = LocalizationManager.GetString("ConnectButton");
-
-                    mainWindow.TxtUsername.IsEnabled = true;
-                    mainWindow.TxtIPAddress.IsEnabled = true;
-                    mainWindow.Title = "WPF chat client";
-
-                    // Hides the down and toolbar panels
-                    mainWindow.SpnDown.Visibility = Visibility.Hidden;
-                    mainWindow.SpnEmojiPanel.Visibility = Visibility.Hidden;
-                }
-            });
+            // Sets IsConnected to false, which:
+            // - Enables the username/IP inputs
+            // - Hides the chat panels
+            // - Updates the window title and button text
+            viewModel.IsConnected = false;
         }
+    });
+}
 
         /// <summary>
         /// Model F: Handles a server-initiated disconnect command (opcode 12).
@@ -1100,5 +1185,11 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"UserDisconnected handler failed: {ex.Message}",  ClientLogLevel.Error);
             }
         }
+
+        /// <summary>
+        /// Gets the localized window title according to connection state.
+        /// </summary>
+        public string WindowTitle =>
+            "WPF chat client – " + LocalizationManager.GetString(IsConnected ? "Connected" : "Disconnected");
     }
 }

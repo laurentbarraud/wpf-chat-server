@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 2nd, 2025</date>
+/// <date>October 3rd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -164,59 +164,34 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Model E: Reads, decrypts and formats an encrypted chat packet (opcode 11),
-        /// filters out messages not addressed to this client, and raises
-        /// EncryptedMessageReceivedEvent with the ready-to-display string.
+        /// Model E : Reads, decrypts and dispatches an encrypted chat packet (opcode 11).
+        /// Filters out messages not addressed to this client and logs any decryption errors.
         /// </summary>
         private void DecryptMessageReceived()
         {
+            // Reads the sender UID and raw ciphertext bytes
+            (Guid senderUid, byte[] cipherBytes) = packetReader.ReadEncryptedMessage();
+
+            // Converts raw bytes to Base64 and attempts decryption
+            string base64 = Convert.ToBase64String(cipherBytes);
+            string plaintext;
             try
             {
-                // Read sender and recipient UIDs (16 bytes each)
-                Guid senderUid = packetReader.ReadUid();
-                Guid recipientUid = packetReader.ReadUid();
-
-                // Ignore messages not addressed to this client (non‐broadcast)
-                // Uses the server’s LocalUid (Guid) instead of a non‐existent LocalUser
-                if (recipientUid != Guid.Empty
-                    && recipientUid != LocalUid)
-                {
-                    return;
-                }
-
-                // Read and sanitize the Base64‐encoded ciphertext
-                string encryptedBase64 = packetReader
-                    .ReadString()
-                    .Replace("\0", "")
-                    .Replace("\r", "")
-                    .Replace("\n", "")
-                    .Trim();
-
-                // Attempt decryption and fallback on localized error
-                string decrypted;
-                try
-                {
-                    decrypted = EncryptionHelper.DecryptMessage(encryptedBase64);
-                }
-                catch (Exception exDecrypt)
-                {
-                    ClientLogger.Log($"Decryption error for sender {senderUid}: {exDecrypt.Message}",
-                        ClientLogLevel.Error);
-                    decrypted = LocalizationManager.GetString("DecryptionFailed");
-                }
-
-                // Format the display string; any further name‐resolution
-                // is done in the ViewModel based on senderUid
-                string messageToDisplay = $"{senderUid}: {decrypted}";
-
-                // Raise the event with the fully formatted string
-                EncryptedMessageReceivedEvent?.Invoke(messageToDisplay);
+                plaintext = EncryptionHelper.DecryptMessage(base64);
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"DecryptMessageReceived failed: {ex.Message}",
+                ClientLogger.Log(
+                    $"Decryption error from {senderUid}: {ex.Message}",
                     ClientLogLevel.Error);
+                plaintext = LocalizationManager.GetString("DecryptionFailed");
             }
+
+            // Formats the message for display
+            string messageToDisplay = $"{senderUid}: {plaintext}";
+
+            // Dispatches the formatted message to whoever subscribed
+            EncryptedMessageReceivedEvent?.Invoke(messageToDisplay);
         }
 
         /// <summary>
@@ -306,7 +281,7 @@ namespace chat_client.Net
                     switch (opcode)
                     {
                         case ClientPacketOpCode.ConnectionBroadcast:
-                            // Model A: new user joined → (uid, username, publicKey)
+                            // Model A: new user joined
                             Guid newUid = packetReader.ReadUid();
                             string newName = packetReader.ReadString();
                             string newPubKey = packetReader.ReadString();
@@ -319,38 +294,19 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.PlainMessage:
-                            // Model C: plain-text message arrives → (senderUid, text)
+                            // Model C: plain-text message arrives
                             (Guid plainUid, string plainText) =
                                 packetReader.ReadPlainMessage();
                             viewModel.PlainMessageReceived(plainText);
                             break;
 
                         case ClientPacketOpCode.EncryptedMessage:
-                            // Model E: encrypted message arrives → (senderUid, cipherBytes)
-                            (Guid encUid, byte[] cipherBytes) =
-                                packetReader.ReadEncryptedMessage();
-
-                            // Convert raw bytes to Base64 and decrypt
-                            string base64 = Convert.ToBase64String(cipherBytes);
-                            string decrypted;
-                            try
-                            {
-                                decrypted = EncryptionHelper.DecryptMessage(base64);
-                            }
-                            catch (Exception ex)
-                            {
-                                ClientLogger.Log($"Decryption error from {encUid}: {ex.Message}",
-                                    ClientLogLevel.Error);
-                                decrypted = LocalizationManager.GetString("DecryptionFailed");
-                            }
-
-                            // Prepend sender UID and dispatch
-                            string formatted = $"{encUid}: {decrypted}";
-                            viewModel.EncryptedMessageReceived(formatted);
+                            // Model E: encrypted message arrives
+                            DecryptMessageReceived();
                             break;
 
                         case ClientPacketOpCode.PublicKeyResponse:
-                            // Model D: peer public key arrives → (senderUid, publicKeyBase64)
+                            // Model D: peer public key arrives
                             (Guid keyUid, string keyBase64) =
                                 packetReader.ReadPublicKeyResponse();
                             viewModel.PublicKeyReceived(
@@ -359,7 +315,7 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.DisconnectNotify:
-                            // Model A: user disconnected → (uid, username)
+                            // Model A: user disconnected
                             (Guid discUid, string discName) =
                                 packetReader.ReadUserDisconnected();
                             viewModel.UserDisconnected(
@@ -368,15 +324,16 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.DisconnectClient:
-                            // Model F: server tells us to disconnect → no payload
-                            packetReader.ReadServerDisconnect(); // read and discard
+                            // Model F: server tells us to disconnect
+                            packetReader.ReadServerDisconnect();
                             viewModel.ServerDisconnectedClient();
                             break;
 
                         default:
-                            // Log unknown opcodes for future troubleshooting
-                            ClientLogger.Log($"Unknown opcode received: {opcode}",
-                                ClientLogLevel.Warn);
+                            // Logs the raw byte in hex when it's not a valid opcode
+                            byte raw = (byte)opcode;
+                            ClientLogger.Log($"Unexpected byte 0x{raw:X2} in ReadPackets(), not a valid ServerPacketOpCode",
+                            ClientLogLevel.Warn);
                             break;
                     }
                 }
@@ -469,12 +426,9 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Encrypts and sends a secure message to each recipient:
-        ///   • Validates input and user context.
-        ///   • Determines recipients: all other users or the local user in solo mode.
-        ///   • Requests missing public keys and exchanges keys as needed (skip self in solo mode).
-        ///   • Builds and dispatches encrypted‐message packets via the TCP client.
-        ///   • Returns true if at least one packet was successfully sent.
+        /// Encrypts the given plaintext and sends it securely to each recipient.
+        /// Validates input and user context, handles solo mode, requests missing keys,
+        /// builds and dispatches encrypted‐message packets, and tracks send success.
         /// </summary>
         /// <param name="plainText">The text to encrypt and send.</param>
         public bool SendEncryptedMessageToServer(string plainText)
@@ -491,14 +445,13 @@ namespace chat_client.Net
                 return false;
             }
 
-            // Sender identifier
+            // Determines sender UID
             string senderUid = viewModel.LocalUser.UID;
 
-            // Builds recipient list (exclude self for multi‐party, include self for solo mode)
+            // Builds recipient list: all other users or local user in solo mode
             var recipients = viewModel.Users
                 .Where(u => u.UID != senderUid)
                 .ToList();
-
             if (recipients.Count == 0)
             {
                 // Solo mode: adds local user as recipient
@@ -507,55 +460,82 @@ namespace chat_client.Net
 
             bool messageSent = false;
 
-            // Thread‐safe access to known keys
+            // Ensures thread‐safe access to the known‐keys dictionary
             lock (viewModel.KnownPublicKeys)
             {
                 foreach (var recipient in recipients)
                 {
                     string recipientUid = recipient.UID;
+                    string publicKeyBase64;
 
-                    // Requests peer key if missing (skip for self in solo mode)
-                    if (recipientUid != senderUid && !viewModel.CanEncryptMessageFor(recipientUid))
+                    if (recipientUid == senderUid)
                     {
-                        if (Guid.TryParse(recipientUid, out var peerGuid))
-                            RequestPeerPublicKey(peerGuid);
-                        else
-                            ClientLogger.Log($"Invalid recipient UID: {recipientUid}", ClientLogLevel.Error);
-
-                        continue;
+                        // Solo mode: uses own public key
+                        publicKeyBase64 = viewModel.LocalUser.PublicKeyBase64;
+                        if (string.IsNullOrWhiteSpace(publicKeyBase64))
+                        {
+                            ClientLogger.Log(
+                                $"Cannot encrypt to self: missing local public key for UID {senderUid}",
+                                ClientLogLevel.Error);
+                            continue;
+                        }
                     }
-
-                    // Ensures server knows local public key (skip self)
-                    if (recipientUid != senderUid && !viewModel.HasSentKeyTo(recipientUid))
+                    else
                     {
-                        var localKey = viewModel.LocalUser.PublicKeyBase64;
-                        if (string.IsNullOrWhiteSpace(localKey))
-                            ClientLogger.Log("Cannot send public key: LocalUser.PublicKeyBase64 is uninitialized.",
-                                ClientLogLevel.Warn);
-                        else
-                            viewModel._server.SendPublicKeyToServer(recipientUid, localKey);
+                        // Requests peer key if missing
+                        if (!viewModel.CanEncryptMessageFor(recipientUid))
+                        {
+                            if (Guid.TryParse(recipientUid, out var peerGuid))
+                                RequestPeerPublicKey(peerGuid);
+                            else
+                                ClientLogger.Log(
+                                    $"Invalid recipient UID: {recipientUid}",
+                                    ClientLogLevel.Error);
 
-                        viewModel.MarkKeyAsSentTo(recipientUid);
+                            continue;
+                        }
+
+                        // Ensures server has our public key
+                        if (!viewModel.HasSentKeyTo(recipientUid))
+                        {
+                            var localKey = viewModel.LocalUser.PublicKeyBase64;
+                            if (string.IsNullOrWhiteSpace(localKey))
+                                ClientLogger.Log(
+                                    "Cannot send public key: LocalUser.PublicKeyBase64 is uninitialized.",
+                                    ClientLogLevel.Warn);
+                            else
+                                viewModel._server.SendPublicKeyToServer(recipientUid, localKey);
+
+                            viewModel.MarkKeyAsSentTo(recipientUid);
+                        }
+
+                        // Retrieves peer public key from dictionary
+                        publicKeyBase64 = viewModel.KnownPublicKeys[recipientUid];
                     }
 
                     try
                     {
-                        // Encrypts and sends packet
-                        var cipher = EncryptionHelper.EncryptMessage(plainText, viewModel.KnownPublicKeys[recipientUid]);
-                        var builder = new PacketBuilder();
-                        builder.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
-                        builder.WriteUid(Guid.Parse(senderUid));
-                        builder.WriteUid(Guid.Parse(recipientUid));
-                        builder.WriteString(cipher);
+                        // Encrypts plaintext with the appropriate public key
+                        string cipher = EncryptionHelper.EncryptMessage(plainText, publicKeyBase64);
 
-                        _tcpClient.Client.Send(builder.GetPacketBytes());
-                        ClientLogger.Log($"Encrypted message sent to {recipientUid}.", ClientLogLevel.Debug);
+                        // Builds and sends an encrypted‐message packet
+                        var encryptedMessagePacket = new PacketBuilder();
+                        encryptedMessagePacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                        encryptedMessagePacket.WriteUid(Guid.Parse(senderUid));
+                        encryptedMessagePacket.WriteUid(Guid.Parse(recipientUid));
+                        encryptedMessagePacket.WriteString(cipher);
+
+                        _tcpClient.Client.Send(encryptedMessagePacket.GetPacketBytes());
+                        ClientLogger.Log(
+                            $"Encrypted message sent to {recipientUid}.",
+                            ClientLogLevel.Debug);
 
                         messageSent = true;
                     }
                     catch (Exception ex)
                     {
-                        ClientLogger.Log($"Failed to encrypt or send to {recipientUid}: {ex.Message}",
+                        ClientLogger.Log(
+                            $"Failed to encrypt or send to {recipientUid}: {ex.Message}",
                             ClientLogLevel.Error);
                     }
                 }

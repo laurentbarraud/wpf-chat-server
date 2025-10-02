@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
         mc:Ignorable="d"
         xmlns:tb="http://www.hardcodet.net/taskbar"
-        Title="WPF chat client" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
+        Title="{Binding WindowTitle}" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
         Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/Resources/chat-client-icon.ico" 
         TabIndex="12" StateChanged="MainWindow1_StateChanged" Closing="MainWindow1_Closing" 
         PreviewKeyDown="MainWindow1_PreviewKeyDown">
@@ -56,6 +56,8 @@
                      AccelerationRatio="0.2" DecelerationRatio="0.8" />
         </Storyboard>
 
+        <!-- Converts a bool to a Visibility: true → Visible, false → Collapsed -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
     <Window.DataContext>
         <viewmodel:MainViewModel/>
@@ -74,6 +76,7 @@
 
                 <!-- TextBox -->
                 <TextBox x:Name="TxtUsername"
+                         IsEnabled="{Binding AreCredentialsEditable}"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
@@ -102,6 +105,7 @@
 
                 <!-- TextBox -->
                 <TextBox x:Name="TxtIPAddress"
+                         IsEnabled="{Binding AreCredentialsEditable}"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding IPAddressOfServer}"
@@ -126,10 +130,12 @@
             </Grid>
 
             <Button x:Name="CmdConnectDisconnect" Height="25"
+                    Content="{Binding ConnectButtonText}"
+                    Command="{Binding ConnectDisconnectCommand}" 
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="{DynamicResource ForegroundBrush}"
                     DockPanel.Dock="Top"
-                    Click="CmdConnectDisconnect_Click" TabIndex="2" IsEnabled="False"/>
+                    TabIndex="2" IsEnabled="False"/>
             <StackPanel DockPanel.Dock="Top"
                 Orientation="Vertical"
                 Margin="0,0,0,0" Height="356">
@@ -306,7 +312,10 @@
 
             </ListView>
 
-            <StackPanel x:Name="SpnEmojiPanel" Orientation="Horizontal" Height="20" Visibility="Collapsed">
+            <StackPanel x:Name="SpnEmojiPanel" 
+                        Orientation="Horizontal" 
+                        Height="20" 
+                        Visibility="{Binding AreChatControlsVisible, Converter={StaticResource BoolToVis}}">
                 <Button x:Name="CmdEmojiPanel"
                         Height="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
                         Width="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
@@ -505,8 +514,9 @@
 
             </StackPanel>
 
-            <StackPanel x:Name="SpnDown" Orientation="Horizontal" Visibility="Collapsed">
-                <TextBox x:Name="TxtMessageToSend" Height="32"
+            <StackPanel x:Name="SpnDown" Orientation="Horizontal" 
+                        Visibility="{Binding AreChatControlsVisible, Converter={StaticResource BoolToVis}}">
+            <TextBox x:Name="TxtMessageToSend" Height="32"
                          Width="545"
                          Background="{DynamicResource BackgroundBrush}"
                          Foreground="{DynamicResource ForegroundBrush}"

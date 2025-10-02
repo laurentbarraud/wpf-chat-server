@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 2nd, 2025</date>
+/// <date>October 3rd, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -268,6 +268,11 @@ namespace chat_server
                         case ServerPacketOpCode.PlainMessage:
                             // Reads and routes a clear-text chat message
                             HandlePlainMessageReceived();
+                            break;
+
+                        case ServerPacketOpCode.PublicKeyResponse:
+                            // Reads and stores the public key received
+                            HandlePublicKeyReceived();
                             break;
 
                         case ServerPacketOpCode.EncryptedMessage:
