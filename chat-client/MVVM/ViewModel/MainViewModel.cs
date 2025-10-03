@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 3rd, 2025</date>
+/// <date>October 4th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -90,63 +90,53 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether end-to-end encryption is active.
-        /// When modified, raises PropertyChanged for IsEncryptionActive and WindowTitle
-        /// so the window title and lock icon reflect the current encryption state.
-        /// </summary>
-        public bool IsEncryptionActive
-        {
-            get => _isEncryptionActive;
-            set
-            {
-                if (_isEncryptionActive == value) return;
-                _isEncryptionActive = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(WindowTitle));
-            }
-        }
-
-        /// <summary>
-        /// Indicates whether encryption is fully ready for use.
-        /// True when encryption is enabled and all required public keys are received.
+        /// Gets a value indicating whether end-to-end encryption is fully ready.
+        /// Encryption is ready when UseEncryption is on and either there are no other peers
+        /// or all peer public keys have been received.
         /// </summary>
         public bool IsEncryptionReady
         {
             get => _isEncryptionReady;
-            set
+            private set
             {
-                if (_isEncryptionReady != value)
-                {
-                    _isEncryptionReady = value;
-                    OnPropertyChanged(nameof(IsEncryptionReady));
-                }
+                // Exits if the state did not change
+                if (_isEncryptionReady == value)
+                    return;
+
+                // Updates the encryption ready flag
+                _isEncryptionReady = value;
+                OnPropertyChanged(nameof(IsEncryptionReady));
+
+                // Notifies that the icon source and visibility have changed
+                OnPropertyChanged(nameof(IsEncryptionIconVisible));
             }
         }
 
         /// <summary>
-        /// Gets whether encryption is currently synchronizing peer public keys.
-        /// Returns true when encryption is enabled but not all keys have been received.
+        /// Gets a value indicating whether the encryption icon should be visible.
+        /// Returns true when client is connected and encryption is enabled in settings.
         /// </summary>
-        public bool IsEncryptionSyncing
+        public bool IsEncryptionIconVisible
         {
-            get => Settings.Default.UseEncryption && !AreAllKeysReceived();
+            get => IsConnected && Settings.Default.UseEncryption;
         }
 
         /// <summary>
-        /// Indicates whether a key‐exchange handshake is currently in progress.
-        /// While true, the encryption toggle remains disabled to prevent state changes
-        /// during the handshake and ensure a consistent cryptographic setup.
+        /// Gets a value indicating whether a key‐exchange handshake is in progress.
+        /// While true, the syncing icon is shown instead of the lock icon.
         /// </summary>
-        public bool IsKeyExchangeInProgress
+        public bool IsSyncingKeys
         {
-            get => _isKeyExchangeInProgress;
+            get => _isSyncingKeys;
             private set
             {
-                if (_isKeyExchangeInProgress != value)
-                {
-                    _isKeyExchangeInProgress = value;
-                    OnPropertyChanged(nameof(IsKeyExchangeInProgress));
-                }
+                // Exit if the state did not change
+                if (_isSyncingKeys == value)
+                    return;
+
+                // Update the syncing flag
+                _isSyncingKeys = value;
+                OnPropertyChanged(nameof(IsSyncingKeys));
             }
         }
 
@@ -170,7 +160,13 @@ namespace chat_client.MVVM.ViewModel
         // What the user types in the first textbox on top left of
         // the MainWindow in View gets stored in this property (bound in XAML).
         public static string Username { get; set; } = string.Empty;
-     
+
+        /// <summary>
+        /// Gets the localized window title according to connection state.
+        /// </summary>
+        public string WindowTitle =>
+            "WPF chat client – " + LocalizationManager.GetString(IsConnected ? "Connected" : "Disconnected");
+
         public UserModel? LocalUser { get; set; }
 
         public Server _server = new Server();
@@ -210,11 +206,11 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private readonly HashSet<string> _uidsKeySentTo = new();
 
-        // Backing field for change notification
+        // Holds the current encryption ready state
         private bool _isEncryptionReady;
 
-        // Flag for ongoing key exchange
-        private bool _isKeyExchangeInProgress;
+        // Holds the current key synchronization state
+        private bool _isSyncingKeys;
 
         private bool _isEncryptionActive;
 
@@ -571,54 +567,51 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Returns the base title when not connected;
-        /// appends " - Connected" when the client is connected.
-        /// </summary>
-        public string WindowTitle =>
-            "WPF chat client"
-            + (IsConnected
-                ? " - " + LocalizationManager.GetString("Connected")
-                : string.Empty);
-
-        /// <summary>
         /// Gets the localized text for the connect/disconnect button.
         /// </summary>
         public string GetConnectButtonText =>
             LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
 
         /// <summary>
-        /// Executes the complete encryption setu:
-        /// Skips if no LocalUser is set or encryption is already active.  
-        /// Clears all stale peer public key data.  
-        /// Clears local key material from memory.  
-        /// Generates a new RSA key pair, registers it locally, and publishes the public key to the server.  
-        /// Synchronizes peer public keys, requesting missing ones if necessary.  
-        /// Recalculates encryption readiness and updates the UI lock icon if ready.  
-        /// Persists handshake keys and the encryption flag to application settings.  
+        /// Executes the complete encryption setup:
+        ///   • Skips if no LocalUser is set or encryption is already active.
+        ///   • Sets the syncing flag to true so the UI shows the grey syncing icon.
+        ///   • Clears all stale peer public key data.
+        ///   • Clears local key material from memory.
+        ///   • Generates a new RSA key pair, registers it locally, and publishes the public key to the server.
+        ///   • Enables encryption in application settings upon successful publish.
+        ///   • Synchronizes peer public keys, requesting missing ones if necessary.
+        ///   • Evaluates final encryption readiness and sets the ready flag.
+        ///   • Persists handshake keys and the encryption flag to application settings.
+        /// Wraps all steps in exception handling to maintain a safe state and ensure settings are always saved.
         /// </summary>
         /// <returns>True if encryption is successfully initialized and ready; false otherwise.</returns>
         public bool InitializeEncryption()
         {
-            // Skips if no LocalUser is set or encryption is already active
+            // Skips initialization if LocalUser is not defined or encryption is already active
             if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
-                ClientLogger.Log("Skips encryption initialization — LocalUser is null or encryption already active.",
+                ClientLogger.Log(
+                    "Skips encryption initialization — LocalUser is null or encryption already active.",
                     ClientLogLevel.Debug);
                 return false;
             }
 
+            // Shows the grey syncing icon during the entire setup process
+            IsSyncingKeys = true;
+
             try
             {
-                // Clears all stale peer public key data
+                // Clears any previous peer public key data
                 KnownPublicKeys.Clear();
 
                 // Clears local key material from memory
                 LocalUser.PublicKeyBase64 = string.Empty;
                 LocalUser.PrivateKeyBase64 = string.Empty;
                 EncryptionHelper.ClearPrivateKey();
-                ClientLogger.Log("Clears all previous key state.", ClientLogLevel.Debug);
+                ClientLogger.Log("Cleared all previous key state.", ClientLogLevel.Debug);
 
-                // Generates a new RSA key pair, registers it, and publishes the public key
+                // Generates a new RSA key pair
                 using var rsa = new RSACryptoServiceProvider(2048);
                 string publicKeyXml = rsa.ToXmlString(false);
                 string privateKeyXml = rsa.ToXmlString(true);
@@ -627,66 +620,82 @@ namespace chat_client.MVVM.ViewModel
 
                 LocalUser.PublicKeyBase64 = publicKeyBase64;
                 LocalUser.PrivateKeyBase64 = privateKeyBase64;
-                ClientLogger.Log($"Generates RSA key pair for UID {LocalUser.UID}.", ClientLogLevel.Debug);
+                ClientLogger.Log($"Generated RSA key pair for UID {LocalUser.UID}.", ClientLogLevel.Debug);
 
+                // Registers the new public key in the known-keys collection
                 lock (KnownPublicKeys)
                 {
                     KnownPublicKeys[LocalUser.UID] = publicKeyBase64;
-                    ClientLogger.Log($"Registers local public key for UID {LocalUser.UID}.", ClientLogLevel.Debug);
+                    ClientLogger.Log($"Registered local public key for UID {LocalUser.UID}.", 
+                        ClientLogLevel.Debug);
                 }
 
-                bool publishedSuccessfully = _server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
-                if (!publishedSuccessfully)
+                // Sends the public key to the server
+                bool keySentToServer = _server.SendPublicKeyToServer(LocalUser.UID, publicKeyBase64);
+                if (!keySentToServer)
                 {
-                    ClientLogger.Log("Fails to send public key to server — aborts encryption setup.", ClientLogLevel.Error);
-                    MessageBox.Show(
-                        LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
+                    ClientLogger.Log("Fails to send public key to server — aborts encryption setup.",
+                        ClientLogLevel.Error);
+
+                    MessageBox.Show(LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
+
                     Properties.Settings.Default.UseEncryption = false;
                     return false;
                 }
 
+                // Enables encryption in application settings
                 Properties.Settings.Default.UseEncryption = true;
-                ClientLogger.Log("Enables encryption in application settings.", ClientLogLevel.Info);
+                ClientLogger.Log("Enables encryption in application settings.",
+                    ClientLogLevel.Info);
 
-                // Synchronizes peer public keys and aborts on failure
+                // Synchronizes peer public keys; abort if that fails
                 if (!SyncKeys())
                 {
-                    ClientLogger.Log("Peer key synchronization failed — aborts encryption setup.", ClientLogLevel.Error);
+                    ClientLogger.Log("Peer key synchronization failed — aborts encryption setup.",
+                        ClientLogLevel.Error);
                     return false;
                 }
 
-                // Recalculates encryption readiness and updates UI if ready
-                bool isEncryptionReady = EvaluateEncryptionState();
-                OnPropertyChanged(nameof(IsEncryptionReady));
-                if (isEncryptionReady)
+                // Evaluates final encryption readiness and sets the ready flag
+                IsEncryptionReady = EvaluateEncryptionState();
+                
+                if (IsEncryptionReady)
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
-                        (Application.Current.MainWindow as MainWindow)
-                            ?.UpdateEncryptionStatusIcon(isEncryptionReady));
-                    ClientLogger.Log("Updates lock icon to reflect encryption readiness.",
-                        ClientLogLevel.Info);
+                    ClientLogger.Log("Encryption ready — coloured lock icon displayed.", ClientLogLevel.Info);
                 }
 
-                return isEncryptionReady;
+                return IsEncryptionReady;
             }
             catch (Exception ex)
             {
+                // On any error, disable encryption to maintain a safe state
                 Properties.Settings.Default.UseEncryption = false;
-                ClientLogger.Log($"Exception during encryption initialization: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.Log(
+                    $"Exception during encryption initialization: {ex.Message}",
+                    ClientLogLevel.Error);
                 return false;
             }
             finally
             {
-                // Persists handshake keys and the encryption flag to settings
+                // Persist handshake keys and encryption flag to settings
                 Properties.Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;
                 Properties.Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;
                 Properties.Settings.Default.Save();
-                ClientLogger.Log("Persists handshake keys and encryption flag.", ClientLogLevel.Debug);
+                ClientLogger.Log(
+                    "Persists handshake keys and encryption flag.",
+                    ClientLogLevel.Debug);
+
+                // Clear the syncing flag only if the icon will switch off grey
+                if (IsEncryptionReady || !Settings.Default.UseEncryption)
+                {
+                    IsSyncingKeys = false;
+                }
             }
         }
+
 
         public void NotifyConnected() => IsConnected = true;
 
@@ -716,7 +725,6 @@ namespace chat_client.MVVM.ViewModel
                     ClientLogLevel.Error);
             }
         }
-
 
         /// <summary>
         /// Model D: Handles a received public‐key event.
@@ -772,11 +780,6 @@ namespace chat_client.MVVM.ViewModel
             // Refreshes the UI lock icon if this key makes encryption fully ready
             if (isNewOrUpdated && IsEncryptionReady)
             {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    (Application.Current.MainWindow as MainWindow)
-                        ?.UpdateEncryptionStatusIcon(IsEncryptionReady);
-                });
                 ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.",
                     ClientLogLevel.Debug);
             }
@@ -896,13 +899,14 @@ public void ReinitializeUI()
 
         /// <summary>
         /// Attempts to synchronize public keys with connected peers:
-        ///   • Verifies that encryption is enabled and context objects are initialized.  
-        ///   • Builds a snapshot of peer UIDs to avoid concurrent collection issues.  
-        ///   • Handles solo mode (no other peers): evaluates readiness and updates the lock icon.  
-        ///   • Identifies missing keys under a thread-safe lock.  
-        ///   • Requests a resend of the local public key for any missing entries.  
-        ///   • Re-evaluates encryption state after sync attempt.  
-        ///   • Updates the UI lock icon on the Dispatcher thread, indicating syncing or ready state.  
+        ///   • Verifies that encryption is enabled and context objects are initialized.
+        ///   • Sets the syncing flag to true to show the grey syncing icon.
+        ///   • Builds a snapshot of peer UIDs to avoid concurrent-collection issues.
+        ///   • Handles solo mode (no other peers): evaluates readiness and sets the ready flag.
+        ///   • Identifies missing keys under a thread-safe lock.
+        ///   • Requests a resend of the local public key for any missing entries.
+        ///   • Re-evaluates encryption state after the sync attempt.
+        ///   • Clears the syncing flag only if the icon is now coloured or hidden.
         /// Wraps all steps in exception handling to prevent client crashes.
         /// </summary>
         /// <returns>True if synchronization completes without error; false otherwise.</returns>
@@ -910,85 +914,81 @@ public void ReinitializeUI()
         {
             try
             {
-                // Verifies that encryption is enabled and context objects are initialized
+                // If encryption is disabled or context is invalid
                 if (!Settings.Default.UseEncryption || Users == null || LocalUser == null)
                     return false;
 
-                // Builds a snapshot of peer UIDs, excluding the local client
-                var localGuid = LocalUser.UID;
-                var peerUids = Users
-                    .Where(u => u.UID != localGuid)
+                // Shows grey lock "syncing keys" icon
+                IsSyncingKeys = true;
+
+                // Snapshot peer UIDs, excluding the local user
+                string localId = LocalUser.UID;
+                List<string> peerIds = Users
+                    .Where(u => u.UID != localId)
                     .Select(u => u.UID)
                     .ToList();
 
-                // Handles solo mode (no other peers connected)
-                if (peerUids.Count == 0)
+                // Solo mode: evaluate readiness and update flags
+                if (peerIds.Count == 0)
                 {
-                    ClientLogger.Log(
-                        "SyncKeys detected solo mode — no peers to synchronize.",
-                        ClientLogLevel.Debug);
+                    ClientLogger.Log("Solo mode detected — no peers to synchronize.", ClientLogLevel.Debug);
 
-                    // Evaluates readiness in solo mode
-                    bool readySolo = EvaluateEncryptionState();
-                    ClientLogger.Log($"Solo mode: encryption readiness = {readySolo}",
-                        ClientLogLevel.Info);
+                    IsEncryptionReady = EvaluateEncryptionState();
+                    ClientLogger.Log($"Solo mode: encryption readiness = {IsEncryptionReady}", ClientLogLevel.Info);
 
-                    // Updates lock icon: ready state, not syncing
-                    Application.Current.Dispatcher.Invoke(() =>
-                        (Application.Current.MainWindow as MainWindow)
-                            ?.UpdateEncryptionStatusIcon(readySolo, false));
+                    if (IsEncryptionReady || !Settings.Default.UseEncryption)
+                        IsSyncingKeys = false;
 
                     return true;
                 }
 
-                // Identifies missing keys under a thread-safe lock
+
+                // Identifies missing keys under lock
                 List<string> missingKeys;
+
                 lock (KnownPublicKeys)
                 {
-                    missingKeys = peerUids
-                        .Where(uid => !KnownPublicKeys.ContainsKey(uid))
-                        .ToList();
+                    // Under a thread-safe lock, filters out any peer ID not present
+                    // in the KnownPublicKeys dictionary
+                    missingKeys = peerIds
+                        .Where(id => !KnownPublicKeys.ContainsKey(id))
+                        .ToList(); // Materializes the filtered results into a concrete List<string>
                 }
 
-                // Requests a resend for any missing keys
+                // If any key is missing, requests resend
                 if (missingKeys.Count > 0)
                 {
-                    ClientLogger.Log(
-                        $"SyncKeys detected missing keys for: {string.Join(", ", missingKeys)}",
-                        ClientLogLevel.Debug);
+                    ClientLogger.Log($"SyncKeys detected missing keys for: {string.Join(", ", missingKeys)}",
+                                     ClientLogLevel.Debug);
                     try
                     {
                         _server.ResendPublicKey();
-                        ClientLogger.Log(
-                            "Requested resend of local public key from server.",
-                            ClientLogLevel.Debug);
+                        ClientLogger.Log("Requested resend of local public key from server.",
+                                         ClientLogLevel.Debug);
                     }
                     catch (Exception exRequest)
                     {
-                        ClientLogger.Log(
-                            $"Failed to request public key resend: {exRequest.Message}",
-                            ClientLogLevel.Error);
+                        ClientLogger.Log($"Failed to request public key resend: {exRequest.Message}",
+                                         ClientLogLevel.Error);
                     }
                 }
 
-                // Re-evaluates encryption state after sync attempt
-                bool ready = EvaluateEncryptionState();
+                // Final evaluation
+                IsEncryptionReady = EvaluateEncryptionState();
 
-                // Updates the lock icon: syncing if missingKeys>0, otherwise ready
-                Application.Current.Dispatcher.Invoke(() =>
-                    (Application.Current.MainWindow as MainWindow)
-                        ?.UpdateEncryptionStatusIcon(ready, missingKeys.Count > 0));
+                if (IsEncryptionReady || !Settings.Default.UseEncryption)
+                    IsSyncingKeys = false;
 
                 return true;
             }
             catch (Exception ex)
             {
-                // Catches any unexpected error to prevent client termination
                 ClientLogger.Log($"Unexpected error in SyncKeys: {ex.Message}",
-                    ClientLogLevel.Error);
+                                 ClientLogLevel.Error);
                 return false;
             }
         }
+
 
         /// <summary>
         /// Attempts to decrypt the incoming Base64 ciphertext using EncryptionHelper.
@@ -1076,9 +1076,6 @@ public void ReinitializeUI()
 
             // Logs the readiness state before updating the icon
             ClientLogger.Log($"UpdateEncryptionStatusIcon called — isReady: {IsEncryptionReady}", ClientLogLevel.Debug);
-
-            // Delegates icon update to the UI layer
-            (Application.Current.MainWindow as MainWindow)?.UpdateEncryptionStatusIcon(IsEncryptionReady);
 
             // Logs summary of list of users and key distribution
             int userCount = Users?.Count ?? 0;
@@ -1185,11 +1182,5 @@ public void ReinitializeUI()
                 ClientLogger.Log($"UserDisconnected handler failed: {ex.Message}",  ClientLogLevel.Error);
             }
         }
-
-        /// <summary>
-        /// Gets the localized window title according to connection state.
-        /// </summary>
-        public string WindowTitle =>
-            "WPF chat client – " + LocalizationManager.GetString(IsConnected ? "Connected" : "Disconnected");
     }
 }

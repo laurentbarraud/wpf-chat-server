@@ -1,7 +1,7 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 3rd, 2025</date>
+/// <date>October 4th, 2025</date>
 
 using System;
 using System.Windows;

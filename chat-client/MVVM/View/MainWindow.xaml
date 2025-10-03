@@ -15,50 +15,79 @@
         <!-- Slide animation for emoji popup -->
         <Storyboard x:Key="SlideInStoryboard">
             <DoubleAnimation Storyboard.TargetName="popupEmojiPanel"
-                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
-                     From="-200" To="0"
-                     Duration="0:0:0.3"
-                     AccelerationRatio="0.2"
-                     DecelerationRatio="0.8" />
+                         Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
+                         From="-200" To="0"
+                         Duration="0:0:0.3"
+                         AccelerationRatio="0.2"
+                         DecelerationRatio="0.8" />
         </Storyboard>
 
         <!-- Slide-out animation for the emoji panel.
-        Moves the panel horizontally off-screen to the left with smooth acceleration and deceleration. -->
+         Moves the panel horizontally off-screen to the left with smooth acceleration and deceleration. -->
         <Storyboard x:Key="SlideOutStoryboard">
             <DoubleAnimation Storyboard.TargetName="popupEmojiPanel"
-                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
-                     From="0" To="-480"
-                     Duration="0:0:0.4"
-                     AccelerationRatio="0.6"
-                     DecelerationRatio="0.4" />
+                         Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
+                         From="0" To="-480"
+                         Duration="0:0:0.4"
+                         AccelerationRatio="0.6"
+                         DecelerationRatio="0.4" />
         </Storyboard>
 
         <!-- Style for lock coloured icon on encryption enabled -->
         <Storyboard x:Key="LockDropAnim">
             <!-- Rise from closer to the screen (less vertical travel) -->
             <DoubleAnimation Storyboard.TargetName="LockTranslate"
-                     Storyboard.TargetProperty="Y"
-                     From="200" To="0"
-                     Duration="0:0:1.4"
-                     AccelerationRatio="0.2" DecelerationRatio="0.8" />
+                         Storyboard.TargetProperty="Y"
+                         From="200" To="0"
+                         Duration="0:0:1.4"
+                         AccelerationRatio="0.2"
+                         DecelerationRatio="0.8" />
 
             <!-- Shrink from even larger scale for dramatic impact -->
             <DoubleAnimation Storyboard.TargetName="LockScale"
-                     Storyboard.TargetProperty="ScaleX"
-                     From="80" To="1"
-                     Duration="0:0:1.4"
-                     AccelerationRatio="0.2" DecelerationRatio="0.8" />
+                         Storyboard.TargetProperty="ScaleX"
+                         From="80" To="1"
+                         Duration="0:0:1.4"
+                         AccelerationRatio="0.2"
+                         DecelerationRatio="0.8" />
 
             <DoubleAnimation Storyboard.TargetName="LockScale"
-                     Storyboard.TargetProperty="ScaleY"
-                     From="80" To="1"
-                     Duration="0:0:1.4"
-                     AccelerationRatio="0.2" DecelerationRatio="0.8" />
+                         Storyboard.TargetProperty="ScaleY"
+                         From="80" To="1"
+                         Duration="0:0:1.4"
+                         AccelerationRatio="0.2"
+                         DecelerationRatio="0.8" />
         </Storyboard>
 
-        <!-- Converts a bool to a Visibility: true → Visible, false → Collapsed -->
+        <!-- Converts a bool to Visibility: true → Visible, false → Collapsed -->
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Style for encryption status icon: grey by default, coloured when ready, and zooms on ready -->
+        <Style x:Key="EncryptionStatusIconStyle" TargetType="Image">
+            <!-- Bind visibility to ViewModel flag -->
+            <Setter Property="Visibility"
+                Value="{Binding IsEncryptionIconVisible, Converter={StaticResource BoolToVis}}"/>
+            <!-- Default: grey syncing icon + "Not encrypted" tooltip -->
+            <Setter Property="Source"   Value="/Resources/syncing-keys.png"/>
+            <Setter Property="ToolTip"  Value="Not encrypted"/>
+
+            <Style.Triggers>
+                <!-- When encryption becomes fully ready -->
+                <DataTrigger Binding="{Binding IsEncryptionReady}" Value="True">
+                    <!-- Swap to coloured lock icon -->
+                    <Setter Property="Source"   Value="/Resources/encrypted.png"/>
+                    <!-- Update tooltip -->
+                    <Setter Property="ToolTip"  Value="Encrypted"/>
+                    <!-- Play zoom animation once -->
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard Storyboard="{StaticResource LockDropAnim}"/>
+                    </DataTrigger.EnterActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
     </Window.Resources>
+
     <Window.DataContext>
         <viewmodel:MainViewModel/>
     </Window.DataContext>
@@ -345,20 +374,20 @@
                 </Button>
 
                 <Grid>
-                    <!-- Lock icon -->
+                    <!-- Lock icon with pure MVVM binding and zoom animation -->
                     <Image x:Name="imgEncryptionStatus"
-                           Source="/Resources/encrypted-disabled.png"
-                           Width="15" Height="15"
+                           Width="15"
+                           Height="15"
                            DockPanel.Dock="Left"
-                           Margin="0,0,0,0"
+                           Margin="0"
                            VerticalAlignment="Center"
-                           Visibility="Collapsed"
-                           Opacity="1"
-                           Panel.ZIndex="999">
+                           Panel.ZIndex="999"
+                           Style="{StaticResource EncryptionStatusIconStyle}">
+                        <!-- RenderTransform required by LockDropAnim storyboard -->
                         <Image.RenderTransform>
                             <TransformGroup>
-                                <ScaleTransform x:Name="LockScale" ScaleX="1" ScaleY="1" />
-                                <TranslateTransform x:Name="LockTranslate" X="0" Y="0" />
+                                <ScaleTransform x:Name="LockScale"    ScaleX="1" ScaleY="1"/>
+                                <TranslateTransform x:Name="LockTranslate" X="0" Y="0"/>
                             </TransformGroup>
                         </Image.RenderTransform>
                     </Image>

@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 3rd, 2025</date>
+/// <date>October 4th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
