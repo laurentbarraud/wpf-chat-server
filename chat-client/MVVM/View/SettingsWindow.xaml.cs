@@ -67,43 +67,25 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
-        /// Initializes the settings window by synchronizing UI controls with saved application preferences.
-        /// Loads localization, port configuration, tray behavior, and encryption state.
-        /// Ensures that toggle events do not fire during initial binding.
-        /// This method guarantees an idempotent UI state for user interaction.
+        /// Initializes the settings window by loading and applying saved preferences.
         /// </summary>
         private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                // Retrieves saved language from application settings
-                string appLanguage = Properties.Settings.Default.AppLanguage;
-
-                // Initializes the localization manager with the saved language
+                // Initialize and apply the saved UI language resources
+                var appLanguage = Properties.Settings.Default.AppLanguage;
                 LocalizationManager.Initialize(appLanguage);
-
-                // Refreshes all UI labels and texts with localized strings
                 LocalizationManager.UpdateLocalizedUI();
-
-                // Selects the corresponding ComboBox item based on the saved app language
-                foreach (ComboBoxItem item in LanguageComboBox.Items)
-                {
-                    if ((string)item.Tag == appLanguage)
-                    {
-                        LanguageComboBox.SelectedItem = item;
-                        break;
-                    }
-                }
-
-                // Synchronizes toggle states and port field with saved settings
-                TxtCustomPort.Text = MainViewModel.GetCustomPort().ToString();
-                UseEncryptionToggle.IsChecked = chat_client.Properties.Settings.Default.UseEncryption;
             }
             catch (Exception ex)
             {
-                // Logs the error to console to help diagnose crashes
                 ClientLogger.Log($"SettingsWindow_Loaded failed: {ex.Message}", ClientLogLevel.Error);
-                MessageBox.Show(LocalizationManager.GetString("ErrorLoadingThemeResources"), LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(
+                    LocalizationManager.GetString("ErrorLoadingThemeResources"),
+                    LocalizationManager.GetString("Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
 

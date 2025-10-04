@@ -11,6 +11,7 @@ using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -33,10 +34,14 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Represents a dynamic data collection that provides notification
-        /// when items are added or removed, or when the full list is refreshed.
+        /// when a user is dded or removed, or when the full list is refreshed.
         /// </summary>
         public ObservableCollection<UserModel> Users { get; set; }
-
+       
+        /// <summary>
+        /// Represents a dynamic data collections that provides notification
+        /// when a message is added or removed, or when the full list is refreshed.
+        /// </summary>
         public ObservableCollection<string> Messages { get; set; }
 
         private static readonly Dictionary<string, string> dictionary = new();
@@ -246,21 +251,29 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private readonly HashSet<string> _uidsKeySentTo = new();
 
-        // Stores the current theme selection state.
-        // Initialized from the saved AppTheme ("Dark" = true, otherwise false).
+        /// <summary>
+        /// Stores the current theme selection state.
+        /// Initialized from the saved AppTheme ("Dark" = true, otherwise false).
+        /// </summary>
         private bool _isDarkTheme = Properties.Settings.Default.AppTheme == "Dark";
 
-        // Holds the current encryption ready state
+        /// <summary>
+        /// Holds the current encryption ready state
+        /// </summary>
         private bool _isEncryptionReady;
 
-        // Holds the current key synchronization state
+        /// <summary>
+        /// Holds the current key synchronization state
+        /// </summary>
         private bool _isSyncingKeys;
 
-        // Flag for the status of the client
+        /// <summary>
+        /// Flag for the status of the client
+        /// </summary>
         private bool _isConnected;
 
-        // Holds what the user types in the first textbox on top left of
-        // the MainWindow
+        /// <summary>
+        /// Holds what the user types in the first textbox on top left of the MainWindow
         private string _username = string.Empty;
 
         /// <summary>

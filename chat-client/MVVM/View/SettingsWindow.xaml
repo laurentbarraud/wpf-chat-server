@@ -394,31 +394,35 @@
                 </Grid.ColumnDefinitions>
 
                 <Label x:Name="AppLanguageLabel"
-           Grid.Column="0"
-           Content="App language"
-           VerticalAlignment="Center"
-           Foreground="{DynamicResource ForegroundBrush}"
-           TabIndex="8" />
+                       Grid.Column="0"
+                       Content="App language"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ForegroundBrush}"
+                       TabIndex="8" />
 
+                <!--
+                Binds to SupportedLanguages and displays flag + localized name.
+                Two-way binding ensures AppLanguage stays in sync with selection.
+                -->
                 <ComboBox x:Name="LanguageComboBox"
-              Grid.Column="1"
-              Width="124"
-              Margin="20,0,0,0"
-              SelectedValuePath="Tag"
-              SelectedValue="{Binding AppLanguage, Mode=TwoWay}"
-              TabIndex="9">
-                    <ComboBoxItem Tag="en">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="/resources/English-flag.png" Width="20" Height="15" Margin="0,0,5,0"/>
-                            <TextBlock Text="English"/>
-                        </StackPanel>
-                    </ComboBoxItem>
-                    <ComboBoxItem Tag="fr">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="/resources/French-flag.png" Width="20" Height="15" Margin="0,0,5,0"/>
-                            <TextBlock Text="Français"/>
-                        </StackPanel>
-                    </ComboBoxItem>
+                          Grid.Column="1"
+                          Width="124"
+                          Margin="20,0,0,0"
+                          ItemsSource="{Binding SupportedLanguages}"
+                          SelectedValuePath="LanguageCode"
+                          SelectedValue="{Binding AppLanguage, Mode=TwoWay}"
+                          TabIndex="9">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding FlagPath}"
+                                       Width="20"
+                                       Height="15"
+                                       Margin="0,0,5,0"/>
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
                 </ComboBox>
             </Grid>
         </StackPanel>

@@ -27,8 +27,6 @@
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\chat-client-icon.ico" />
     <None Remove="Resources\encrypted.png" />
-    <None Remove="Resources\english-flag.png" />
-    <None Remove="Resources\french-flag.png" />
     <None Remove="Resources\greendot.png" />
     <None Remove="Resources\left-arrow.png" />
     <None Remove="Resources\moon.png" />

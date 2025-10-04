@@ -121,6 +121,7 @@ namespace chat_client.Helpers
                     settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
                     settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
                     settings.AboutTextBlock.Text = GetString("About");
+                    settings.LanguageComboBox.Items.Refresh();
                 }
                 else if (window is MainWindow mainWindow)
                 {

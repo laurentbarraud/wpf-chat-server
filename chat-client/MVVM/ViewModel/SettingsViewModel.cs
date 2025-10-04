@@ -10,6 +10,8 @@
 // using [CallerMemberName] for clean and reactive UI updates.
 
 using chat_client.Helpers;
+using chat_client.MVVM.Model;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
@@ -23,6 +25,16 @@ namespace chat_client.MVVM.ViewModel
     /// </summary>
     public class SettingsViewModel : INotifyPropertyChanged
     {
+        /// <summary>
+        /// Collection of languages for the ComboBox (ISO code + localized name).
+        /// </summary>
+        public ObservableCollection<LanguageOption> SupportedLanguages { get; }
+            = new ObservableCollection<LanguageOption>
+            {
+                new LanguageOption("en"),
+                new LanguageOption("fr")
+            };
+
         public event PropertyChangedEventHandler? PropertyChanged;
        
         // Backing fields
@@ -30,9 +42,8 @@ namespace chat_client.MVVM.ViewModel
         private bool _useCustomPort;
         private bool _reduceToTray;
         private bool _useEncryption;
-        private string _appLanguage;
-
-
+        private string _appLanguage = Properties.Settings.Default.AppLanguage;
+        
         /// <summary>
         /// Initializes all properties from saved settings.
         /// </summary>
@@ -44,9 +55,10 @@ namespace chat_client.MVVM.ViewModel
             _useEncryption = Properties.Settings.Default.UseEncryption;
             _appLanguage = Properties.Settings.Default.AppLanguage;
         }
-        
+
         /// <summary>
         /// Application UI language code.
+        /// Persists user choice, reloads resources, and updates UI labels.
         /// </summary>
         public string AppLanguage
         {
@@ -55,11 +67,18 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_appLanguage == value) return;
                 _appLanguage = value;
-                OnPropertyChanged();                                     // Notifies UI of language change
-                Properties.Settings.Default.AppLanguage = value;          // Persists language
+                OnPropertyChanged();  // Notify UI of AppLanguage change
+
+                // Persist the new language choice
+                Properties.Settings.Default.AppLanguage = value;
                 Properties.Settings.Default.Save();
-                LocalizationManager.Initialize(value);                    // Reloads language resources
-                LocalizationManager.UpdateLocalizedUI();                  // Refreshes all labels
+
+                // Reload localization resources and refresh all UI labels
+                LocalizationManager.Initialize(value);
+                LocalizationManager.UpdateLocalizedUI();
+
+                // Refresh ComboBox items so each DisplayName re‐localizes
+                OnPropertyChanged(nameof(SupportedLanguages));
             }
         }
 
