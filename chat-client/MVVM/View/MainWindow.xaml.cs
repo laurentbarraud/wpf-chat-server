@@ -73,12 +73,6 @@ namespace chat_client
         private int scrollDirection = 0; // -1 = left, 1 = right
 
         /// <summary>
-        /// Indicates whether the window is still initializing.
-        /// Prevents toggle event handlers from applying changes during startup.
-        /// </summary>
-        private bool IsInitializing = true;
-
-        /// <summary>
         /// Initializes the main window for the encrypted chat client:
         ///   • Loads XAML components and resources.
         ///   • Instantiates and binds the MainViewModel.
@@ -127,13 +121,10 @@ namespace chat_client
             // Restores last used IP address
             TxtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
-            // Applies localization if language is not English
-            string lang = Properties.Settings.Default.AppLanguage;
-            if (lang != "en")
-            {
-                LocalizationManager.Initialize(lang);
-                LocalizationManager.UpdateLocalizedUI();
-            }
+            // Applies localization
+            string languageSet = Properties.Settings.Default.AppLanguage;
+            LocalizationManager.Initialize(languageSet);
+            LocalizationManager.UpdateLocalizedUI();
 
             CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
 
@@ -144,8 +135,6 @@ namespace chat_client
             ApplyWatermarkImages();
 
             TxtUsername.Focus();
-
-            IsInitializing = false;
         }
 
         /// <summary>
@@ -239,6 +228,26 @@ namespace chat_client
             return contextMenu;
         }
 
+        /// <summary>
+        /// Toggles the emoji popup panel and updates the arrow icon based on its state.
+        /// </summary>
+        private void CmdEmojiPanel_Click(object sender, RoutedEventArgs e)
+        {
+            // Disable the button immediately to prevent double clicks
+            CmdEmojiPanel.IsEnabled = false;
+            ImgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow-disabled.png", UriKind.Relative));
+
+            if (popupEmojiPanel.IsOpen)
+            {
+                popupEmojiPanel.IsOpen = false;
+            }
+            else
+            {
+                popupEmojiPanel.VerticalOffset = -popupEmojiPanel.ActualHeight;
+                popupEmojiPanel.IsOpen = true;
+            }
+        }
+
         private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
         {
             scrollDirection = -1;
@@ -261,31 +270,6 @@ namespace chat_client
             scrollTimer.Stop();
         }
 
-        public void CmdConnectDisconnect_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.ConnectDisconnect();
-        }
-
-        /// <summary>
-        /// Toggles the emoji popup panel and updates the arrow icon based on its state.
-        /// </summary>
-        private void CmdEmojiPanel_Click(object sender, RoutedEventArgs e)
-        {
-            // Disable the button immediately to prevent double clicks
-            CmdEmojiPanel.IsEnabled = false;
-            ImgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow-disabled.png", UriKind.Relative));
-
-            if (popupEmojiPanel.IsOpen)
-            {
-                popupEmojiPanel.IsOpen = false;
-            }
-            else
-            {
-                popupEmojiPanel.VerticalOffset = -popupEmojiPanel.ActualHeight;
-                popupEmojiPanel.IsOpen = true;
-            }
-        }
-
         /// <summary>
         /// Handles the Send button click event.  
         /// Prevents sending if the message is empty or the client is disconnected.  
@@ -296,13 +280,13 @@ namespace chat_client
         private void CmdSend_Click(object sender, RoutedEventArgs e)
         {
             // Prevents sending if the message is empty or the client is disconnected
-            var content = MainViewModel.Message;
-            var server = ViewModel._server;
-            if (string.IsNullOrEmpty(content) || server?.IsConnected != true)
+            if (string.IsNullOrEmpty(MainViewModel.Message) || ViewModel._server?.IsConnected != true)
+            {
                 return;
+            }
 
             // Attempts to send the current message to the server
-            bool sendSucceeded = server.SendMessageToServer(content);
+            bool sendSucceeded = ViewModel._server.SendMessageToServer(MainViewModel.Message);
 
             if (sendSucceeded)
             {
@@ -313,7 +297,7 @@ namespace chat_client
             else
             {
                 // Logs an error and adds a localized failure notice to the ViewModel’s Messages
-                ClientLogger.Log($"Failed to send message: {content}", ClientLogLevel.Error);
+                ClientLogger.Log($"Failed to send message: {MainViewModel.Message}", ClientLogLevel.Error);
 
                 ViewModel.Messages.Add(
                     $"# {LocalizationManager.GetString("SendingFailed")} #");
@@ -359,9 +343,9 @@ namespace chat_client
         /// </summary>
         private void EmojiButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Content is TextBlock tb)
+            if (sender is Button btnEmoji && btnEmoji.Content is TextBlock tbEmoji)
             {
-                TxtMessageToSend.Text += tb.Text;
+                TxtMessageToSend.Text += tbEmoji.Text;
                 TxtMessageToSend.Focus();
                 TxtMessageToSend.CaretIndex = TxtMessageToSend.Text.Length;
             }
@@ -516,8 +500,6 @@ namespace chat_client
 
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
-            if (IsInitializing) return;
-
             // Save user preference
             Properties.Settings.Default.AppTheme = "Dark";
             Properties.Settings.Default.Save();
@@ -531,8 +513,6 @@ namespace chat_client
 
         private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            if (IsInitializing) return;
-
             // Save user preference
             Properties.Settings.Default.AppTheme = "Light";
             Properties.Settings.Default.Save();
@@ -568,15 +548,6 @@ namespace chat_client
             Application.Current.Shutdown();
         }
 
-        private void TxtIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                // Simulate the click on the cmdConnect button
-                CmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            }
-        }
-
         private void TxtMessageToSend_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -598,15 +569,6 @@ namespace chat_client
             else
             {
                 CmdSend.IsEnabled = true;
-            }
-        }
-
-        private void TxtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                // Simulate the click on the cmdConnect button
-                CmdConnectDisconnect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
 

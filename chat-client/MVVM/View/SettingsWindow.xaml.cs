@@ -169,20 +169,6 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
-        /// Rolls back the encryption toggle when initialization fails.  
-        /// Unchecks the encryption toggle.  
-        /// Disables the encryption flag in user settings.  
-        /// Persists the change to application settings.  
-        /// This method centralizes rollback logic to maintain UI and configuration consistency.
-        /// </summary>
-        private void RollbackEncryptionToggle()
-        {
-            UseEncryptionToggle.IsChecked = false;
-            Properties.Settings.Default.UseEncryption = false;
-            Properties.Settings.Default.Save();
-        }
-
-        /// <summary>
         /// Validates the custom port value as the user edits the text, if the custom port option is enabled.
         /// </summary>
         /// <param name="sender">The TextBox whose content has changed.</param>
@@ -271,10 +257,6 @@ namespace chat_client.MVVM.View
             // Re-evaluate encryption readiness (will be false)
             viewModel.EvaluateEncryptionState();
             ClientLogger.Log("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
-
-            // Hide the encryption lock icon to reflect disabled encryption
-            Application.Current.Dispatcher.Invoke(() =>
-                mainWindow.UpdateEncryptionStatusIcon(false));
         }
 
         private void ValidatePortInput()

@@ -124,14 +124,11 @@ namespace chat_client.Helpers
                 }
                 else if (window is MainWindow mainWindow)
                 {
-                    mainWindow.UpdateConnectButtonText();
                     mainWindow.ApplyWatermarkImages();
 
                     mainWindow.CmdScrollLeft.ToolTip = GetString("ScrollLeftTooltip");
                     mainWindow.CmdScrollRight.ToolTip = GetString("ScrollRightTooltip");
                     mainWindow.CmdSettings.ToolTip = GetString("Settings");
-
-                    mainWindow.Title = $"WPF chat client - {GetString("Connected")}";
 
                     if (mainWindow.TrayMenuOpen != null)
                         mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");

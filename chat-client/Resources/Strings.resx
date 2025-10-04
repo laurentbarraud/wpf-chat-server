@@ -129,7 +129,7 @@
   <data name="ClientSocketNotConnected" xml:space="preserve">
     <value>Client socket is not connected.</value>
   </data>
-  <data name="ConnectButton" xml:space="preserve">
+  <data name="Connect" xml:space="preserve">
     <value>Connect</value>
   </data>
   <data name="Connected" xml:space="preserve">
@@ -141,7 +141,7 @@
   <data name="DecryptionFailed" xml:space="preserve">
     <value>[Decryption failed]</value>
   </data>
-  <data name="DisconnectButton" xml:space="preserve">
+  <data name="Disconnect" xml:space="preserve">
     <value>Disconnect</value>
   </data>
   <data name="DisconnectError" xml:space="preserve">

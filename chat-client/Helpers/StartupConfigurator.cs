@@ -3,10 +3,11 @@
 /// <version>1.0</version>
 /// <date>October 4th, 2025</date>
 
+using chat_client.MVVM.ViewModel;
+using chat_client.View;
 using System;
 using System.Linq;
 using System.Windows;
-using chat_client.View;
 
 namespace chat_client.Helpers
 {
@@ -228,41 +229,47 @@ namespace chat_client.Helpers
             // (Properties.Settings.Default.CustomPortNumber was set during parsing)
 
             // Retrieves main window and its view model for further actions
-            var mainWindow = Application.Current.MainWindow as MainWindow;
-            var viewModel = mainWindow?.ViewModel;
-
-            // Enables encryption on startup if requested
-            if (enableEncryption && viewModel != null)
+            if (Application.Current.MainWindow is MainWindow mainWindow && mainWindow.ViewModel is MainViewModel viewModel)
             {
-                Properties.Settings.Default.UseEncryption = true;
-                viewModel.InitializeEncryption();
+                // Enables encryption on startup if requested
+                if (enableEncryption)
+                {
+                    Properties.Settings.Default.UseEncryption = true;
+                    viewModel.InitializeEncryption();
+                }
+
+                // Applies theme if specified
+                if (!string.IsNullOrEmpty(themeChosen))
+                {
+                    bool isDarkThemeChosen = themeChosen.Equals("dark", StringComparison.OrdinalIgnoreCase);
+                    ThemeManager.ApplyTheme(isDarkThemeChosen);
+                    Properties.Settings.Default.AppTheme = isDarkThemeChosen ? "Dark" : "Light";
+                }
+
+                // Enables minimize-to-tray if requested
+                if (reduceInTray)
+                    Properties.Settings.Default.ReduceToTray = true;
+
+                // Shows debug console if requested
+                if (debugMode)
+                    ConsoleManager.Show();
+
+                // Auto-connects if a username was provided
+                if (!string.IsNullOrEmpty(usernameChosen))
+                {
+                    viewModel.Username = usernameChosen;
+
+                    mainWindow.Loaded += (_, _) =>
+                    {
+                        if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
+                            viewModel.ConnectDisconnectCommand.Execute(null);
+                    };
+                }
+
+                // Persists all updated settings
+                Properties.Settings.Default.Save();
             }
 
-            // Applies theme if specified
-            if (!string.IsNullOrEmpty(themeChosen))
-            {
-                bool isDarkThemeChosen = themeChosen.Equals("dark", StringComparison.OrdinalIgnoreCase);
-                ThemeManager.ApplyTheme(isDarkThemeChosen);
-                Properties.Settings.Default.AppTheme = isDarkThemeChosen ? "Dark" : "Light";
-            }
-
-            // Enables minimize-to-tray if requested
-            if (reduceInTray)
-                Properties.Settings.Default.ReduceToTray = true;
-
-            // Shows debug console if requested
-            if (debugMode)
-                ConsoleManager.Show();
-
-            // Auto-connects if username was provided
-            if (!string.IsNullOrEmpty(usernameChosen) && mainWindow != null)
-            {
-                mainWindow.TxtUsername.Text = usernameChosen;
-                mainWindow.CmdConnectDisconnect_Click(mainWindow, new RoutedEventArgs());
-            }
-
-            // Persists all updated settings
-            Properties.Settings.Default.Save();
         }
     }
 }

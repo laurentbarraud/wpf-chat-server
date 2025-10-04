@@ -76,12 +76,12 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public bool IsConnected
         {
-            get => _server.IsConnected;
+            get => _isConnected;
             private set
             {
                 if (_isConnected == value) return;
                 _isConnected = value;
-                OnPropertyChanged();                            
+                OnPropertyChanged();
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
                 OnPropertyChanged(nameof(AreCredentialsEditable));
@@ -157,15 +157,26 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public static readonly Guid SystemUID = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-        // What the user types in the first textbox on top left of
-        // the MainWindow in View gets stored in this property (bound in XAML).
-        public static string Username { get; set; } = string.Empty;
+        /// <summary>
+        /// What the user types in the first textbox on top left of the MainWindow.
+        /// Bound in XAML and triggers UI updates.
+        /// </summary>
+        public string Username
+        {
+            get => _username;
+            set
+            {
+                if (_username == value) return;
+                _username = value;
+                OnPropertyChanged();
+            }
+        }
 
         /// <summary>
         /// Gets the localized window title according to connection state.
         /// </summary>
         public string WindowTitle =>
-            "WPF chat client – " + LocalizationManager.GetString(IsConnected ? "Connected" : "Disconnected");
+            "WPF chat client" + (IsConnected ? " – " + LocalizationManager.GetString("Connected") : "");
 
         public UserModel? LocalUser { get; set; }
 
@@ -212,10 +223,12 @@ namespace chat_client.MVVM.ViewModel
         // Holds the current key synchronization state
         private bool _isSyncingKeys;
 
-        private bool _isEncryptionActive;
-
         // Flag for the status of the client
         private bool _isConnected;
+
+        // Holds what the user types in the first textbox on top left of
+        // the MainWindow
+        private string _username = string.Empty;
 
         /// <summary>
         /// Initializes the MainViewModel instance.
@@ -405,7 +418,7 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
 
                 // Marks connection as successful (plain chat allowed)
-                OnPropertyChanged(nameof(IsConnected));
+                IsConnected = _server.IsConnected;
                 ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
                 
                 if (Properties.Settings.Default.UseEncryption)

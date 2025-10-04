@@ -137,9 +137,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Connect.
         /// </summary>
-        public static string ConnectButton {
+        public static string Connect {
             get {
-                return ResourceManager.GetString("ConnectButton", resourceCulture);
+                return ResourceManager.GetString("Connect", resourceCulture);
             }
         }
         
@@ -173,9 +173,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Disconnect.
         /// </summary>
-        public static string DisconnectButton {
+        public static string Disconnect {
             get {
-                return ResourceManager.GetString("DisconnectButton", resourceCulture);
+                return ResourceManager.GetString("Disconnect", resourceCulture);
             }
         }
         

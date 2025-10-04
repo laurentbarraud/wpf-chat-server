@@ -103,7 +103,6 @@
         <DockPanel x:Name="DpnLeft">
             <Grid DockPanel.Dock="Top" Height="25">
 
-                <!-- TextBox -->
                 <TextBox x:Name="TxtUsername"
                          IsEnabled="{Binding AreCredentialsEditable}"
                          Background="Transparent"
@@ -114,11 +113,17 @@
                          MaxLines="1"
                          MaxLength="50"
                          TabIndex="0"
-                         PreviewKeyDown="TxtUsername_PreviewKeyDown"
                          VerticalAlignment="Center"
                          HorizontalAlignment="Left"
                          Width="200"
-                         Height="25"/>
+                         Height="25">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter"
+                                    Command="{Binding CmdConnectDisconnect}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <!-- Watermark -->
                 <Image x:Name="imgUsernameWatermark"
                        Stretch="Uniform"
                        IsHitTestVisible="False"
@@ -127,7 +132,6 @@
                        Width="{Binding ActualWidth, ElementName=TxtUsername}"
                        Height="{Binding ActualHeight, ElementName=TxtUsername}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
 
-                <!-- Watermark -->
             </Grid>
 
             <Grid DockPanel.Dock="Top" Height="25">
@@ -137,17 +141,23 @@
                          IsEnabled="{Binding AreCredentialsEditable}"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
-                         Text="{Binding IPAddressOfServer}"
+                         Text="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged}"
                          TextChanged="TxtIPAddress_TextChanged"
                          FontSize="14"
                          MaxLines="1"
                          MaxLength="15"
                          TabIndex="1"
-                         PreviewKeyDown="TxtIPAddress_PreviewKeyDown"
                          VerticalAlignment="Center"
                          HorizontalAlignment="Left"
                          Width="200"
-                         Height="25"/>
+                         Height="25">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter"
+                    Command="{Binding CmdConnectDisconnect}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <!-- Watermark -->
                 <Image x:Name="imgIPAddressWatermark"
                        Stretch="Uniform"
                        IsHitTestVisible="False"
@@ -155,7 +165,6 @@
                        HorizontalAlignment="Left"
                        Width="{Binding ActualWidth, ElementName=TxtIPAddress}"
                        Height="{Binding ActualHeight, ElementName=TxtIPAddress}" ScrollViewer.VerticalScrollBarVisibility="Disabled" />
-                <!-- Watermark -->
             </Grid>
 
             <Button x:Name="CmdConnectDisconnect" Height="25"
