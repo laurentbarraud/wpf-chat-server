@@ -3,77 +3,120 @@
 /// <version>1.0</version>
 /// <date>October 4th, 2025</date>
 
-using System;
-using System.Windows.Input;
+using System;                               // Imports core functionality.
+using System.Windows.Input;                // Imports ICommand and CommandManager.
 
 namespace chat_client.Helpers
 {
     /// <summary>
-    /// Provides a simple command that runs an Action when called
-    /// and checks a Func<bool> to see if it can run.
-    /// This class is used in MainViewModel to bind buttons or menu items in XAML.
+    /// Provides a command that runs an action with a parameter of type T.
+    /// Stores an execute callback and an optional can-execute check.
     /// </summary>
-    public class RelayCommand : ICommand
+    public class RelayCommand<T> : ICommand
     {
-        // Holds the method to run when the command executes.
-        private readonly Action _execute;
-
-        // Holds the method to check if the command can run.
-        private readonly Func<bool> _canExecute;
-
-        /// <summary>
-        /// Occurs when WPF asks to recheck whether the command can run.
-        /// </summary>
-        public event EventHandler? CanExecuteChanged;
+        // Stores the action to invoke when the command executes.
+        private readonly Action<T> _execute;
+        // Stores the function to check if the command can execute.
+        private readonly Predicate<T> _canExecute;
 
         /// <summary>
-        /// Creates a RelayCommand.
+        /// Occurs when WPF requests to re-evaluate CanExecute.
         /// </summary>
-        /// <param name="execute">
-        /// The Action to run when Execute is called.
-        /// </param>
-        /// <param name="canExecute">
-        /// The Func<bool> to run when CanExecute is called.
-        /// If null, the command stays enabled always.
-        /// </param>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown if the execute Action is null.
-        /// </exception>
-        public RelayCommand(Action execute, Func<bool>? canExecute = null)
+        event EventHandler? ICommand.CanExecuteChanged
         {
-            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-            _canExecute = canExecute ?? (() => true);
+            add => CommandManager.RequerySuggested += value;   // Subscribes to WPF requery event.
+            remove => CommandManager.RequerySuggested -= value;   // Unsubscribes from WPF requery event.
         }
 
         /// <summary>
-        /// Returns true if the command is allowed to run.
+        /// Initializes a new instance of RelayCommand.
         /// </summary>
-        /// <param name="parameter">
-        /// Not used here.
-        /// </param>
-        public bool CanExecute(object? parameter)
+        /// <param name="execute">Action to invoke on Execute call.</param>
+        /// <param name="canExecute">Predicate to invoke on CanExecute check; default returns true.</param>
+        public RelayCommand(Action<T> execute, Predicate<T>? canExecute = null)
         {
-            return _canExecute();
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));               // Assigns execute or throws if null.
+            _canExecute = canExecute ?? (_ => true);                                              // Assigns canExecute or default that always returns true.
         }
 
         /// <summary>
-        /// Runs the stored Action.
+        /// Determines whether the command can execute with the given parameter.
         /// </summary>
-        /// <param name="parameter">
-        /// Not used here.
-        /// </param>
-        public void Execute(object? parameter)
-        {
-            _execute();
-        }
+        /// <param name="parameter">Parameter passed from UI; cast to T.</param>
+        /// <returns>True if _canExecute returns true; otherwise false.</returns>
+        public bool CanExecute(object? parameter) =>
+            _canExecute((T)parameter!);         // Invokes the canExecute predicate with the casted parameter.
 
         /// <summary>
-        /// Tells WPF to recheck CanExecute and update bound controls.
+        /// Executes the command action with the given parameter.
+        /// </summary>
+        /// <param name="parameter">Parameter passed from UI; cast to T.</param>
+        public void Execute(object? parameter) =>
+            _execute((T)parameter!);            // Invokes the execute action with the casted parameter.
+
+        /// <summary>
+        /// Forces WPF to re-evaluate CanExecute and refresh bound controls.
         /// </summary>
         public void RaiseCanExecuteChanged()
         {
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    /// <summary>
+    /// Provides a simple command that runs an action without a parameter.
+    /// Stores an execute callback and an optional can-execute check.
+    /// </summary>
+    public class RelayCommand : ICommand
+    {
+        // Stores the action to invoke when the command executes.
+        private readonly Action _execute;
+        // Stores the function to check if the command can execute.
+        private readonly Func<bool> _canExecute;
+
+        /// <summary>
+        /// Occurs when WPF requests to re-evaluate CanExecute.
+        /// </summary>
+        event EventHandler? ICommand.CanExecuteChanged
+        {
+            add => CommandManager.RequerySuggested += value;   // Subscribes to WPF requery event.
+            remove => CommandManager.RequerySuggested -= value;   // Unsubscribes from WPF requery event.
+        }
+
+        /// <summary>
+        /// Initializes a new instance of RelayCommand.
+        /// </summary>
+        /// <param name="execute">Action to invoke on Execute call.</param>
+        /// <param name="canExecute">Function to invoke on CanExecute check; default returns true.</param>
+        public RelayCommand(Action execute, Func<bool>? canExecute = null)
+        {
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));               // Assigns execute or throws if null.
+            _canExecute = canExecute ?? (() => true);                                             // Assigns canExecute or default that always returns true.
+        }
+
+        /// <summary>
+        /// Determines whether the command can execute.
+        /// </summary>
+        /// <param name="parameter">Not used; always invokes _canExecute.</param>
+        /// <returns>True if _canExecute returns true; otherwise false.</returns>
+        public bool CanExecute(object? parameter) =>
+            _canExecute();                     // Invokes the canExecute function.
+
+        /// <summary>
+        /// Executes the command action.
+        /// </summary>
+        /// <param name="parameter">Not used; always invokes _execute.</param>
+        public void Execute(object? parameter) =>
+            _execute();                        // Invokes the execute action.
+
+        /// <summary>
+        /// Forces WPF to re-evaluate CanExecute and refresh bound controls.
+        /// </summary>
+        public void RaiseCanExecuteChanged()
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 }
+
 

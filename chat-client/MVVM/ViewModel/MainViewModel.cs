@@ -16,6 +16,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Input;
 
 namespace chat_client.MVVM.ViewModel
 {
@@ -52,6 +53,12 @@ namespace chat_client.MVVM.ViewModel
         public RelayCommand ConnectDisconnectCommand { get; }
 
         /// <summary>
+        /// Toggles the application theme based on the user's selection.
+        /// Saves the preference, applies the theme with animation, and refreshes watermark visuals.
+        /// </summary>
+        public ICommand ThemeToggleCommand { get; }
+
+        /// <summary>
         /// Represents the number of clients expected to be connected for encryption readiness.
         /// This value is updated dynamically based on the current user list.
         /// </summary>
@@ -86,6 +93,28 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(ConnectButtonText));
                 OnPropertyChanged(nameof(AreCredentialsEditable));
                 OnPropertyChanged(nameof(AreChatControlsVisible));
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the dark theme is active.
+        /// Persists the choice to settings and applies the theme when changed.
+        /// </summary>
+        public bool IsDarkTheme
+        {
+            get => _isDarkTheme;
+            set
+            {
+                if (_isDarkTheme == value) return;
+                _isDarkTheme = value;
+                OnPropertyChanged();
+
+                // Saves the new theme preference
+                Properties.Settings.Default.AppTheme = value ? "Dark" : "Light";
+                Properties.Settings.Default.Save();
+
+                // Applies the selected theme immediately
+                ThemeManager.ApplyTheme(value);
             }
         }
 
@@ -217,6 +246,10 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private readonly HashSet<string> _uidsKeySentTo = new();
 
+        // Stores the current theme selection state.
+        // Initialized from the saved AppTheme ("Dark" = true, otherwise false).
+        private bool _isDarkTheme = Properties.Settings.Default.AppTheme == "Dark";
+
         // Holds the current encryption ready state
         private bool _isEncryptionReady;
 
@@ -257,6 +290,23 @@ namespace chat_client.MVVM.ViewModel
                 () => ConnectDisconnect(),
                 () => AreCredentialsEditable
             );
+
+            // Creates the ThemeToggleCommand used by the ToggleButton in the UI.
+            // This command receives the toggle state (true for dark, false for light) as a parameter.
+            ThemeToggleCommand = new RelayCommand<object>(param =>
+            {
+                // Converts the command parameter to a boolean and stores whether the dark theme is selected
+                // (true) or not (false).
+                bool isDarkThemeSelected = param is bool toggleState && toggleState;
+
+                // Saves the theme preference
+                Properties.Settings.Default.AppTheme = isDarkThemeSelected ? "Dark" : "Light";
+                Properties.Settings.Default.Save();
+
+                // Applies the theme with fade animation
+                ThemeManager.ApplyTheme(isDarkThemeSelected);
+            });
+
 
             // Registers to reevaluate the Connect/Disconnect command when connection state changes
             PropertyChanged += (sender, args) =>

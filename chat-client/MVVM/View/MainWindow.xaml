@@ -229,8 +229,9 @@
                                   Height="32"
                                   VerticalAlignment="Center"
                                   Margin="0,0,10,0"
-                                  Checked="ThemeToggle_Checked"
-                                  Unchecked="ThemeToggle_Unchecked" TabIndex="6">
+                                  Command="{Binding ThemeToggleCommand}"
+                                  CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}"
+                                  IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" TabIndex="6">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Grid>
