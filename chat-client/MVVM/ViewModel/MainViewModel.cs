@@ -11,7 +11,6 @@ using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -32,18 +31,6 @@ namespace chat_client.MVVM.ViewModel
     {
         // PUBLIC PROPERTIES
 
-        /// <summary>
-        /// Represents a dynamic data collection that provides notification
-        /// when a user is dded or removed, or when the full list is refreshed.
-        /// </summary>
-        public ObservableCollection<UserModel> Users { get; set; }
-       
-        /// <summary>
-        /// Represents a dynamic data collections that provides notification
-        /// when a message is added or removed, or when the full list is refreshed.
-        /// </summary>
-        public ObservableCollection<string> Messages { get; set; }
-
         private static readonly Dictionary<string, string> dictionary = new();
 
         /// <summary>
@@ -58,10 +45,17 @@ namespace chat_client.MVVM.ViewModel
         public RelayCommand ConnectDisconnectCommand { get; }
 
         /// <summary>
-        /// Toggles the application theme based on the user's selection.
-        /// Saves the preference, applies the theme with animation, and refreshes watermark visuals.
+        /// Declaring the list as public ensures it can be resolved by WPF's binding system,
+        // assuming the containing object is set as the DataContext.
         /// </summary>
-        public ICommand ThemeToggleCommand { get; }
+        public List<string> EmojiList { get; } = new()
+        {
+            "😀", "👍", "🙏", "😅", "😂", "🤣", "😉", "😎", "😤", "😏", "🙈", "👋", "💪",
+            "👌", "📌", "📞", "🔍", "⚠️", "✓", "🤝", "📣", "🚀", "☕", "🍺", "🍻", "🎉",
+            "🍾", "🥳", "🍰", "🍱", "😁", "😇", "🤨", "🤷", "🤐", "😘", "❤️", "😲", "😬",
+            "😷", "😴", "💤", "🔧", "🚗", "🏡", "☀️",  "🔥", "⭐", "🌟", "✨", "🌧️", "🕒"
+        };
+
 
         /// <summary>
         /// Represents the number of clients expected to be connected for encryption readiness.
@@ -83,21 +77,27 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Gets whether the client is currently connected.
-        /// Triggers UI updates for Title, ConnectButtonText,
-        /// credential inputs and chat panels.
+        /// Notifies UI to update Title, ConnectButtonText, credential inputs, and chat panels.
+        /// When set to true and encryption is already enabled, invokes the encryption pipeline.
         /// </summary>
         public bool IsConnected
         {
             get => _isConnected;
             private set
             {
-                if (_isConnected == value) return;
+                if (_isConnected == value)
+                    return;
+
                 _isConnected = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(WindowTitle));
-                OnPropertyChanged(nameof(ConnectButtonText));
-                OnPropertyChanged(nameof(AreCredentialsEditable));
-                OnPropertyChanged(nameof(AreChatControlsVisible));
+                OnPropertyChanged();                                    // Notifies binding for IsConnected
+                OnPropertyChanged(nameof(WindowTitle));                 // Refreshes the window title
+                OnPropertyChanged(nameof(ConnectButtonText));           // Refreshes connect/disconnect button text
+                OnPropertyChanged(nameof(AreCredentialsEditable));      // Enables/disables credential inputs
+                OnPropertyChanged(nameof(AreChatControlsVisible));      // Shows/hides chat controls
+
+                // When connection opens and encryption is enabled, performs encryption pipeline
+                if (_isConnected && UseEncryption)
+                    ApplyEncryptionPipeline(enableEncryption: true);
             }
         }
 
@@ -175,6 +175,12 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Represents the currently authenticated user.
+        /// Is initialized to an empty User instance to satisfy non-nullable requirements.
+        /// </summary>
+        public UserModel LocalUser { get; private set; } = new UserModel();
+
+        /// <summary>
         /// Marks the specified UID as having received our public RSA key.
         /// Prevents duplicate transmissions during key exchange.
         /// </summary>
@@ -186,10 +192,53 @@ namespace chat_client.MVVM.ViewModel
         public static string Message { get; set; } = string.Empty;
 
         /// <summary>
+        /// Represents a dynamic data collections that provides notification
+        /// when a message is added or removed, or when the full list is refreshed.
+        /// </summary>
+        public ObservableCollection<string> Messages { get; set; }
+
+        /// <summary>
+        /// Event triggered when a property value changes, used to notify bound UI elements in data-binding scenarios.
+        /// Implements the INotifyPropertyChanged interface to support reactive updates in WPF.
+        /// </summary>
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public Server _server = new Server();
+
+        /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
         /// This allows clients to verify message authenticity and prevent spoofed disconnects or control signals.
         /// </summary>
         public static readonly Guid SystemUID = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+        /// <summary>
+        /// Toggles the application theme based on the user's selection.
+        /// Saves the preference, applies the theme with animation, and refreshes watermark visuals.
+        /// </summary>
+        public ICommand ThemeToggleCommand { get; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether encryption is enabled.
+        /// Persists user choice and invokes the encryption pipeline when connected.
+        /// </summary>
+        public bool UseEncryption
+        {
+            get => _useEncryption;
+            set
+            {
+                if (_useEncryption == value) return;
+                _useEncryption = value;
+                OnPropertyChanged(nameof(UseEncryption));
+
+                // Persists the new setting
+                Properties.Settings.Default.UseEncryption = value;
+                Properties.Settings.Default.Save();
+
+                // If already connected, performs the encryption pipeline
+                if (IsConnected)
+                    ApplyEncryptionPipeline(value);
+            }
+        }
 
         /// <summary>
         /// What the user types in the first textbox on top left of the MainWindow.
@@ -207,31 +256,17 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Represents a dynamic data collection that provides notification
+        /// when a user is dded or removed, or when the full list is refreshed.
+        /// </summary>
+        public ObservableCollection<UserModel> Users { get; set; }
+
+        /// <summary>
         /// Gets the localized window title according to connection state.
         /// </summary>
         public string WindowTitle =>
             "WPF chat client" + (IsConnected ? " – " + LocalizationManager.GetString("Connected") : "");
-
-        public UserModel? LocalUser { get; set; }
-
-        public Server _server = new Server();
-
-        /// <summary>
-        /// Event triggered when a property value changes, used to notify bound UI elements in data-binding scenarios.
-        /// Implements the INotifyPropertyChanged interface to support reactive updates in WPF.
-        /// </summary>
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        // Declaring the list as public ensures it can be resolved by WPF's binding system,
-        // assuming the containing object is set as the DataContext.
-        public List<string> EmojiList { get; } = new()
-        {
-            "😀", "👍", "🙏", "😅", "😂", "🤣", "😉", "😎", "😤", "😏", "🙈", "👋", "💪",
-            "👌", "📌", "📞", "🔍", "⚠️", "✓", "🤝", "📣", "🚀", "☕", "🍺", "🍻", "🎉",
-            "🍾", "🥳", "🍰", "🍱", "😁", "😇", "🤨", "🤷", "🤐", "😘", "❤️", "😲", "😬",
-            "😷", "😴", "💤", "🔧", "🚗", "🏡", "☀️",  "🔥", "⭐", "🌟", "✨", "🌧️", "🕒"
-        };
-
+      
         // PROTECTED METHODS
 
         /// <summary>
@@ -268,9 +303,14 @@ namespace chat_client.MVVM.ViewModel
         private bool _isSyncingKeys;
 
         /// <summary>
-        /// Flag for the status of the client
+        /// Backs the IsConnected property.
         /// </summary>
         private bool _isConnected;
+
+        /// <summary>
+        /// Backs the UseEncryption property and is initialized from persisted settings.
+        /// </summary>
+        private bool _useEncryption = Properties.Settings.Default.UseEncryption;
 
         /// <summary>
         /// Holds what the user types in the first textbox on top left of the MainWindow
@@ -328,6 +368,44 @@ namespace chat_client.MVVM.ViewModel
                     ConnectDisconnectCommand.RaiseCanExecuteChanged();
             };
         }
+
+        /// <summary>
+        /// Performs the encryption pipeline:
+        /// clears old key material,
+        /// initializes or tears down encryption,
+        /// rolls back on failure,
+        /// and logs the result.
+        /// </summary>
+        private void ApplyEncryptionPipeline(bool enableEncryption)
+        {
+            // Clear existing key material
+            KnownPublicKeys.Clear();
+            LocalUser.PublicKeyBase64 = string.Empty;
+            LocalUser.PrivateKeyBase64 = string.Empty;
+            EncryptionHelper.ClearPrivateKey();
+
+            if (enableEncryption)
+            {
+                // Attempt to initialize encryption
+                bool initSucceeded = InitializeEncryption();
+                if (!initSucceeded)
+                {
+                    ClientLogger.Log("Encryption init failed – rolling back.", ClientLogLevel.Error);
+                    UseEncryption = false;
+                }
+                else
+                {
+                    ClientLogger.Log("Encryption enabled successfully.", ClientLogLevel.Info);
+                }
+            }
+            else
+            {
+                // Disable encryption path
+                EvaluateEncryptionState();
+                ClientLogger.Log("Encryption disabled successfully.", ClientLogLevel.Info);
+            }
+        }
+
 
         /// <summary>
         /// Determines whether encryption can proceed by checking:
@@ -1065,6 +1143,60 @@ public void ReinitializeUI()
             }
         }
 
+        /// <summary>
+        /// Enables or disables encryption, with full validation, key‐wipe,
+        /// pipeline execution (init or teardown), rollback on failure, and logging.
+        /// </summary>
+        public void ToggleEncryption(bool enableEncryption)
+        {
+            // Remember the old setting in case we need to roll back
+            bool settingPreviousValue = Properties.Settings.Default.UseEncryption;
+
+            // Persists the new flag
+            Properties.Settings.Default.UseEncryption = enableEncryption;
+            Properties.Settings.Default.Save();
+
+            // Validates prerequisites
+            if (LocalUser == null || !IsConnected)
+            {
+                ClientLogger.Log("Encryption process failed – missing LocalUser or not connected.",
+                    ClientLogLevel.Warn);
+
+                // Roll back UI and settings
+                Properties.Settings.Default.UseEncryption = settingPreviousValue;
+                OnPropertyChanged(nameof(Properties.Settings.Default.UseEncryption));
+                return;
+            }
+
+            // Clears old key material
+            KnownPublicKeys.Clear();
+            LocalUser.PublicKeyBase64 = string.Empty;
+            LocalUser.PrivateKeyBase64 = string.Empty;
+            EncryptionHelper.ClearPrivateKey();
+
+            // Executes the pipeline: init or disable
+            bool pipelineSucceeded = enableEncryption ? 
+                InitializeEncryption()       // true if init succeeded
+                : EvaluateEncryptionState();   // true if disable succeeded
+
+            if (!pipelineSucceeded)
+            {
+                ClientLogger.Log($"Encryption pipeline {(enableEncryption ? "init" : "teardown")} failed – rolling back.",
+                    ClientLogLevel.Error);
+
+                // Restores previous setting
+                Properties.Settings.Default.UseEncryption = settingPreviousValue;
+                Properties.Settings.Default.Save();
+                OnPropertyChanged(nameof(Properties.Settings.Default.UseEncryption));
+            }
+            else
+            {
+                ClientLogger.Log(enableEncryption ?
+                    "Encryption enabled successfully."
+                    : "Encryption disabled successfully.",
+                    ClientLogLevel.Info);
+            }
+        }
 
         /// <summary>
         /// Attempts to decrypt the incoming Base64 ciphertext using EncryptionHelper.

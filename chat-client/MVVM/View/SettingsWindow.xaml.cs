@@ -126,31 +126,6 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
-        /// Handles language selection change from the ComboBox.
-        /// Updates the application language only if the selected language is different,
-        /// then reinitializes localization and refreshes UI texts.
-        /// </summary>
-        private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (LanguageComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string languageCodeSelected)
-            {
-                // Get the currently saved language
-                string AppLanguageSaved = Properties.Settings.Default.AppLanguage;
-
-                // Only proceed if the selected language is different from the saved one
-                if (languageCodeSelected != AppLanguageSaved)
-                {
-                    // Save the new language to application settings
-                    Properties.Settings.Default.AppLanguage = languageCodeSelected;
-                    Properties.Settings.Default.Save();
-
-                    // Reinitialize localization manager with the new language
-                    LocalizationManager.Initialize(languageCodeSelected);
-                }
-            }
-        }
-
-        /// <summary>
         /// Validates the custom port value as the user edits the text, if the custom port option is enabled.
         /// </summary>
         /// <param name="sender">The TextBox whose content has changed.</param>
@@ -162,83 +137,19 @@ namespace chat_client.MVVM.View
                 ValidatePortInput();
             }
         }
-
-        /// <summary>
-        /// Handles the Checked event of the encryption toggle.  
-        /// Enables the encryption flag in user settings and persists it.  
-        /// Validates that the client is connected and LocalUser is initialized.  
-        /// Clears stale key material to guarantee a clean start.  
-        /// Invokes ViewModel.InitializeEncryption() to execute the full encryption setup.  
-        /// Rolls back the toggle and settings on failure.  
-        /// Logs the successful initialization and awaits UI update.  
-        /// </summary>
+  
         private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Updates setting and persists
-            Properties.Settings.Default.UseEncryption = true;
-            Properties.Settings.Default.Save();
-
-            var main = Application.Current.MainWindow as MainWindow;
-            var settingsViewModel = main?.ViewModel;
-            if (settingsViewModel?.LocalUser == null || !settingsViewModel.IsConnected)
-            {
-                ClientLogger.Log("Cannot enable encryption – prerequisites missing.", ClientLogLevel.Warn);
-                UseEncryptionToggle.IsChecked = false;
-                return;
-            }
-
-            // Clears old key state before reinitialization
-            settingsViewModel.KnownPublicKeys.Clear();
-            settingsViewModel.LocalUser.PublicKeyBase64 = string.Empty;
-            settingsViewModel.LocalUser.PrivateKeyBase64 = string.Empty;
-            EncryptionHelper.ClearPrivateKey();
-
-            // Executes full encryption setup
-            if (!settingsViewModel.InitializeEncryption())
-            {
-                ClientLogger.Log("Encryption init failed – rolling back.", ClientLogLevel.Error);
-                UseEncryptionToggle.IsChecked = false;
-            }
-            else
-            {
-                ClientLogger.Log("Encryption initialized successfully.", ClientLogLevel.Info);
-            }
+            // Delegate to MainViewModel
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+                mainWindow.ViewModel.UseEncryption = true;
         }
 
-        /// <summary>
-        /// Handles the Unchecked event of the encryption toggle.
-        /// Resets the encryption pipeline by disabling encryption in settings,
-        /// clearing all key material, re-evaluating readiness, and hiding the lock icon.
-        /// This method showcases a clear, maintainable approach for disabling encryption.
-        /// </summary>
-        /// <param name="sender">ToggleButton that raised the event.</param>
-        /// <param name="e">Event data for the toggle action.</param>
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
-            // Disable encryption in application settings and persist the change
-            Properties.Settings.Default.UseEncryption = false;
-            Properties.Settings.Default.Save();
-
-            // Retrieve MainViewModel from the main application window
-            if (Application.Current.MainWindow is not MainWindow mainWindow
-                || mainWindow.ViewModel?.LocalUser == null)
-            {
-                return;
-            }
-
-            var viewModel = mainWindow.ViewModel;
-
-            // Clear local RSA key material from memory
-            EncryptionHelper.ClearPrivateKey();
-            viewModel.LocalUser.PublicKeyBase64 = string.Empty;
-            viewModel.LocalUser.PrivateKeyBase64 = string.Empty;
-
-            // Clear all known peer public keys
-            viewModel.KnownPublicKeys.Clear();
-
-            // Re-evaluate encryption readiness (will be false)
-            viewModel.EvaluateEncryptionState();
-            ClientLogger.Log("Encryption disabled and all keys cleared.", ClientLogLevel.Info);
+            // Delegate to MainViewModel
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+                mainWindow.ViewModel.UseEncryption = false;
         }
 
         private void ValidatePortInput()
