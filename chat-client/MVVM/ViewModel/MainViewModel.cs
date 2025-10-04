@@ -40,7 +40,8 @@ namespace chat_client.MVVM.ViewModel
         public Dictionary<string, string> KnownPublicKeys { get; } = dictionary;
 
         /// <summary>
-        /// Command that invokes Connect() or Disconnect() based on current connection state.
+        /// Connects or disconnects the client depending on the current connection state.
+        /// Used by the main button and keyboard shortcuts.
         /// </summary>
         public RelayCommand ConnectDisconnectCommand { get; }
 
@@ -341,7 +342,7 @@ namespace chat_client.MVVM.ViewModel
             // Creates the Connect/Disconnect command and binds its Execute and CanExecute logic
             ConnectDisconnectCommand = new RelayCommand(
                 () => ConnectDisconnect(),
-                () => AreCredentialsEditable
+                () => true
             );
 
             // Creates the ThemeToggleCommand used by the ToggleButton in the UI.

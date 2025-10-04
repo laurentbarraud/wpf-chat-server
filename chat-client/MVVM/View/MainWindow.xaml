@@ -109,6 +109,7 @@
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
                          TextChanged="TxtUsername_TextChanged"
+                         PreviewKeyDown="TxtUsername_PreviewKeyDown"
                          FontSize="14"
                          MaxLines="1"
                          MaxLength="50"
