@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 2nd, 2025</date>
+/// <date>October 6th, 2025</date>
 
 using chat_client.Net;
 using System;
@@ -18,7 +18,7 @@ namespace chat_server.Net.IO
     /// </summary>
     public class PacketBuilder
     {
-        private readonly MemoryStream _ms;
+        private readonly MemoryStream _ms = new MemoryStream();
 
         /// <summary>
         /// Instantiates a new PacketBuilder with an empty buffer.
@@ -28,35 +28,13 @@ namespace chat_server.Net.IO
             _ms = new MemoryStream();
         }
 
-        /// <summary>
-        /// Writes the packet opcode byte.
+        // <summary>
+        /// Returns the current packet body as a byte array (no framing).
         /// </summary>
-        /// <param name="opcode">The single-byte opcode identifier.</param>
-        public void WriteOpCode(byte opcode) =>
-            _ms.WriteByte(opcode);
-
-        /// <summary>
-        /// Writes a 16-byte UID.
-        /// </summary>
-        /// <param name="uid">The UID to serialize.</param>
-        public void WriteUid(Guid uid)
+        public byte[] GetPacketBytes()
         {
-            byte[] bytes = uid.ToByteArray();
-            _ms.Write(bytes, 0, bytes.Length);
+            return _ms.ToArray();
         }
-
-        /// <summary>
-        /// Writes a length-prefixed UTF-8 string.
-        /// </summary>
-        /// <param name="stringToWrite">The string to serialize.</param>
-        public void WriteString(string stringToWrite)
-        {
-            byte[] stringEncoded = Encoding.UTF8.GetBytes(stringToWrite);
-            byte[] lenBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(stringEncoded.Length));
-            _ms.Write(lenBytes, 0, lenBytes.Length);
-            _ms.Write(stringEncoded, 0, stringEncoded.Length);
-        }
-
 
         /// <summary>
         /// Writes a length-prefixed byte-array payload.
@@ -70,12 +48,46 @@ namespace chat_server.Net.IO
         }
 
         /// <summary>
-        /// Returns the constructed packet as a byte array.
+        /// Writes a 4-byte network-order length prefix followed by the raw bytes into the packet body.
         /// </summary>
-        /// <returns>The full packet ready for network transmission.</returns>
-        public byte[] GetPacketBytes() =>
-            _ms.ToArray();
+        public void WriteBytesWithLength(byte[]? data)
+        {
+            int len = data?.Length ?? 0;
+            byte[] lenPrefix = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(len));
+            _ms.Write(lenPrefix, 0, lenPrefix.Length);
 
+            if (data != null && len > 0)
+                _ms.Write(data, 0, len);
+        }
+
+        /// <summary>
+        /// Writes the packet opcode byte.
+        /// </summary>
+        /// <param name="opcode">The single-byte opcode identifier.</param>
+        public void WriteOpCode(byte opcode) =>
+            _ms.WriteByte(opcode);
+
+        /// <summary>
+        /// Writes a length-prefixed UTF-8 string.
+        /// </summary>
+        /// <param name="stringToWrite">The string to serialize.</param>
+        public void WriteString(string stringToWrite)
+        {
+            byte[] stringEncoded = Encoding.UTF8.GetBytes(stringToWrite);
+            byte[] lenBytes = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(stringEncoded.Length));
+            _ms.Write(lenBytes, 0, lenBytes.Length);
+            _ms.Write(stringEncoded, 0, stringEncoded.Length);
+        }
+
+        /// <summary>
+        /// Writes a 16-byte UID.
+        /// </summary>
+        /// <param name="uid">The UID to serialize.</param>
+        public void WriteUid(Guid uid)
+        {
+            byte[] bytes = uid.ToByteArray();
+            _ms.Write(bytes, 0, bytes.Length);
+        }
 
         // ——— Models A–F ———
 

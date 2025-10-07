@@ -1,15 +1,13 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 4th, 2025</date>
+/// <date>October 7th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
-using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -569,6 +567,23 @@ namespace chat_client
             else
             {
                 CmdSend.IsEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Handles Enter key in the Username field
+        /// and invokes ConnectDisconnectCommand on the ViewModel.
+        /// </summary>
+        private void TxtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                if (DataContext is MainViewModel vm &&
+                    vm.ConnectDisconnectCommand.CanExecute(null))
+                {
+                    vm.ConnectDisconnectCommand.Execute(null);
+                }
+                e.Handled = true;
             }
         }
 

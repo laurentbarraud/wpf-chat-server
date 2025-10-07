@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 4th, 2025</date>
+/// <date>October 7th, 2025</date>
 
 
 // The System.ComponentModel namespace enables WPF to track property changes
@@ -97,6 +97,13 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.Save();
             }
         }
+
+        // In a WinForms app you'd typically update controls directly (e.g. myTextBox.Text = value).
+        // In WPF, you expose properties on a ViewModel and rely on data binding to push changes to the UI.
+        // Implementing INotifyPropertyChanged and calling OnPropertyChanged tells the WPF binding engine
+        // “hey, this property’s value just changed—refresh any bound controls.”  
+        // The [CallerMemberName] attribute means you don’t have to hard-code the property name string;
+        // the compiler automatically fills in the name of the property or method that called OnPropertyChanged.
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

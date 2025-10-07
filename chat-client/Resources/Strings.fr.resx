@@ -238,29 +238,36 @@
     <value>Aide en ligne de commande</value>
   </data>
   <data name="CliOptionsHelpText" xml:space="preserve">
-    <value>Usage : chat-client.exe [options]
+    <value>Utilisation : chat-client.exe [options]
 
-Options :  
-  -u, --username, --user &lt;nom&gt;   Définit le nom d’utilisateur et lance la connexion automatique à localhost  
-  -p, --port &lt;port&gt;   Définit le port du serveur (7123 par défaut)  
-  -t, --theme &lt;light|dark&gt;   Définit le thème de l’interface utilisateur  
-      --dark   Raccourci pour thème sombre  
-      --light   Raccourci pour thème clair  
-  -l, --language, --lang &lt;en|fr&gt;   Définit la langue de l’interface utilisateur  
-      --en --english --anglais   Raccourci pour anglais  
-      --fr --french --français --francais   Raccourci pour français  
-  -e, --encrypted   Active le chiffrement de bout en bout  
-  -r, -m, --reduceintray, --reduce, --tray, --systemtray, --min --minimized   Réduit dans la zone de notification       au démarrage                        
-  -d, --debug   Ouvre la console de débogage au démarrage  
-  -h, -?, --help   Affiche ce message d’aide  
-  --about   Ouvre la fenêtre À propos  
+Options :
+  -u, --username        Définit votre nom d'utilisateur et se connecte automatiquement
+  -p, --port            Définit le port du serveur (par défaut : 7123)
+
+  --theme &lt;light|dark&gt;  Définit le thème de l'interface
+  --dark, --light       Raccourcis pour choisir le thème
+
+  -l, --language        Définit la langue de l'interface (utiliser avec --language &lt;en|fr&gt; ou drapeaux directs)
+  --en, --english       Basculer en anglais
+  --fr, --french        Basculer en français
+
+  -e, --encrypted       Active le chiffrement de bout en bout
+
+  -r, -m, --reduce      Démarrer réduit dans la zone de notification (system tray)
+  --tray, --minimize    Alias pour tray / minimisé
+
+  -c, --console         Ouvrir une fenêtre console compagnon
+  --debug               Activer le mode debug verbeux
+
+  -h, -? , --help       Afficher ce message d'aide
+ 
+  -v, --about,          Ouvre la fenêtre A propos
 
 Toutes les options acceptent la notation Windows (/option)  
 et Unix (--option).
 
 Exemple :  
-  chat-client.exe  --dark --french /e /r /u Laurent
-</value>
+  chat-client.exe --dark /t /e /u Laurent</value>
   </data>
   <data name="CommandLineArguments" xml:space="preserve">
     <value>Arguments de ligne de commande</value>

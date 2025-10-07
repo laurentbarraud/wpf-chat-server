@@ -100,15 +100,19 @@ namespace chat_client.Resources {
         ///   Recherche une chaîne localisée semblable à Usage: chat-client.exe [options]
         ///
         ///Options:
-        ///  -u, --username, -user &lt;name&gt;   Sets your username and auto-connects to localhost
-        ///  -p, --port &lt;number&gt;   Sets the server port (default: 7123)
-        ///  -t, --theme &lt;light|dark&gt;   Sets the UI theme
-        ///      --dark   Shortcut for dark theme
-        ///      --light   Shortcut for light theme
-        ///  -l, --language, --lang &lt;en|fr&gt;   Sets the UI language
-        ///      --en --english --anglais Shortcut for English
-        ///      --fr  --french --francais --français Shortcut for French
-        ///  -e, --encrypte [le reste de la chaîne a été tronqué]&quot;;.
+        ///  -u, --username        Set your username and auto-connect
+        ///  -p, --port            Set the server port (default: 7123)
+        ///
+        ///  --theme &lt;light|dark&gt;  Set UI theme
+        ///  --dark, --light       Shortcuts for theme selection
+        ///
+        ///  -l, --language        Set UI language (use with --language &lt;en|fr&gt; or direct flags)
+        ///  --en, --english       Switch to English
+        ///  --fr, --french        Switch to French
+        ///
+        ///  -e, --encrypted       Enable end-to-end encryption
+        ///
+        ///  -r, -t, -m, --re [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {
@@ -306,7 +310,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits, o\nbusiness interruption with the use of this software..
+        ///   Recherche une chaîne localisée semblable à In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits,\nor business interruption with the use of this software..
         /// </summary>
         public static string LicenceInfo2 {
             get {

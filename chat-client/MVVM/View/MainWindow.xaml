@@ -118,10 +118,6 @@
                          HorizontalAlignment="Left"
                          Width="200"
                          Height="25">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Enter"
-                                    Command="{Binding CmdConnectDisconnect}" />
-                    </TextBox.InputBindings>
                 </TextBox>
 
                 <!-- Watermark -->

@@ -184,7 +184,7 @@
     <value>This software is provided "as is", without any kind of warranty.</value>
   </data>
   <data name="LicenceInfo2" xml:space="preserve">
-    <value>In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits, or business interruption\nwith the use of this software.</value>
+    <value>In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits,\nor business interruption with the use of this software.</value>
   </data>
   <data name="LicenceInfoResources" xml:space="preserve">
     <value>Button images inspired by resources available on Flaticon.com.</value>
@@ -241,27 +241,33 @@
     <value>Usage: chat-client.exe [options]
 
 Options:
-  -u, --username, -user &lt;name&gt;   Sets your username and auto-connects to localhost
-  -p, --port &lt;number&gt;   Sets the server port (default: 7123)
-  -t, --theme &lt;light|dark&gt;   Sets the UI theme
-      --dark   Shortcut for dark theme
-      --light   Shortcut for light theme
-  -l, --language, --lang &lt;en|fr&gt;   Sets the UI language
-      --en --english --anglais Shortcut for English
-      --fr  --french --francais --français Shortcut for French
-  -e, --encrypted   Enables end-to-end encryption
-  -r, -m, --reduceintray, --reduce,
-      --tray, --systemtray, --min, 
-      --minimized   Minimizes to system tray on startup
-  -d, --debug   Opens debug console at startup
-  -h, -?, --help   Displays this help message
-  --about   Opens the About window
+  -u, --username        Set your username and auto-connect
+  -p, --port            Set the server port (default: 7123)
 
-All command-line arguments support Windows-style (/option)
+  --theme &lt;light|dark&gt;  Set UI theme
+  --dark, --light       Shortcuts for theme selection
+
+  -l, --language        Set UI language (use with --language &lt;en|fr&gt; or direct flags)
+  --en, --english       Switch to English
+  --fr, --french        Switch to French
+
+  -e, --encrypted       Enable end-to-end encryption
+
+  -r, -t, -m, --reduce  Start minimized to system tray
+  --tray, --minimize    Tray / minimized aliases
+
+  -c, --console         Open companion console window
+  --debug               Enable verbose debug mode
+
+  -h, -? , --help       Display this help message
+  
+  -v, --about           Opens the About window
+
+All arguments support Windows-style (/option)
 and Unix-style (--option) notation.
 
 Example:
-  chat-client.exe --dark --french /e /r /u Laurent
+  chat-client.exe --dark /t /e /u Laurent
 </value>
   </data>
   <data name="CommandLineArguments" xml:space="preserve">

@@ -1,14 +1,13 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 4th, 2025</date>
+/// <date>October 6th, 2025</date>
 
 using chat_client.Helpers;
-using chat_client.MVVM.Model;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
 using System.IO;
-using System.Net.Http;
+using System.Net;
 using System.Net.Sockets;
 using System.Windows;
 
@@ -24,7 +23,8 @@ namespace chat_client.Net
         public PacketBuilder packetBuilder { get; } = new PacketBuilder();
 
         /// <summary>Provides the PacketReader used to read incoming packets; initialized after connecting to the server.</summary>
-        public PacketReader packetReader { get; private set; } = default!;
+        public PacketReader packetReader { get; private set; }
+
 
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _tcpClient?.Connected ?? false;
@@ -36,15 +36,15 @@ namespace chat_client.Net
 
         // Model A: a new user joined (opcode 1)
         //   Parameters: uid, username, publicKey
-        public event Action<string, string, string>? ConnectedEvent;
+        public event Action<string, string, string>? UserConnectedEvent;
 
         // Model C: a plain-text message arrived (opcode 5)
         //   Parameter: the fully formatted text
         public event Action<string>? PlainMessageReceivedEvent;
 
         /// Model E: Raised when the server delivers an encrypted message (opcode 11).
-        /// Parameter: the fully decrypted and formatted text
-        public event Action<string>? EncryptedMessageReceivedEvent;
+        /// Parameters: sender GUID and raw ciphertext bytes
+        public event Action<Guid, byte[]>? EncryptedMessageReceivedEvent;
 
         // Model D: a peer’s public key arrived (opcode 6)
         //   Parameters: senderUid, publicKeyBase64
@@ -127,7 +127,8 @@ namespace chat_client.Net
                     ClientLogLevel.Debug);
 
                 // Initializes the packet reader over the live network stream
-                packetReader = new PacketReader(_tcpClient.GetStream());
+                var netStream = _tcpClient.GetStream();
+                packetReader = new PacketReader(netStream);
 
                 // Subscribes to plain-text message events to echo to the console
                 PlainMessageReceivedEvent += message => Console.WriteLine(message);
@@ -164,37 +165,6 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Model E : Reads, decrypts and dispatches an encrypted chat packet (opcode 11).
-        /// Filters out messages not addressed to this client and logs any decryption errors.
-        /// </summary>
-        private void DecryptMessageReceived()
-        {
-            // Reads the sender UID and raw ciphertext bytes
-            (Guid senderUid, byte[] cipherBytes) = packetReader.ReadEncryptedMessage();
-
-            // Converts raw bytes to Base64 and attempts decryption
-            string base64 = Convert.ToBase64String(cipherBytes);
-            string plaintext;
-            try
-            {
-                plaintext = EncryptionHelper.DecryptMessage(base64);
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log(
-                    $"Decryption error from {senderUid}: {ex.Message}",
-                    ClientLogLevel.Error);
-                plaintext = LocalizationManager.GetString("DecryptionFailed");
-            }
-
-            // Formats the message for display
-            string messageToDisplay = $"{senderUid}: {plaintext}";
-
-            // Dispatches the formatted message to whoever subscribed
-            EncryptedMessageReceivedEvent?.Invoke(messageToDisplay);
-        }
-
-        /// <summary>
         /// Safely closes the TCP connection and resets the client state.
         /// Can be called multiple times without causing errors.
         /// Disposes the packet reader and resets the TCP client for future reconnection.
@@ -209,13 +179,6 @@ namespace chat_client.Net
                 {
                     _tcpClient.Close();
                 }
-
-                // Disposes the packet reader if it exists
-                packetReader?.Dispose();
-
-                // PacketBuilder is not IDisposable and is declared readonly,
-                // so we do nothing here. Any new packet can be built with
-                // a fresh local PacketBuilder in send methods.
 
                 // Prepares for future reconnection
                 _tcpClient = new TcpClient();
@@ -258,7 +221,7 @@ namespace chat_client.Net
         /// </summary>
         private void ReadPackets()
         {
-            // Capture the ViewModel reference on the UI thread to avoid cross-thread errors
+            // Captures the ViewModel reference on the UI thread to avoid cross-thread errors
             MainViewModel viewModel = null!;
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -266,87 +229,90 @@ namespace chat_client.Net
                     viewModel = mainWindow.ViewModel;
             });
 
-            // If we couldn’t get the ViewModel, bail out immediately
+            // If we couldn’t get the ViewModel, exits immediately
             if (viewModel == null)
                 return;
 
-            // Continuously read from the network until the client disconnects
+            // Continuously reads from the network until the client disconnects
             while (_tcpClient.Connected)
             {
                 try
                 {
-                    // Read the next opcode byte and cast to our enum
-                    ClientPacketOpCode opcode = (ClientPacketOpCode)packetReader.ReadByte();
+                    // Reads the 4-byte length prefix (network order)
+                    int bodyLength = packetReader.ReadInt32NetworkOrder();
+                    if (bodyLength <= 0)
+                    {
+                        ClientLogger.Log($"Invalid packet length: {bodyLength}", ClientLogLevel.Warn);
+                        continue;
+                    }
 
+                    // Reads exactly bodyLength bytes
+                    byte[] body = packetReader.ReadExact(bodyLength);
+
+                    // Parses the body using a temporary PacketReader on a MemoryStream
+                    using var ms = new MemoryStream(body);
+                    PacketReader framedReader = new PacketReader(ms); 
+
+                    // Reads the opcode from the framed payload
+                    ClientPacketOpCode opcode = (ClientPacketOpCode)framedReader.ReadByte();
+
+                    // Switches using framedReader instead of packetReader
                     switch (opcode)
                     {
                         case ClientPacketOpCode.ConnectionBroadcast:
-                            // Model A: new user joined
-                            Guid newUid = packetReader.ReadUid();
-                            string newName = packetReader.ReadString();
-                            string newPubKey = packetReader.ReadString();
-
+                            Guid newUid = framedReader.ReadUid();
+                            string newName = framedReader.ReadString();
+                            string newPubKey = framedReader.ReadString();
                             HandshakeCompleted = true;
-                            viewModel.UserConnected(
-                                newUid.ToString(),
-                                newName,
-                                newPubKey);
+                            viewModel.OnUserConnected(newUid.ToString(), newName, newPubKey);
                             break;
 
                         case ClientPacketOpCode.PlainMessage:
-                            // Model C: plain-text message arrives
-                            (Guid plainUid, string plainText) =
-                                packetReader.ReadPlainMessage();
-                            viewModel.PlainMessageReceived(plainText);
+                            Guid senderUid = framedReader.ReadUid();
+                            _ = framedReader.ReadUid(); // discard recipient
+                            string plainText = framedReader.ReadString();
+                            viewModel.OnPlainMessageReceived(plainText);
                             break;
 
                         case ClientPacketOpCode.EncryptedMessage:
-                            // Model E: encrypted message arrives
-                            DecryptMessageReceived();
+                            Guid sender = framedReader.ReadUid();
+                            int cipherLen = framedReader.ReadInt32NetworkOrder();
+                            byte[] cipher = framedReader.ReadExact(cipherLen);
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                EncryptedMessageReceivedEvent?.Invoke(sender, cipher);
+                            });
                             break;
 
                         case ClientPacketOpCode.PublicKeyResponse:
-                            // Model D: peer public key arrives
-                            (Guid keyUid, string keyBase64) =
-                                packetReader.ReadPublicKeyResponse();
-                            viewModel.PublicKeyReceived(
-                                keyUid.ToString(),
-                                keyBase64);
+                            Guid keyUid = framedReader.ReadUid();
+                            string keyBase64 = framedReader.ReadString();
+                            viewModel.OnPublicKeyReceived(keyUid.ToString(), keyBase64);
                             break;
 
                         case ClientPacketOpCode.DisconnectNotify:
-                            // Model A: user disconnected
-                            (Guid discUid, string discName) =
-                                packetReader.ReadUserDisconnected();
-                            viewModel.UserDisconnected(
-                                discUid.ToString(),
-                                discName);
+                            Guid discUid = framedReader.ReadUid();
+                            string discName = framedReader.ReadString();
+                            viewModel.OnUserDisconnected(discUid.ToString(), discName);
                             break;
 
                         case ClientPacketOpCode.DisconnectClient:
-                            // Model F: server tells us to disconnect
-                            packetReader.ReadServerDisconnect();
-                            viewModel.ServerDisconnectedClient();
+                            viewModel.OnDisconnectedByServer();
                             break;
 
                         default:
-                            // Logs the raw byte in hex when it's not a valid opcode
                             byte raw = (byte)opcode;
-                            ClientLogger.Log($"Unexpected byte 0x{raw:X2} in ReadPackets(), not a valid ServerPacketOpCode",
-                            ClientLogLevel.Warn);
+                            ClientLogger.Log($"Unexpected byte 0x{raw:X2} inside framed packet", ClientLogLevel.Warn);
                             break;
                     }
                 }
                 catch (IOException)
                 {
-                    // Connection dropped or stream closed—exit loop gracefully
                     break;
                 }
                 catch (Exception ex)
                 {
-                    // Log any unexpected error but keep processing subsequent packets
-                    ClientLogger.Log($"ReadPackets error: {ex.Message}",
-                        ClientLogLevel.Error);
+                    ClientLogger.Log($"ReadPackets error: {ex.Message}", ClientLogLevel.Error);
                 }
             }
         }
@@ -545,10 +511,9 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends the initial connection packet to the server using opcode 0.  
-        /// Includes the username, UID, and public RSA key for handshake identity.  
-        /// Starts listening for incoming packets.  
-        /// Returns true if the packet is sent successfully; false otherwise.  
+        /// Builds and sends a framed handshake packet (opcode 0) to the server.
+        /// Writes a 4-byte network-order length prefix followed by the packet body,
+        /// then starts the inbound packet reader. Returns true on success, false on failure.
         /// </summary>
         /// <param name="username">The display name of the user.</param>
         /// <param name="uid">The unique identifier assigned to the client during connection.</param>
@@ -561,27 +526,27 @@ namespace chat_client.Net
 
             try
             {
-                // Constructs the handshake packet with identity and encryption capability
+                // Constructs the handshake packet body: opcode + username + uid + public key.
                 var connectPacket = new PacketBuilder();
-                connectPacket.WriteOpCode((byte)ClientPacketOpCode.Handshake); // Opcode 0 = new user connection
+                connectPacket.WriteOpCode((byte)ClientPacketOpCode.Handshake); // Opcode 0 = handshake
+                connectPacket.WriteString(username);
+                connectPacket.WriteUid(uid);
+                connectPacket.WriteString(publicKeyBase64);
 
-                connectPacket.WriteString(username);               // Writes the Username
-                connectPacket.WriteUid(uid);                       // Writes the UID
-                connectPacket.WriteString(publicKeyBase64);        // Writes the Base64 public key
+                // Serializes the packet body (without framing).
+                byte[] body = connectPacket.GetPacketBytes();
 
-                // Logs the packet structure for debugging
-                ClientLogger.Log("Handshake packet structure:", ClientLogLevel.Debug);
-                ClientLogger.Log($"  → Username: {username}", ClientLogLevel.Debug);
-                ClientLogger.Log($"  → UID: {uid}", ClientLogLevel.Debug);
-                ClientLogger.Log($"  → PublicKeyBase64 fragment: {publicKeyBase64.Substring(0, 32)}…", ClientLogLevel.Debug);
+                // Prepares a 4-byte length prefix in network byte order (big-endian).
+                int bodyLength = body.Length;
+                byte[] lengthPrefix = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(bodyLength));
 
-                // Sends the packet bytes and flushes to ensure immediate transmission
+                // Sends the framed packet: first the 4-byte length, then the body.
                 NetworkStream stream = _tcpClient.GetStream();
-                byte[] packetBytes = connectPacket.GetPacketBytes();
-                stream.Write(packetBytes, 0, packetBytes.Length);
-                stream.Flush();                                     // Ensures data is sent now
+                stream.Write(lengthPrefix, 0, lengthPrefix.Length);
+                stream.Write(body, 0, body.Length);
+                stream.Flush();
 
-                // Logs success and spawns the packet reader
+                // Logs the successful send and starts the reader loop.
                 ClientLogger.Log($"Initial connection packet sent — Username: {username}, UID: {uid}", ClientLogLevel.Debug);
                 Task.Run(() => ReadPackets());
 
@@ -589,12 +554,10 @@ namespace chat_client.Net
             }
             catch (Exception ex)
             {
-                // Logs any error that occurs during handshake send
                 ClientLogger.Log($"Failed to send initial connection packet: {ex.Message}", ClientLogLevel.Error);
                 return false;
             }
         }
-
 
         /// <summary>
         /// Chooses between plain or encrypted send based on application UseEncryption setting.
@@ -605,82 +568,75 @@ namespace chat_client.Net
                : SendPlainMessageToServer(message);
 
         /// <summary>
-        /// Sends a clear‐text chat message to the server and echoes it in the UI.
-        /// Validates input, UI context, connection state, and local user data.
-        /// Builds and sends a plain‐text packet without throwing exceptions.
-        /// Logs any failures and returns false on error.
+        /// Builds and sends a framed plain-text chat packet to the server.
+        /// Packet body format: [opcode][senderUID][recipientUID=Empty][UTF8 payload].
+        /// The body is prefixed with a 4-byte network-order length before transmission.
+        /// Logs success/failure and echoes the message locally on success.
         /// </summary>
         public bool SendPlainMessageToServer(string message)
         {
-            // Avoids sending null, empty, or whitespace‐only messages
             if (string.IsNullOrWhiteSpace(message))
                 return false;
 
-            // Attempts to get MainWindow and its ViewModel
-            if (Application.Current.MainWindow is not MainWindow _mainWindow ||
-                _mainWindow.ViewModel is not MainViewModel ViewModel)
+            if (Application.Current.MainWindow is not MainWindow mainWindow ||
+                mainWindow.ViewModel is not MainViewModel viewModel)
             {
-                ClientLogger.Log(
-                    "SendPlainMessageToServer failed: UI context missing.",
-                    ClientLogLevel.Error);
+                ClientLogger.Log("SendPlainMessageToServer failed: UI context is missing.", ClientLogLevel.Error);
                 return false;
             }
 
-            // Checks that the TCP client is connected before sending
             if (_tcpClient?.Connected != true)
             {
-                string err = LocalizationManager.GetString("ClientSocketNotConnected");
-                ClientLogger.Log(
-                    $"SendPlainMessageToServer failed: {err}",
-                    ClientLogLevel.Error);
+                var errorMessage = LocalizationManager.GetString("ClientSocketNotConnected");
+                ClientLogger.Log($"SendPlainMessageToServer failed: {errorMessage}", ClientLogLevel.Error);
                 return false;
             }
 
-            // Verifies that LocalUser and its UID are initialized
-            var local = ViewModel.LocalUser;
-            if (local == null || string.IsNullOrWhiteSpace(local.UID))
+            var localUser = viewModel.LocalUser;
+            if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
             {
-                ClientLogger.Log(
-                    "SendPlainMessageToServer failed: LocalUser not initialized.",
-                    ClientLogLevel.Error);
+                ClientLogger.Log("SendPlainMessageToServer failed: Local user is not initialized.", ClientLogLevel.Error);
                 return false;
             }
 
-            // Trims leading/trailing spaces from the message payload
             string payload = message.Trim();
 
             try
             {
-                // Builds the packet: opcode + sender UID + message text
-                var _plainMessagePacket = new PacketBuilder();
-                _plainMessagePacket.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
-                _plainMessagePacket.WriteUid(Guid.Parse(local.UID));    // replaced WriteMessage
-                _plainMessagePacket.WriteString(payload);               // replaced WriteMessage
+                // Builds the packet body (opcode + sender UID + recipient placeholder + message)
+                var plainMessagePacket = new PacketBuilder();
+                plainMessagePacket.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                plainMessagePacket.WriteUid(Guid.Parse(localUser.UID));
+                plainMessagePacket.WriteUid(Guid.Empty); // placeholder for broadcast recipient
+                plainMessagePacket.WriteString(payload);
 
-                // Sends the raw packet bytes to the server
-                _tcpClient.Client.Send(_plainMessagePacket.GetPacketBytes());
-                ClientLogger.Log(
-                    "Plain‐text packet sent.",
-                    ClientLogLevel.Debug);
+                // Serializes body and create a 4-byte network-order length prefix
+                byte[] body = plainMessagePacket.GetPacketBytes();
+                byte[] lengthPrefix = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(body.Length));
 
-                // Echoes the message in the chat UI on the main thread
+                // Sends framed packet: length prefix then body, using NetworkStream for reliable Write/Flush
+                NetworkStream stream = _tcpClient.GetStream();
+                stream.Write(lengthPrefix, 0, lengthPrefix.Length);
+                stream.Write(body, 0, body.Length);
+                stream.Flush();
+
+                ClientLogger.Log($"Sent framed plain message len={body.Length} preview=\"{(payload.Length > 64 ? payload.Substring(0, 64) + "…" : payload)}\"", ClientLogLevel.Debug);
+
+                // Echoes locally on UI thread
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    ViewModel.Messages.Add($"{local.Username}: {payload}");
+                    viewModel.Messages.Add($"{localUser.Username}: {payload}");
                 });
 
                 return true;
             }
             catch (Exception ex)
             {
-                // Logs the exception and displays a localized error in chat
-                ClientLogger.Log(
-                    $"SendPlainMessageToServer exception: {ex.Message}",
-                    ClientLogLevel.Error);
+                ClientLogger.Log($"SendPlainMessageToServer exception: {ex.Message}", ClientLogLevel.Error);
+
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    ViewModel.Messages.Add(
-                        LocalizationManager.GetString("MessageSendingFailed"));
+                    viewModel.Messages.Add(LocalizationManager.GetString("MessageSendingFailed"));
                 });
                 return false;
             }

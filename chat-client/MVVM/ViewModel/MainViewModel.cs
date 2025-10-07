@@ -1,14 +1,13 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 4th, 2025</date>
+/// <date>October 7th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
-using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -332,12 +331,12 @@ namespace chat_client.MVVM.ViewModel
 
             // Instantiates the server client and subscribes to its events
             _server = new Server();
-            _server.ConnectedEvent += UserConnected;
-            _server.PlainMessageReceivedEvent += PlainMessageReceived;
-            _server.EncryptedMessageReceivedEvent += EncryptedMessageReceived;
-            _server.PublicKeyReceivedEvent += PublicKeyReceived;
-            _server.UserDisconnectedEvent += UserDisconnected;
-            _server.DisconnectedByServerEvent += ServerDisconnectedClient;
+            _server.UserConnectedEvent += OnUserConnected;
+            _server.PlainMessageReceivedEvent += OnPlainMessageReceived;
+            _server.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
+            _server.PublicKeyReceivedEvent += OnPublicKeyReceived;
+            _server.UserDisconnectedEvent += OnUserDisconnected;
+            _server.DisconnectedByServerEvent += OnDisconnectedByServer;
 
             // Creates the Connect/Disconnect command and binds its Execute and CanExecute logic
             ConnectDisconnectCommand = new RelayCommand(
@@ -668,22 +667,6 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Model E: Handles a decrypted chat message event (opcode 11).
-        /// Appends the provided pre-formatted text to the Messages collection
-        /// on the UI thread.
-        /// </summary>
-        /// <param name="messageToDisplay">
-        /// The decrypted and formatted message (e.g. "Alice: Hello!").
-        /// </param>
-        public void EncryptedMessageReceived(string messageToDisplay)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                Messages.Add(messageToDisplay);
-            });
-        }
-
-        /// <summary>
         /// Determines whether encryption is ready and logs the result.
         /// </summary>
         /// <returns>True if encryption is enabled and all peer public keys are received; otherwise false.</returns>
@@ -857,13 +840,79 @@ namespace chat_client.MVVM.ViewModel
         public void NotifyDisconnected() => IsConnected = false;
 
         /// <summary>
+        /// Model F: Handles a server-initiated disconnect command (opcode 12).
+        /// Disconnects from the server, clears the user list, posts a localized system message,
+        /// and notifies the UI that the connection status changed.
+        /// </summary>
+        public void OnDisconnectedByServer()
+        {
+            // Attempts to close the connection
+            try
+            {
+                _server.DisconnectFromServer();
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}",
+                    ClientLogLevel.Error);
+            }
+
+            // Executes UI-bound updates on the dispatcher thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Users.Clear();
+                Messages.Add(
+                    $"# {LocalizationManager.GetString("ServerDisconnected")} #");
+                OnPropertyChanged(nameof(IsConnected));
+            });
+        }
+
+        /// <summary>
+        /// Handles an incoming encrypted message.
+        /// Converts the cipher bytes to Base64, attempts decryption,
+        /// resolves the sender’s display name, and marshals the result
+        /// onto the UI thread for display.
+        /// </summary>
+        /// <param name="senderUid">UID of the user who sent the message.</param>
+        /// <param name="cipherBytes">Encrypted payload as a byte array.</param>
+        private void OnEncryptedMessageReceived(Guid senderUid, byte[] cipherBytes)
+        {
+            // Converts the raw cipher bytes to Base64 for the decryption helper
+            string base64 = Convert.ToBase64String(cipherBytes);
+
+            // Attempts to decrypt; fall back to a localized error message on failure
+            string plaintext;
+            try
+            {
+                plaintext = EncryptionHelper.DecryptMessage(base64);
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"Decryption error from {senderUid}: {ex.Message}", ClientLogLevel.Error);
+                plaintext = LocalizationManager.GetString("DecryptionFailed");
+            }
+
+            // Looks up the sender’s username in the Users collection; default to the GUID string
+            string username = Users?
+                .FirstOrDefault(u => string.Equals(u.UID, senderUid.ToString(), StringComparison.OrdinalIgnoreCase))
+                ?.Username
+                ?? senderUid.ToString();
+
+            // Dispatches the formatted message to the UI thread for insertion into the chat log
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Messages.Add($"{username}: {plaintext}");
+            });
+        }
+
+        /// <summary>
         /// Handles a delivered plain‐text message.
         /// Appends the provided formatted message to the chat UI on the dispatcher thread.
         /// </summary>
         /// <param name="messageToDisplay">
         /// The ready-to-display message string 
         /// </param>
-        public void PlainMessageReceived(string messageToDisplay)
+        public void OnPlainMessageReceived(string messageToDisplay)
         {
             try
             {
@@ -881,6 +930,7 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+
         /// <summary>
         /// Model D: Handles a received public‐key event.
         /// Validates input, updates the KnownPublicKeys dictionary in a thread-safe manner,
@@ -890,7 +940,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         /// <param name="senderUid">The UID of the peer who provided the public key.</param>
         /// <param name="publicKeyBase64">The Base64-encoded RSA public key.</param>
-        public void PublicKeyReceived(string senderUid, string publicKeyBase64)
+        public void OnPublicKeyReceived(string senderUid, string publicKeyBase64)
         {
             // Discard if either UID or key is missing
             if (string.IsNullOrWhiteSpace(senderUid) || string.IsNullOrWhiteSpace(publicKeyBase64))
@@ -900,7 +950,7 @@ namespace chat_client.MVVM.ViewModel
                 return;
             }
 
-            bool isNewOrUpdated = false;
+            bool isNewOrUpdatedKey = false;
 
             // Protects the dictionary from concurrent writes
             lock (KnownPublicKeys)
@@ -915,7 +965,7 @@ namespace chat_client.MVVM.ViewModel
                     else
                     {
                         KnownPublicKeys[senderUid] = publicKeyBase64;
-                        isNewOrUpdated = true;
+                        isNewOrUpdatedKey = true;
                         ClientLogger.Log($"Updated public key for {senderUid}.",
                             ClientLogLevel.Info);
                     }
@@ -923,7 +973,7 @@ namespace chat_client.MVVM.ViewModel
                 else
                 {
                     KnownPublicKeys.Add(senderUid, publicKeyBase64);
-                    isNewOrUpdated = true;
+                    isNewOrUpdatedKey = true;
                     ClientLogger.Log($"Registered new public key for {senderUid}.",
                         ClientLogLevel.Info);
                 }
@@ -933,10 +983,110 @@ namespace chat_client.MVVM.ViewModel
             EvaluateEncryptionState();
 
             // Refreshes the UI lock icon if this key makes encryption fully ready
-            if (isNewOrUpdated && IsEncryptionReady)
+            if (isNewOrUpdatedKey && IsEncryptionReady)
             {
                 ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.",
                     ClientLogLevel.Debug);
+            }
+        }
+
+        /// <summary>
+        /// Model A: Handles a new user join event.
+        /// Reads the provided UID, username, and public key.
+        /// Adds the user to the Users collection if not already present.
+        /// Registers the user’s public key and re-evaluates encryption state.
+        /// Posts a system notice to the chat UI on the dispatcher thread.
+        /// </summary>
+        /// <param name="uid">The joining user’s unique identifier.</param>
+        /// <param name="username">The joining user’s display name.</param>
+        /// <param name="publicKey">The joining user’s RSA public key (base64).</param>
+        public void OnUserConnected(string uid, string username, string publicKey)
+        {
+            // Prevents duplicates
+            if (Users.Any(u => u.UID == uid))
+                return;
+
+            // Builds the new user model
+            var user = new UserModel
+            {
+                UID = uid,
+                Username = username,
+                PublicKeyBase64 = publicKey
+            };
+
+            // Invokes all UI-bound updates on the main thread
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                // Adds the new user to the observable collection
+                Users.Add(user);
+
+                // Updates the expected client count and logs the change
+                ExpectedClientCount = Users.Count;
+                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
+                    ClientLogLevel.Debug);
+
+                // Registers the public key if not already known
+                if (!KnownPublicKeys.ContainsKey(uid))
+                {
+                    KnownPublicKeys[uid] = publicKey;
+                    ClientLogger.Log($"Public key registered for {username} — UID: {uid}",
+                        ClientLogLevel.Debug);
+                }
+
+                // Re-evaluates whether encryption features can be enabled
+                EvaluateEncryptionState();
+
+                // Posts a system notice to the chat window
+                Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
+            });
+        }
+
+        /// <summary>
+        /// Model A: Handles a user disconnect event (opcode 10).
+        /// Removes the specified user from the Users list,
+        /// posts a localized system notice to the chat,
+        /// updates the expected client count,
+        /// and re-evaluates encryption readiness if enabled.
+        /// </summary>
+        /// <param name="uid">The UID of the user who disconnected.</param>
+        /// <param name="username">The display name of the user who disconnected.</param>
+        public void OnUserDisconnected(string uid, string username)
+        {
+            try
+            {
+                // Locates the user by UID
+                var user = Users.FirstOrDefault(u => u.UID == uid);
+                if (user == null)
+                    return;
+
+                // Updates UI-bound state on the dispatcher thread
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    // Removes the disconnected user
+                    Users.Remove(user);
+
+                    // Updates and logs the expected client count
+                    ExpectedClientCount = Users.Count;
+                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
+                        ClientLogLevel.Debug);
+
+                    // Posts a system message indicating the disconnection
+                    Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
+
+                    // Re-evaluates encryption readiness if encryption is active
+                    if (chat_client.Properties.Settings.Default.UseEncryption)
+                    {
+                        EvaluateEncryptionState();
+                    }
+
+                    ClientLogger.Log($"User disconnected — Username: {username}, UID: {uid}",
+                        ClientLogLevel.Debug);
+                });
+            }
+            catch (Exception ex)
+            {
+                // Logs any unexpected error in the handler
+                ClientLogger.Log($"UserDisconnected handler failed: {ex.Message}", ClientLogLevel.Error);
             }
         }
 
@@ -984,56 +1134,28 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-/// Clears all chat data and resets the ViewModel connection state,
-/// causing the UI to return to its initial (disconnected) layout via bindings.
-/// </summary>
-public void ReinitializeUI()
-{
-    // Clears the collections bound to the user list and chat window
-    Users.Clear();
-    Messages.Clear();
-
-    // Updates the ViewModel on the UI thread to trigger all connection-related bindings
-    Application.Current.Dispatcher.Invoke(() =>
-    {
-        // Retrieves MainWindow and its DataContext ViewModel
-        if (Application.Current.MainWindow is MainWindow mainWindow
-            && mainWindow.DataContext is MainViewModel viewModel)
-        {
-            // Sets IsConnected to false, which:
-            // - Enables the username/IP inputs
-            // - Hides the chat panels
-            // - Updates the window title and button text
-            viewModel.IsConnected = false;
-        }
-    });
-}
-
-        /// <summary>
-        /// Model F: Handles a server-initiated disconnect command (opcode 12).
-        /// Disconnects from the server, clears the user list, posts a localized system message,
-        /// and notifies the UI that the connection status changed.
+        /// Clears all chat data and resets the ViewModel connection state,
+        /// causing the UI to return to its initial (disconnected) layout via bindings.
         /// </summary>
-        public void ServerDisconnectedClient()
+        public void ReinitializeUI()
         {
-            // Attempts to close the connection
-            try
-            {
-                _server.DisconnectFromServer();
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}",
-                    ClientLogLevel.Error);
-            }
+            // Clears the collections bound to the user list and chat window
+            Users.Clear();
+            Messages.Clear();
 
-            // Executes UI-bound updates on the dispatcher thread
+            // Updates the ViewModel on the UI thread to trigger all connection-related bindings
             Application.Current.Dispatcher.Invoke(() =>
             {
-                Users.Clear();
-                Messages.Add(
-                    $"# {LocalizationManager.GetString("ServerDisconnected")} #");
-                OnPropertyChanged(nameof(IsConnected));
+                // Retrieves MainWindow and its DataContext ViewModel
+                if (Application.Current.MainWindow is MainWindow mainWindow
+                    && mainWindow.DataContext is MainViewModel viewModel)
+                {
+                    // Sets IsConnected to false, which:
+                    // - Enables the username/IP inputs
+                    // - Hides the chat panels
+                    // - Updates the window title and button text
+                    viewModel.IsConnected = false;
+                }
             });
         }
 
@@ -1290,106 +1412,6 @@ public void ReinitializeUI()
             int userCount = Users?.Count ?? 0;
             int keyCount = KnownPublicKeys?.Count ?? 0;
             ClientLogger.Log($"Encryption status updated — Users: {userCount}, Keys: {keyCount}, Ready: {IsEncryptionReady}", ClientLogLevel.Debug);
-        }
-
-        /// <summary>
-        /// Model A: Handles a new user join event.
-        /// Reads the provided UID, username, and public key.
-        /// Adds the user to the Users collection if not already present.
-        /// Registers the user’s public key and re-evaluates encryption state.
-        /// Posts a system notice to the chat UI on the dispatcher thread.
-        /// </summary>
-        /// <param name="uid">The joining user’s unique identifier.</param>
-        /// <param name="username">The joining user’s display name.</param>
-        /// <param name="publicKey">The joining user’s RSA public key (base64).</param>
-        public void UserConnected(string uid, string username, string publicKey)
-        {
-            // Prevents duplicates
-            if (Users.Any(u => u.UID == uid))
-                return;
-
-            // Builds the new user model
-            var user = new UserModel
-            {
-                UID = uid,
-                Username = username,
-                PublicKeyBase64 = publicKey
-            };
-
-            // Invokes all UI-bound updates on the main thread
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                // Adds the new user to the observable collection
-                Users.Add(user);
-
-                // Updates the expected client count and logs the change
-                ExpectedClientCount = Users.Count;
-                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
-                    ClientLogLevel.Debug);
-
-                // Registers the public key if not already known
-                if (!KnownPublicKeys.ContainsKey(uid))
-                {
-                    KnownPublicKeys[uid] = publicKey;
-                    ClientLogger.Log($"Public key registered for {username} — UID: {uid}",
-                        ClientLogLevel.Debug);
-                }
-
-                // Re-evaluates whether encryption features can be enabled
-                EvaluateEncryptionState();
-
-                // Posts a system notice to the chat window
-                Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
-            });
-        }
-
-        /// <summary>
-        /// Model A: Handles a user disconnect event (opcode 10).
-        /// Removes the specified user from the Users list,
-        /// posts a localized system notice to the chat,
-        /// updates the expected client count,
-        /// and re-evaluates encryption readiness if enabled.
-        /// </summary>
-        /// <param name="uid">The UID of the user who disconnected.</param>
-        /// <param name="username">The display name of the user who disconnected.</param>
-        public void UserDisconnected(string uid, string username)
-        {
-            try
-            {
-                // Locates the user by UID
-                var user = Users.FirstOrDefault(u => u.UID == uid);
-                if (user == null)
-                    return;
-
-                // Updates UI-bound state on the dispatcher thread
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    // Removes the disconnected user
-                    Users.Remove(user);
-
-                    // Updates and logs the expected client count
-                    ExpectedClientCount = Users.Count;
-                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
-                        ClientLogLevel.Debug);
-
-                    // Posts a system message indicating the disconnection
-                    Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
-
-                    // Re-evaluates encryption readiness if encryption is active
-                    if (chat_client.Properties.Settings.Default.UseEncryption)
-                    {
-                        EvaluateEncryptionState();
-                    }
-
-                    ClientLogger.Log($"User disconnected — Username: {username}, UID: {uid}",
-                        ClientLogLevel.Debug);
-                });
-            }
-            catch (Exception ex)
-            {
-                // Logs any unexpected error in the handler
-                ClientLogger.Log($"UserDisconnected handler failed: {ex.Message}",  ClientLogLevel.Error);
-            }
         }
     }
 }

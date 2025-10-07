@@ -1,12 +1,14 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 4th, 2025</date>
+/// <date>October 6th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
 using System;
+using System.IO;
+using System.Net;
 using System.Net.Sockets;
 
 namespace chat_server
@@ -40,10 +42,13 @@ namespace chat_server
         /// </summary>
         public Client(TcpClient client, string username, Guid uid)
         {
+            // Initialize to a safe inert reader to satisfy readonly invariant.
+            // Per-packet parsing will still use PacketReader over MemoryStream created inside ListenForMessages.
+            _packetReader = new PacketReader(new MemoryStream());
+
             ClientSocket = client;
             Username = username;
             UID = uid;
-            _packetReader = new PacketReader(client.GetStream());
 
             // Logs that the client is now listening for messages
             Console.WriteLine($"[DEBUG] Listening for messages from {Username}...");
@@ -76,234 +81,167 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Handles opcode for encrypted chat messages.
-        /// Reads sender and recipient UIDs and Base64 ciphertext,
-        /// then forwards the encrypted payload to the appropriate clients.
-        /// Logs each forward operation or any failure.
-        /// </summary>
-        private void HandleEncryptedMessageReceived()
-        {
-            try
-            {
-                // Reads the sender’s UID (16 bytes)
-                Guid senderUid = _packetReader.ReadUid();
-
-                // Reads the recipient’s UID (16 bytes); Guid.Empty indicates broadcast
-                Guid recipientUid = _packetReader.ReadUid();
-
-                // Reads the Base64-encoded ciphertext
-                string cipherB64 = _packetReader.ReadString();
-
-                // Iterates through every connected user
-                foreach (var user in Program.Users)
-                {
-                    // Skips non–broadcast messages that are not addressed to this user
-                    if (recipientUid != Guid.Empty && user.UID != recipientUid)
-                        continue;
-
-                    try
-                    {
-                        // Constructs the Server→Client EncryptedMessage packet
-                        var forwardPacket = new PacketBuilder();
-                        forwardPacket.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
-                        forwardPacket.WriteUid(senderUid);
-                        forwardPacket.WriteUid(recipientUid);
-                        forwardPacket.WriteString(cipherB64);
-
-                        // Sends the packet to the user
-                        byte[] packetBytes = forwardPacket.GetPacketBytes();
-                        user.ClientSocket.GetStream().Write(packetBytes, 0, packetBytes.Length);
-
-                        // Logs successful forwarding
-                        var target = recipientUid == Guid.Empty ? "all users" : user.Username;
-                        ServerLogger.Log(
-                            $"Forwarded encrypted message from {senderUid} to {target}",
-                            ServerLogLevel.Debug);
-                    }
-                    catch (Exception exForward)
-                    {
-                        // Logs any failure to send to an individual user
-                        ServerLogger.Log(
-                            $"Failed to forward encrypted message to {user.Username} ({user.UID}): {exForward.Message}",
-                            ServerLogLevel.Error);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Logs any error during the encrypted-message handling workflow
-                ServerLogger.Log(
-                    $"HandleEncryptedMessageReceived failed: {ex.Message}",
-                    ServerLogLevel.Error);
-            }
-        }
-
-        /// <summary>
-        /// Handles opcode 5 by reading sender and recipient UIDs and the message content,
-        /// then delegates to Program.BroadcastMessage for routing.
-        /// </summary>
-        private void HandlePlainMessageReceived()
-        {
-            // Reads the sender UID (16 bytes) and returns a Guid
-            Guid senderUid = _packetReader.ReadUid();
-
-            // Reads the recipient UID (16 bytes);
-            Guid recipientUid = _packetReader.ReadUid();
-
-            // Reads the length-prefixed UTF-8 payload as the message text
-            string content = _packetReader.ReadString();
-
-            // Routes the chat message through the central dispatcher
-            Program.BroadcastMessage(content, senderUid, recipientUid);
-        }
-
-        /// <summary>
-        /// Model D: Processes an incoming public‐key exchange packet (opcode 6).
-        /// Reads the sender UID and Base64‐encoded RSA public key from the packet.
-        /// Stores the key locally in both Base64 and DER formats,
-        /// logs the receipt at debug level,
-        /// and forwards the key to other connected clients.
-        /// </summary>
-        private void HandlePublicKeyReceived()
-        {
-            // Reads the sender UID (16 bytes) and converts it to Guid
-            Guid senderUid = _packetReader.ReadUid();
-
-            // Reads the length‐prefixed UTF‐8 payload as the Base64 public key
-            string publicKeyBase64 = _packetReader.ReadString();
-
-            // Stores the Base64 key and decodes it into DER format
-            PublicKeyBase64 = publicKeyBase64;
-            PublicKeyDer = Convert.FromBase64String(publicKeyBase64);
-
-            // Logs the reception of the public key
-            ServerLogger.Log($"Received public key from {senderUid} (length: {publicKeyBase64.Length})",
-                ServerLogLevel.Debug);
-
-            // Broadcasts the key to all other connected clients
-            Program.BroadcastPublicKeyToOthers(this);
-        }
-
-        /// <summary>
-        /// Model D: Handles a public‐key sync request (opcode 3).
-        /// Reads the requester’s UID, then sends each connected user’s public key
-        /// in PublicKeyResponse packets. Logs each send operation or failure.
-        /// </summary>
-        private void HandlePublicKeySyncRequest()
-        {
-            try
-            {
-                // Reads the requester UID (16 bytes)
-                Guid requesterUid = _packetReader.ReadUid();
-
-                ServerLogger.Log($"Public‐key sync requested by UID: {requesterUid}",
-                    ServerLogLevel.Debug);
-
-                // Iterates through all known users
-                foreach (var user in Program.Users)
-                {
-                    // Skips users without a public key
-                    if (string.IsNullOrWhiteSpace(user.PublicKeyBase64))
-                        continue;
-
-                    try
-                    {
-                        // Builds the PublicKeyResponse packet
-                        var packet = new PacketBuilder();
-                        packet.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-                        packet.WriteUid(user.UID);
-                        packet.WriteString(user.PublicKeyBase64);
-
-                        // Sends the packet back to the requester
-                        var bytes = packet.GetPacketBytes();
-                        ClientSocket.GetStream().Write(bytes, 0, bytes.Length);
-
-                        ServerLogger.Log($"Sent public key of {user.Username} (UID: {user.UID}) to requester {requesterUid}",
-                            ServerLogLevel.Debug);
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.Log($"Failed to send public key of {user.Username} to {requesterUid}: {ex.Message}",
-                            ServerLogLevel.Error);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.Log($"HandlePublicKeySyncRequest failed: {ex.Message}", ServerLogLevel.Error);
-            }
-        }
-
-        /// <summary>
-        /// Continuously listens for incoming packets from this client connection,
-        /// logs each receive-and-dispatch step,
-        /// and invokes the appropriate handler based on the client→server opcode.
+        /// Reads framed packets from the client socket, 
+        /// parses them using the protocol opcodes defined in Protocol.cs,
+        /// and dispatches to server methods implemented on Program.
+        /// Assumes 4-byte network-order length prefix framing.
         /// </summary>
         internal void ListenForMessages()
         {
-            // Logs the start of the message-listening loop for this client
-            ServerLogger.Log(
-                $"Starting message loop for {Username} ({UID})",
-                ServerLogLevel.Info);
+            ServerLogger.Log($"Starting message loop for {Username} ({UID})", ServerLogLevel.Info);
+
+            var netStream = ClientSocket.GetStream();
+            var streamReader = new PacketReader(netStream);
 
             while (true)
             {
                 try
                 {
-                    // Logs attempt to read the next packet opcode
-                    ServerLogger.Log(
-                        $"Waiting for next packet from {Username}",
-                        ServerLogLevel.Debug);
+                    // Reads 4-byte length prefix from the network stream
+                    byte[] lengthBuffer = streamReader.ReadBytesExactFromStream(4);
+                    if (BitConverter.IsLittleEndian)
+                        Array.Reverse(lengthBuffer);
 
-                    // Reads a single byte and casts it to the client→server opcode enum
-                    var opcode = (ServerPacketOpCode)_packetReader.ReadByte();
+                    int packetLength = BitConverter.ToInt32(lengthBuffer, 0);
+                    if (packetLength <= 0)
+                        continue;
+
+                    // Reads the packet body into a byte array
+                    byte[] packetBody = streamReader.ReadBytesExactFromStream(packetLength);
+
+                    // Wraps the payload in a MemoryStream so PacketReader can consume it
+                    using var payloadStream = new MemoryStream(packetBody);
+                    var packetReader = new PacketReader(payloadStream);
+
+                    // Reads opcode and dispatches according to ServerPacketOpCode
+                    ServerPacketOpCode opcode = (ServerPacketOpCode)packetReader.ReadByte();
 
                     switch (opcode)
                     {
+                        case ServerPacketOpCode.Handshake:
+                            {
+                                // Handshake: Username; UserId; PublicKeyBase64
+                                string clientUsername = packetReader.ReadString();
+                                Guid clientUid = packetReader.ReadUid();
+                                string publicKeyBase64 = packetReader.ReadString();
+
+                                // Updates local client state
+                                this.Username = clientUsername;
+                                this.UID = clientUid;
+
+                                // Broadcasts the updated list of connected users
+                                Program.BroadcastConnection();
+
+                                break;
+                            }
+
+                        case ServerPacketOpCode.ConnectionBroadcast:
+                            {
+                                // ConnectionBroadcast: UserId; Username; PublicKeyBase64
+                                Guid newUserId = packetReader.ReadUid();
+                                string newUserName = packetReader.ReadString();
+                                string newUserKey = packetReader.ReadString();
+
+                                // Broadcasts the updated list of connected users
+                                Program.BroadcastConnection();
+
+                                break;
+                            }
+
                         case ServerPacketOpCode.PublicKeyRequest:
-                            // Reads and handles a client’s public-key sync request
-                            HandlePublicKeySyncRequest();
-                            break;
+                            {
+                                // PublicKeyRequest: RequesterUserId; TargetUserId
+                                Guid requesterId = packetReader.ReadUid();
+                                Guid targetId = packetReader.ReadUid();
+
+                                // Forward request to Program routing helper
+                                Program.RelayPublicKeyRequest(requesterId, targetId);
+                                break;
+                            }
 
                         case ServerPacketOpCode.PlainMessage:
-                            // Reads and routes a clear-text chat message
-                            HandlePlainMessageReceived();
-                            break;
+                            {
+                                // PlainMessage: SenderUserId; RecipientUserId; MessageText
+                                Guid senderId = packetReader.ReadUid();
+                                Guid recipientId = packetReader.ReadUid(); // ignored for plain broadcast
+                                string messageText = packetReader.ReadString();
+
+                                // Broadcast plain text to everybody except the sender
+                                Program.BroadcastPlainMessage(messageText, senderId);
+                                break;
+                            }
 
                         case ServerPacketOpCode.PublicKeyResponse:
-                            // Reads and stores the public key received
-                            HandlePublicKeyReceived();
-                            break;
+                            {
+                                // PublicKeyResponse: ResponderUserId; PublicKeyBase64; RequesterUserId
+                                Guid responderId = packetReader.ReadUid();
+                                string responderKey = packetReader.ReadString();
+                                Guid requesterId = packetReader.ReadUid();
+
+                                // Send responder's public key only to the original requester
+                                Program.RelayPublicKeyToUser(responderId, responderKey, requesterId);
+                                break;
+                            }
+
+                        case ServerPacketOpCode.DisconnectNotify:
+                            {
+                                // DisconnectNotify: DisconnectingUserId
+                                Guid disconnectingUser = packetReader.ReadUid();
+
+                                // Notify all clients of the disconnection using Program helper
+                                Program.BroadcastDisconnect(disconnectingUser.ToString());
+                                break;
+                            }
 
                         case ServerPacketOpCode.EncryptedMessage:
-                            // Reads and forwards an encrypted chat message
-                            HandleEncryptedMessageReceived();
-                            break;
+                            {
+                                // EncryptedMessage: SenderUserId; RecipientUserId; CipherText
+                                Guid senderId = packetReader.ReadUid();
+                                Guid recipientId = packetReader.ReadUid();
+                                byte[] cipher = packetReader.ReadBytesWithLength();
+
+                                // Relay encrypted blob only to intended recipient
+                                Program.RelayEncryptedMessageToAUser(Convert.ToBase64String(cipher), senderId, recipientId);
+                                break;
+                            }
+
+                        case ServerPacketOpCode.DisconnectClient:
+                            {
+                                // DisconnectClient: TargetUserId
+                                Guid targetId = packetReader.ReadUid();
+
+                                // Program.Shutdown will perform connection teardown for this client context
+                                Program.Shutdown();
+                                break;
+                            }
 
                         default:
-                            // Logs unsupported or unknown opcode values
-                            ServerLogger.Log(
-                                $"Unknown opcode {opcode} received from {Username}",
-                                ServerLogLevel.Warn);
-                            break;
+                            {
+                                ServerLogger.Log($"Unknown opcode {(byte)opcode} received from {Username} ({UID})", ServerLogLevel.Warn);
+                                break;
+                            }
                     }
-
-                    // Logs successful processing of the packet
-                    ServerLogger.Log(
-                        $"Processed packet {opcode} from {Username}",
-                        ServerLogLevel.Debug);
+                }
+                catch (EndOfStreamException)
+                {
+                    ServerLogger.Log($"Stream closed unexpectedly for {Username} ({UID})", ServerLogLevel.Info);
+                    CleanupAfterDisconnect();
+                    break;
+                }
+                catch (IOException ex)
+                {
+                    ServerLogger.Log($"IO error while reading from {Username} ({UID}): {ex.Message}", ServerLogLevel.Info);
+                    CleanupAfterDisconnect();
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    // Logs that the client has disconnected and performs cleanup
-                    ServerLogger.Log(
-                        $"{Username} ({UID}) has disconnected: {ex.Message}",
-                        ServerLogLevel.Info);
-
+                    ServerLogger.Log($"Unhandled error in ListenForMessages for {Username} ({UID}): {ex}", ServerLogLevel.Error);
                     CleanupAfterDisconnect();
-                    break;
                 }
             }
         }
     }
 }
+
+
