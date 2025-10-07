@@ -3,12 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:chat_client" xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
+        xmlns:local="clr-namespace:chat_client" 
+        xmlns:viewmodel="clr-namespace:chat_client.MVVM.ViewModel"
+        xmlns:helpers="clr-namespace:chat_client.Helpers"
         mc:Ignorable="d"
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="{Binding WindowTitle}" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
         Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/Resources/chat-client-icon.ico" 
-        TabIndex="12" StateChanged="MainWindow1_StateChanged" Closing="MainWindow1_Closing" 
+        TabIndex="12" 
+        StateChanged="MainWindow1_StateChanged" 
+        Closing="MainWindow1_Closing" 
         PreviewKeyDown="MainWindow1_PreviewKeyDown">
     <Window.Resources>
 
@@ -33,53 +37,69 @@
                          DecelerationRatio="0.4" />
         </Storyboard>
 
-        <!-- Style for lock coloured icon on encryption enabled -->
+        <!-- This storyboard targets the styled Image’s RenderTransform directly -->
         <Storyboard x:Key="LockDropAnim">
-            <!-- Rise from closer to the screen (less vertical travel) -->
-            <DoubleAnimation Storyboard.TargetName="LockTranslate"
-                         Storyboard.TargetProperty="Y"
-                         From="200" To="0"
-                         Duration="0:0:1.4"
-                         AccelerationRatio="0.2"
-                         DecelerationRatio="0.8" />
 
-            <!-- Shrink from even larger scale for dramatic impact -->
-            <DoubleAnimation Storyboard.TargetName="LockScale"
-                         Storyboard.TargetProperty="ScaleX"
-                         From="80" To="1"
-                         Duration="0:0:1.4"
-                         AccelerationRatio="0.2"
-                         DecelerationRatio="0.8" />
+            <!-- Animates the Y offset of the TranslateTransform (second child in the RenderTransformGroup) -->
+            <DoubleAnimation       
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                From="200" To="0"
+                Duration="0:0:1.4"
+                AccelerationRatio="0.2"
+                DecelerationRatio="0.8"/>
 
-            <DoubleAnimation Storyboard.TargetName="LockScale"
-                         Storyboard.TargetProperty="ScaleY"
-                         From="80" To="1"
-                         Duration="0:0:1.4"
-                         AccelerationRatio="0.2"
-                         DecelerationRatio="0.8" />
+            <!-- Animates the ScaleX of the ScaleTransform (first child in the RenderTransformGroup) for horizontal zoom -->
+            <DoubleAnimation
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                From="80" To="1"
+                Duration="0:0:1.4"
+                AccelerationRatio="0.2"
+                DecelerationRatio="0.8"/>
+
+            <!-- Animates the ScaleY of the ScaleTransform (first child in the RenderTransformGroup) for vertical zoom -->
+             <DoubleAnimation
+                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                From="80" To="1"
+                Duration="0:0:1.4"
+                AccelerationRatio="0.2"
+                DecelerationRatio="0.8"/>
         </Storyboard>
 
         <!-- Converts a bool to Visibility: true → Visible, false → Collapsed -->
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <!-- Style for encryption status icon: grey by default, coloured when ready, and zooms on ready -->
-        <Style x:Key="EncryptionStatusIconStyle" TargetType="Image">
-            <!-- Bind visibility to ViewModel flag -->
+        <!-- Style for encryption status icon: grey by default, coloured on encryption ready -->
+        <Style x:Key="EncryptionStatusIconStyle" TargetType="Image"
+       xmlns:helpers="clr-namespace:chat_client.Helpers">
+            <!-- Sets up a composite transform: first scale, then translate -->
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <TransformGroup>
+                        <ScaleTransform/>
+                        <TranslateTransform/>
+                    </TransformGroup>
+                </Setter.Value>
+            </Setter>
+
+            <!-- Default grey syncing icon, invisible when encryption off -->
             <Setter Property="Visibility"
-                Value="{Binding IsEncryptionIconVisible, Converter={StaticResource BoolToVis}}"/>
-            <!-- Default: grey syncing icon + "Not encrypted" tooltip -->
-            <Setter Property="Source"   Value="/Resources/syncing-keys.png"/>
-            <Setter Property="ToolTip"  Value="Not encrypted"/>
+          Value="{Binding IsEncryptionIconVisible, Converter={StaticResource BoolToVis}}"/>
+            <Setter Property="Source" Value="/Resources/syncing-keys.png"/>
+            <!-- Use markup extension to pull localized tooltip text -->
+            <Setter Property="ToolTip"
+          Value="{helpers:LocalizeExtension GettingMissingKeys}"/>
 
             <Style.Triggers>
-                <!-- When encryption becomes fully ready -->
                 <DataTrigger Binding="{Binding IsEncryptionReady}" Value="True">
-                    <!-- Swap to coloured lock icon -->
-                    <Setter Property="Source"   Value="/Resources/encrypted.png"/>
-                    <!-- Update tooltip -->
-                    <Setter Property="ToolTip"  Value="Encrypted"/>
-                    <!-- Play zoom animation once -->
+                    <!-- Swap to coloured lock icon when encryption is ready -->
+                    <Setter Property="Source" Value="/Resources/encrypted.png"/>
+                    <!-- Localize the “Encrypted” tooltip -->
+                    <Setter Property="ToolTip"
+              Value="{helpers:LocalizeExtension EncryptionEnabled}"/>
+
                     <DataTrigger.EnterActions>
+                        <!-- Starts the drop-and-zoom animation once -->
                         <BeginStoryboard Storyboard="{StaticResource LockDropAnim}"/>
                     </DataTrigger.EnterActions>
                 </DataTrigger>
@@ -94,7 +114,7 @@
 
     <Grid x:Name="GrdMain" Background="{DynamicResource BackgroundBrush}">
 
-        <!-- Always start with structural definitions -->
+        <!-- Starts with structural definitions -->
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200"/>
             <ColumnDefinition/>

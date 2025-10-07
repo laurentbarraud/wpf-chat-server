@@ -74,45 +74,51 @@ public class Program
         }
     }
 
-   
     /// <summary>
-    /// Broadcasts the complete roster to each connected client except the sender.
-    /// Constructs a ConnectionBroadcast packet for each user entry and dispatches it.
+    /// Sends the list of connected users across all clients.
     /// </summary>
     public static void BroadcastConnection()
     {
-        List<Client> snapshot;
-        lock (Users) snapshot = Users.ToList();
+        // Takes a stable snapshot of all connected clients
+        List<Client> lstConnectedClientsSnapshot;
+        lock (Users)
+            lstConnectedClientsSnapshot = Users.ToList();
 
-        foreach (var receiver in snapshot)
+        // Broadcasts each user record to every other client
+        foreach (var usr in lstConnectedClientsSnapshot)
         {
-            foreach (var usr in snapshot)
+            // Builds a ConnectionBroadcast packet for the current user
+            var packetConnectedUser = new PacketBuilder();
+            packetConnectedUser.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
+            packetConnectedUser.WriteUid(usr.UID);
+            packetConnectedUser.WriteString(usr.Username);
+            packetConnectedUser.WriteString(usr.PublicKeyBase64 ?? string.Empty);
+
+            // Frames the packet for network transport
+            byte[] packetBodyInBytes = packetConnectedUser.GetPacketBytes();
+            byte[] framedPacketConnectedUser = Frame(packetBodyInBytes);
+
+            // Sends the framed packet to all other clients
+            foreach (var receiver in lstConnectedClientsSnapshot)
             {
-                if (receiver.UID == usr.UID) continue;
+                if (receiver.UID == usr.UID || !receiver.ClientSocket.Connected)
+                    continue;
 
                 try
                 {
-                    var packet = new PacketBuilder();
-                    packet.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
-                    packet.WriteUid(usr.UID);
-                    packet.WriteString(usr.Username);
-                    packet.WriteString(usr.PublicKeyBase64 ?? string.Empty);
-
-                    byte[] body = packet.GetPacketBytes();
-                    byte[] framed = Frame(body);
-
-                    if (receiver.ClientSocket.Connected)
-                    {
-                        receiver.ClientSocket.GetStream().Write(framed, 0, framed.Length);
-                    }
+                    receiver.ClientSocket.GetStream().Write(framedPacketConnectedUser, 0, framedPacketConnectedUser.Length);
                 }
                 catch (Exception ex)
                 {
-                    ServerLogger.Log($"Failed to send roster entry to {receiver.Username}: {ex.Message}", ServerLogLevel.Error);
+                    ServerLogger.Log(
+                        $"Failed to send roster entry of {usr.Username} to {receiver.Username}: {ex.Message}",
+                        ServerLogLevel.Error
+                    );
                 }
             }
         }
 
+        // Logs completion of the list of connected users broadcast
         ServerLogger.Log("[SERVER] Completed user list broadcast", ServerLogLevel.Debug);
     }
 

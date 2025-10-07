@@ -22,7 +22,8 @@ namespace chat_client.Net
         /// <summary>Used to build outgoing packets. Never null.</summary>
         public PacketBuilder packetBuilder { get; } = new PacketBuilder();
 
-        /// <summary>Provides the PacketReader used to read incoming packets; initialized after connecting to the server.</summary>
+        /// <summary>Provides the PacketReader used to read incoming packets; 
+        /// initialized after connecting to the server.</summary>
         public PacketReader packetReader { get; private set; }
 
 
@@ -34,27 +35,27 @@ namespace chat_client.Net
 
         // PUBLIC EVENTS
 
-        // Model A: a new user joined (opcode 1)
+        // A new user joined (opcode 1)
         //   Parameters: uid, username, publicKey
         public event Action<string, string, string>? UserConnectedEvent;
 
-        // Model C: a plain-text message arrived (opcode 5)
+        // A plain-text message arrived (opcode 5)
         //   Parameter: the fully formatted text
         public event Action<string>? PlainMessageReceivedEvent;
 
-        /// Model E: Raised when the server delivers an encrypted message (opcode 11).
+        /// Raised when the server delivers an encrypted message (opcode 11).
         /// Parameters: sender GUID and raw ciphertext bytes
         public event Action<Guid, byte[]>? EncryptedMessageReceivedEvent;
 
-        // Model D: a peer’s public key arrived (opcode 6)
+        // A peer’s public key arrived (opcode 6)
         //   Parameters: senderUid, publicKeyBase64
         public event Action<string, string>? PublicKeyReceivedEvent;
 
-        // Model A: a user disconnected (opcode 10)
+        // A user disconnected (opcode 10)
         //   Parameters: uid, username
         public event Action<string, string>? UserDisconnectedEvent;
 
-        // Model F: server-initiated disconnect (opcode 12)
+        // Server-initiated disconnect (opcode 12)
         //   No parameters
         public event Action? DisconnectedByServerEvent;
 
