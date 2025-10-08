@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 6th, 2025</date>
+/// <date>October 8th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -24,7 +24,7 @@ namespace chat_client.Net
 
         /// <summary>Provides the PacketReader used to read incoming packets; 
         /// initialized after connecting to the server.</summary>
-        public PacketReader packetReader { get; private set; }
+        public PacketReader packetReader { get; private set; } = null!;
 
 
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
@@ -346,7 +346,7 @@ namespace chat_client.Net
         /// Sends a PublicKeyRequest packet to retrieve a peer’s public key.
         /// </summary>
         /// <param name="targetUid">The GUID of the peer whose key is requested.</param>
-        private void RequestPeerPublicKey(Guid targetUid)
+        public void RequestPeerPublicKey(Guid targetUid)
         {
             try
             {

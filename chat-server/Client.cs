@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 6th, 2025</date>
+/// <date>October 8th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -106,6 +106,8 @@ namespace chat_server
                     if (packetLength <= 0)
                         continue;
 
+                    ServerLogger.Log($"PacketLength={packetLength} bytes from {Username}", ServerLogLevel.Debug);
+
                     // Reads the packet body into a byte array
                     byte[] packetBody = streamReader.ReadBytesExactFromStream(packetLength);
 
@@ -113,8 +115,10 @@ namespace chat_server
                     using var payloadStream = new MemoryStream(packetBody);
                     var packetReader = new PacketReader(payloadStream);
 
-                    // Reads opcode and dispatches according to ServerPacketOpCode
-                    ServerPacketOpCode opcode = (ServerPacketOpCode)packetReader.ReadByte();
+                    // Reads opcode and logs it
+                    byte rawOpCode = packetReader.ReadByte();
+                    var opcode = (ServerPacketOpCode)rawOpCode;
+                    ServerLogger.Log($"[MSG LOOP] Received opcode {opcode} ({rawOpCode}) from {Username}", ServerLogLevel.Debug);
 
                     switch (opcode)
                     {
@@ -163,11 +167,13 @@ namespace chat_server
                             {
                                 // PlainMessage: SenderUserId; RecipientUserId; MessageText
                                 Guid senderId = packetReader.ReadUid();
-                                Guid recipientId = packetReader.ReadUid(); // ignored for plain broadcast
-                                string messageText = packetReader.ReadString();
+                                Guid recipient = packetReader.ReadUid(); // ignored for broadcast
+                                string text = packetReader.ReadString();
 
-                                // Broadcast plain text to everybody except the sender
-                                Program.BroadcastPlainMessage(messageText, senderId);
+                                // Logs before dispatching
+                                ServerLogger.Log($"BroadcastPlainMessage invoked for sender {senderId}: '{text}'");
+
+                                Program.BroadcastPlainMessage(text, senderId);
                                 break;
                             }
 

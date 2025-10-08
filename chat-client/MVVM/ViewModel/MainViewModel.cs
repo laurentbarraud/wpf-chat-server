@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 7th, 2025</date>
+/// <date>October 8th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -115,8 +115,8 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged();
 
                 // Saves the new theme preference
-                Properties.Settings.Default.AppTheme = value ? "Dark" : "Light";
-                Properties.Settings.Default.Save();
+                Settings.Default.AppTheme = value ? "Dark" : "Light";
+                Settings.Default.Save();
 
                 // Applies the selected theme immediately
                 ThemeManager.ApplyTheme(value);
@@ -231,8 +231,8 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(UseEncryption));
 
                 // Persists the new setting
-                Properties.Settings.Default.UseEncryption = value;
-                Properties.Settings.Default.Save();
+                Settings.Default.UseEncryption = value;
+                Settings.Default.Save();
 
                 // If already connected, performs the encryption pipeline
                 if (IsConnected)
@@ -290,7 +290,7 @@ namespace chat_client.MVVM.ViewModel
         /// Stores the current theme selection state.
         /// Initialized from the saved AppTheme ("Dark" = true, otherwise false).
         /// </summary>
-        private bool _isDarkTheme = Properties.Settings.Default.AppTheme == "Dark";
+        private bool _isDarkTheme = Settings.Default.AppTheme == "Dark";
 
         /// <summary>
         /// Holds the current encryption ready state
@@ -310,7 +310,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Backs the UseEncryption property and is initialized from persisted settings.
         /// </summary>
-        private bool _useEncryption = Properties.Settings.Default.UseEncryption;
+        private bool _useEncryption = Settings.Default.UseEncryption;
 
         /// <summary>
         /// Holds what the user types in the first textbox on top left of the MainWindow
@@ -353,8 +353,8 @@ namespace chat_client.MVVM.ViewModel
                 bool isDarkThemeSelected = param is bool toggleState && toggleState;
 
                 // Saves the theme preference
-                Properties.Settings.Default.AppTheme = isDarkThemeSelected ? "Dark" : "Light";
-                Properties.Settings.Default.Save();
+                Settings.Default.AppTheme = isDarkThemeSelected ? "Dark" : "Light";
+                Settings.Default.Save();
 
                 // Applies the theme with fade animation
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
@@ -405,7 +405,6 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log("Encryption disabled successfully.", ClientLogLevel.Info);
             }
         }
-
 
         /// <summary>
         /// Determines whether encryption can proceed by checking:
@@ -510,7 +509,7 @@ namespace chat_client.MVVM.ViewModel
         public bool CanEncryptMessageFor(string recipientUID)
         {
             // Encryption must be enabled in settings
-            if (!chat_client.Properties.Settings.Default.UseEncryption)
+            if (!Settings.Default.UseEncryption)
                 return false;
 
             // Local key must be initialized
@@ -525,16 +524,19 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Starts the client connection process:
-        /// validates the username, performs the TCP handshake to obtain UID and initial public key,
-        /// populates LocalUser, marks the connection as established,
-        /// then reuses a stored RSA key pair if present, or initializes encryption otherwise,
-        /// re-publishes the public key on reconnect, triggers key synchronization,
-        /// updates the UI to connected state, and saves the last used IP.
+        /// Connects to the chat server : 
+        /// - validates the username 
+        /// - performs the TCP handshake to obtain the user GUID and server public key
+        /// - initializes LocalUser 
+        /// - marks the connection as established
+        /// - publishes the local public key and requests peers’ keys 
+        /// - initializes encryption and synchronizes missing keys
+        /// - updates the UI connection state 
+        /// - saves the last used IP address
         /// </summary>
         public void Connect()
         {
-            // Rejects empty or malformed usernames
+            // Validates the username and shows an error if it is invalid
             var allowedPattern = @"^[a-zA-Z0-9éèàöüî_-]+$";
             if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, allowedPattern))
             {
@@ -544,82 +546,74 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Performs TCP handshake and retrieve UID + server public key
+                // Performs the TCP handshake and retrieves UID and server public key
                 var result = _server.ConnectToServer(Username.Trim(), IPAddressOfServer);
                 if (result.uid == Guid.Empty || string.IsNullOrEmpty(result.publicKeyBase64))
                     throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
 
-                // Initializes LocalUser with server-provided identity
+                // Initializes the LocalUser model with the server-provided identity
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
                     UID = result.uid.ToString(),
                     PublicKeyBase64 = result.publicKeyBase64
                 };
-                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
+                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}",
+                    ClientLogLevel.Debug);
 
-                // Marks connection as successful (plain chat allowed)
+                // Marks the client as connected for plain messaging
                 IsConnected = _server.IsConnected;
-                ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
-                
-                if (Properties.Settings.Default.UseEncryption)
+                ClientLogger.Log("Client connected — plain messages allowed before handshake.",
+                    ClientLogLevel.Debug);
+
+                if (Settings.Default.UseEncryption)
                 {
-                    // Assigns the in-memory public key for this client session
+                    // Assigns the in-memory RSA public key for this session
                     LocalUser.PublicKeyBase64 = EncryptionHelper.PublicKeyBase64;
-                    ClientLogger.Log("Uses in-memory RSA public key for this session.", ClientLogLevel.Debug);
+                    ClientLogger.Log("Assigns in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
-                    // Publishes the public key to the server for the handshake
+                    // Publishes the local public key to the server to initiate key exchange
                     _server.SendPublicKeyToServer(LocalUser.UID, LocalUser.PublicKeyBase64);
+                    ClientLogger.Log("Publishes local public key to server.", ClientLogLevel.Debug);
+
+                    // Requests all known public keys from the server
                     _server.RequestAllPublicKeysFromServer();
 
-                    // Attempts encryption initialization and logs the outcome
+                    // Initializes the encryption context and logs the outcome
                     if (InitializeEncryption())
-                    {
-                        ClientLogger.Log("Encryption initialized on startup.", ClientLogLevel.Info);
-                    }
+                        ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
                     else
-                    {
-                        ClientLogger.Log("Encryption initialization failed on startup.", ClientLogLevel.Error);
-                    }
+                        ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
 
-                    // Ensures all peers are synced by re-sending and re-requesting keys
-                    _server.ResendPublicKey();
-                    _server.RequestAllPublicKeysFromServer();
+                    // Synchronizes missing peer public keys
+                    SyncKeys();
                 }
 
+                // Updates the UI to the connected state and focuses the message input
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    // Gets the MainWindow instance and its DataContext
                     if (Application.Current.MainWindow is MainWindow mainWindow &&
                         mainWindow.DataContext is MainViewModel viewModel)
                     {
-                        // Updates the connection state in the ViewModel
                         viewModel.IsConnected = true;
-
-                        // Sets focus to the message input box
                         mainWindow.TxtMessageToSend.Focus();
                     }
                 });
 
-
-                // Save the last used IP address for future sessions
-                Properties.Settings.Default.LastIPAddressUsed = IPAddressOfServer;
-                Properties.Settings.Default.Save();
+                // Saves the last used IP address for future sessions
+                Settings.Default.LastIPAddressUsed = IPAddressOfServer;
+                Settings.Default.Save();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Handles connection failure and reset UI
+                ClientLogger.Log($"Fails to connect or handshake: {ex.Message}", ClientLogLevel.Error);
+
+                // Handles connection failure by showing an error dialog and resetting the UI
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (Application.Current.MainWindow is MainWindow mw)
-                    {
-                        MessageBox.Show(
-                            LocalizationManager.GetString("ServerUnreachable"),
-                            LocalizationManager.GetString("Error"),
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error);
-                        ReinitializeUI();
-                    }
+                    MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
+                        LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                    ReinitializeUI();
                 });
             }
         }
@@ -701,7 +695,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public static int GetCustomPort()
         {
-            return chat_client.Properties.Settings.Default.CustomPortNumber;
+            return Settings.Default.CustomPortNumber;
         }
 
         /// <summary>
@@ -780,12 +774,12 @@ namespace chat_client.MVVM.ViewModel
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
 
-                    Properties.Settings.Default.UseEncryption = false;
+                    Settings.Default.UseEncryption = false;
                     return false;
                 }
 
                 // Enables encryption in application settings
-                Properties.Settings.Default.UseEncryption = true;
+                Settings.Default.UseEncryption = true;
                 ClientLogger.Log("Enables encryption in application settings.",
                     ClientLogLevel.Info);
 
@@ -810,7 +804,7 @@ namespace chat_client.MVVM.ViewModel
             catch (Exception ex)
             {
                 // On any error, disable encryption to maintain a safe state
-                Properties.Settings.Default.UseEncryption = false;
+                Settings.Default.UseEncryption = false;
                 ClientLogger.Log(
                     $"Exception during encryption initialization: {ex.Message}",
                     ClientLogLevel.Error);
@@ -819,9 +813,9 @@ namespace chat_client.MVVM.ViewModel
             finally
             {
                 // Persist handshake keys and encryption flag to settings
-                Properties.Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;
-                Properties.Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;
-                Properties.Settings.Default.Save();
+                Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;
+                Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;
+                Settings.Default.Save();
                 ClientLogger.Log(
                     "Persists handshake keys and encryption flag.",
                     ClientLogLevel.Debug);
@@ -834,13 +828,12 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
         public void NotifyConnected() => IsConnected = true;
 
         public void NotifyDisconnected() => IsConnected = false;
 
         /// <summary>
-        /// Model F: Handles a server-initiated disconnect command (opcode 12).
+        /// Handles a server-initiated disconnect command (opcode 12).
         /// Disconnects from the server, clears the user list, posts a localized system message,
         /// and notifies the UI that the connection status changed.
         /// </summary>
@@ -932,7 +925,7 @@ namespace chat_client.MVVM.ViewModel
 
 
         /// <summary>
-        /// Model D: Handles a received public‐key event.
+        /// Handles a received public‐key event.
         /// Validates input, updates the KnownPublicKeys dictionary in a thread-safe manner,
         /// logs whether the key was added, updated, or duplicated,
         /// re-evaluates encryption readiness,
@@ -991,7 +984,7 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Model A: Handles a new user join event.
+        /// Handles a new user join event.
         /// Reads the provided UID, username, and public key.
         /// Adds the user to the Users collection if not already present.
         /// Registers the user’s public key and re-evaluates encryption state.
@@ -1042,7 +1035,7 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Model A: Handles a user disconnect event (opcode 10).
+        /// Handles a user disconnect event (opcode 10).
         /// Removes the specified user from the Users list,
         /// posts a localized system notice to the chat,
         /// updates the expected client count,
@@ -1074,7 +1067,7 @@ namespace chat_client.MVVM.ViewModel
                     Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
 
                     // Re-evaluates encryption readiness if encryption is active
-                    if (chat_client.Properties.Settings.Default.UseEncryption)
+                    if (Settings.Default.UseEncryption)
                     {
                         EvaluateEncryptionState();
                     }
@@ -1097,13 +1090,13 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public bool ReduceToTray
         {
-            get => chat_client.Properties.Settings.Default.ReduceToTray;
+            get => Settings.Default.ReduceToTray;
             set
             {
-                if (chat_client.Properties.Settings.Default.ReduceToTray != value)
+                if (Settings.Default.ReduceToTray != value)
                 {
-                    chat_client.Properties.Settings.Default.ReduceToTray = value;
-                    chat_client.Properties.Settings.Default.Save();
+                    Settings.Default.ReduceToTray = value;
+                    Settings.Default.Save();
 
                     OnPropertyChanged(nameof(ReduceToTray));
 
@@ -1175,95 +1168,54 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Attempts to synchronize public keys with connected peers:
-        ///   • Verifies that encryption is enabled and context objects are initialized.
-        ///   • Sets the syncing flag to true to show the grey syncing icon.
-        ///   • Builds a snapshot of peer UIDs to avoid concurrent-collection issues.
-        ///   • Handles solo mode (no other peers): evaluates readiness and sets the ready flag.
-        ///   • Identifies missing keys under a thread-safe lock.
-        ///   • Requests a resend of the local public key for any missing entries.
-        ///   • Re-evaluates encryption state after the sync attempt.
-        ///   • Clears the syncing flag only if the icon is now coloured or hidden.
-        /// Wraps all steps in exception handling to prevent client crashes.
+        /// Synchronizes the local public key with each connected peer.
+        /// Shows the grey “syncing” icon, requests any missing peer key,
+        /// then updates encryption readiness and hides the syncing icon.
         /// </summary>
-        /// <returns>True if synchronization completes without error; false otherwise.</returns>
+        /// <returns>True if encryption is ready (all keys present or solo mode), false otherwise.</returns>
         public bool SyncKeys()
         {
-            try
+            // Exits if encryption is disabled
+            if (!Settings.Default.UseEncryption)
             {
-                // If encryption is disabled or context is invalid
-                if (!Settings.Default.UseEncryption || Users == null || LocalUser == null)
-                    return false;
-
-                // Shows grey lock "syncing keys" icon
-                IsSyncingKeys = true;
-
-                // Snapshot peer UIDs, excluding the local user
-                string localId = LocalUser.UID;
-                List<string> peerIds = Users
-                    .Where(u => u.UID != localId)
-                    .Select(u => u.UID)
-                    .ToList();
-
-                // Solo mode: evaluate readiness and update flags
-                if (peerIds.Count == 0)
-                {
-                    ClientLogger.Log("Solo mode detected — no peers to synchronize.", ClientLogLevel.Debug);
-
-                    IsEncryptionReady = EvaluateEncryptionState();
-                    ClientLogger.Log($"Solo mode: encryption readiness = {IsEncryptionReady}", ClientLogLevel.Info);
-
-                    if (IsEncryptionReady || !Settings.Default.UseEncryption)
-                        IsSyncingKeys = false;
-
-                    return true;
-                }
-
-
-                // Identifies missing keys under lock
-                List<string> missingKeys;
-
-                lock (KnownPublicKeys)
-                {
-                    // Under a thread-safe lock, filters out any peer ID not present
-                    // in the KnownPublicKeys dictionary
-                    missingKeys = peerIds
-                        .Where(id => !KnownPublicKeys.ContainsKey(id))
-                        .ToList(); // Materializes the filtered results into a concrete List<string>
-                }
-
-                // If any key is missing, requests resend
-                if (missingKeys.Count > 0)
-                {
-                    ClientLogger.Log($"SyncKeys detected missing keys for: {string.Join(", ", missingKeys)}",
-                                     ClientLogLevel.Debug);
-                    try
-                    {
-                        _server.ResendPublicKey();
-                        ClientLogger.Log("Requested resend of local public key from server.",
-                                         ClientLogLevel.Debug);
-                    }
-                    catch (Exception exRequest)
-                    {
-                        ClientLogger.Log($"Failed to request public key resend: {exRequest.Message}",
-                                         ClientLogLevel.Error);
-                    }
-                }
-
-                // Final evaluation
-                IsEncryptionReady = EvaluateEncryptionState();
-
-                if (IsEncryptionReady || !Settings.Default.UseEncryption)
-                    IsSyncingKeys = false;
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"Unexpected error in SyncKeys: {ex.Message}",
-                                 ClientLogLevel.Error);
+                IsEncryptionReady = false;
+                IsSyncingKeys = false;
                 return false;
             }
+
+            // Shows grey syncing icon
+            IsSyncingKeys = true;
+
+            // Snapshots a list of peer UIDs (exclude local)
+            var lstPeerIds = Users
+                .Where(u => u.UID != LocalUser.UID)
+                .Select(u => u.UID)
+                .ToList();
+
+            // If solo mode is detected, marks ready immediately
+            if (lstPeerIds.Count == 0)
+            {
+                IsEncryptionReady = true;
+                IsSyncingKeys = false;
+                return true;
+            }
+
+            // Identifies missing keys
+            List<string> missingKeys;
+            lock (KnownPublicKeys)
+            {
+                missingKeys = lstPeerIds.Where(uid => !KnownPublicKeys.ContainsKey(uid))
+                    .ToList();
+            }
+
+            // Requests each missing peer key
+            foreach (var uid in missingKeys)
+                _server.RequestPeerPublicKey(Guid.Parse(uid));
+
+            // Finalizes flags
+            IsEncryptionReady = (missingKeys.Count == 0);
+            IsSyncingKeys = !IsEncryptionReady;
+            return IsEncryptionReady;
         }
 
         /// <summary>
@@ -1273,11 +1225,11 @@ namespace chat_client.MVVM.ViewModel
         public void ToggleEncryption(bool enableEncryption)
         {
             // Remember the old setting in case we need to roll back
-            bool settingPreviousValue = Properties.Settings.Default.UseEncryption;
+            bool settingPreviousValue = Settings.Default.UseEncryption;
 
             // Persists the new flag
-            Properties.Settings.Default.UseEncryption = enableEncryption;
-            Properties.Settings.Default.Save();
+            Settings.Default.UseEncryption = enableEncryption;
+            Settings.Default.Save();
 
             // Validates prerequisites
             if (LocalUser == null || !IsConnected)
@@ -1286,8 +1238,8 @@ namespace chat_client.MVVM.ViewModel
                     ClientLogLevel.Warn);
 
                 // Roll back UI and settings
-                Properties.Settings.Default.UseEncryption = settingPreviousValue;
-                OnPropertyChanged(nameof(Properties.Settings.Default.UseEncryption));
+                Settings.Default.UseEncryption = settingPreviousValue;
+                OnPropertyChanged(nameof(Settings.Default.UseEncryption));
                 return;
             }
 
@@ -1308,9 +1260,9 @@ namespace chat_client.MVVM.ViewModel
                     ClientLogLevel.Error);
 
                 // Restores previous setting
-                Properties.Settings.Default.UseEncryption = settingPreviousValue;
-                Properties.Settings.Default.Save();
-                OnPropertyChanged(nameof(Properties.Settings.Default.UseEncryption));
+                Settings.Default.UseEncryption = settingPreviousValue;
+                Settings.Default.Save();
+                OnPropertyChanged(nameof(Settings.Default.UseEncryption));
             }
             else
             {
@@ -1376,8 +1328,8 @@ namespace chat_client.MVVM.ViewModel
         {
             if (chosenPort >= 1000 && chosenPort <= 65535)
             {
-                chat_client.Properties.Settings.Default.CustomPortNumber = chosenPort;
-                chat_client.Properties.Settings.Default.Save();
+                Settings.Default.CustomPortNumber = chosenPort;
+                Settings.Default.Save();
                 return true;
             }
 

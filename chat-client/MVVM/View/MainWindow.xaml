@@ -39,30 +39,29 @@
 
         <!-- This storyboard targets the styled Image’s RenderTransform directly -->
         <Storyboard x:Key="LockDropAnim">
-
-            <!-- Animates the Y offset of the TranslateTransform (second child in the RenderTransformGroup) -->
-            <DoubleAnimation       
-                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                From="200" To="0"
-                Duration="0:0:1.4"
-                AccelerationRatio="0.2"
-                DecelerationRatio="0.8"/>
-
-            <!-- Animates the ScaleX of the ScaleTransform (first child in the RenderTransformGroup) for horizontal zoom -->
+            <!-- Drop effect -->
             <DoubleAnimation
-                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                From="80" To="1"
-                Duration="0:0:1.4"
-                AccelerationRatio="0.2"
-                DecelerationRatio="0.8"/>
+                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                    From="200" To="0"
+                    Duration="0:0:1.4"
+                    AccelerationRatio="0.2"
+                    DecelerationRatio="0.8"/>
 
-            <!-- Animates the ScaleY of the ScaleTransform (first child in the RenderTransformGroup) for vertical zoom -->
-             <DoubleAnimation
-                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                From="80" To="1"
-                Duration="0:0:1.4"
-                AccelerationRatio="0.2"
-                DecelerationRatio="0.8"/>
+            <!-- Horizontal zoom from 1.3× down to 1 -->
+            <DoubleAnimation
+                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                    From="1.3" To="1"
+                    Duration="0:0:1.4"
+                    AccelerationRatio="0.2"
+                    DecelerationRatio="0.8"/>
+
+            <!-- Vertical zoom from 1.3× down to 1 -->
+            <DoubleAnimation
+                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                    From="1.3" To="1"
+                    Duration="0:0:1.4"
+                    AccelerationRatio="0.2"
+                    DecelerationRatio="0.8"/>
         </Storyboard>
 
         <!-- Converts a bool to Visibility: true → Visible, false → Collapsed -->
@@ -137,7 +136,7 @@
                          VerticalAlignment="Center"
                          HorizontalAlignment="Left"
                          Width="200"
-                         Height="25">
+                         Height="25" Panel.ZIndex="1">
                 </TextBox>
 
                 <!-- Watermark -->
@@ -167,7 +166,7 @@
                          VerticalAlignment="Center"
                          HorizontalAlignment="Left"
                          Width="200"
-                         Height="25">
+                         Height="25" Panel.ZIndex="1">
                     <TextBox.InputBindings>
                         <KeyBinding Key="Enter"
                     Command="{Binding CmdConnectDisconnect}" />
