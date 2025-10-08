@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 8th, 2025</date>
+/// <date>October 9th, 2025</date>
 
 using System;
 using System;
@@ -114,14 +114,14 @@ namespace chat_client.Helpers
         {
             foreach (Window window in Application.Current.Windows)
             {
-                if (window is SettingsWindow settings)
+                if (window is SettingsWindow settingsWindow)
                 {
-                    settings.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
-                    settings.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
-                    settings.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
-                    settings.AppLanguageLabel.Content = GetString("AppLanguageLabel");
-                    settings.AboutTextBlock.Text = GetString("About");
-                    settings.LanguageComboBox.Items.Refresh();
+                    settingsWindow.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
+                    settingsWindow.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
+                    settingsWindow.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
+                    settingsWindow.LabelAppLanguage.Content = GetString("AppLanguageLabel");
+                    settingsWindow.AboutTextBlock.Text = GetString("About");
+                    settingsWindow.LanguageComboBox.Items.Refresh();
                 }
                 else if (window is MainWindow mainWindow)
                 {

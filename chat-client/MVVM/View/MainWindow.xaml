@@ -8,8 +8,13 @@
         xmlns:helpers="clr-namespace:chat_client.Helpers"
         mc:Ignorable="d"
         xmlns:tb="http://www.hardcodet.net/taskbar"
-        Title="{Binding WindowTitle}" Height="474" Width="816" WindowStartupLocation="CenterScreen" 
-        Loaded="MainWindow_Loaded" ResizeMode="CanMinimize" Icon="/Resources/chat-client-icon.ico" 
+        Title="{Binding WindowTitle}" 
+        Height="474" 
+        Width="816" 
+        WindowStartupLocation="CenterScreen" 
+        Loaded="MainWindow_Loaded" 
+        ResizeMode="CanMinimize" 
+        Icon="/Resources/chat-client-icon.ico" 
         TabIndex="12" 
         StateChanged="MainWindow1_StateChanged" 
         Closing="MainWindow1_Closing" 
@@ -168,8 +173,11 @@
                          Width="200"
                          Height="25" Panel.ZIndex="1">
                     <TextBox.InputBindings>
+                        <!-- Binds to the Window’s DataContext via FindAncestor -->
                         <KeyBinding Key="Enter"
-                    Command="{Binding CmdConnectDisconnect}" />
+                                    Command="{Binding DataContext.ConnectDisconnectCommand,
+                                             RelativeSource={RelativeSource Mode=FindAncestor,
+                                             AncestorType={x:Type Window}}}" />
                     </TextBox.InputBindings>
                 </TextBox>
 

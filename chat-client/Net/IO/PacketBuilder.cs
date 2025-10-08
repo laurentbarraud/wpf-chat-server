@@ -1,9 +1,8 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 8th, 2025</date>
+/// <date>October 9th, 2025</date>
 
-using chat_client.Net;
 using System;
 using System.IO;
 using System.Net;

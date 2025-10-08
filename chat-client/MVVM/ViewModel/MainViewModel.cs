@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 8th, 2025</date>
+/// <date>October 9th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -76,9 +76,9 @@ namespace chat_client.MVVM.ViewModel
         public static string IPAddressOfServer { get; set; } = string.Empty;
 
         /// <summary>
-        /// Gets whether the client is currently connected.
-        /// Notifies UI to update Title, ConnectButtonText, credential inputs, and chat panels.
-        /// When set to true and encryption is already enabled, invokes the encryption pipeline.
+        /// Gets or sets the client’s connection state.
+        /// Raises PropertyChanged for all UI elements that depend on connection status,
+        /// and triggers the encryption pipeline when connecting with encryption enabled.
         /// </summary>
         public bool IsConnected
         {
@@ -89,17 +89,28 @@ namespace chat_client.MVVM.ViewModel
                     return;
 
                 _isConnected = value;
-                OnPropertyChanged();                                    // Notifies binding for IsConnected
-                OnPropertyChanged(nameof(WindowTitle));                 // Refreshes the window title
-                OnPropertyChanged(nameof(ConnectButtonText));           // Refreshes connect/disconnect button text
-                OnPropertyChanged(nameof(AreCredentialsEditable));      // Enables/disables credential inputs
-                OnPropertyChanged(nameof(AreChatControlsVisible));      // Shows/hides chat controls
 
-                // When connection opens and encryption is enabled, performs encryption pipeline
+                // Notifies that the connection state changed
+                OnPropertyChanged();
+
+                // Updates window title based on new connection state
+                OnPropertyChanged(nameof(WindowTitle));
+
+                // Refreshes the Connect/Disconnect button text
+                OnPropertyChanged(nameof(ConnectButtonText));
+
+                // Enables or disables credential inputs
+                OnPropertyChanged(nameof(AreCredentialsEditable));
+
+                // Shows or hides chat controls
+                OnPropertyChanged(nameof(AreChatControlsVisible));
+
+                // When opening a connection with encryption enabled, runs the pipeline
                 if (_isConnected && UseEncryption)
                     ApplyEncryptionPipeline(enableEncryption: true);
             }
         }
+
 
         /// <summary>
         /// Gets or sets a value indicating whether the dark theme is active.
@@ -338,6 +349,9 @@ namespace chat_client.MVVM.ViewModel
             _server.UserDisconnectedEvent += OnUserDisconnected;
             _server.DisconnectedByServerEvent += OnDisconnectedByServer;
 
+            // Subscribe to AppLanguage changes to refresh ConnectButtonText when the language setting updates
+            Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
+
             // Creates the Connect/Disconnect command and binds its Execute and CanExecute logic
             ConnectDisconnectCommand = new RelayCommand(
                 () => ConnectDisconnect(),
@@ -378,7 +392,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private void ApplyEncryptionPipeline(bool enableEncryption)
         {
-            // Clear existing key material
+            // Clears existing key material
             KnownPublicKeys.Clear();
             LocalUser.PublicKeyBase64 = string.Empty;
             LocalUser.PrivateKeyBase64 = string.Empty;
@@ -386,7 +400,7 @@ namespace chat_client.MVVM.ViewModel
 
             if (enableEncryption)
             {
-                // Attempt to initialize encryption
+                // Attempts to initialize encryption
                 bool initSucceeded = InitializeEncryption();
                 if (!initSucceeded)
                 {
@@ -400,7 +414,7 @@ namespace chat_client.MVVM.ViewModel
             }
             else
             {
-                // Disable encryption path
+                // Disables encryption path
                 EvaluateEncryptionState();
                 ClientLogger.Log("Encryption disabled successfully.", ClientLogLevel.Info);
             }
@@ -614,6 +628,12 @@ namespace chat_client.MVVM.ViewModel
                     MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
                         LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
                     ReinitializeUI();
+
+                    // Sets IsConnected to false, which:
+                    // - Enables the username/IP inputs
+                    // - Hides the chat panels
+                    // - Updates the window title and button text
+                    IsConnected = false;
                 });
             }
         }
@@ -621,7 +641,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Gets the localized text for the connect/disconnect button.
         /// </summary>
-        public string ConnectButtonText =>
+        public string ConnectButtonText => 
             LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
 
         /// <summary>
@@ -650,8 +670,14 @@ namespace chat_client.MVVM.ViewModel
                 // Attempts to close the connection to the server
                 _server.DisconnectFromServer();
 
-                // Resets the UI and clear user/message data
+                // Clears user/message data
                 ReinitializeUI();
+
+                // Sets IsConnected to false, which:
+                // - Enables the username/IP inputs
+                // - Hides the chat panels
+                // - Updates the window title and button text
+                IsConnected = false;
             }
             catch (Exception ex)
             {
@@ -803,7 +829,7 @@ namespace chat_client.MVVM.ViewModel
             }
             catch (Exception ex)
             {
-                // On any error, disable encryption to maintain a safe state
+                // On any error, disables encryption to maintain a safe state
                 Settings.Default.UseEncryption = false;
                 ClientLogger.Log(
                     $"Exception during encryption initialization: {ex.Message}",
@@ -812,7 +838,7 @@ namespace chat_client.MVVM.ViewModel
             }
             finally
             {
-                // Persist handshake keys and encryption flag to settings
+                // Persists handshake keys and encryption flag to settings
                 Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;
                 Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;
                 Settings.Default.Save();
@@ -820,7 +846,7 @@ namespace chat_client.MVVM.ViewModel
                     "Persists handshake keys and encryption flag.",
                     ClientLogLevel.Debug);
 
-                // Clear the syncing flag only if the icon will switch off grey
+                // Clears the syncing flag only if the icon will switch off grey
                 if (IsEncryptionReady || !Settings.Default.UseEncryption)
                 {
                     IsSyncingKeys = false;
@@ -983,6 +1009,24 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+        /// Handles changes to the AppLanguage setting:
+        /// - Switches the localization culture in LocalizationManager.
+        /// - Raises PropertyChanged for all UI-bound properties that use localized strings,
+        /// ensuring immediate refresh without window reload.
+        /// </summary>
+        private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(Settings.Default.AppLanguage))
+                return;
+
+            // Changes the current culture used by LocalizationManager
+            LocalizationManager.Initialize(Properties.Settings.Default.AppLanguage);
+
+            // Forces WPF to re-query any localized properties
+            OnPropertyChanged(nameof(ConnectButtonText));
+            OnPropertyChanged(nameof(WindowTitle));
+        }
+
         /// <summary>
         /// Handles a new user join event.
         /// Reads the provided UID, username, and public key.
@@ -1118,7 +1162,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public void RefreshConnectionBindings()
         {
-            // Force WPF to re-lire toutes nos propriétés
+            // Forces WPF to re-read all properties
             OnPropertyChanged(nameof(IsConnected));
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(ConnectButtonText));
@@ -1135,21 +1179,6 @@ namespace chat_client.MVVM.ViewModel
             // Clears the collections bound to the user list and chat window
             Users.Clear();
             Messages.Clear();
-
-            // Updates the ViewModel on the UI thread to trigger all connection-related bindings
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                // Retrieves MainWindow and its DataContext ViewModel
-                if (Application.Current.MainWindow is MainWindow mainWindow
-                    && mainWindow.DataContext is MainViewModel viewModel)
-                {
-                    // Sets IsConnected to false, which:
-                    // - Enables the username/IP inputs
-                    // - Hides the chat panels
-                    // - Updates the window title and button text
-                    viewModel.IsConnected = false;
-                }
-            });
         }
 
         /// <summary>
