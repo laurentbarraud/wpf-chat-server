@@ -7,247 +7,187 @@ using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
 using System;
-using System.IO;
-using System.Net;
 using System.Net.Sockets;
 
 namespace chat_server
 {
     /// <summary>
-    /// Continuously listens for incoming packets from the connected client.
-    /// Dispatches each packet to the appropriate handler based on its opcode.
-    /// Logs unknown opcodes and handles disconnection gracefully.
+    /// Represents a connected client.
+    /// Listens for framed packets, dispatches by opcode,
+    /// and handles graceful disconnect.
     /// </summary>
     public class Client
     {
-        /// <summary>Gets or sets the client's display name.</summary>
         public string Username { get; set; }
-
-        /// <summary>Gets or sets the client's unique identifier.</summary>
         public Guid UID { get; set; }
-
-        /// <summary>Gets or sets the TCP connection for the client.</summary>
-        public TcpClient ClientSocket { get; set; }
-
-        /// <summary>Gets or sets the Base64-encoded RSA public key for encryption.</summary>
+        public TcpClient ClientSocket { get; }
         public string? PublicKeyBase64 { get; set; }
-
-        /// <summary>Gets or sets the raw DER bytes of the client's public key.</summary>
         public byte[]? PublicKeyDer { get; set; }
 
-        private readonly PacketReader _packetReader;
+        private readonly PacketReader _infiniteReader;
 
         /// <summary>
-        /// Initializes a new client instance, creates a PacketReader, and logs startup.
+        /// Constructs a new Client wrapper around the TCP connection.
         /// </summary>
-        public Client(TcpClient client, string username, Guid uid)
+        public Client(TcpClient socket, string username, Guid uid)
         {
-            // Initialize to a safe inert reader to satisfy readonly invariant.
-            // Per-packet parsing will still use PacketReader over MemoryStream created inside ListenForMessages.
-            _packetReader = new PacketReader(new MemoryStream());
-
-            ClientSocket = client;
+            ClientSocket = socket;
             Username = username;
             UID = uid;
-
-            // Logs that the client is now listening for messages
-            Console.WriteLine($"[DEBUG] Listening for messages from {Username}...");
+            _infiniteReader = new PacketReader(socket.GetStream());
         }
 
         /// <summary>
-        /// Cleans up after a client disconnects: closes the socket,
-        /// removes from Program.Users, and broadcasts the event.
+        /// Cleans up the TCP connection, removes the client from the roster,
+        /// and notifies the remaining clients.
         /// </summary>
         private void CleanupAfterDisconnect()
         {
-            // Closes the client socket
-            try
-            {
-                ClientSocket.Close();
-            }
-            catch
-            {
-                // Swallows any exception on close
-            }
-
-            // Broadcasts the disconnection to remaining clients
+            try { ClientSocket.Close(); } catch { }
             Program.BroadcastDisconnect(UID.ToString());
 
-            // Removes this client from the global user list
-            if (Program.Users.Remove(this))
+            lock (Program.Users)
             {
-                Console.WriteLine($"[DEBUG] Removed user {Username} ({UID}) from user list");
+                if (Program.Users.Remove(this))
+                    ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Debug, Username, UID);
             }
         }
 
         /// <summary>
-        /// Reads framed packets from the client socket, 
-        /// parses them using the protocol opcodes defined in Protocol.cs,
-        /// and dispatches to server methods implemented on Program.
-        /// Assumes 4-byte network-order length prefix framing.
+        /// Continuously reads framed packets, parses them, and delegates actions to Program.
         /// </summary>
-        internal void ListenForMessages()
+        public void ListenForPackets()
         {
-            ServerLogger.Log($"Starting message loop for {Username} ({UID})", ServerLogLevel.Info);
+            ServerLogger.LogLocalized("StartPacketLoop", ServerLogLevel.Info, Username);
 
-            var netStream = ClientSocket.GetStream();
-            var streamReader = new PacketReader(netStream);
+            var stream = ClientSocket.GetStream();
+            var reader = new PacketReader(stream);
 
-            while (true)
+            while (ClientSocket.Connected)
             {
                 try
                 {
-                    // Reads 4-byte length prefix from the network stream
-                    byte[] lengthBuffer = streamReader.ReadBytesExactFromStream(4);
+                    // Reads 4-byte big-endian length prefix
+                    byte[] lengthBuffer = reader.ReadExact(4);
                     if (BitConverter.IsLittleEndian)
                         Array.Reverse(lengthBuffer);
 
-                    int packetLength = BitConverter.ToInt32(lengthBuffer, 0);
-                    if (packetLength <= 0)
-                        continue;
+                    int bodyLength = BitConverter.ToInt32(lengthBuffer, 0);
+                    if (bodyLength <= 0) continue;
 
-                    ServerLogger.Log($"PacketLength={packetLength} bytes from {Username}", ServerLogLevel.Debug);
+                    // Reads packet body
+                    byte[] body = reader.ReadExact(bodyLength);
+                    using var ms = new MemoryStream(body);
+                    var packetreader = new PacketReader(ms);
 
-                    // Reads the packet body into a byte array
-                    byte[] packetBody = streamReader.ReadBytesExactFromStream(packetLength);
+                    // Dispatches based on opcode
+                    var opcode = (ServerPacketOpCode)packetreader.ReadByte();
+                    ServerLogger.LogLocalized("ReceivedOpcode", ServerLogLevel.Debug, Username, (byte)opcode);
 
-                    // Wraps the payload in a MemoryStream so PacketReader can consume it
-                    using var payloadStream = new MemoryStream(packetBody);
-                    var packetReader = new PacketReader(payloadStream);
-
-                    // Reads opcode and logs it
-                    byte rawOpCode = packetReader.ReadByte();
-                    var opcode = (ServerPacketOpCode)rawOpCode;
-                    ServerLogger.Log($"[MSG LOOP] Received opcode {opcode} ({rawOpCode}) from {Username}", ServerLogLevel.Debug);
-
+                    // Uses packets models A to F built in PacketBuilder.cs
                     switch (opcode)
                     {
-                        case ServerPacketOpCode.Handshake:
-                            {
-                                // Handshake: Username; UserId; PublicKeyBase64
-                                string clientUsername = packetReader.ReadString();
-                                Guid clientUid = packetReader.ReadUid();
-                                string publicKeyBase64 = packetReader.ReadString();
-
-                                // Updates local client state
-                                this.Username = clientUsername;
-                                this.UID = clientUid;
-
-                                // Broadcasts the updated list of connected users
-                                Program.BroadcastConnection();
-
-                                break;
-                            }
-
+                        /// <summary>
+                        /// Model A: (opcode + UID + username).
+                        /// </summary>
                         case ServerPacketOpCode.ConnectionBroadcast:
-                            {
-                                // ConnectionBroadcast: UserId; Username; PublicKeyBase64
-                                Guid newUserId = packetReader.ReadUid();
-                                string newUserName = packetReader.ReadString();
-                                string newUserKey = packetReader.ReadString();
+                            // list of users update : broadcast full list
+                            Program.BroadcastConnection();
+                            break;
 
-                                // Broadcasts the updated list of connected users
-                                Program.BroadcastConnection();
-
-                                break;
-                            }
-
+                        /// <summary>
+                        /// Model B: (opcode + sender UID + target UID).
+                        /// </summary>
                         case ServerPacketOpCode.PublicKeyRequest:
                             {
-                                // PublicKeyRequest: RequesterUserId; TargetUserId
-                                Guid requesterId = packetReader.ReadUid();
-                                Guid targetId = packetReader.ReadUid();
-
-                                // Forward request to Program routing helper
-                                Program.RelayPublicKeyRequest(requesterId, targetId);
+                                Guid requester = packetreader.ReadUid();
+                                Guid target = packetreader.ReadUid();
+                                Program.RelayPublicKeyRequest(requester, target);
                                 break;
                             }
 
-                        case ServerPacketOpCode.PlainMessage:
-                            {
-                                // PlainMessage: SenderUserId; RecipientUserId; MessageText
-                                Guid senderId = packetReader.ReadUid();
-                                Guid recipient = packetReader.ReadUid(); // ignored for broadcast
-                                string text = packetReader.ReadString();
-
-                                // Logs before dispatching
-                                ServerLogger.Log($"BroadcastPlainMessage invoked for sender {senderId}: '{text}'");
-
-                                Program.BroadcastPlainMessage(text, senderId);
-                                break;
-                            }
-
+                        /// <summary>
+                        /// Model D: (opcode + sender UID + public key).
+                        /// </summary>
                         case ServerPacketOpCode.PublicKeyResponse:
                             {
-                                // PublicKeyResponse: ResponderUserId; PublicKeyBase64; RequesterUserId
-                                Guid responderId = packetReader.ReadUid();
-                                string responderKey = packetReader.ReadString();
-                                Guid requesterId = packetReader.ReadUid();
-
-                                // Send responder's public key only to the original requester
-                                Program.RelayPublicKeyToUser(responderId, responderKey, requesterId);
+                                Guid origin = packetreader.ReadUid();
+                                string key = packetreader.ReadString();
+                                Guid requester = packetreader.ReadUid();
+                                Program.RelayPublicKeyToUser(origin, key, requester);
                                 break;
                             }
 
-                        case ServerPacketOpCode.DisconnectNotify:
+                        /// <summary>
+                        /// Model C: (opcode + sender UID + message).
+                        /// </summary>
+                        case ServerPacketOpCode.PlainMessage:
                             {
-                                // DisconnectNotify: DisconnectingUserId
-                                Guid disconnectingUser = packetReader.ReadUid();
-
-                                // Notify all clients of the disconnection using Program helper
-                                Program.BroadcastDisconnect(disconnectingUser.ToString());
+                                Guid sender = packetreader.ReadUid();
+                                Guid ignore = packetreader.ReadUid();
+                                string text = packetreader.ReadString();
+                                Program.BroadcastPlainMessage(text, sender);
                                 break;
                             }
 
+                        /// <summary>
+                        /// Model E: (opcode + sender UID + encrypted payload).
+                        /// </summary>
                         case ServerPacketOpCode.EncryptedMessage:
                             {
-                                // EncryptedMessage: SenderUserId; RecipientUserId; CipherText
-                                Guid senderId = packetReader.ReadUid();
-                                Guid recipientId = packetReader.ReadUid();
-                                byte[] cipher = packetReader.ReadBytesWithLength();
-
-                                // Relay encrypted blob only to intended recipient
-                                Program.RelayEncryptedMessageToAUser(Convert.ToBase64String(cipher), senderId, recipientId);
+                                Guid sender = packetreader.ReadUid();
+                                Guid recipient = packetreader.ReadUid();
+                                byte[] cipher = packetreader.ReadBytesWithLength();
+                                string cipherB64 = Convert.ToBase64String(cipher);
+                                Program.RelayEncryptedMessageToAUser(cipherB64, sender, recipient);
                                 break;
                             }
 
+                        /// <summary>
+                        /// Model A: (opcode + UID + username).
+                        /// </summary>                    
+                        case ServerPacketOpCode.DisconnectNotify:
+                            {
+                                Guid discUid = packetreader.ReadUid();
+                                Program.BroadcastDisconnect(discUid.ToString());
+                                break;
+                            }
+
+                        /// <summary>
+                        /// Model F: (opcode + recipient UID).
+                        /// </summary>
                         case ServerPacketOpCode.DisconnectClient:
                             {
-                                // DisconnectClient: TargetUserId
-                                Guid targetId = packetReader.ReadUid();
-
-                                // Program.Shutdown will perform connection teardown for this client context
-                                Program.Shutdown();
-                                break;
+                                // Server-initiated shutdown for this client
+                                CleanupAfterDisconnect();
+                                return;
                             }
 
                         default:
-                            {
-                                ServerLogger.Log($"Unknown opcode {(byte)opcode} received from {Username} ({UID})", ServerLogLevel.Warn);
-                                break;
-                            }
+                            ServerLogger.LogLocalized("UnknownOpcode", ServerLogLevel.Warn, Username, (byte)opcode);
+                            break;
                     }
                 }
                 catch (EndOfStreamException)
                 {
-                    ServerLogger.Log($"Stream closed unexpectedly for {Username} ({UID})", ServerLogLevel.Info);
+                    ServerLogger.LogLocalized("StreamClosed", ServerLogLevel.Info, Username);
                     CleanupAfterDisconnect();
-                    break;
+                    return;
                 }
                 catch (IOException ex)
                 {
-                    ServerLogger.Log($"IO error while reading from {Username} ({UID}): {ex.Message}", ServerLogLevel.Info);
+                    ServerLogger.LogLocalized("IOError", ServerLogLevel.Info, Username, ex.Message);
                     CleanupAfterDisconnect();
-                    break;
+                    return;
                 }
                 catch (Exception ex)
                 {
-                    ServerLogger.Log($"Unhandled error in ListenForMessages for {Username} ({UID}): {ex}", ServerLogLevel.Error);
+                    ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex);
                     CleanupAfterDisconnect();
+                    return;
                 }
             }
         }
     }
 }
-
 

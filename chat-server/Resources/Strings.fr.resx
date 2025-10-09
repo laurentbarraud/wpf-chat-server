@@ -153,4 +153,16 @@
   <data name="Exiting" xml:space="preserve">
     <value>Fermeture...</value>
   </data>
+  <data name="PublicKeyRequestTargetNotFound" xml:space="preserve">
+    <value>Échec de la requête de clé publique : utilisateur cible {0} introuvable.</value>
+  </data>
+  <data name="PublicKeyRequestRequesterNotConnected" xml:space="preserve">
+    <value>Échec de la requête de clé publique : le demandeur {0} n'est pas connecté.</value>
+  </data>
+  <data name="PublicKeyRequestSuccess" xml:space="preserve">
+    <value>Clé publique de {0} transmise au demandeur {1}.</value>
+  </data>
+  <data name="PublicKeyRequestSendError" xml:space="preserve">
+    <value>Échec de l'envoi de la réponse de clé publique : {0}</value>
+  </data>
 </root>

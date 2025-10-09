@@ -445,15 +445,11 @@ namespace chat_client.MVVM.ViewModel
 
             // Checks presence of the local public key
             bool hasLocalKey = !string.IsNullOrEmpty(LocalUser.PublicKeyBase64);
-            ClientLogger.Log(
-                $"Local public key present: {hasLocalKey}",
-                ClientLogLevel.Debug);
+            ClientLogger.Log($"Local public key present: {hasLocalKey}", ClientLogLevel.Debug);
 
             if (!hasLocalKey)
             {
-                ClientLogger.Log(
-                    "Skipping encryption readiness check — local public key not yet generated.",
-                    ClientLogLevel.Info);
+                ClientLogger.Log("Skipping encryption readiness check — local public key not yet generated.", ClientLogLevel.Info);
                 return false;
             }
 
@@ -488,15 +484,13 @@ namespace chat_client.MVVM.ViewModel
             // Logs and aborts if any peer keys are missing
             if (missingKeys.Count > 0)
             {
-                ClientLogger.Log(
-                    $"Encryption not ready — missing keys for: {string.Join(", ", missingKeys)}",
+                ClientLogger.Log($"Encryption not ready — missing keys for: {string.Join(", ", missingKeys)}",
                     ClientLogLevel.Debug);
                 return false;
             }
 
             // All checks passed: logs activation and returns readiness
-            ClientLogger.Log(
-                "Encryption is fully activated and ready.",
+            ClientLogger.Log("Encryption is fully activated and ready.",
                 ClientLogLevel.Info);
             return true;
         }
@@ -749,8 +743,7 @@ namespace chat_client.MVVM.ViewModel
             // Skips initialization if LocalUser is not defined or encryption is already active
             if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
-                ClientLogger.Log(
-                    "Skips encryption initialization — LocalUser is null or encryption already active.",
+                ClientLogger.Log("Skips encryption initialization — LocalUser is null or encryption already active.",
                     ClientLogLevel.Debug);
                 return false;
             }
@@ -831,9 +824,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 // On any error, disables encryption to maintain a safe state
                 Settings.Default.UseEncryption = false;
-                ClientLogger.Log(
-                    $"Exception during encryption initialization: {ex.Message}",
-                    ClientLogLevel.Error);
+                ClientLogger.Log($"Exception during encryption initialization: {ex.Message}",  ClientLogLevel.Error);
                 return false;
             }
             finally
@@ -842,9 +833,7 @@ namespace chat_client.MVVM.ViewModel
                 Settings.Default.HandshakePublicKey = LocalUser?.PublicKeyBase64;
                 Settings.Default.HandshakePrivateKey = LocalUser?.PrivateKeyBase64;
                 Settings.Default.Save();
-                ClientLogger.Log(
-                    "Persists handshake keys and encryption flag.",
-                    ClientLogLevel.Debug);
+                ClientLogger.Log("Persists handshake keys and encryption flag.", ClientLogLevel.Debug);
 
                 // Clears the syncing flag only if the icon will switch off grey
                 if (IsEncryptionReady || !Settings.Default.UseEncryption)

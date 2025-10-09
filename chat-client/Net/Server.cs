@@ -441,8 +441,7 @@ namespace chat_client.Net
                         publicKeyBase64 = viewModel.LocalUser.PublicKeyBase64;
                         if (string.IsNullOrWhiteSpace(publicKeyBase64))
                         {
-                            ClientLogger.Log(
-                                $"Cannot encrypt to self: missing local public key for UID {senderUid}",
+                            ClientLogger.Log($"Cannot encrypt to self: missing local public key for UID {senderUid}",
                                 ClientLogLevel.Error);
                             continue;
                         }
@@ -455,8 +454,7 @@ namespace chat_client.Net
                             if (Guid.TryParse(recipientUid, out var peerGuid))
                                 RequestPeerPublicKey(peerGuid);
                             else
-                                ClientLogger.Log(
-                                    $"Invalid recipient UID: {recipientUid}",
+                                ClientLogger.Log($"Invalid recipient UID: {recipientUid}",
                                     ClientLogLevel.Error);
 
                             continue;
@@ -467,8 +465,7 @@ namespace chat_client.Net
                         {
                             var localKey = viewModel.LocalUser.PublicKeyBase64;
                             if (string.IsNullOrWhiteSpace(localKey))
-                                ClientLogger.Log(
-                                    "Cannot send public key: LocalUser.PublicKeyBase64 is uninitialized.",
+                                ClientLogger.Log("Cannot send public key: LocalUser.PublicKeyBase64 is uninitialized.",
                                     ClientLogLevel.Warn);
                             else
                                 viewModel._server.SendPublicKeyToServer(recipientUid, localKey);
@@ -493,16 +490,13 @@ namespace chat_client.Net
                         encryptedMessagePacket.WriteString(cipher);
 
                         _tcpClient.Client.Send(encryptedMessagePacket.GetPacketBytes());
-                        ClientLogger.Log(
-                            $"Encrypted message sent to {recipientUid}.",
-                            ClientLogLevel.Debug);
+                        ClientLogger.Log($"Encrypted message sent to {recipientUid}.", ClientLogLevel.Debug);
 
                         messageSent = true;
                     }
                     catch (Exception ex)
                     {
-                        ClientLogger.Log(
-                            $"Failed to encrypt or send to {recipientUid}: {ex.Message}",
+                        ClientLogger.Log($"Failed to encrypt or send to {recipientUid}: {ex.Message}",
                             ClientLogLevel.Error);
                     }
                 }
