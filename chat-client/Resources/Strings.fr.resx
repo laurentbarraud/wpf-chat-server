@@ -242,26 +242,25 @@
 
 Options :
   -u, --username        Définit votre nom d'utilisateur et se connecte automatiquement
-  -p, --port            Définit le port du serveur (par défaut : 7123)
+  -p, --port                Définit le port du serveur (par défaut : 7123)
 
-  --theme &lt;light|dark&gt;  Définit le thème de l'interface
-  --dark, --light       Raccourcis pour choisir le thème
-
-  -l, --language        Définit la langue de l'interface (utiliser avec --language &lt;en|fr&gt; ou drapeaux directs)
+  --theme &lt;light|dark&gt;  Définit le thème
+  --dark, --light        Basculer sur le thème
+  -l, --language &lt;en|fr&gt;  Définit la langue de l'interface
   --en, --english       Basculer en anglais
-  --fr, --french        Basculer en français
+  --fr, --french          Basculer en français
 
   -e, --encrypted       Active le chiffrement de bout en bout
 
-  -r, -m, --reduce      Démarrer réduit dans la zone de notification (system tray)
-  --tray, --minimize    Alias pour tray / minimisé
+  -r, -m, --reduce      Démarrer réduit dans la zone de notification
+  --tray, --min
 
   -c, --console         Ouvrir une fenêtre console compagnon
-  --debug               Activer le mode debug verbeux
+  --debug                Activer le mode debug verbeux
 
-  -h, -? , --help       Afficher ce message d'aide
+  -h, -? , --help        Afficher ce message d'aide
  
-  -v, --about,          Ouvre la fenêtre A propos
+  -v, --about,           Ouvre la fenêtre A propos
 
 Toutes les options acceptent la notation Windows (/option)  
 et Unix (--option).

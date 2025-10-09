@@ -101,18 +101,19 @@ namespace chat_client.Resources {
         ///
         ///Options:
         ///  -u, --username        Set your username and auto-connect
-        ///  -p, --port            Set the server port (default: 7123)
+        ///  -p, --port                Set the server port (default: 7123)
         ///
         ///  --theme &lt;light|dark&gt;  Set UI theme
-        ///  --dark, --light       Shortcuts for theme selection
+        ///  --dark, --light        Switch to theme
         ///
-        ///  -l, --language        Set UI language (use with --language &lt;en|fr&gt; or direct flags)
+        ///  -l, --language &lt;en|fr&gt;  Set UI language
         ///  --en, --english       Switch to English
-        ///  --fr, --french        Switch to French
+        ///  --fr, --french          Switch to French
         ///
         ///  -e, --encrypted       Enable end-to-end encryption
         ///
-        ///  -r, -t, -m, --re [le reste de la chaîne a été tronqué]&quot;;.
+        ///  -r, -t, -m, --reduce  Start minimized to system tray
+        ///  --tray, --m [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {

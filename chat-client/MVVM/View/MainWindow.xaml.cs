@@ -12,6 +12,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Linq;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -302,11 +303,32 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Toggles the SettingsWindow visibility:
+        /// - If an instance is already open, it closes it.
+        /// - If no instance is open, it creates and shows a new one.
+        /// This prevents multiple SettingsWindow instances from being opened simultaneously.
         private void CmdSettings_Click(object sender, RoutedEventArgs e)
         {
-            var settingsWindow = new SettingsWindow();
-            settingsWindow.Owner = this;
-            settingsWindow.Show();
+            // Looks for an already open SettingsWindow instance
+            var existingSettingsWindow = Application.Current.Windows
+                                       .OfType<SettingsWindow>()
+                                       .FirstOrDefault();
+
+            if (existingSettingsWindow != null)
+            {
+                // If a SettingsWindow is already open, closes it
+                existingSettingsWindow.Close();
+            }
+            else
+            {
+                // Creates and shows a new SettingsWindow
+                var settings = new SettingsWindow
+                {
+                    Owner = this // ensures SettingsWindow stays on top of the main window
+                };
+                settings.Show();
+            }
         }
 
         /// <summary>
