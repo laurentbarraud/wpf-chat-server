@@ -117,17 +117,14 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="ClientDisconnected" xml:space="preserve">
-    <value>Client disconnected :</value>
-  </data>
   <data name="ClientConnected" xml:space="preserve">
-    <value>Client has connected with the username :</value>
+    <value>Client has connected with the username : {0},</value>
   </data>
   <data name="MessageReceived" xml:space="preserve">
     <value>Message received from</value>
   </data>
   <data name="ServerStartFailed" xml:space="preserve">
-    <value>Failed to start server on port</value>
+    <value>Failed to start server on port {0} : {1}</value>
   </data>
   <data name="BannerLine1" xml:space="preserve">
     <value>Press Ctrl+C to stop the server.</value>
@@ -150,19 +147,91 @@
   <data name="ServerStartedOnPort" xml:space="preserve">
     <value>Listener started on port {0} — waiting for incoming connections...</value>
   </data>
-  <data name="Exiting" xml:space="preserve">
-    <value>Exiting...</value>
+  <data name="StartPacketLoop" xml:space="preserve">
+    <value>Packet loop started for user '{0}'</value>
+  </data>
+  <data name="PublicKeyBroadcastFail" xml:space="preserve">
+    <value>Failed to broadcast public key for '{0}': {1}</value>
+  </data>
+  <data name="PublicKeyBroadcast" xml:space="preserve">
+    <value>Broadcasted public key for '{0}'</value>
+  </data>
+  <data name="UnknownOpcode" xml:space="preserve">
+    <value>Received unknown opcode '{1}' from '{0}'</value>
+  </data>
+  <data name="StreamClosed" xml:space="preserve">
+    <value>Stream closed by remote peer '{0}'</value>
+  </data>
+  <data name="IOError" xml:space="preserve">
+    <value>I/O error for client '{0}': {1}</value>
+  </data>
+  <data name="PacketLoopError" xml:space="preserve">
+    <value>Error in packet loop for '{0}': {1}</value>
+  </data>
+  <data name="ClientRemoved" xml:space="preserve">
+    <value>Client '{0}' removed</value>
+  </data>
+  <data name="RosterSendFailed" xml:space="preserve">
+    <value>Failed to send roster to '{0}': {1}</value>
+  </data>
+  <data name="RosterBroadcastComplete" xml:space="preserve">
+    <value>Completed sending roster to '{0}'</value>
+  </data>
+  <data name="DisconnectNotifyFailed" xml:space="preserve">
+    <value>Failed to notify disconnection of '{0}': {1}</value>
+  </data>
+  <data name="UserDisconnected" xml:space="preserve">
+    <value>User '{0}' disconnected</value>
+  </data>
+  <data name="PlainMessageBroadcast" xml:space="preserve">
+    <value>Broadcasted message from '{0}'</value>
+  </data>
+  <data name="PlainMessageSendFailed" xml:space="preserve">
+    <value>Failed to send message to '{0}': {1}</value>
+  </data>
+  <data name="UnexpectedOpcode" xml:space="preserve">
+    <value>Unexpected opcode '{1}' from '{0}'</value>
+  </data>
+  <data name="HandleNewClientError" xml:space="preserve">
+    <value>Error handling new client '{0}': {1}</value>
+  </data>
+  <data name="EncryptedDeliverFailed" xml:space="preserve">
+    <value>Failed to deliver encrypted message to '{0}': {1}</value>
+  </data>
+  <data name="EncryptedMessageRelay" xml:space="preserve">
+    <value>Relayed encrypted message from '{0}'</value>
+  </data>
+  <data name="EncryptedSendError" xml:space="preserve">
+    <value>Error sending encrypted message to '{0}': {1}</value>
   </data>
   <data name="PublicKeyRequestTargetNotFound" xml:space="preserve">
-    <value>Public key request failed: target user {0} not found.</value>
+    <value>Public key request failed: target '{0}' not found</value>
   </data>
   <data name="PublicKeyRequestRequesterNotConnected" xml:space="preserve">
-    <value>Public key request failed: requester {0} is not connected.</value>
+    <value>Public key request failed: requester '{0}' not connected</value>
   </data>
   <data name="PublicKeyRequestSuccess" xml:space="preserve">
-    <value>Relayed public key of {0} to requester {1}.</value>
+    <value>Public key of '{0}' sent successfully</value>
   </data>
   <data name="PublicKeyRequestSendError" xml:space="preserve">
-    <value>Failed to send public key response: {0}</value>
+    <value>Failed to send public key to '{0}': {1}</value>
+  </data>
+  <data name="PublicKeyDeliverFail" xml:space="preserve">
+    <value>Delivery of public key to '{0}' failed: {1}</value>
+  </data>
+  <data name="PublicKeyDelivered" xml:space="preserve">
+    <value>Public key delivered to '{0}'</value>
+  </data>
+  <data name="PublicKeyDeliverError" xml:space="preserve">
+    <value>Error delivering public key to '{0}': {1}</value>
+  </data>
+  <data name="ShutdownNotifyFail" xml:space="preserve">
+    <value>Failed to notify shutdown to '{0}': {1}</value>
+  </data>
+  <data name="AcceptLoopError" xml:space="preserve">
+    <value>Error in accept loop: {0}</value>
+  </data>
+  <data name="IncomingConnection" xml:space="preserve">
+    <value>Incoming connection from '{0}'</value>
   </data>
 </root>

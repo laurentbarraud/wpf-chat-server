@@ -1,7 +1,7 @@
 ﻿/// <file>ServerLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 11th, 2025</date>
+/// <date>October 12th, 2025</date>
 
 using System;
 
@@ -57,16 +57,18 @@ namespace chat_server.Helpers
         }
 
         /// <summary>
-        /// Logs a localized message using a resource key and optional formatting arguments.  
-        /// Retrieves the message from the LocalizationManager and applies the appropriate log level.
+        /// Logs a localized message using a resource key and up to two optional string arguments.
+        /// Retrieves the corresponding template from the LocalizationManager and formats it with the provided values.
+        /// Falls back to the key itself if no template is found.
         /// </summary>
-        /// <param name="resourceKey">The key used to retrieve the localized string template.</param>
-        /// <param name="level">The severity level of the message.</param>
-        /// <param name="args">Optional arguments to format into the localized string.</param>
-        public static void LogLocalized(string resourceKey, ServerLogLevel level = ServerLogLevel.Info, params object[] args)
+        /// <param name="messageKey">The localization key identifying the message template.</param>
+        /// <param name="level">The severity level to apply to the log entry.</param>
+        /// <param name="arg1">Optional first argument to inject into the template.</param>
+        /// <param name="arg2">Optional second argument to inject into the template.</param>
+        public static void LogLocalized(string messageKey, ServerLogLevel level, string? arg1 = null, string? arg2 = null)
         {
-            string template = LocalizationManager.GetString(resourceKey);
-            string message = args.Length > 0 ? string.Format(template, args) : template;
+            var template = LocalizationManager.GetString(messageKey) ?? messageKey;
+            var message = string.Format(template, arg1 ?? "", arg2 ?? "");
             Log(message, level);
         }
     }

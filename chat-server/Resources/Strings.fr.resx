@@ -117,17 +117,14 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="ClientDisconnected" xml:space="preserve">
-    <value>Client déconnecté :</value>
-  </data>
   <data name="ClientConnected" xml:space="preserve">
-    <value>Client connecté avec le nom d'utilisateur :</value>
+    <value>Client connecté avec le nom d'utilisateur : {0}</value>
   </data>
   <data name="MessageReceived" xml:space="preserve">
     <value>Message reçu de</value>
   </data>
   <data name="ServerStartFailed" xml:space="preserve">
-    <value>Échec du démarrage du serveur sur le port</value>
+    <value>Échec du démarrage du serveur sur le port {0} : {1}</value>
   </data>
   <data name="BannerLine1" xml:space="preserve">
     <value>Appuyez sur Ctrl+C pour arrêter le serveur.</value>
@@ -150,19 +147,91 @@
   <data name="ServerStartedOnPort" xml:space="preserve">
     <value>Écouteur démarré sur le port {0} — en attente de connexions entrantes...</value>
   </data>
-  <data name="Exiting" xml:space="preserve">
-    <value>Fermeture...</value>
+  <data name="StartPacketLoop" xml:space="preserve">
+    <value>Boucle de traitement des paquets démarrée pour l’utilisateur '{0}'</value>
+  </data>
+  <data name="PublicKeyBroadcastFail" xml:space="preserve">
+    <value>Échec de la diffusion de la clé publique pour '{0}' : {1}</value>
+  </data>
+  <data name="PublicKeyBroadcast" xml:space="preserve">
+    <value>Clé publique diffusée pour '{0}'</value>
+  </data>
+  <data name="UnknownOpcode" xml:space="preserve">
+    <value>Opcode inconnu '{1}' reçu de '{0}'</value>
+  </data>
+  <data name="StreamClosed" xml:space="preserve">
+    <value>Flux fermé par le pair distant '{0}'</value>
+  </data>
+  <data name="IOError" xml:space="preserve">
+    <value>Erreur E/S pour le client '{0}' : {1}</value>
+  </data>
+  <data name="PacketLoopError" xml:space="preserve">
+    <value>Erreur dans la boucle de paquets pour '{0}' : {1}</value>
+  </data>
+  <data name="ClientRemoved" xml:space="preserve">
+    <value>Client '{0}' supprimé</value>
+  </data>
+  <data name="RosterSendFailed" xml:space="preserve">
+    <value>Échec de l’envoi de la liste de contacts à '{0}' : {1}</value>
+  </data>
+  <data name="RosterBroadcastComplete" xml:space="preserve">
+    <value>Envoi de la liste de contacts terminé pour '{0}'</value>
+  </data>
+  <data name="DisconnectNotifyFailed" xml:space="preserve">
+    <value>Échec de la notification de déconnexion de '{0}' : {1}</value>
+  </data>
+  <data name="UserDisconnected" xml:space="preserve">
+    <value>Utilisateur '{0}' déconnecté</value>
+  </data>
+  <data name="PlainMessageBroadcast" xml:space="preserve">
+    <value>Message diffusé de '{0}'</value>
+  </data>
+  <data name="PlainMessageSendFailed" xml:space="preserve">
+    <value>Échec de l’envoi du message à '{0}' : {1}</value>
+  </data>
+  <data name="UnexpectedOpcode" xml:space="preserve">
+    <value>Opcode inattendu '{1}' reçu de '{0}'</value>
+  </data>
+  <data name="HandleNewClientError" xml:space="preserve">
+    <value>Erreur lors du traitement du nouveau client '{0}' : {1}</value>
+  </data>
+  <data name="EncryptedDeliverFailed" xml:space="preserve">
+    <value>Échec de la livraison du message chiffré à '{0}' : {1}</value>
+  </data>
+  <data name="EncryptedMessageRelay" xml:space="preserve">
+    <value>Message chiffré relayé de '{0}'</value>
+  </data>
+  <data name="EncryptedSendError" xml:space="preserve">
+    <value>Erreur d’envoi du message chiffré à '{0}' : {1}</value>
   </data>
   <data name="PublicKeyRequestTargetNotFound" xml:space="preserve">
-    <value>Échec de la requête de clé publique : utilisateur cible {0} introuvable.</value>
+    <value>Requête de clé publique échouée : cible '{0}' introuvable</value>
   </data>
   <data name="PublicKeyRequestRequesterNotConnected" xml:space="preserve">
-    <value>Échec de la requête de clé publique : le demandeur {0} n'est pas connecté.</value>
+    <value>Requête de clé publique échouée : demandeur '{0}' non connecté</value>
   </data>
   <data name="PublicKeyRequestSuccess" xml:space="preserve">
-    <value>Clé publique de {0} transmise au demandeur {1}.</value>
+    <value>Clé publique de '{0}' envoyée avec succès</value>
   </data>
   <data name="PublicKeyRequestSendError" xml:space="preserve">
-    <value>Échec de l'envoi de la réponse de clé publique : {0}</value>
+    <value>Échec de l’envoi de la clé publique à '{0}' : {1}</value>
+  </data>
+  <data name="PublicKeyDeliverFail" xml:space="preserve">
+    <value>Livraison de la clé publique à '{0}' échouée : {1}</value>
+  </data>
+  <data name="PublicKeyDelivered" xml:space="preserve">
+    <value>Clé publique livrée à '{0}'</value>
+  </data>
+  <data name="PublicKeyDeliverError" xml:space="preserve">
+    <value>Erreur lors de la livraison de la clé publique à '{0}' : {1}</value>
+  </data>
+  <data name="ShutdownNotifyFail" xml:space="preserve">
+    <value>Échec de la notification d’arrêt à '{0}' : {1}</value>
+  </data>
+  <data name="AcceptLoopError" xml:space="preserve">
+    <value>Erreur dans la boucle d’acceptation : {0}</value>
+  </data>
+  <data name="IncomingConnection" xml:space="preserve">
+    <value>Connexion entrante depuis '{0}'</value>
   </data>
 </root>

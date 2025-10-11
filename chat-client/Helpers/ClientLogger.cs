@@ -1,7 +1,7 @@
 ﻿/// <file>ClientLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 11th, 2025</date>
+/// <date>October 12th, 2025</date>
 
 namespace chat_client.Helpers
 {
@@ -56,16 +56,18 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Retrieves a localized string by key and logs it with the specified severity.
+        /// Logs a localized message using a resource key and up to two optional string arguments.
+        /// Retrieves the corresponding template from the LocalizationManager and formats it with the provided values.
+        /// Falls back to the key itself if no template is found.
         /// </summary>
-        /// <param name="resourceKey">The key identifying the localized resource.</param>
-        /// <param name="level">
-        /// The severity level of the log entry.
-        /// Defaults to <see cref="ClientLogLevel.Info"/>.
-        /// </param>
-        public static void LogLocalized(string resourceKey, ClientLogLevel level = ClientLogLevel.Info)
+        /// <param name="messageKey">The localization key identifying the message template.</param>
+        /// <param name="level">The severity level to apply to the log entry.</param>
+        /// <param name="arg1">Optional first argument to inject into the template.</param>
+        /// <param name="arg2">Optional second argument to inject into the template.</param>
+        public static void LogLocalized(string messageKey, ClientLogLevel level, string? arg1 = null, string? arg2 = null)
         {
-            string message = LocalizationManager.GetString(resourceKey);
+            var template = LocalizationManager.GetString(messageKey) ?? messageKey;
+            var message = string.Format(template, arg1 ?? "", arg2 ?? "");
             Log(message, level);
         }
     }

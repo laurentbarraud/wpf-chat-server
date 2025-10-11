@@ -1,11 +1,14 @@
 ﻿/// <file>App.xaml.cs</fil
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 11th, 2025</date>
+/// <date>October 12th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.Properties;
+using System;
 using System.Globalization;
+using System.Linq;
+using System.Threading;
 using System.Windows;
 
 namespace chat_client
@@ -13,22 +16,26 @@ namespace chat_client
     public partial class App : Application
     {
         /// <summary>
-        /// Overrides startup to optionally show a console in DEBUG,
-        /// set up culture, apply any release-time flags,
-        /// and finally create and show the main window.
+        /// Overrides startup to apply command-line flags, set up culture,
+        /// show the main window, and only then open the debug console if requested.
         /// </summary>
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // Collects command-line arguments (exe path excluded)
-            string[] args = Environment.GetCommandLineArgs().Skip(1).ToArray();
+            // Gathers all user-supplied args - Skip(1) to skip the .exe path
+            string[] args = Environment
+                .GetCommandLineArgs()
+                .Skip(1)
+                .ToArray();
 
-            // In DEBUG builds, enable debug logging and show console
-            #if DEBUG
-            ClientLogger.IsDebugEnabled = true;
-            ConsoleManager.Show();
-            #endif
+            // Detects "--debug" or "--console" upfront
+            bool debugMode = args.Any(arg =>
+                arg.Equals("--debug", StringComparison.OrdinalIgnoreCase) ||
+                arg.Equals("--console", StringComparison.OrdinalIgnoreCase));
+
+            // Let StartupConfigurator handle everything else
+            StartupConfigurator.ApplyStartupArguments(args);
 
             // Culture & localization
             string language = Settings.Default.AppLanguage ?? "en";
@@ -39,16 +46,17 @@ namespace chat_client
             CultureInfo.DefaultThreadCurrentUICulture = culture;
             LocalizationManager.Initialize(language);
 
-            // Applies command line arguments
-            if (args.Length > 0)
-            {
-                StartupConfigurator.ApplyStartupArguments(args);
-            }
-
-            // Instantiates and shows the main window
+            // Creates and shows the main window
             var mainWindow = new MainWindow();
             Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
+
+            // Enables debug logging and opens console if requested
+            if (debugMode)
+            {
+                ClientLogger.IsDebugEnabled = true;
+                ConsoleManager.Show();
+            }
         }
 
         public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)

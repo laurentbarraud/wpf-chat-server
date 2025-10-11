@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 11th, 2025</date>
+/// <date>October 12th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -62,7 +62,7 @@ namespace chat_server
             }
             catch (Exception ex)
             {
-                ServerLogger.LogLocalized("ServerStartFailed", ServerLogLevel.Error, port, ex.Message);
+                ServerLogger.LogLocalized("ServerStartFailed", ServerLogLevel.Error, port.ToString(), ex.Message);
                 Environment.Exit(1);
             }
         }
@@ -96,7 +96,7 @@ namespace chat_server
                     }
                     catch (Exception ex)
                     {
-                        ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error, user.Username, peerUser.Username, ex.Message);
+                        ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error, peerUser.Username, ex.Message);
                     }
                 }
             }
@@ -136,7 +136,7 @@ namespace chat_server
                 }
             }
 
-            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, uid);
+            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, uid.ToString());
         }
 
         /// <summary>
@@ -252,7 +252,7 @@ namespace chat_server
             const int defaultPort = 7123;
 
             // Asks the user for a port number
-            Console.Write(LocalizationManager.GetString("PortPrompt") + " ");
+            Console.WriteLine(LocalizationManager.GetString("PortPrompt") + " ");
 
             // Waits up to 7 seconds for input
             string input = ReadLineWithTimeout(7000);
@@ -270,7 +270,7 @@ namespace chat_server
             }
 
             // On invalid entry, asks the user if they want the default
-            Console.Write(LocalizationManager.GetString("InvalidPortPrompt"));
+            Console.WriteLine(LocalizationManager.GetString("InvalidPortPrompt"));
             string? confirm = Console.ReadLine()?.ToLowerInvariant();
 
             // If user agrees (“y” or “o”), use default; else cancel startup
@@ -286,7 +286,7 @@ namespace chat_server
         private static void HandleNewClient(TcpClient tcpClient)
         {
             var endpoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown";
-            ServerLogger.LogLocalized("IncomingConnection", ServerLogLevel.Info, endpoint);
+            ServerLogger.LogLocalized("IncomingConnection", ServerLogLevel.Info);
 
             try
             {
@@ -303,7 +303,7 @@ namespace chat_server
                 var opcode = (ServerPacketOpCode)packetReader.ReadByte();
                 if (opcode != ServerPacketOpCode.Handshake)
                 {
-                    ServerLogger.LogLocalized("UnexpectedOpcode", ServerLogLevel.Error, (byte)opcode);
+                    ServerLogger.LogLocalized("UnexpectedOpcode", ServerLogLevel.Error, $"{opcode}");
                     tcpClient.Close();
                     return;
                 }
@@ -320,7 +320,7 @@ namespace chat_server
                 };
                 lock (Users) Users.Add(client);
 
-                ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, username, uid);
+                ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, username);
                 BroadcastConnection();
 
                 /// <summary>
@@ -332,7 +332,14 @@ namespace chat_server
             catch (Exception ex)
             {
                 ServerLogger.LogLocalized("HandleNewClientError", ServerLogLevel.Error, ex.Message);
-                try { tcpClient.Close(); } catch { }
+                try 
+                {
+                    tcpClient.Close(); 
+                }
+                catch 
+                {
+                
+                }
             }
         }
 
@@ -371,11 +378,11 @@ namespace chat_server
             var recipient = lstConnectedUsersSnapshot.FirstOrDefault(u => u.UID == recipientId);
             if (recipient == null || !recipient.ClientSocket.Connected)
             {
-                ServerLogger.LogLocalized("EncryptedDeliverFailed", ServerLogLevel.Warn, senderId, recipientId);
+                ServerLogger.LogLocalized("EncryptedDeliverFailed", ServerLogLevel.Warn, senderId.ToString(), recipientId.ToString());
                 return;
             }
 
-            ServerLogger.LogLocalized("EncryptedMessageRelay", ServerLogLevel.Debug, senderId, recipientId);
+            ServerLogger.LogLocalized("EncryptedMessageRelay", ServerLogLevel.Debug, senderId.ToString(), recipientId.ToString());
 
             var packetBuilder = new PacketBuilder();
             packetBuilder.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
@@ -412,13 +419,13 @@ namespace chat_server
 
             if (targetUser == null)
             {
-                ServerLogger.LogLocalized("PublicKeyRequestTargetNotFound", ServerLogLevel.Warn, targetId);
+                ServerLogger.LogLocalized("PublicKeyRequestTargetNotFound", ServerLogLevel.Warn, targetId.ToString());
                 return;
             }
 
             if (requestingUser == null || !requestingUser.ClientSocket.Connected)
             {
-                ServerLogger.LogLocalized("PublicKeyRequestRequesterNotConnected", ServerLogLevel.Warn, requesterId);
+                ServerLogger.LogLocalized("PublicKeyRequestRequesterNotConnected", ServerLogLevel.Warn, requesterId.ToString());
                 return;
             }
 
@@ -458,7 +465,7 @@ namespace chat_server
             var requester = lstConnectedUsersSnapshot.FirstOrDefault(u => u.UID == requesterId);
             if (requester == null || !requester.ClientSocket.Connected)
             {
-                ServerLogger.LogLocalized("PublicKeyDeliverFail", ServerLogLevel.Warn, requesterId);
+                ServerLogger.LogLocalized("PublicKeyDeliverFail", ServerLogLevel.Warn, requesterId.ToString());
                 return;
             }
 
@@ -472,7 +479,7 @@ namespace chat_server
             try
             {
                 requester.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
-                ServerLogger.LogLocalized("PublicKeyDelivered", ServerLogLevel.Debug, responderId, requesterId);
+                ServerLogger.LogLocalized("PublicKeyDelivered", ServerLogLevel.Debug, responderId.ToString(), requesterId.ToString());
             }
             catch (Exception ex)
             {
@@ -517,16 +524,18 @@ namespace chat_server
         /// Each accepted client is handled in its own task to keep the server responsive.
         /// </summary>
         /// <param name="port">TCP port to bind and listen on.</param>
-        public static void StartServerListener(int port)
+        public static void StartServerListener(int selectedPort)
         {
             // Creates a TCP listener that listens on all network interfaces
-            _listener = new TcpListener(IPAddress.Any, port);
+            _listener = new TcpListener(IPAddress.Any, selectedPort);
 
             // Starts the listener to begin accepting connections
             _listener.Start();
 
+            Console.Write("\n");
+
             // Logs that the server is now listening
-            ServerLogger.LogLocalized("ServerStartedOnPort", ServerLogLevel.Info, port);
+            Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"), selectedPort));
 
             // Runs the accept loop in a separate task so the main thread stays free
             Task.Run(async () =>

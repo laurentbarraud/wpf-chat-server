@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 11th, 2025</date>
+/// <date>October 12th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -49,7 +49,7 @@ namespace chat_server
             lock (Program.Users)
             {
                 if (Program.Users.Remove(this))
-                    ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Debug, Username, UID);
+                    ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Debug, Username, UID.ToString());
             }
         }
 
@@ -82,8 +82,7 @@ namespace chat_server
 
                     // Dispatches based on opcode
                     var opcode = (ServerPacketOpCode)packetreader.ReadByte();
-                    ServerLogger.LogLocalized("ReceivedOpcode", ServerLogLevel.Debug, Username, (byte)opcode);
-
+  
                     // Uses packets models A to F built in PacketBuilder.cs
                     switch (opcode)
                     {
@@ -164,7 +163,7 @@ namespace chat_server
                             }
 
                         default:
-                            ServerLogger.LogLocalized("UnknownOpcode", ServerLogLevel.Warn, Username, (byte)opcode);
+                            ServerLogger.LogLocalized("UnknownOpcode", ServerLogLevel.Warn, Username, $"{opcode}");
                             break;
                     }
                 }
@@ -182,7 +181,7 @@ namespace chat_server
                 }
                 catch (Exception ex)
                 {
-                    ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex);
+                    ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex.Message);
                     CleanupAfterDisconnect();
                     return;
                 }
