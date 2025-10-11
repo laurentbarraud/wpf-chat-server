@@ -242,12 +242,11 @@
 
 Options:
   -u, --username        Set your username and auto-connect
-  -p, --port                Set the server port (default: 7123)
+  -p, --port                Set the server port
 
   --theme &lt;light|dark&gt;  Set UI theme
   --dark, --light        Switch to theme
 
-  -l, --language &lt;en|fr&gt;  Set UI language
   --en, --english       Switch to English
   --fr, --french          Switch to French
 
@@ -256,9 +255,8 @@ Options:
   -r, -t, -m, --reduce  Start minimized to system tray
   --tray, --min
 
-  -c, --console          Open companion console window
-  --debug                 Enable verbose debug mode
-
+  -c, -d, --debug       Open console window
+                   
   -h, -? , --help         Display this help message
   
   -v, --about            Opens the About window
@@ -267,8 +265,7 @@ All arguments support Windows-style (/option)
 and Unix-style (--option) notation.
 
 Example:
-  chat-client.exe --dark /t /e /u Laurent
-</value>
+  chat-client.exe --dark /t /e /u Laurent</value>
   </data>
   <data name="CommandLineArguments" xml:space="preserve">
     <value>Command-line arguments</value>

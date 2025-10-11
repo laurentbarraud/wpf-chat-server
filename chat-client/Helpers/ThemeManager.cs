@@ -1,7 +1,7 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 9th, 2025</date>
+/// <date>October 11th, 2025</date>
 
 using System;
 using System.Windows;
@@ -33,6 +33,8 @@ namespace chat_client.Helpers
 
             var themeUri = useDarkTheme ? DarkThemeUri : LightThemeUri;
 
+            // Creates a fade-out animation that transitions a UI element's opacity 
+            // from fully visible (1.0) to fully transparent (0.0) over 150 milliseconds.
             var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150));
             fadeOut.Completed += (_, _) =>
             {

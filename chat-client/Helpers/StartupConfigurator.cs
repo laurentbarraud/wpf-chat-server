@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 9th, 2025</date>
+/// <date>October 11th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -188,17 +188,6 @@ namespace chat_client.Helpers
                                 }
                                 break;
 
-                            // Theme dark/light short single-letter mapping
-                            case 'd':
-                                themeChosen = "dark";
-                                break;
-                            case 'l':
-                                themeChosen = "light";
-                                break;
-
-                            // Language direct short not used to avoid conflict with -l theme short
-                            // Provide long variants --en/--fr instead
-
                             // Encryption
                             case 'e':
                                 enableEncryption = true;
@@ -213,6 +202,7 @@ namespace chat_client.Helpers
 
                             // Console / debug shorthand
                             case 'c':
+                            case 'd':
                                 debugMode = true;
                                 break;
 

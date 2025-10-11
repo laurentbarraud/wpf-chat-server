@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 9th, 2025</date>
+/// <date>October 11th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -242,36 +242,42 @@ namespace chat_server
 
 
         /// <summary>
-        /// Prompts the user to enter a TCP port number, with timeout and basic validation.
+        /// Prompts the user to enter a TCP port number, with timeout and validation.
+        /// If the user enters nothing (or only whitespace) before the timeout expires,
+        /// the default port is returned silently. Invalid input triggers confirmation.
         /// </summary>
-        /// <returns>Chosen port between 1000 and 65535.</returns>
+        /// <returns>Chosen port between 1000 and 65535, or default after timeout/empty input.</returns>
         private static int GetPortFromUser()
         {
-            int defaultPort = 7123;
+            const int defaultPort = 7123;
 
-            // Asks the user to enter a port number
+            // Asks the user for a port number
             Console.Write(LocalizationManager.GetString("PortPrompt") + " ");
 
             // Waits up to 7 seconds for input
             string input = ReadLineWithTimeout(7000);
 
-            // If input is valid and within range, uses it
-            if (!string.IsNullOrWhiteSpace(input) &&
-                int.TryParse(input, out int p) &&
-                p >= 1000 && p <= 65535)
+            // If no input (timeout or just whitespace), use default silently
+            if (string.IsNullOrWhiteSpace(input))
             {
-                return p;
+                return defaultPort;
             }
 
-            // If input is invalid, asks if the user wants to use the default port
+            // If input is a valid port number in range, uses it
+            if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
+            {
+                return port;
+            }
+
+            // On invalid entry, asks the user if they want the default
             Console.Write(LocalizationManager.GetString("InvalidPortPrompt"));
             string? confirm = Console.ReadLine()?.ToLowerInvariant();
 
-            // If user confirms, returns default port; otherwise cancels startup
-            return (confirm == "y" || confirm == "o") ? defaultPort
-                                                      : throw new OperationCanceledException();
+            // If user agrees (“y” or “o”), use default; else cancel startup
+            return (confirm == "y" || confirm == "o")
+                ? defaultPort
+                : throw new OperationCanceledException();
         }
-
 
         /// <summary>
         /// Performs the handshake, registers the client, broadcasts the connected users list, and starts packet loop.

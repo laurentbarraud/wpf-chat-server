@@ -242,11 +242,11 @@
 
 Options :
   -u, --username        Définit votre nom d'utilisateur et se connecte automatiquement
-  -p, --port                Définit le port du serveur (par défaut : 7123)
+  -p, --port                Définit le port du serveur
 
   --theme &lt;light|dark&gt;  Définit le thème
   --dark, --light        Basculer sur le thème
-  -l, --language &lt;en|fr&gt;  Définit la langue de l'interface
+
   --en, --english       Basculer en anglais
   --fr, --french          Basculer en français
 
@@ -255,10 +255,9 @@ Options :
   -r, -m, --reduce      Démarrer réduit dans la zone de notification
   --tray, --min
 
-  -c, --console         Ouvrir une fenêtre console compagnon
-  --debug                Activer le mode debug verbeux
+  -c, -d, --debug       Ouvrir la fenêtre console
 
-  -h, -? , --help        Afficher ce message d'aide
+   -h, -? , --help        Afficher ce message d'aide
  
   -v, --about,           Ouvre la fenêtre A propos
 
