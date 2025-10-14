@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 12th, 2025</date>
+/// <date>October 14th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -211,6 +211,20 @@ namespace chat_client.Net
         }
 
         /// <summary>
+        /// Frames a raw payload with a network-order length prefix for packet transmission.
+        /// </summary>
+        /// <param name="payload">Raw packet payload bytes.</param>
+        /// <returns>Framed packet ready for network send.</returns>
+        static byte[] Frame(byte[] payload)
+        {
+            using MemoryStream memoryStream = new MemoryStream();
+            using BinaryWriter binaryWriter = new BinaryWriter(memoryStream);
+            binaryWriter.Write(IPAddress.HostToNetworkOrder(payload.Length));
+            binaryWriter.Write(payload);
+            return memoryStream.ToArray();
+        }
+
+        /// <summary>
         /// Reads and processes all incoming packets from the server on a background thread.
         /// Secures a reference to the MainViewModel on the UI thread, then loops until
         /// the TCP client disconnects. For each packet:
@@ -261,10 +275,16 @@ namespace chat_client.Net
                     switch (opcode)
                     {
                         case ClientPacketOpCode.ConnectionBroadcast:
+                            // Reads the joining user's UID, username, and public key
                             Guid newUid = framedReader.ReadUid();
                             string newName = framedReader.ReadString();
                             string newPubKey = framedReader.ReadString();
+
+                            // Marks handshake complete so roster updates are allowed
                             HandshakeCompleted = true;
+
+                            // Adds the user (yourself on first broadcast, peers on subsequent)
+                            // to the UI list of connected users 
                             viewModel.OnUserConnected(newUid.ToString(), newName, newPubKey);
                             break;
 
@@ -504,135 +524,104 @@ namespace chat_client.Net
 
             return messageSent;
         }
-
         /// <summary>
-        /// Builds and sends a framed handshake packet (opcode 0) to the server.
-        /// Writes a 4-byte network-order length prefix followed by the packet body,
-        /// then starts the inbound packet reader. Returns true on success, false on failure.
+        /// Builds and sends a framed handshake packet (opcode = Handshake) to the server via raw socket send.
+        /// Packet format on the wire:
+        ///   [4-byte big-endian length][1-byte opcode][username][UID][publicKeyBase64]
+        /// On success, generates the inbound ReadPackets loop on a background thread.
         /// </summary>
         /// <param name="username">The display name of the user.</param>
         /// <param name="uid">The unique identifier assigned to the client during connection.</param>
-        /// <param name="publicKeyBase64">The RSA public key used for encryption handshake.</param>
-        /// <returns>True if the packet is sent and listening begins; false otherwise.</returns>
+        /// <param name="publicKeyBase64">The Base64-encoded RSA public key.</param>
+        /// <returns>True if the handshake packet was sent and reader started; false otherwise.</returns>
         public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
         {
-            if (string.IsNullOrEmpty(username))
+            if (string.IsNullOrWhiteSpace(username))
                 return false;
 
             try
             {
-                // Constructs the handshake packet body: opcode + username + uid + public key.
-                var connectPacket = new PacketBuilder();
-                connectPacket.WriteOpCode((byte)ClientPacketOpCode.Handshake); // Opcode 0 = handshake
-                connectPacket.WriteString(username);
-                connectPacket.WriteUid(uid);
-                connectPacket.WriteString(publicKeyBase64);
+                // Builds the payload: opcode + username + UID + public key
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ClientPacketOpCode.Handshake);
+                builder.WriteString(username);
+                builder.WriteUid(uid);
+                builder.WriteString(publicKeyBase64);
 
-                // Serializes the packet body (without framing).
-                byte[] body = connectPacket.GetPacketBytes();
+                // Frames it with a 4-byte network-order length prefix
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framed = Frame(payload);
 
-                // Prepares a 4-byte length prefix in network byte order (big-endian).
-                int bodyLength = body.Length;
-                byte[] lengthPrefix = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(bodyLength));
+                // Logs and sends via the raw socket API
+                ClientLogger.Log($"Sending handshake packet — Username: {username}, UID: {uid}", ClientLogLevel.Debug);
+                _tcpClient.Client.Send(framed);
 
-                // Sends the framed packet: first the 4-byte length, then the body.
-                NetworkStream stream = _tcpClient.GetStream();
-                stream.Write(lengthPrefix, 0, lengthPrefix.Length);
-                stream.Write(body, 0, body.Length);
-                stream.Flush();
-
-                // Logs the successful send and starts the reader loop.
-                ClientLogger.Log($"Initial connection packet sent — Username: {username}, UID: {uid}", ClientLogLevel.Debug);
-                Task.Run(() => ReadPackets());
-
+                // Begins reading incoming packets
+                Task.Run(ReadPackets);
                 return true;
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"Failed to send initial connection packet: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.Log($"Failed to send handshake packet: {ex.Message}", ClientLogLevel.Error);
                 return false;
             }
         }
 
         /// <summary>
-        /// Chooses between plain or encrypted send based on application UseEncryption setting.
+        /// Builds and sends a framed plain-text chat packet to the server via raw socket send.
+        /// Payload format:
+        ///   [1-byte opcode][senderUID][recipientUID=Empty][UTF8 message]
+        /// The entire payload is prefixed by a 4-byte big-endian length before transmission.
         /// </summary>
-        public bool SendMessageToServer(string message)
-            => Properties.Settings.Default.UseEncryption
-               ? SendEncryptedMessageToServer(message)
-               : SendPlainMessageToServer(message);
-
-        /// <summary>
-        /// Builds and sends a framed plain-text chat packet to the server.
-        /// Packet body format: [opcode][senderUID][recipientUID=Empty][UTF8 payload].
-        /// The body is prefixed with a 4-byte network-order length before transmission.
-        /// Logs success/failure and echoes the message locally on success.
-        /// </summary>
+        /// <param name="message">The chat message to broadcast.</param>
+        /// <returns>True if the packet was sent; false on error or invalid state.</returns>
         public bool SendPlainMessageToServer(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
                 return false;
 
-            if (Application.Current.MainWindow is not MainWindow mainWindow ||
-                mainWindow.ViewModel is not MainViewModel viewModel)
-            {
-                ClientLogger.Log("SendPlainMessageToServer failed: UI context is missing.", ClientLogLevel.Error);
-                return false;
-            }
-
             if (_tcpClient?.Connected != true)
             {
-                var errorMessage = LocalizationManager.GetString("ClientSocketNotConnected");
-                ClientLogger.Log($"SendPlainMessageToServer failed: {errorMessage}", ClientLogLevel.Error);
+                ClientLogger.Log("SendPlainMessageToServer failed: socket not connected.", ClientLogLevel.Error);
                 return false;
             }
 
-            var localUser = viewModel.LocalUser;
-            if (localUser == null || string.IsNullOrWhiteSpace(localUser.UID))
+            // Ensures we have a valid local user UID
+            if (Application.Current.MainWindow is not MainWindow mainWindow ||
+                mainWindow.ViewModel is not MainViewModel viewModel ||
+                viewModel.LocalUser == null ||
+                !Guid.TryParse(viewModel.LocalUser.UID, out Guid userUid))
             {
                 ClientLogger.Log("SendPlainMessageToServer failed: Local user is not initialized.", ClientLogLevel.Error);
                 return false;
             }
 
-            string payload = message.Trim();
-
+            string trimmed = message.Trim();
             try
             {
-                // Builds the packet body (opcode + sender UID + recipient placeholder + message)
-                var plainMessagePacket = new PacketBuilder();
-                plainMessagePacket.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
-                plainMessagePacket.WriteUid(Guid.Parse(localUser.UID));
-                plainMessagePacket.WriteUid(Guid.Empty); // placeholder for broadcast recipient
-                plainMessagePacket.WriteString(payload);
+                // Builds the payload: opcode + sender UID + empty recipient UID + message
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                builder.WriteUid(userUid);
+                builder.WriteUid(Guid.Empty);
+                builder.WriteString(trimmed);
 
-                // Serializes body and create a 4-byte network-order length prefix
-                byte[] body = plainMessagePacket.GetPacketBytes();
-                byte[] lengthPrefix = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(body.Length));
+                // Frames it with a 4-byte network-order length prefix
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framed = Frame(payload);
 
-                // Sends framed packet: length prefix then body, using NetworkStream for reliable Write/Flush
-                NetworkStream stream = _tcpClient.GetStream();
-                stream.Write(lengthPrefix, 0, lengthPrefix.Length);
-                stream.Write(body, 0, body.Length);
-                stream.Flush();
+                // Logs a preview and send via the raw socket API
+                string preview = trimmed.Length > 64
+                    ? trimmed.Substring(0, 64) + "…"
+                    : trimmed;
+                ClientLogger.Log($"Sending plain message: \"{preview}\"", ClientLogLevel.Debug);
 
-                ClientLogger.Log($"Sent framed plain message len={body.Length} preview=\"{(payload.Length > 64 ? payload.Substring(0, 64) + "…" : payload)}\"", ClientLogLevel.Debug);
-
-                // Echoes locally on UI thread
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    viewModel.Messages.Add($"{localUser.Username}: {payload}");
-                });
-
+                _tcpClient.Client.Send(framed);
                 return true;
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"SendPlainMessageToServer exception: {ex.Message}", ClientLogLevel.Error);
-
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    viewModel.Messages.Add(LocalizationManager.GetString("MessageSendingFailed"));
-                });
                 return false;
             }
         }

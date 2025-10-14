@@ -166,16 +166,13 @@
     <value>I/O error for client '{0}': {1}</value>
   </data>
   <data name="PacketLoopError" xml:space="preserve">
-    <value>Error in packet loop for '{0}': {1}</value>
+    <value>Error in packet loop for '{0}'.</value>
   </data>
   <data name="ClientRemoved" xml:space="preserve">
     <value>Client '{0}' removed</value>
   </data>
   <data name="RosterSendFailed" xml:space="preserve">
     <value>Failed to send roster to '{0}': {1}</value>
-  </data>
-  <data name="RosterBroadcastComplete" xml:space="preserve">
-    <value>Completed sending roster to '{0}'</value>
   </data>
   <data name="DisconnectNotifyFailed" xml:space="preserve">
     <value>Failed to notify disconnection of '{0}': {1}</value>
@@ -233,5 +230,11 @@
   </data>
   <data name="IncomingConnection" xml:space="preserve">
     <value>Incoming connection from '{0}'</value>
+  </data>
+  <data name="Exiting" xml:space="preserve">
+    <value>Exiting...</value>
+  </data>
+  <data name="RosterSendSuccess" xml:space="preserve">
+    <value>Successfully sent roster to '{0}'</value>
   </data>
 </root>

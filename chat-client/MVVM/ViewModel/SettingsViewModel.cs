@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 12th, 2025</date>
+/// <date>October 14th, 2025</date>
 
 
 // The System.ComponentModel namespace enables WPF to track property changes
@@ -28,11 +28,11 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Collection of languages for the ComboBox (ISO code + localized name).
         /// </summary>
-        public ObservableCollection<LanguageOption> SupportedLanguages { get; }
-            = new ObservableCollection<LanguageOption>
+        public ObservableCollection<LanguageOptions> SupportedLanguages { get; }
+            = new ObservableCollection<LanguageOptions>
             {
-                new LanguageOption("en"),
-                new LanguageOption("fr")
+                new LanguageOptions("en"),
+                new LanguageOptions("fr")
             };
 
         public event PropertyChangedEventHandler? PropertyChanged;

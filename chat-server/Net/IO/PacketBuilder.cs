@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 12th, 2025</date>
+/// <date>October 14th, 2025</date>
 
 using System;
 using System.IO;
@@ -95,7 +95,7 @@ namespace chat_server.Net
         /// </summary>
         public void WriteUserConnected(Guid uid, string username)
         {
-            WriteOpCode((byte)ClientPacketOpCode.ConnectionBroadcast);
+            WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
             WriteUid(uid);
             WriteString(username);
         }
@@ -105,7 +105,7 @@ namespace chat_server.Net
         /// </summary>
         public void WriteUserDisconnected(Guid uid, string username)
         {
-            WriteOpCode((byte)ClientPacketOpCode.DisconnectNotify);
+            WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
             WriteUid(uid);
             WriteString(username);
         }
@@ -115,7 +115,7 @@ namespace chat_server.Net
         /// </summary>
         public void WritePublicKeyRequest(Guid senderUid, Guid targetUid)
         {
-            WriteOpCode((byte)ClientPacketOpCode.PublicKeyRequest);
+            WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
             WriteUid(senderUid);
             WriteUid(targetUid);
         }
@@ -125,7 +125,7 @@ namespace chat_server.Net
         /// </summary>
         public void WritePlainMessage(Guid senderUid, string message)
         {
-            WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+            WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
             WriteUid(senderUid);
             WriteString(message);
         }
@@ -135,7 +135,7 @@ namespace chat_server.Net
         /// </summary>
         public void WritePublicKeyResponse(Guid senderUid, string publicKeyBase64)
         {
-            WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
+            WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
             WriteUid(senderUid);
             WriteString(publicKeyBase64);
         }
@@ -145,7 +145,7 @@ namespace chat_server.Net
         /// </summary>
         public void WriteEncryptedMessage(Guid senderUid, byte[] encryptedPayload)
         {
-            WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+            WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
             WriteUid(senderUid);
             WriteBytes(encryptedPayload);
         }
@@ -155,7 +155,7 @@ namespace chat_server.Net
         /// </summary>
         public void WriteServerDisconnect(Guid recipientUid)
         {
-            WriteOpCode((byte)ClientPacketOpCode.DisconnectClient);
+            WriteOpCode((byte)ServerPacketOpCode.DisconnectClient);
             WriteUid(recipientUid);
         }
     }

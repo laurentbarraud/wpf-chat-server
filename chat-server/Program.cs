@@ -1,212 +1,279 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 12th, 2025</date>
+/// <date>October 14th, 2025</date>
 
-using chat_server.Helpers;
-using chat_server.Net;
-using chat_server.Net.IO;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
+using chat_server.Helpers;
+using chat_server.Net;
+using chat_server.Net.IO;
 
 namespace chat_server
 {
-    /// <summary>
-    /// Application entry point and central dispatcher.
-    /// Manages listener lifecycle, client registration, broadcasting,
-    /// and packet framing/unframing.
-    /// </summary>
-    public static class Program
+    public class Program
     {
-        private static TcpListener _listener = default!;
+        // Shared list of connected clients
+        internal static List<Client> Users = new();
 
-        ////<summary>Synchronization primitive used to block the main thread until a shutdown is triggered.</summary>
-        private static readonly ManualResetEventSlim _shutdownEvent = new(false);
+        // Listener for all incoming TCP connections
+        static TcpListener listener;
 
-        /// <summary>Thread-safe list of all connected clients.</summary>
-        public static readonly List<Client> Users = new();
-
-        /// <summary>Culture code for localization (en or fr).</summary>
-        public static string AppLanguage = "en";
-
-        /// <summary>Reserved system UID for server-originated packets.</summary>
-        public static readonly Guid SystemUID = Guid.Parse("00000000-0000-0000-0000-000000000001");
-
-        /// <summary>
-        /// Initializes console, localization, listener and waits for shutdown.
-        /// </summary>
         public static void Main(string[] args)
         {
+            // Initializes localization based on OS culture (fr or en)
+            string twoLetterLanguageCode = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
+            LocalizationManager.Initialize(twoLetterLanguageCode.Equals("fr", StringComparison.OrdinalIgnoreCase) ? "fr" : "en");
+
             Console.OutputEncoding = System.Text.Encoding.UTF8;
-            Console.CancelKeyPress += (s, e) =>
+
+            // Handles Ctrl+C: stops listener and exits immediately
+            Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
-                Shutdown();
-                _shutdownEvent.Set();
+                listener.Stop();
+                Environment.Exit(0);
             };
 
-            // Determines language and initializes resource manager
-            string twoLetterlanguageCode = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-            AppLanguage = (twoLetterlanguageCode == "fr") ? "fr" : "en";
-            LocalizationManager.Initialize(AppLanguage);
-
             DisplayBanner();
-            int port = GetPortFromUser();
+            int portNumber = GetPortFromUser();
 
             try
             {
-                StartServerListener(port);
-                _shutdownEvent.Wait();
+                // Starts listening on loopback
+                listener = new TcpListener(IPAddress.Loopback, portNumber);
+                listener.Start();
+                Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"),
+                        portNumber));
+
+                // Accepts new clients continuously
+                Task.Run(AcceptLoop);
+
+                // Main thread blocks forever (or until Ctrl+C fires)
+                Thread.Sleep(Timeout.Infinite);
             }
             catch (Exception ex)
             {
-                ServerLogger.LogLocalized("ServerStartFailed", ServerLogLevel.Error, port.ToString(), ex.Message);
+                Console.WriteLine("\n" + string.Format(LocalizationManager.GetString("FailedToStartServerOnPort"),
+                        portNumber, ex.Message));
+                Console.WriteLine(LocalizationManager.GetString("Exiting..."));
                 Environment.Exit(1);
             }
         }
 
         /// <summary>
-        /// Broadcasts the current connected users list (roster) to every connected client.
-        /// Excludes sending to self in each loop iteration.
+        /// Runs in a background thread.
+        /// Accepts TCP clients, generates a Client wrapper for each,
+        /// and lets Client.cs handle handshake and packet loop.
         /// </summary>
-        public static void BroadcastConnection()
+        private static void AcceptLoop()
         {
-            List<Client> lstConnectedClientsSnapshot;
-            lock (Users) lstConnectedClientsSnapshot = Users.ToList();
-
-            foreach (var user in lstConnectedClientsSnapshot)
+            while (true)
             {
-                foreach (var peerUser in lstConnectedClientsSnapshot)
+                TcpClient tcpClient;
+                try
                 {
-                    if (peerUser.UID == user.UID || !peerUser.ClientSocket.Connected)
-                        continue;
+                    tcpClient = listener.AcceptTcpClient();
+                }
+                catch (SocketException)
+                {
+                    // listener.Stop() was called on shutdown
+                    break;
+                }
 
-                    var packetBuilder = new PacketBuilder();
-                    packetBuilder.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
-                    packetBuilder.WriteUid(user.UID);
-                    packetBuilder.WriteString(user.Username);
-                    packetBuilder.WriteString(user.PublicKeyBase64 ?? string.Empty);
-
-                    byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
+                // Handles each client without blocking AcceptLoop()
+                Task.Run(() =>
+                {
                     try
                     {
-                        peerUser.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
+                        // Client constructor performs handshake, roster update, and starts its own loop
+                        new Client(tcpClient);
                     }
                     catch (Exception ex)
                     {
-                        ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error, peerUser.Username, ex.Message);
+                        // Logs any handshake or initialization failure and closes socket
+                        ServerLogger.LogLocalized("HandleNewClientError", ServerLogLevel.Error,
+                            ex.Message);
+                        try 
+                        { 
+                            tcpClient.Close(); 
+                        } 
+                        catch 
+                        { 
+                        
+                        }
+                    }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Broadcasts the full roster of connected users to every client.
+        /// Builds a framed packet (4-byte length prefix + payload) for each user,
+        /// then sends it via the raw socket API. Logs success or failure per send.
+        /// </summary>
+        public static void BroadcastConnection()
+        {
+            // Take a snapshot to avoid collection-modification during iteration
+            List<Client> snapshot;
+            //lock (Users)
+                snapshot = Users.ToList();
+
+            foreach (var broadcaster in snapshot)
+            {
+                foreach (var listener in snapshot)
+                {
+                    if (!listener.ClientSocket.Connected)
+                        continue;
+
+                    // Builds the roster packet
+                    var builder = new PacketBuilder();
+                    builder.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
+                    builder.WriteUid(broadcaster.UID);
+                    builder.WriteString(broadcaster.Username);
+                    builder.WriteString(broadcaster.PublicKeyBase64 ?? string.Empty);
+
+                    // Frames the payload with a 4-byte network-order length prefix
+                    byte[] payload = builder.GetPacketBytes();
+                    byte[] framedPacket = Frame(payload);
+
+                    try
+                    {
+                        // Sends the framed packet via raw socket
+                        listener.ClientSocket.Client.Send(framedPacket);
+                        ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug,
+                            listener.Username);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Logs any failure to deliver the roster packet
+                        ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error,
+                            listener.Username, ex.Message);
                     }
                 }
             }
-
-            ServerLogger.LogLocalized("RosterBroadcastComplete", ServerLogLevel.Debug);
         }
 
         /// <summary>
-        /// Removes the given UID from the connected users list and notifies all clients.
+        /// Removes the specified user from the server roster and notifies all remaining clients.
+        /// Constructs a framed packet (4-byte length prefix + payload) containing:
+        ///   • opcode (DisconnectNotify)
+        ///   • UID of the disconnected user
+        /// Then sends it via the raw socket API and logs success or failure for each recipient.
         /// </summary>
-        /// <param name="uid">UID of the disconnected client.</param>
-        public static void BroadcastDisconnect(string uid)
+        /// <param name="disconnectedUserId">Unique identifier of the client who disconnected.</param>
+        public static void BroadcastDisconnect(string disconnectedUserId)
         {
-            List<Client> lstConnectedClientsSnapshot;
-            lock (Users) lstConnectedClientsSnapshot = Users.ToList();
+            // Takes a snapshot of current users to avoid modifying the collection during iteration
+            List<Client> snapshot;
+            lock (Users)
+                snapshot = Users.ToList();
 
-            var goneUser = lstConnectedClientsSnapshot.FirstOrDefault(u => u.UID.ToString() == uid);
+            // Locates and removes the disconnected user from the live roster
+            Client goneUser = snapshot.FirstOrDefault(u => u.UID.ToString() == disconnectedUserId);
             if (goneUser != null)
-                lock (Users) Users.Remove(goneUser);
-
-            foreach (var peerUser in lstConnectedClientsSnapshot)
             {
-                if (!peerUser.ClientSocket.Connected) continue;
+                lock (Users)
+                    Users.Remove(goneUser);
+            }
 
+            // Notifies each remaining client
+            foreach (var listener in snapshot)
+            {
+                if (!listener.ClientSocket.Connected)
+                    continue;
+
+                // Builds the disconnect notification packet
                 var packetBuilder = new PacketBuilder();
                 packetBuilder.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
-                packetBuilder.WriteUid(Guid.Parse(uid));
+                packetBuilder.WriteUid(Guid.Parse(disconnectedUserId));
+                packetBuilder.WriteString(goneUser.Username);
 
-                byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
+                // Frames the packet with a 4-byte network-order length prefix
+                byte[] payload = packetBuilder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
+
                 try
                 {
-                    peerUser.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
+                    // Sends via the raw socket API
+                    listener.ClientSocket.Client.Send(framedPacket);
+                    ServerLogger.LogLocalized("DisconnectNotifySuccess", 
+                        ServerLogLevel.Debug, listener.Username);
                 }
                 catch (Exception ex)
                 {
-                    ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn, peerUser.Username, ex.Message);
+                    // Logs any failure to deliver the notification
+                    ServerLogger.LogLocalized("DisconnectNotifyFailed",  
+                        ServerLogLevel.Warn, listener.Username, ex.Message);
                 }
             }
 
-            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, uid.ToString());
+            // Logs the overall disconnection event once
+            string username = goneUser?.Username ?? "Unknown User";
+            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info,
+                username);
+        }
+
+
+        /// <summary>
+        /// Broadcasts a plain‐text chat message from one client to all connected clients.
+        /// Constructs a framed packet (4-byte length prefix + payload) containing:
+        ///   • opcode (PlainMessage)
+        ///   • sender UID
+        ///   • recipient UID placeholder
+        ///   • UTF-8 message text
+        /// Then sends it via the raw socket API and logs each delivery result.
+        /// </summary>
+        /// <param name="messageText">The message content to broadcast.</param>
+        /// <param name="senderUid">Unique identifier of the message sender.</param>
+        public static void BroadcastPlainMessage(string messageText, Guid senderUid)
+        {
+            // Snapshots the user list to avoid concurrent-modification
+            List<Client> targets;
+            lock (Users)
+                targets = Users.ToList();
+
+            foreach (var target in targets)
+            {
+                if (!target.ClientSocket.Connected)
+                    continue;
+
+                // Builds the packet
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
+                builder.WriteUid(senderUid);       // sender’s UID
+                builder.WriteUid(target.UID);      // recipient placeholder
+                builder.WriteString(messageText);  // the actual message
+
+                // Frames with 4-byte network-order length prefix
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
+
+                try
+                {
+                    // Sends via raw socket
+                    target.ClientSocket.Client.Send(framedPacket);
+                    ServerLogger.LogLocalized("MessageRelaySuccess", ServerLogLevel.Debug,
+                        target.Username);
+                }
+                catch (Exception ex)
+                {
+                    // Logs any failure
+                    ServerLogger.LogLocalized("MessageRelayFailed", ServerLogLevel.Warn,
+                        target.Username, ex.Message);
+                }
+            }
         }
 
         /// <summary>
-        /// Broadcasts a plaintext message to every client except the sender.
+        /// Writes the server banner and startup instructions to the console.
         /// </summary>
-        /// <param name="message">Original text message.</param>
-        /// <param name="senderId">UID of the sending client.</param>
-        public static void BroadcastPlainMessage(string message, Guid senderId)
-        {
-            List<Client> snapshot;
-            lock (Users) snapshot = Users.ToList();
-
-            var sender = snapshot.FirstOrDefault(u => u.UID == senderId);
-            string name = sender?.Username ?? "Unknown";
-            ServerLogger.LogLocalized("PlainMessageBroadcast", ServerLogLevel.Debug, name, message);
-
-            var packetBuilder = new PacketBuilder();
-            packetBuilder.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
-            packetBuilder.WriteUid(senderId);
-            packetBuilder.WriteUid(Guid.Empty);
-            packetBuilder.WriteString(message);
-
-            byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
-            foreach (var peerUser in snapshot)
-            {
-                if (peerUser.UID == senderId || !peerUser.ClientSocket.Connected) continue;
-                try
-                {
-                    peerUser.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("PlainMessageSendFailed", ServerLogLevel.Warn, peerUser.Username, ex.Message);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Broadcasts a client's public key to all other connected clients.
-        /// </summary>
-        /// <param name="sender">Source client for the key.</param>
-        public static void BroadcastPublicKeyToOthers(Client sender)
-        {
-            List<Client> lstConnectedUsersSnapshot;
-            lock (Users) lstConnectedUsersSnapshot = Users.ToList();
-
-            foreach (var peerUser in lstConnectedUsersSnapshot)
-            {
-                if (peerUser.UID == sender.UID || !peerUser.ClientSocket.Connected) continue;
-
-                var packetBuilder = new PacketBuilder();
-                packetBuilder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-                packetBuilder.WriteUid(sender.UID);
-                packetBuilder.WriteString(sender.PublicKeyBase64 ?? string.Empty);
-
-                byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
-                try
-                {
-                    peerUser.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
-                    ServerLogger.LogLocalized("PublicKeyBroadcast", ServerLogLevel.Debug, sender.Username, peerUser.Username);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("PublicKeyBroadcastFail", ServerLogLevel.Error, peerUser.Username, ex.Message);
-                }
-            }
-        }
-
-        /// <summary>Displays localized startup banner.</summary>
-        private static void DisplayBanner()
+        static void DisplayBanner()
         {
             Console.WriteLine("╔═══════════════════════════════════╗");
             Console.WriteLine("║        WPF Chat Server 1.0        ║");
@@ -215,351 +282,212 @@ namespace chat_server
             Console.WriteLine(LocalizationManager.GetString("BannerLine2"));
         }
 
-
         /// <summary>
-        /// Wraps a raw packet body with a 4-byte big-endian length prefix.
-        /// This helps the receiver know how many bytes to read.
+        /// Frames a raw payload with a network-order length prefix for packet transmission.
         /// </summary>
-        /// <param name="body">Raw packet body bytes.</param>
-        /// <returns>Framed packet bytes.</returns>
-        public static byte[] Frame(byte[] body)
+        /// <param name="payload">Raw packet payload bytes.</param>
+        /// <returns>Framed packet ready for network send.</returns>
+        static byte[] Frame(byte[] payload)
         {
-            // Converts the body length to big-endian format (network order)
-            byte[] prefix = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(body.Length));
-
-            // Creates a new byte array to hold the prefix + body
-            var framedPacket = new byte[prefix.Length + body.Length];
-
-            // Copies the 4-byte prefix to the beginning of the array
-            Buffer.BlockCopy(prefix, 0, framedPacket, 0, prefix.Length);
-
-            // Copies the body bytes right after the prefix
-            Buffer.BlockCopy(body, 0, framedPacket, prefix.Length, body.Length);
-
-            // Returns the final framed packet
-            return framedPacket;
+            using MemoryStream memoryStream = new MemoryStream();
+            using BinaryWriter binaryWriter = new BinaryWriter(memoryStream);
+            binaryWriter.Write(IPAddress.HostToNetworkOrder(payload.Length));
+            binaryWriter.Write(payload);
+            return memoryStream.ToArray();
         }
 
-
         /// <summary>
-        /// Prompts the user to enter a TCP port number, with timeout and validation.
-        /// If the user enters nothing (or only whitespace) before the timeout expires,
-        /// the default port is returned silently. Invalid input triggers confirmation.
+        /// Prompts the user to enter a valid TCP port or fallback to default.
         /// </summary>
-        /// <returns>Chosen port between 1000 and 65535, or default after timeout/empty input.</returns>
-        private static int GetPortFromUser()
+        /// <returns>Valid port number to use</returns>
+        static int GetPortFromUser()
         {
-            const int defaultPort = 7123;
+            int defaultPort = 7123;
+            int chosenPort = defaultPort;
 
-            // Asks the user for a port number
-            Console.WriteLine(LocalizationManager.GetString("PortPrompt") + " ");
-
-            // Waits up to 7 seconds for input
+            Console.WriteLine(LocalizationManager.GetString("PortPrompt"));
             string input = ReadLineWithTimeout(7000);
 
-            // If no input (timeout or just whitespace), use default silently
-            if (string.IsNullOrWhiteSpace(input))
+            if (!string.IsNullOrWhiteSpace(input))
             {
-                return defaultPort;
-            }
-
-            // If input is a valid port number in range, uses it
-            if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
-            {
-                return port;
-            }
-
-            // On invalid entry, asks the user if they want the default
-            Console.WriteLine(LocalizationManager.GetString("InvalidPortPrompt"));
-            string? confirm = Console.ReadLine()?.ToLowerInvariant();
-
-            // If user agrees (“y” or “o”), use default; else cancel startup
-            return (confirm == "y" || confirm == "o")
-                ? defaultPort
-                : throw new OperationCanceledException();
-        }
-
-        /// <summary>
-        /// Performs the handshake, registers the client, broadcasts the connected users list, and starts packet loop.
-        /// </summary>
-        /// <param name="tcpClient">Newly accepted TCP client.</param>
-        private static void HandleNewClient(TcpClient tcpClient)
-        {
-            var endpoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown";
-            ServerLogger.LogLocalized("IncomingConnection", ServerLogLevel.Info);
-
-            try
-            {
-                var netStream = tcpClient.GetStream();
-                var packetReaderNetStream = new PacketReader(netStream);
-
-                // Unframe: reads length prefix and payload
-                int bodyLength = packetReaderNetStream.ReadInt32NetworkOrder();
-                byte[] payload = packetReaderNetStream.ReadExact(bodyLength);
-
-                // Parses handshake packet
-                using var ms = new MemoryStream(payload);
-                var packetReader = new PacketReader(ms);
-                var opcode = (ServerPacketOpCode)packetReader.ReadByte();
-                if (opcode != ServerPacketOpCode.Handshake)
+                // Validate port number
+                if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
                 {
-                    ServerLogger.LogLocalized("UnexpectedOpcode", ServerLogLevel.Error, $"{opcode}");
-                    tcpClient.Close();
-                    return;
+                    chosenPort = port;
                 }
-
-                string username = packetReader.ReadString();
-                Guid uid = packetReader.ReadUid();
-                string publicKeyB64 = packetReader.ReadString();
-
-                // Registers client
-                var client = new Client(tcpClient, username, uid)
+                else
                 {
-                    PublicKeyBase64 = publicKeyB64,
-                    PublicKeyDer = Convert.FromBase64String(publicKeyB64)
-                };
-                lock (Users) Users.Add(client);
+                    // Ask user if they want to use default port
+                    Console.Write("Invalid port, would you like to use default port (7123)? (y/n): ");
+                    string confirm = Console.ReadLine()?.Trim().ToLower();
 
-                ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, username);
-                BroadcastConnection();
-
-                /// <summary>
-                /// Starts per-client packet loop in a separate task to avoid blocking the main thread.
-                /// This allows the server to continue accepting new clients while each client is handled independently.
-                /// </summary>
-                _ = Task.Run(() => client.ListenForPackets());
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("HandleNewClientError", ServerLogLevel.Error, ex.Message);
-                try 
-                {
-                    tcpClient.Close(); 
-                }
-                catch 
-                {
-                
+                    if (confirm == "y")
+                    {
+                        chosenPort = defaultPort;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Exiting...");
+                        Environment.Exit(0);
+                    }
                 }
             }
+
+            return chosenPort;
         }
 
         /// <summary>
-        /// Reads a line from the console, but only waits for a limited time.
-        /// Useful to avoid blocking the program if the user doesn't respond.
+        /// Reads a line from the console with a timeout.
         /// </summary>
-        /// <param name="timeoutMs">Maximum time to wait in milliseconds.</param>
-        /// <returns>User input or an empty string if timeout occurs.</returns>
-        private static string ReadLineWithTimeout(int timeoutMs)
+        /// <param name="timeoutMs">Timeout in milliseconds</param>
+        /// <returns>User input or null if timeout</returns>
+        static string ReadLineWithTimeout(int timeoutMs)
         {
-            string? result = null;
-
-            // Starts a background task to read input from the console
-            Task.Run(() => result = Console.ReadLine())
-
-                // Waits for the task to complete or timeout
-                .Wait(timeoutMs);
-
-            // Returns the input if available, or an empty string if timed out
-            return result ?? string.Empty;
-        }
-
-
-        /// <summary>
-        /// Relays an encrypted payload to a specific recipient.
-        /// </summary>
-        /// <param name="cipherB64">Base64 ciphertext string.</param>
-        /// <param name="senderId">UID of the sender.</param>
-        /// <param name="recipientId">UID of the recipient.</param>
-        public static void RelayEncryptedMessageToAUser(string cipherB64, Guid senderId, Guid recipientId)
-        {
-            List<Client> lstConnectedUsersSnapshot;
-            lock (Users) lstConnectedUsersSnapshot = Users.ToList();
-
-            var recipient = lstConnectedUsersSnapshot.FirstOrDefault(u => u.UID == recipientId);
-            if (recipient == null || !recipient.ClientSocket.Connected)
-            {
-                ServerLogger.LogLocalized("EncryptedDeliverFailed", ServerLogLevel.Warn, senderId.ToString(), recipientId.ToString());
-                return;
-            }
-
-            ServerLogger.LogLocalized("EncryptedMessageRelay", ServerLogLevel.Debug, senderId.ToString(), recipientId.ToString());
-
-            var packetBuilder = new PacketBuilder();
-            packetBuilder.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
-            packetBuilder.WriteUid(senderId);
-            packetBuilder.WriteUid(recipientId);
-            // writes raw bytes
-            byte[] cipher = Convert.FromBase64String(cipherB64);
-            packetBuilder.WriteBytesWithLength(cipher);
-
-            byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
-            try
-            {
-                recipient.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("EncryptedSendError", ServerLogLevel.Error, recipient.Username, ex.Message);
-            }
+            string input = "";
+            var task = Task.Run(() => input = Console.ReadLine());
+            bool completed = task.Wait(timeoutMs);
+            return completed ? input : "";
         }
 
         /// <summary>
-        /// Handles a public key request from one client to another.
-        /// Finds the target user and sends their public key to the requester only.
+        /// Relays an encrypted payload from one client to another specific client.
+        /// Constructs a framed packet (4-byte length prefix + payload) containing:
+        ///   • opcode (EncryptedMessage)
+        ///   • sender UID
+        ///   • recipient UID
+        ///   • length-prefixed ciphertext bytes
+        /// Then sends it via the raw socket API and logs success or failure.
         /// </summary>
-        /// <param name="requesterId">UID of the client requesting the key.</param>
-        /// <param name="targetId">UID of the client whose key is requested.</param>
-        public static void RelayPublicKeyRequest(Guid requesterId, Guid targetId)
+        /// <param name="cipherB64">Base64 string of the encrypted payload.</param>
+        /// <param name="senderUid">Unique identifier of the sending client.</param>
+        /// <param name="recipientUid">Unique identifier of the receiving client.</param>
+        public static void RelayEncryptedMessageToAUser(string cipherB64, Guid senderUid, Guid recipientUid)
         {
-            List<Client> lstConnectedUsersSnapshot;
-            lock (Users) lstConnectedUsersSnapshot = Users.ToList();
+            List<Client> snapshot;
+            lock (Users)
+                snapshot = Users.ToList();
 
-            var targetUser = lstConnectedUsersSnapshot.FirstOrDefault(u => u.UID == targetId);
-            var requestingUser = lstConnectedUsersSnapshot.FirstOrDefault(u => u.UID == requesterId);
-
-            if (targetUser == null)
+            var recipient = snapshot.FirstOrDefault(u => u.UID == recipientUid);
+            if (recipient?.ClientSocket.Connected == true)
             {
-                ServerLogger.LogLocalized("PublicKeyRequestTargetNotFound", ServerLogLevel.Warn, targetId.ToString());
-                return;
-            }
+                byte[] cipherBytes = Convert.FromBase64String(cipherB64);
 
-            if (requestingUser == null || !requestingUser.ClientSocket.Connected)
-            {
-                ServerLogger.LogLocalized("PublicKeyRequestRequesterNotConnected", ServerLogLevel.Warn, requesterId.ToString());
-                return;
-            }
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
+                builder.WriteUid(senderUid);
+                builder.WriteUid(recipientUid);
+                builder.WriteBytesWithLength(cipherBytes);
 
-            var packetBuilder = new PacketBuilder();
-            packetBuilder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-            packetBuilder.WriteUid(targetUser.UID);
-            packetBuilder.WriteString(targetUser.PublicKeyBase64 ?? string.Empty);
-            packetBuilder.WriteUid(requesterId);
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
 
-            byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
-
-            try
-            {
-                var stream = requestingUser.ClientSocket.GetStream();
-                stream.Write(framedPacket, 0, framedPacket.Length);
-                stream.Flush();
-
-                ServerLogger.LogLocalized("PublicKeyRequestSuccess", ServerLogLevel.Debug, targetUser.Username, requestingUser.Username);
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("PublicKeyRequestSendError", ServerLogLevel.Error, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Relays a single public-key response to the original requester.
-        /// </summary>
-        /// <param name="responderId">UID of the client who owns the key.</param>
-        /// <param name="publicKeyB64">Base64‐encoded public key.</param>
-        /// <param name="requesterId">UID of the client requesting the key.</param>
-        public static void RelayPublicKeyToUser(Guid responderId, string publicKeyB64, Guid requesterId)
-        {
-            List<Client> lstConnectedUsersSnapshot;
-            lock (Users) lstConnectedUsersSnapshot = Users.ToList();
-
-            var requester = lstConnectedUsersSnapshot.FirstOrDefault(u => u.UID == requesterId);
-            if (requester == null || !requester.ClientSocket.Connected)
-            {
-                ServerLogger.LogLocalized("PublicKeyDeliverFail", ServerLogLevel.Warn, requesterId.ToString());
-                return;
-            }
-
-            var packetBuilder = new PacketBuilder();
-            packetBuilder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-            packetBuilder.WriteUid(responderId);
-            packetBuilder.WriteString(publicKeyB64);
-            packetBuilder.WriteUid(requesterId);
-
-            byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
-            try
-            {
-                requester.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
-                ServerLogger.LogLocalized("PublicKeyDelivered", ServerLogLevel.Debug, responderId.ToString(), requesterId.ToString());
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("PublicKeyDeliverError", ServerLogLevel.Error, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Notifies all clients of server shutdown and closes connections.
-        /// </summary>
-        public static void Shutdown()
-        {
-            ServerLogger.LogLocalized("ShutdownStart", ServerLogLevel.Info);
-
-            List<Client> lstConnectedUsersSnapshot;
-            lock (Users) lstConnectedUsersSnapshot = Users.ToList();
-
-            foreach (var client in lstConnectedUsersSnapshot)
-            {
                 try
                 {
-                    var packetBuilder = new PacketBuilder();
-                    packetBuilder.WriteOpCode((byte)ServerPacketOpCode.DisconnectClient);
-                    packetBuilder.WriteUid(SystemUID);
-
-                    byte[] framedPacket = Frame(packetBuilder.GetPacketBytes());
-                    if (client.ClientSocket.Connected)
-                        client.ClientSocket.GetStream().Write(framedPacket, 0, framedPacket.Length);
+                    recipient.ClientSocket.Client.Send(framedPacket);
+                    ServerLogger.LogLocalized("EncryptedMessageRelaySuccess",
+                        ServerLogLevel.Debug, recipient.Username);
                 }
                 catch (Exception ex)
                 {
-                    ServerLogger.LogLocalized("ShutdownNotifyFail", ServerLogLevel.Error, client.Username, ex.Message);
+                    ServerLogger.LogLocalized("EncryptedMessageRelayFailed",
+                        ServerLogLevel.Warn, recipient.Username, ex.Message);
                 }
             }
-
-            ServerLogger.LogLocalized("ShutdownComplete", ServerLogLevel.Info);
         }
 
         /// <summary>
-        /// Starts the TCP listener on the specified port and launches a background task
-        /// that continuously accepts incoming client connections.
-        /// Each accepted client is handled in its own task to keep the server responsive.
+        /// Relays a public key request from one client to another specific client.
+        /// Constructs a framed packet (4-byte length prefix + payload) containing:
+        ///   • opcode (PublicKeyRequest)
+        ///   • requester UID
+        ///   • target UID
+        /// Then sends it via the raw socket API and logs success or failure.
         /// </summary>
-        /// <param name="port">TCP port to bind and listen on.</param>
-        public static void StartServerListener(int selectedPort)
+        /// <param name="requesterUid">Unique identifier of the requesting client.</param>
+        /// <param name="targetUid">Unique identifier of the client whose key is requested.</param>
+        public static void RelayPublicKeyRequest(Guid requesterUid, Guid targetUid)
         {
-            // Creates a TCP listener that listens on all network interfaces
-            _listener = new TcpListener(IPAddress.Any, selectedPort);
+            List<Client> snapshot;
+            lock (Users)
+                snapshot = Users.ToList();
 
-            // Starts the listener to begin accepting connections
-            _listener.Start();
-
-            Console.Write("\n");
-
-            // Logs that the server is now listening
-            Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"), selectedPort));
-
-            // Runs the accept loop in a separate task so the main thread stays free
-            Task.Run(async () =>
+            var target = snapshot.FirstOrDefault(u => u.UID == targetUid);
+            if (target?.ClientSocket.Connected == true)
             {
-                // Keeps accepting clients until shutdown is requested
-                while (!_shutdownEvent.IsSet)
-                {
-                    try
-                    {
-                        // Waits asynchronously for a new client to connect
-                        var tcpClient = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
+                builder.WriteUid(requesterUid);
+                builder.WriteUid(targetUid);
 
-                        // Handles the new client in its own task to avoid blocking the loop
-                        _ = Task.Run(() => HandleNewClient(tcpClient));
-                    }
-                    catch (Exception ex)
-                    {
-                        // Logs any error that occurs while accepting clients
-                        ServerLogger.LogLocalized("AcceptLoopError", ServerLogLevel.Error, ex.Message);
-                    }
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
+
+                try
+                {
+                    target.ClientSocket.Client.Send(framedPacket);
+                    ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess", 
+                        ServerLogLevel.Debug, target.Username);
                 }
-            });
+                catch (Exception ex)
+                {
+                    ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
+                        ServerLogLevel.Warn, target.Username, ex.Message);
+                }
+            }
         }
 
+        /// <summary>
+        /// Relays a public key response from one client back to the original requester.
+        /// Constructs a framed packet (4-byte length prefix + payload) containing:
+        ///   • opcode (PublicKeyResponse)
+        ///   • origin UID
+        ///   • Base64 public key string
+        ///   • requester UID
+        /// Then sends it via the raw socket API and logs success or failure.
+        /// </summary>
+        /// <param name="originUid">Unique identifier of the client sending its key.</param>
+        /// <param name="keyBase64">Base64 string of the public key.</param>
+        /// <param name="requesterUid">Unique identifier of the original requesting client.</param>
+        public static void RelayPublicKeyToUser(Guid originUid, string keyBase64, Guid requesterUid)
+        {
+            List<Client> snapshot;
+            lock (Users)
+                snapshot = Users.ToList();
+
+            var requester = snapshot.FirstOrDefault(u => u.UID == requesterUid);
+            if (requester?.ClientSocket.Connected == true)
+            {
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
+                builder.WriteUid(originUid);
+                builder.WriteString(keyBase64);
+                builder.WriteUid(requesterUid);
+
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
+
+                try
+                {
+                    requester.ClientSocket.Client.Send(framedPacket);
+                    ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess",
+                        ServerLogLevel.Debug, requester.Username);
+                }
+                catch (Exception ex)
+                {
+                    ServerLogger.LogLocalized("PublicKeyResponseRelayFailed", ServerLogLevel.Warn,
+                        requester.Username, ex.Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Signals all clients to disconnect and shuts down the server gracefully.
+        /// </summary>
+        public static void Shutdown()
+        {
+            Console.WriteLine(LocalizationManager.GetString("ServerShutdown"));
+            BroadcastPlainMessage("/disconnect", Guid.Empty);
+            Console.WriteLine(LocalizationManager.GetString("ServerShutdownComplete"));
+        }
     }
 }
-

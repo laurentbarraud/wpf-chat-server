@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 12th, 2025</date>
+/// <date>October 14th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -108,10 +108,6 @@ namespace chat_client.Helpers
                         case "--minimize":
                             reduceInTray = true;
                             break;
-                        case "--console":
-                        case "--debug":
-                            debugMode = true;
-                            break;
                         case "--help":
                             showHelp = true;
                             break;
@@ -162,10 +158,6 @@ namespace chat_client.Helpers
                             case 'm':
                             case 't':
                                 reduceInTray = true;
-                                break;
-                            case 'c':
-                            case 'd':
-                                debugMode = true;
                                 break;
                             case 'h':
                             case '?':
@@ -220,10 +212,6 @@ namespace chat_client.Helpers
                             case 'm':
                             case 't':
                                 reduceInTray = true;
-                                break;
-                            case 'c':
-                            case 'd':
-                                debugMode = true;
                                 break;
                             case 'h':
                             case '?':

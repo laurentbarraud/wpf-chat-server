@@ -1,7 +1,7 @@
 ﻿/// <file>LanguageOption.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 12th, 2025</date>
+/// <date>October 14th, 2025</date>
 
 using System.Globalization;
 
@@ -11,7 +11,7 @@ namespace chat_client.MVVM.Model
     /// Represents one language choice with its ISO code and
     /// a localized display name according to the current UI culture.
     /// </summary>
-    public class LanguageOption
+    public class LanguageOptions
     {
         /// <summary>
         /// Returns the URI of the flag image corresponding to this language code.
@@ -49,7 +49,7 @@ namespace chat_client.MVVM.Model
         /// Initializes the option with its ISO code
         /// </summary>
         /// <param name="languageCode"></param>
-        public LanguageOption(string languageCode) =>
+        public LanguageOptions(string languageCode) =>
             LanguageCode = languageCode;
     }
 }

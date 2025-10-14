@@ -166,16 +166,13 @@
     <value>Erreur E/S pour le client '{0}' : {1}</value>
   </data>
   <data name="PacketLoopError" xml:space="preserve">
-    <value>Erreur dans la boucle de paquets pour '{0}' : {1}</value>
+    <value>Erreur dans la boucle de paquets pour '{0}'.</value>
   </data>
   <data name="ClientRemoved" xml:space="preserve">
     <value>Client '{0}' supprimé</value>
   </data>
   <data name="RosterSendFailed" xml:space="preserve">
     <value>Échec de l’envoi de la liste de contacts à '{0}' : {1}</value>
-  </data>
-  <data name="RosterBroadcastComplete" xml:space="preserve">
-    <value>Envoi de la liste de contacts terminé pour '{0}'</value>
   </data>
   <data name="DisconnectNotifyFailed" xml:space="preserve">
     <value>Échec de la notification de déconnexion de '{0}' : {1}</value>
@@ -233,5 +230,11 @@
   </data>
   <data name="IncomingConnection" xml:space="preserve">
     <value>Connexion entrante depuis '{0}'</value>
+  </data>
+  <data name="Exiting" xml:space="preserve">
+    <value>Fermeture...</value>
+  </data>
+  <data name="RosterSendSuccess" xml:space="preserve">
+    <value>Envoi de la liste des utilisateurs vers « {0} » réussi</value>
   </data>
 </root>

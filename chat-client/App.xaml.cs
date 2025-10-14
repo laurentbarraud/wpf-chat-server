@@ -1,7 +1,7 @@
 ﻿/// <file>App.xaml.cs</fil
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 12th, 2025</date>
+/// <date>October 14th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.Properties;
@@ -15,26 +15,21 @@ namespace chat_client
 {
     public partial class App : Application
     {
-        /// <summary>
-        /// Overrides startup to apply command-line flags, set up culture,
-        /// show the main window, and only then open the debug console if requested.
-        /// </summary>
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // Gathers all user-supplied args - Skip(1) to skip the .exe path
-            string[] args = Environment
-                .GetCommandLineArgs()
-                .Skip(1)
-                .ToArray();
+            // Gathers all args - skip(1) skips exe path
+            string[] args = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
-            // Detects "--debug" or "--console" upfront
+            // Checks for any debug flag
             bool debugMode = args.Any(arg =>
                 arg.Equals("--debug", StringComparison.OrdinalIgnoreCase) ||
-                arg.Equals("--console", StringComparison.OrdinalIgnoreCase));
+                arg.Equals("--console", StringComparison.OrdinalIgnoreCase) || 
+                arg.Equals("-d", StringComparison.OrdinalIgnoreCase) ||
+                arg.Equals("-c", StringComparison.OrdinalIgnoreCase));
 
-            // Let StartupConfigurator handle everything else
+            // Applies all other flags (help, about, theme, encryption…)
             StartupConfigurator.ApplyStartupArguments(args);
 
             // Culture & localization
@@ -51,12 +46,21 @@ namespace chat_client
             Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
 
-            // Enables debug logging and opens console if requested
+            // Opens console + enables debug logging
+#if DEBUG
+            // Debug build: always open console when run under Visual Studio
+            ClientLogger.IsDebugEnabled = true;
+            ConsoleManager.Show();
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+#else
+            // Release build: open console only if flag was passed
             if (debugMode)
             {
                 ClientLogger.IsDebugEnabled = true;
                 ConsoleManager.Show();
+                Console.OutputEncoding = System.Text.Encoding.UTF8;
             }
+#endif
         }
 
         public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
