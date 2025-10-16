@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
 using System;
 using System.IO;
@@ -86,77 +86,6 @@ namespace chat_server.Net
         {
             byte[] bytes = uid.ToByteArray();
             _ms.Write(bytes, 0, bytes.Length);
-        }
-
-        // ——— Models A–F ———
-
-        /// <summary>
-        /// Model A: Writes the user-connected packet (opcode + UID + username).
-        /// </summary>
-        public void WriteUserConnected(Guid uid, string username)
-        {
-            WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
-            WriteUid(uid);
-            WriteString(username);
-        }
-
-        /// <summary>
-        /// Model A: Writes the user-disconnected packet (opcode + UID + username).
-        /// </summary>
-        public void WriteUserDisconnected(Guid uid, string username)
-        {
-            WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
-            WriteUid(uid);
-            WriteString(username);
-        }
-
-        /// <summary>
-        /// Model B: Writes the public-key request packet (opcode + sender UID + target UID).
-        /// </summary>
-        public void WritePublicKeyRequest(Guid senderUid, Guid targetUid)
-        {
-            WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
-            WriteUid(senderUid);
-            WriteUid(targetUid);
-        }
-
-        /// <summary>
-        /// Model C: Writes the plain-text message packet (opcode + sender UID + message).
-        /// </summary>
-        public void WritePlainMessage(Guid senderUid, string message)
-        {
-            WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
-            WriteUid(senderUid);
-            WriteString(message);
-        }
-
-        /// <summary>
-        /// Model D: Writes the public-key response packet (opcode + sender UID + public key).
-        /// </summary>
-        public void WritePublicKeyResponse(Guid senderUid, string publicKeyBase64)
-        {
-            WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-            WriteUid(senderUid);
-            WriteString(publicKeyBase64);
-        }
-
-        /// <summary>
-        /// Model E: Writes the encrypted-message packet (opcode + sender UID + encrypted payload).
-        /// </summary>
-        public void WriteEncryptedMessage(Guid senderUid, byte[] encryptedPayload)
-        {
-            WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
-            WriteUid(senderUid);
-            WriteBytes(encryptedPayload);
-        }
-
-        /// <summary>
-        /// Model F: Writes the server-disconnect packet (opcode + recipient UID).
-        /// </summary>
-        public void WriteServerDisconnect(Guid recipientUid)
-        {
-            WriteOpCode((byte)ServerPacketOpCode.DisconnectClient);
-            WriteUid(recipientUid);
         }
     }
 }

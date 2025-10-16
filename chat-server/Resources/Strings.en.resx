@@ -121,7 +121,7 @@
     <value>Client has connected with the username : {0}</value>
   </data>
   <data name="MessageReceived" xml:space="preserve">
-    <value>Message received from</value>
+    <value>Message received from {0} :</value>
   </data>
   <data name="ServerStartFailed" xml:space="preserve">
     <value>Failed to start server on port {0} : {1}</value>

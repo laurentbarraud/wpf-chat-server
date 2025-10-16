@@ -1,160 +1,119 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
+using Microsoft.VisualBasic.ApplicationServices;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 
 namespace chat_server
 {
     public class Program
     {
-        // Shared list of connected clients
-        internal static List<Client> Users = new();
-
-        // Listener for all incoming TCP connections
-        static TcpListener listener;
+        static internal List<Client> Users = new List<Client>();
+        static TcpListener Listener;
 
         public static void Main(string[] args)
         {
-            // Initializes localization based on OS culture (fr or en)
-            string twoLetterLanguageCode = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-            LocalizationManager.Initialize(twoLetterLanguageCode.Equals("fr", StringComparison.OrdinalIgnoreCase) ? "fr" : "en");
+            // Initialize localization based on OS culture.
+            // If the two-letter code is “fr”, use French; otherwise use English.
+            string osTwoLetter = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
+            string uiLang = osTwoLetter.Equals("fr", StringComparison.OrdinalIgnoreCase)
+                                ? "fr"
+                                : "en";
+            LocalizationManager.Initialize(uiLang);
 
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.OutputEncoding = Encoding.UTF8;
 
-            // Handles Ctrl+C: stops listener and exits immediately
-            Console.CancelKeyPress += (sender, e) =>
+            // Graceful shutdown on Ctrl+C
+            Console.CancelKeyPress += (s, e) =>
             {
                 e.Cancel = true;
-                listener.Stop();
+                Shutdown();
                 Environment.Exit(0);
             };
 
             DisplayBanner();
-            int portNumber = GetPortFromUser();
+            int port = GetPortFromUser();
 
             try
             {
-                // Starts listening on loopback
-                listener = new TcpListener(IPAddress.Loopback, portNumber);
-                listener.Start();
+                Users = new List<Client>();
+                Listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
+                Listener.Start();
                 Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"),
-                        portNumber));
+                    port));
 
-                // Accepts new clients continuously
-                Task.Run(AcceptLoop);
-
-                // Main thread blocks forever (or until Ctrl+C fires)
-                Thread.Sleep(Timeout.Infinite);
+                // Main loop: accepts incoming clients and broadcasts their connection
+                while (true)
+                {
+                    var client = new Client(Listener.AcceptTcpClient());
+                    Users.Add(client);
+                    BroadcastRoster();
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("\n" + string.Format(LocalizationManager.GetString("FailedToStartServerOnPort"),
-                        portNumber, ex.Message));
-                Console.WriteLine(LocalizationManager.GetString("Exiting..."));
+                Console.WriteLine($"\nFailed to start server on port {port}: {ex.Message}");
+                Console.WriteLine("Exiting...");
                 Environment.Exit(1);
             }
         }
 
         /// <summary>
-        /// Runs in a background thread.
-        /// Accepts TCP clients, generates a Client wrapper for each,
-        /// and lets Client.cs handle handshake and packet loop.
+        /// Broadcasts the full roster of connected users to every client.
         /// </summary>
-        private static void AcceptLoop()
+        public static void BroadcastRoster()
         {
-            while (true)
+            // Creates a snapshot of the current user list to avoid concurrent modifications
+            var snapshot = Users.ToList();
+
+            foreach (var recipient in snapshot)
             {
-                TcpClient tcpClient;
                 try
                 {
-                    tcpClient = listener.AcceptTcpClient();
-                }
-                catch (SocketException)
-                {
-                    // listener.Stop() was called on shutdown
-                    break;
-                }
-
-                // Handles each client without blocking AcceptLoop()
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        // Client constructor performs handshake, roster update, and starts its own loop
-                        new Client(tcpClient);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Logs any handshake or initialization failure and closes socket
-                        ServerLogger.LogLocalized("HandleNewClientError", ServerLogLevel.Error,
-                            ex.Message);
-                        try 
-                        { 
-                            tcpClient.Close(); 
-                        } 
-                        catch 
-                        { 
-                        
-                        }
-                    }
-                });
-            }
-        }
-
-        /// <summary>
-        /// Broadcasts the full roster of connected users to every client.
-        /// Builds a framed packet (4-byte length prefix + payload) for each user,
-        /// then sends it via the raw socket API. Logs success or failure per send.
-        /// </summary>
-        public static void BroadcastConnection()
-        {
-            // Take a snapshot to avoid collection-modification during iteration
-            List<Client> snapshot;
-            //lock (Users)
-                snapshot = Users.ToList();
-
-            foreach (var broadcaster in snapshot)
-            {
-                foreach (var listener in snapshot)
-                {
-                    if (!listener.ClientSocket.Connected)
-                        continue;
-
-                    // Builds the roster packet
+                    // Start building a RosterBroadcast packet
                     var builder = new PacketBuilder();
-                    builder.WriteOpCode((byte)ServerPacketOpCode.ConnectionBroadcast);
-                    builder.WriteUid(broadcaster.UID);
-                    builder.WriteString(broadcaster.Username);
-                    builder.WriteString(broadcaster.PublicKeyBase64 ?? string.Empty);
+                    builder.WriteOpCode((byte)ServerPacketOpCode.RosterBroadcast);
 
-                    // Frames the payload with a 4-byte network-order length prefix
+                    // Writes the total number of users as a string
+                    builder.WriteString(snapshot.Count.ToString());
+
+                    // Appends each user’s UID, username, and public key (or empty if missing)
+                    foreach (var target in snapshot)
+                    {
+                        builder.WriteUid(target.UID);
+                        builder.WriteString(target.Username);
+                        builder.WriteString(target.PublicKeyBase64 ?? string.Empty);
+                    }
+
+                    // Extracts the raw packet bytes
                     byte[] payload = builder.GetPacketBytes();
+
+                    // Frames the payload with a 4-byte big-endian length prefix
                     byte[] framedPacket = Frame(payload);
 
-                    try
-                    {
-                        // Sends the framed packet via raw socket
-                        listener.ClientSocket.Client.Send(framedPacket);
-                        ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug,
-                            listener.Username);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Logs any failure to deliver the roster packet
-                        ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error,
-                            listener.Username, ex.Message);
-                    }
+                    // Sends the framed packet to the recipient’s socket
+                    recipient.ClientSocket.Client.Send(framedPacket);
+
+                    // Logs success for this recipient
+                    ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug,
+                        recipient.Username);
+                }
+                catch (Exception ex)
+                {
+                    // Logs any failure to deliver this roster packet
+                    ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error,
+                        recipient.Username, ex.Message);
                 }
             }
         }
@@ -169,56 +128,56 @@ namespace chat_server
         /// <param name="disconnectedUserId">Unique identifier of the client who disconnected.</param>
         public static void BroadcastDisconnect(string disconnectedUserId)
         {
-            // Takes a snapshot of current users to avoid modifying the collection during iteration
-            List<Client> snapshot;
-            lock (Users)
-                snapshot = Users.ToList();
+            // Snapshot users
+            var snapshot = Users.ToList();
 
-            // Locates and removes the disconnected user from the live roster
+            // Tries to find the gone user
             Client goneUser = snapshot.FirstOrDefault(u => u.UID.ToString() == disconnectedUserId);
+
+            // If found, removes from the live Users list
             if (goneUser != null)
             {
                 lock (Users)
                     Users.Remove(goneUser);
             }
 
-            // Notifies each remaining client
+            // Prepares a safe username fallback
+            string username = goneUser?.Username ?? disconnectedUserId;
+
+            // Notifies each listener
             foreach (var listener in snapshot)
             {
                 if (!listener.ClientSocket.Connected)
                     continue;
 
-                // Builds the disconnect notification packet
-                var packetBuilder = new PacketBuilder();
-                packetBuilder.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
-                packetBuilder.WriteUid(Guid.Parse(disconnectedUserId));
-                packetBuilder.WriteString(goneUser.Username);
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
+                builder.WriteUid(Guid.Parse(disconnectedUserId));
+                builder.WriteString(username);   // safe fallback
 
-                // Frames the packet with a 4-byte network-order length prefix
-                byte[] payload = packetBuilder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
+                // Frames the packet
+                byte[] payload = builder.GetPacketBytes();
+                int netLen = IPAddress.HostToNetworkOrder(payload.Length);
+                byte[] lenBuf = BitConverter.GetBytes(netLen);
 
                 try
                 {
-                    // Sends via the raw socket API
-                    listener.ClientSocket.Client.Send(framedPacket);
-                    ServerLogger.LogLocalized("DisconnectNotifySuccess", 
-                        ServerLogLevel.Debug, listener.Username);
+                    listener.ClientSocket.Client.Send(lenBuf);
+                    listener.ClientSocket.Client.Send(payload);
+
+                    ServerLogger.LogLocalized("DisconnectNotifySuccess", ServerLogLevel.Debug,
+                        listener.Username);
                 }
                 catch (Exception ex)
                 {
-                    // Logs any failure to deliver the notification
-                    ServerLogger.LogLocalized("DisconnectNotifyFailed",  
-                        ServerLogLevel.Warn, listener.Username, ex.Message);
+                    ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn,
+                        listener.Username, ex.Message);
                 }
             }
 
-            // Logs the overall disconnection event once
-            string username = goneUser?.Username ?? "Unknown User";
-            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info,
-                username);
+            // Logs the disconnection event once
+            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, username);
         }
-
 
         /// <summary>
         /// Broadcasts a plain‐text chat message from one client to all connected clients.
@@ -235,8 +194,7 @@ namespace chat_server
         {
             // Snapshots the user list to avoid concurrent-modification
             List<Client> targets;
-            lock (Users)
-                targets = Users.ToList();
+            targets = Users.ToList();
 
             foreach (var target in targets)
             {
@@ -364,8 +322,7 @@ namespace chat_server
         public static void RelayEncryptedMessageToAUser(string cipherB64, Guid senderUid, Guid recipientUid)
         {
             List<Client> snapshot;
-            lock (Users)
-                snapshot = Users.ToList();
+            snapshot = Users.ToList();
 
             var recipient = snapshot.FirstOrDefault(u => u.UID == recipientUid);
             if (recipient?.ClientSocket.Connected == true)
@@ -408,8 +365,7 @@ namespace chat_server
         public static void RelayPublicKeyRequest(Guid requesterUid, Guid targetUid)
         {
             List<Client> snapshot;
-            lock (Users)
-                snapshot = Users.ToList();
+            snapshot = Users.ToList();
 
             var target = snapshot.FirstOrDefault(u => u.UID == targetUid);
             if (target?.ClientSocket.Connected == true)
@@ -451,8 +407,7 @@ namespace chat_server
         public static void RelayPublicKeyToUser(Guid originUid, string keyBase64, Guid requesterUid)
         {
             List<Client> snapshot;
-            lock (Users)
-                snapshot = Users.ToList();
+            snapshot = Users.ToList();
 
             var requester = snapshot.FirstOrDefault(u => u.UID == requesterUid);
             if (requester?.ClientSocket.Connected == true)

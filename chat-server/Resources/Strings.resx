@@ -118,10 +118,10 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="ClientConnected" xml:space="preserve">
-    <value>Client has connected with the username : {0},</value>
+    <value>Client has connected with the username : {0}</value>
   </data>
   <data name="MessageReceived" xml:space="preserve">
-    <value>Message received from</value>
+    <value>Message received from {0} :</value>
   </data>
   <data name="ServerStartFailed" xml:space="preserve">
     <value>Failed to start server on port {0} : {1}</value>

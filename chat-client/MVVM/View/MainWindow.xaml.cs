@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -298,8 +298,7 @@ namespace chat_client
                 // Logs an error and adds a localized failure notice to the ViewModel’s Messages
                 ClientLogger.Log($"Failed to send message: {MainViewModel.Message}", ClientLogLevel.Error);
 
-                ViewModel.Messages.Add(
-                    $"# {LocalizationManager.GetString("SendingFailed")} #");
+                ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
             }
         }
 

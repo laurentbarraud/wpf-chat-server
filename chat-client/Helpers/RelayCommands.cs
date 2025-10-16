@@ -1,7 +1,7 @@
 ﻿/// <file>RelayCommand.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
 using System;                               
 using System.Windows.Input;                // Imports ICommand and CommandManager.
@@ -12,7 +12,7 @@ namespace chat_client.Helpers
     /// Provides a command that runs an action with a parameter of type T.
     /// Stores an execute callback and an optional can-execute check.
     /// </summary>
-    public class RelayCommand<T> : ICommand
+    public class RelayCommands<T> : ICommand
     {
         // Stores the action to invoke when the command executes.
         private readonly Action<T> _execute;
@@ -33,7 +33,7 @@ namespace chat_client.Helpers
         /// </summary>
         /// <param name="execute">Action to invoke on Execute call.</param>
         /// <param name="canExecute">Predicate to invoke on CanExecute check; default returns true.</param>
-        public RelayCommand(Action<T> execute, Predicate<T>? canExecute = null)
+        public RelayCommands(Action<T> execute, Predicate<T>? canExecute = null)
         {
             _execute = execute ?? throw new ArgumentNullException(nameof(execute));               // Assigns execute or throws if null.
             _canExecute = canExecute ?? (_ => true);                                              // Assigns canExecute or default that always returns true.

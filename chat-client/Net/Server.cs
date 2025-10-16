@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -26,14 +26,18 @@ namespace chat_client.Net
         /// initialized after connecting to the server.</summary>
         public PacketReader packetReader { get; private set; } = null!;
 
-
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _tcpClient?.Connected ?? false;
 
-        /// <summary>Indicates whether the server has acknowledged the client's identity.</summary>
-        public bool HandshakeCompleted { get; private set; } = false;
-
         // PUBLIC EVENTS
+
+        // Fired when a new connection is about to start reading packets.
+        // Subscribers should reset their roster snapshot state.
+        public event Action? ConnectionEstablished;
+
+        // Fired when the connection is being terminated.
+        // Subscribers should reset their roster snapshot state.
+        public event Action? ConnectionTerminated;
 
         // A new user joined (opcode 1)
         //   Parameters: uid, username, publicKey
@@ -41,7 +45,7 @@ namespace chat_client.Net
 
         // A plain-text message arrived (opcode 5)
         //   Parameter: the fully formatted text
-        public event Action<string>? PlainMessageReceivedEvent;
+        public event Action<string, string>? PlainMessageReceivedEvent;
 
         /// Raised when the server delivers an encrypted message (opcode 11).
         /// Parameters: sender GUID and raw ciphertext bytes
@@ -82,78 +86,55 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Establishes a TCP connection to the chat server and begins packet processing.
-        /// Validates the IP format, selects the correct port, and connects the client.
-        /// Initializes the PacketReader for incoming data and starts the background read loop.
-        /// Subscribes to PlainMessageReceivedEvent to echo messages to the console.
-        /// Generates a unique UID and public key, sends the initial handshake packet,
-        /// and returns the assigned identity on success or empty values on failure.
+        /// Establishes a TCP connection to the server, creates a unique identity,
+        /// sends a framed handshake packet (username, UID, RSA key), and then
+        /// starts the packet-reading loop on a background thread.
         /// </summary>
-        /// <param name="username">The display name of the user initiating the connection.</param>
-        /// <param name="IPAddressOfServer">
-        /// The server’s IP address; defaults to localhost if null or empty.
-        /// </param>
-        /// <returns>
-        /// A tuple containing the generated UID and RSA public key if successful;
-        /// otherwise (Guid.Empty, string.Empty).
-        /// </returns>
-        public (Guid uid, string publicKeyBase64) ConnectToServer(
-            string username,
+        public (Guid uid, string publicKeyBase64) ConnectToServer(string username,
             string IPAddressOfServer)
         {
             try
             {
-                // Determines the target IP; defaults to localhost if none is provided
-                string ipToConnect =
-                    string.IsNullOrWhiteSpace(IPAddressOfServer)
-                        ? "127.0.0.1"
-                        : IPAddressOfServer;
+                // Determines target IP (default to localhost)
+                string ipToConnect = string.IsNullOrWhiteSpace(IPAddressOfServer)
+                    ? "127.0.0.1" : IPAddressOfServer;
 
-                // Validates non-localhost IP format
-                if (ipToConnect != "127.0.0.1"
-                    && !System.Net.IPAddress.TryParse(ipToConnect, out _))
+                // Validates non-localhost address
+                if (ipToConnect != "127.0.0.1" && !System.Net.IPAddress.TryParse(ipToConnect, out _))
                 {
-                    throw new ArgumentException(
-                        LocalizationManager.GetString("IPAddressInvalid"));
+                    throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
                 }
 
-                // Selects the port: uses custom if enabled, otherwise defaults to 7123
-                int portToUse = Properties.Settings.Default.UseCustomPort
+                // Chooses port: custom if enabled, otherwise default 7123
+                int port = Properties.Settings.Default.UseCustomPort
                     ? Properties.Settings.Default.CustomPortNumber
                     : 7123;
 
-                // Establishes the TCP connection
-                _tcpClient.Connect(ipToConnect, portToUse);
-                ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {portToUse}",
+                // Connects to the server
+                _tcpClient.Connect(ipToConnect, port);
+                ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {port}",
                     ClientLogLevel.Debug);
 
-                // Initializes the packet reader over the live network stream
-                var netStream = _tcpClient.GetStream();
-                packetReader = new PacketReader(netStream);
+                // Prepares to read incoming packets
+                packetReader = new PacketReader(_tcpClient.GetStream());
 
-                // Subscribes to plain-text message events to echo to the console
-                PlainMessageReceivedEvent += message => Console.WriteLine(message);
-
-                // Starts processing incoming packets on a background thread
-                Task.Run(ReadPackets);
-
-                // Generates a unique UID and retrieves the client's RSA public key
+                // Generates UID and public key
                 Guid uid = Guid.NewGuid();
                 string publicKeyBase64 = EncryptionHelper.PublicKeyBase64;
-                ClientLogger.Log($"UID generated for handshake: {uid}", ClientLogLevel.Debug);
-                ClientLogger.Log($"RSA public key generated: {publicKeyBase64}",
-                    ClientLogLevel.Debug);
 
-                // Sends the initial connection packet (username, UID, public key)
-                if (!SendInitialConnectionPacket(username, uid, publicKeyBase64))
-                {
-                    throw new Exception(
-                        "Failed to send initial connection packet.");
-                }
-
-                // Stores local identity values for future reference
+                // Stores locally for ReadPackets logic
                 LocalUid = uid;
                 LocalPublicKey = publicKeyBase64;
+
+                // Notify that a fresh connection is established
+                ConnectionEstablished?.Invoke();
+
+                // Starts the background reader
+                Task.Run(() => ReadPackets());
+
+                // Sends the framed handshake (username, uid, publicKey)
+                if (!SendInitialConnectionPacket(username, uid, publicKeyBase64))
+                    throw new InvalidOperationException("Failed to send initial handshake.");
 
                 return (uid, publicKeyBase64);
             }
@@ -175,7 +156,7 @@ namespace chat_client.Net
         {
             try
             {
-                // Close the TCP connection if it's still active
+                // Closes the TCP connection if it's still active
                 if (_tcpClient != null && _tcpClient.Connected)
                 {
                     _tcpClient.Close();
@@ -183,10 +164,13 @@ namespace chat_client.Net
 
                 // Prepares for future reconnection
                 _tcpClient = new TcpClient();
+
+                // Notifies that the connection is terminated
+                ConnectionTerminated?.Invoke();
             }
             catch (Exception ex)
             {
-                // Log the error silently without interrupting the user
+                // Logs the error silently without interrupting the user
                 ClientLogger.Log($"Disconnect failed: {ex.Message}", ClientLogLevel.Error);
             }
         }
@@ -225,105 +209,130 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Reads and processes all incoming packets from the server on a background thread.
-        /// Secures a reference to the MainViewModel on the UI thread, then loops until
-        /// the TCP client disconnects. For each packet:
-        ///  - Reads the opcode byte.
-        ///  - Reads the expected payload fields.
-        ///  - Formats or decrypts data as needed.
-        ///  - Calls the corresponding MainViewModel handler.
-        /// Exits cleanly on I/O failure and logs all other exceptions.
+        /// Runs on a background thread to read all incoming framed packets  
+        /// until the connection closes. Captures the MainViewModel on the UI thread,
+        /// clears the user list on the first roster broadcast, and dispatches each
+        /// opcode’s data to the ViewModel or events.
         /// </summary>
         private void ReadPackets()
         {
-            // Captures the ViewModel reference on the UI thread to avoid cross-thread errors
+            // Captures the ViewModel instance on the UI thread
             MainViewModel viewModel = null!;
             Application.Current.Dispatcher.Invoke(() =>
             {
-                if (Application.Current.MainWindow is MainWindow mainWindow)
-                    viewModel = mainWindow.ViewModel;
+                if (Application.Current.MainWindow is MainWindow mw)
+                    viewModel = mw.ViewModel;
             });
 
-            // If we couldn’t get the ViewModel, exits immediately
             if (viewModel == null)
                 return;
 
-            // Continuously reads from the network until the client disconnects
-            while (_tcpClient.Connected)
+            while (true)
             {
                 try
                 {
                     // Reads the 4-byte length prefix (network order)
-                    int bodyLength = packetReader.ReadInt32NetworkOrder();
-                    if (bodyLength <= 0)
+                    int length = packetReader.ReadInt32NetworkOrder();
+                    if (length <= 0)
                     {
-                        ClientLogger.Log($"Invalid packet length: {bodyLength}", ClientLogLevel.Warn);
+                        ClientLogger.Log($"Invalid packet length: {length}", ClientLogLevel.Warn);
                         continue;
                     }
 
-                    // Reads exactly bodyLength bytes
-                    byte[] body = packetReader.ReadExact(bodyLength);
+                    // Reads the exact packet body
+                    byte[] body = packetReader.ReadExact(length);
 
-                    // Parses the body using a temporary PacketReader on a MemoryStream
+                    // Parses the framed payload
                     using var ms = new MemoryStream(body);
-                    PacketReader framedReader = new PacketReader(ms); 
+                    var reader = new PacketReader(ms);
+                    var opcodeByte = reader.ReadByte();
+                    var opcode = (ClientPacketOpCode)opcodeByte;
 
-                    // Reads the opcode from the framed payload
-                    ClientPacketOpCode opcode = (ClientPacketOpCode)framedReader.ReadByte();
-
-                    // Switches using framedReader instead of packetReader
                     switch (opcode)
                     {
-                        case ClientPacketOpCode.ConnectionBroadcast:
-                            // Reads the joining user's UID, username, and public key
-                            Guid newUid = framedReader.ReadUid();
-                            string newName = framedReader.ReadString();
-                            string newPubKey = framedReader.ReadString();
+                        case ClientPacketOpCode.RosterBroadcast:
+                            // Reads the number of users in this roster update
+                            string countString = reader.ReadString();
+                            int totalUsers = int.Parse(countString);
 
-                            // Marks handshake complete so roster updates are allowed
-                            HandshakeCompleted = true;
+                            // Assembles the full roster list from the packet data
+                            var rosterEntries = new List<(Guid UserId, string Username, string PublicKeyBase64)>();
+                            for (int i = 0; i < totalUsers; i++)
+                            {
+                                // Extracts each user's unique ID, display name, and public key
+                                Guid userId = reader.ReadUid();
+                                string username = reader.ReadString();
+                                string publicKeyB64 = reader.ReadString();
 
-                            // Adds the user (yourself on first broadcast, peers on subsequent)
-                            // to the UI list of connected users 
-                            viewModel.OnUserConnected(newUid.ToString(), newName, newPubKey);
-                            break;
+                                rosterEntries.Add((userId, username, publicKeyB64));
+                            }
 
-                        case ClientPacketOpCode.PlainMessage:
-                            Guid senderUid = framedReader.ReadUid();
-                            _ = framedReader.ReadUid(); // discard recipient
-                            string plainText = framedReader.ReadString();
-                            viewModel.OnPlainMessageReceived(plainText);
-                            break;
-
-                        case ClientPacketOpCode.EncryptedMessage:
-                            Guid sender = framedReader.ReadUid();
-                            int cipherLen = framedReader.ReadInt32NetworkOrder();
-                            byte[] cipher = framedReader.ReadExact(cipherLen);
+                            // Dispatches to the UI thread to apply the diff-based snapshot update
                             Application.Current.Dispatcher.Invoke(() =>
                             {
-                                EncryptedMessageReceivedEvent?.Invoke(sender, cipher);
+                                // DisplayRosterSnapshot will handle clearing, joined and left users
+                                viewModel.DisplayRosterSnapshot(rosterEntries);
                             });
                             break;
 
+                        case ClientPacketOpCode.PlainMessage:
+                            // Uses C# tuple deconstruction: ReadPlainMessage() returns a (Guid, string) tuple.
+                            // The compiler unpacks the tuple’s Item1 into senderUid and Item2
+                            // into message (the text payload).
+                            var (senderUid, message) = reader.ReadPlainMessage();
+
+                            // Looks up the username in Users by matching the UID, fallbacks to the UID string if not found
+                            string senderName = viewModel.Users
+                                .FirstOrDefault(u => u.UID == senderUid.ToString())?.Username
+                                ?? senderUid.ToString();
+                            Application.Current.Dispatcher.Invoke(() =>
+                                viewModel.OnPlainMessageReceived(senderName, message)
+                            );
+                            break;
+
+                        case ClientPacketOpCode.EncryptedMessage:
+                            // Reads the sender’s UID and the raw encrypted bytes
+                            // Uses C# tuple deconstruction: ReadEncryptedMessage() returns a (Guid, string) tuple.
+                            var (encSenderUid, encryptedPayload) = reader.ReadEncryptedMessage();
+
+                            // Resolves the sender’s display name (fallbacks to UID if missing)
+                            string encSenderName = viewModel.Users
+                                .FirstOrDefault(u => u.UID == encSenderUid.ToString())
+                                ?.Username
+                                ?? encSenderUid.ToString();
+
+                            // Converts the raw cipher bytes into a Base64 string,
+                            // because DecryptMessage expects a Base64‐encoded input
+                            string cipherBase64 = Convert.ToBase64String(encryptedPayload);
+
+                            // Gets the UTF-8 plaintext directly
+                            string plainText = EncryptionHelper.DecryptMessage(cipherBase64);
+
+                            // Activates the UI thread and displays "sender: message"
+                            Application.Current.Dispatcher.Invoke(() =>
+                                viewModel.OnPlainMessageReceived(encSenderName, plainText));
+                            break;
+
                         case ClientPacketOpCode.PublicKeyResponse:
-                            Guid keyUid = framedReader.ReadUid();
-                            string keyBase64 = framedReader.ReadString();
-                            viewModel.OnPublicKeyReceived(keyUid.ToString(), keyBase64);
+                            var (keySender, keyB64) = reader.ReadPublicKeyResponse();
+                            Application.Current.Dispatcher.Invoke(() =>
+                                viewModel.OnPublicKeyReceived(keySender.ToString(), keyB64));
                             break;
 
                         case ClientPacketOpCode.DisconnectNotify:
-                            Guid discUid = framedReader.ReadUid();
-                            string discName = framedReader.ReadString();
-                            viewModel.OnUserDisconnected(discUid.ToString(), discName);
+                            var (discUid, discName) = reader.ReadUserDisconnected();
+                            Application.Current.Dispatcher.Invoke(() =>
+                                viewModel.OnUserDisconnected(discUid.ToString(), discName));
                             break;
 
                         case ClientPacketOpCode.DisconnectClient:
-                            viewModel.OnDisconnectedByServer();
-                            break;
+                            Application.Current.Dispatcher.Invoke(() =>
+                                viewModel.OnDisconnectedByServer());
+                            return;
 
                         default:
-                            byte raw = (byte)opcode;
-                            ClientLogger.Log($"Unexpected byte 0x{raw:X2} inside framed packet", ClientLogLevel.Warn);
+                            ClientLogger.Log($"Unexpected opcode 0x{opcodeByte:X2} in framed packet",
+                                ClientLogLevel.Warn);
                             break;
                     }
                 }
@@ -524,6 +533,7 @@ namespace chat_client.Net
 
             return messageSent;
         }
+
         /// <summary>
         /// Builds and sends a framed handshake packet (opcode = Handshake) to the server via raw socket send.
         /// Packet format on the wire:
@@ -555,9 +565,6 @@ namespace chat_client.Net
                 // Logs and sends via the raw socket API
                 ClientLogger.Log($"Sending handshake packet — Username: {username}, UID: {uid}", ClientLogLevel.Debug);
                 _tcpClient.Client.Send(framed);
-
-                // Begins reading incoming packets
-                Task.Run(ReadPackets);
                 return true;
             }
             catch (Exception ex)
@@ -643,12 +650,6 @@ namespace chat_client.Net
             {
                 ClientLogger.Log("Cannot send public key — client is not connected.", ClientLogLevel.Error);
                 return false;
-            }
-
-            // Logs handshake status for debugging
-            if (!HandshakeCompleted)
-            {
-                ClientLogger.Log("Handshake not completed — sending public key anyway.", ClientLogLevel.Warn);
             }
 
             // Builds the packet with required fields

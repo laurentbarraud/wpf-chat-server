@@ -1,7 +1,7 @@
 ﻿/// <file>UserModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
 using System;
 
@@ -40,16 +40,5 @@ namespace chat_client.MVVM.Model
         /// Initialized to empty string to satisfy nullable warnings.
         /// </summary>
         public string PrivateKeyBase64 { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Clears all stored cryptographic keys from the user model.
-        /// Called when encryption is disabled or reset to ensure clean state.
-        /// Prevents reuse of outdated keys and supports future features like key rotation.
-        /// </summary>
-        public void ClearEncryption()
-        {
-            PublicKeyBase64 = string.Empty;
-            PrivateKeyBase64 = string.Empty;
-        }
     }
 }

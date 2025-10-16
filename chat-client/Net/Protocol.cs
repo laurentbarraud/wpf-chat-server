@@ -1,7 +1,7 @@
 ﻿/// <file>Protocol.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
 using System;
 
@@ -19,9 +19,11 @@ namespace chat_client.Net
         Handshake = 0,
 
         /// <summary>
-        /// Broadcasts a user's information when they connect.
-        /// Contains: UserId; Username; PublicKeyBase64.</summary>
-        ConnectionBroadcast = 1,
+        /// Broadcasts the complete roster of all currently connected users.
+        /// Payload begins with the total user count, followed by each user’s
+        /// UserId, Username, and PublicKeyBase64.
+        /// </summary>
+        RosterBroadcast = 1,
 
         /// <summary>
         /// Client requests a peer's public key.

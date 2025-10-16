@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 14th, 2025</date>
+/// <date>October 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -309,6 +309,11 @@ namespace chat_client.MVVM.ViewModel
         private bool _isEncryptionReady;
 
         /// <summary>
+        /// Tracks whether we’ve seen the initial roster
+        /// </summary>
+        private bool _isFirstRosterUpdate = true;
+
+        /// <summary>
         /// Holds the current key synchronization state
         /// </summary>
         private bool _isSyncingKeys;
@@ -317,6 +322,18 @@ namespace chat_client.MVVM.ViewModel
         /// Backs the IsConnected property.
         /// </summary>
         private bool _isConnected;
+
+        /// <summary>
+        /// Indicates whether the next roster snapshot is the very first update
+        /// received after connecting. Suppresses join/leave notifications on first load.
+        /// </summary>
+        private bool _isFirstRosterSnapshot = true;
+
+        /// <summary>
+        /// Holds the previous roster’s user IDs and usernames for diffing.
+        /// </summary>
+        private List<(Guid UserId, string Username)> _previousRosterSnapshot
+            = new List<(Guid, string)>();
 
         /// <summary>
         /// Backs the UseEncryption property and is initialized from persisted settings.
@@ -360,7 +377,7 @@ namespace chat_client.MVVM.ViewModel
 
             // Creates the ThemeToggleCommand used by the ToggleButton in the UI.
             // This command receives the toggle state (true for dark, false for light) as a parameter.
-            ThemeToggleCommand = new RelayCommand<object>(param =>
+            ThemeToggleCommand = new RelayCommands<object>(param =>
             {
                 // Converts the command parameter to a boolean and stores whether the dark theme is selected
                 // (true) or not (false).
@@ -532,6 +549,15 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Removes every entry from the UI’s connected-users list,
+        /// preparing to rebuild the roster from scratch.
+        /// </summary>
+        public void ClearConnectedUsers()
+        {
+            Users.Clear();
+        }
+
+        /// <summary>
         /// Connects to the chat server : 
         /// - validates the username 
         /// - performs the TCP handshake to obtain the user GUID and server public key
@@ -678,6 +704,95 @@ namespace chat_client.MVVM.ViewModel
                 // Displays an error message if disconnection fails
                 MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message, LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// Applies a full roster snapshot from the server, updates the Users list,
+        /// and emits “X has joined” or “Y has left” messages only on subsequent updates.
+        /// </summary>
+        /// <param name="rosterEntries">
+        /// The complete list of connected users as tuples of (UserId, Username, PublicKeyBase64).
+        /// </param>
+        public void DisplayRosterSnapshot(
+            IEnumerable<(Guid UserId, string Username, string PublicKeyBase64)> rosterEntries)
+        {
+            // Materializes incoming roster for multiple passes
+            var incomingSnapshot = rosterEntries
+                .Select(e => (e.UserId, e.Username))
+                .ToList();
+
+            // On first snapshot, populates Users silently
+            if (_isFirstRosterSnapshot)
+            {
+                Users.Clear();
+                foreach (var (userId, username) in incomingSnapshot)
+                {
+                    Users.Add(new UserModel
+                    {
+                        UID = userId.ToString(),
+                        Username = username,
+                        PublicKeyBase64 = rosterEntries
+                        .First(e => e.UserId == userId).PublicKeyBase64
+                    });
+                }
+
+                // Records this state and disables silent mode
+                _previousRosterSnapshot = incomingSnapshot;
+                _isFirstRosterSnapshot = false;
+                return;
+            }
+
+            // Determines who joined (users in incoming but not in previous)
+            var joinedUsers = incomingSnapshot
+                .Except(_previousRosterSnapshot)
+                .ToList();
+
+            // Determines who left (users in previous but not in incoming)
+            var leftUsers = _previousRosterSnapshot
+                .Except(incomingSnapshot)
+                .ToList();
+ 
+            /// <summary>
+            /// Deconstructs each tuple in joinedUsers into two variables,
+            /// ignores the first element (UserId) using the discard `_`,
+            /// and captures only the username for the notification.
+            /// </summary>
+            foreach (var (_, username) in joinedUsers)
+            {
+                Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
+            }
+
+            /// <summary>
+            /// Deconstructs each tuple in leftUsers into two variables,
+            /// ignores the first element (UserId) using the discard `_`,
+            /// and captures only the username for the notification.
+            /// </summary>
+            foreach (var (_, username) in leftUsers)
+            {
+                Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
+            }
+
+            // Refreshes the Users collection with the full, current roster
+            Users.Clear();
+
+            /// <summary>
+            /// The foreach loop uses C# tuple deconstruction: each item in rosterEntries
+            /// is a (Guid UserId, string Username, string PublicKeyBase64) tuple.
+            /// By writing “var (userId, username, publicKey)” we unpack those three values
+            /// directly into named variables, instead of accessing Item1/Item2/Item3.
+            ///</summary>
+            foreach (var (userId, username, publicKey) in rosterEntries)
+            {
+                Users.Add(new UserModel 
+                {
+                    UID = userId.ToString(),
+                    Username = username,
+                    PublicKeyBase64 = publicKey
+                });
+            }
+
+            // Saves for next diff
+            _previousRosterSnapshot = incomingSnapshot;
         }
 
         /// <summary>
@@ -914,30 +1029,28 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a delivered plain‐text message.
-        /// Appends the provided formatted message to the chat UI on the dispatcher thread.
+        /// Handles a delivered plain‐text message by prefixing the sender’s name.
+        /// Marshals the update to the UI thread and appends "sender: message" to the chat.
         /// </summary>
-        /// <param name="messageToDisplay">
-        /// The ready-to-display message string 
-        /// </param>
-        public void OnPlainMessageReceived(string messageToDisplay)
+        /// <param name="senderName">The display name of the message sender.</param>
+        /// <param name="messageToDisplay">The content of the received message.</param>
+        public void OnPlainMessageReceived(string senderName, string messageToDisplay)
         {
             try
             {
-                // Marshals the update to the UI thread and adds the message
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    Messages.Add(messageToDisplay);
+                    Messages.Add($"{senderName}: {messageToDisplay}");
                 });
             }
             catch (Exception ex)
             {
-                // Logs any unexpected error during UI update
-                ClientLogger.Log($"PlainMessageReceived handler failed: {ex.Message}",
-                    ClientLogLevel.Error);
+                ClientLogger.Log(
+                    $"PlainMessageReceived handler failed: {ex.Message}",
+                    ClientLogLevel.Error
+                );
             }
         }
-
 
         /// <summary>
         /// Handles a received public‐key event.
@@ -1096,8 +1209,6 @@ namespace chat_client.MVVM.ViewModel
                     ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
                         ClientLogLevel.Debug);
 
-                    // Posts a system message indicating the disconnection
-                    Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
 
                     // Re-evaluates encryption readiness if encryption is active
                     if (Settings.Default.UseEncryption)
@@ -1168,6 +1279,16 @@ namespace chat_client.MVVM.ViewModel
             // Clears the collections bound to the user list and chat window
             Users.Clear();
             Messages.Clear();
+        }
+
+        /// <summary>
+        /// Resets the first-update flag and clears the previous snapshot.
+        /// Should be called on new connection or on full disconnect.
+        /// </summary>
+        public void ResetRosterState()
+        {
+            _isFirstRosterUpdate = true;
+            _previousRosterSnapshot.Clear();
         }
 
         /// <summary>
