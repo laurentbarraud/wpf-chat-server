@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 16th, 2025</date>
+/// <date>October 17th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -174,6 +174,7 @@ namespace chat_client.Net
                 ClientLogger.Log($"Disconnect failed: {ex.Message}", ClientLogLevel.Error);
             }
         }
+
 
         /// <summary>
         /// Returns all known public RSA keys for connected users.

@@ -358,8 +358,8 @@
                         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource BackgroundBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>

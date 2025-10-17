@@ -103,8 +103,7 @@ namespace chat_client.Resources {
         ///  -u, --username        Set your username and auto-connect
         ///  -p, --port                Set the server port
         ///
-        ///  --theme &lt;light|dark&gt;  Set UI theme
-        ///  --dark, --light        Switch to theme
+        ///   --dark, --light        Switch to theme
         ///
         ///  --en, --english       Switch to English
         ///  --fr, --french          Switch to French
@@ -115,7 +114,8 @@ namespace chat_client.Resources {
         ///  --tray, --min
         ///
         ///  -c, -d, --debug       Open console window
-        ///         [le reste de la chaîne a été tronqué]&quot;;.
+        ///                   
+        ///  -h, -? , --help        [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {

@@ -244,8 +244,7 @@ Options:
   -u, --username        Set your username and auto-connect
   -p, --port                Set the server port
 
-  --theme &lt;light|dark&gt;  Set UI theme
-  --dark, --light        Switch to theme
+   --dark, --light        Switch to theme
 
   --en, --english       Switch to English
   --fr, --french          Switch to French
@@ -259,7 +258,8 @@ Options:
                    
   -h, -? , --help         Display this help message
   
-  -v, --about            Opens the About window
+  -v, --about,            Opens the About window
+  --version
 
 All arguments support Windows-style (/option)
 and Unix-style (--option) notation.

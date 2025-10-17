@@ -244,7 +244,6 @@ Options :
   -u, --username        Définit votre nom d'utilisateur et se connecte automatiquement
   -p, --port                Définit le port du serveur
 
-  --theme &lt;light|dark&gt;  Définit le thème
   --dark, --light        Basculer sur le thème
 
   --en, --english       Basculer en anglais
@@ -260,6 +259,7 @@ Options :
    -h, -? , --help        Afficher ce message d'aide
  
   -v, --about,           Ouvre la fenêtre A propos
+  --version
 
 Toutes les options acceptent la notation Windows (/option)  
 et Unix (--option).

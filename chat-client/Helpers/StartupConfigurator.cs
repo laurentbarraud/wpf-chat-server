@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 16th, 2025</date>
+/// <date>October 17th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -72,10 +72,6 @@ namespace chat_client.Helpers
                                 Properties.Settings.Default.CustomPortNumber = customPortChosen;
                                 i++;
                             }
-                            break;
-                        case "--theme":
-                            if (i + 1 < args.Length)
-                                themeChosen = args[++i];
                             break;
                         case "--dark":
                             themeChosen = "dark";
