@@ -6,7 +6,7 @@
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
-using Microsoft.VisualBasic.ApplicationServices;
+using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -22,6 +22,14 @@ namespace chat_server
         static internal List<Client> Users = new List<Client>();
         static TcpListener Listener;
 
+        private static bool _exitByCtrlC;
+
+        /// <summary>
+        /// Registers a handler for AppDomain.ProcessExit to send a framed 
+        /// ForceDisconnectClient packet to all connected clients when the server
+        /// shuts down normally, then pauses briefly so notifications traverse
+        /// the network. Skips this on Ctrl+C for immediate exit.
+        /// </summary>
         public static void Main(string[] args)
         {
             // Initialize localization based on OS culture.
@@ -41,6 +49,9 @@ namespace chat_server
                 Shutdown();
                 Environment.Exit(0);
             };
+
+            // Registers ProcessExit hook to broadcast ForceDisconnectClient on normal shutdown
+            SetupShutdownHooks();
 
             DisplayBanner();
             int port = GetPortFromUser();
@@ -67,6 +78,111 @@ namespace chat_server
                 Console.WriteLine("Exiting...");
                 Environment.Exit(1);
             }
+        }
+
+        /// <summary>
+        /// Removes the specified user from the server roster
+        /// and broadcasts a framed DisconnectNotify packet to all remaining clients.
+        /// Packet layout:
+        ///   [4-byte big-endian length prefix]
+        ///   [1-byte opcode: DisconnectNotify]
+        ///   [16-byte UID of the disconnected user]
+        ///   [4-byte string length][UTF-8 bytes of username]
+        /// </summary>
+        /// <param name="disconnectedUserId">String GUID of the client who disconnected.</param>
+        public static void BroadcastDisconnectNotify(string disconnectedUserId)
+        {
+            // Parses the incoming string into a Guid; aborts if invalid
+            if (!Guid.TryParse(disconnectedUserId, out Guid disconnectedGuid))
+            {
+                ServerLogger.LogLocalized("InvalidDisconnectUid", ServerLogLevel.Warn, disconnectedUserId);
+                return;
+            }
+
+            // Takes a snapshot of all current users
+            var snapshot = Users.ToList();
+
+            /// <summary>
+            /// FirstOrDefault returns a nullable Client if no match is found, 
+            /// so we declare goneUser as Client? to reflect that. 
+            /// </summary>
+            Client? goneUser = snapshot.FirstOrDefault(u => u.UID == disconnectedGuid);
+
+            /// <summary>
+            /// Safely guards the removal logic
+            /// </summary>
+            if (goneUser is not null)
+            {
+                lock (Users)
+                    Users.Remove(goneUser);
+            }
+
+            /// <summary>
+            /// Chooses a safe username fallback
+            /// </summary>
+            string username = goneUser?.Username ?? disconnectedUserId;
+
+            /// <summary>
+            /// Builds the framed DisconnectNotify for each remaining client
+            /// </summary>
+            foreach (var listener in snapshot)
+            {
+                if (!listener.ClientSocket.Connected)
+                    continue;
+
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
+                builder.WriteUid(disconnectedGuid);
+                builder.WriteString(username);
+
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
+
+                try
+                {
+                    listener.ClientSocket.Client.Send(framedPacket);
+                    ServerLogger.LogLocalized("DisconnectNotifySuccess", ServerLogLevel.Debug,
+                        listener.Username);
+                }
+                catch (Exception ex)
+                {
+                    ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn,
+                        listener.Username, ex.Message);
+                }
+            }
+
+            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, username);
+        }
+
+        /// <summary>
+        /// • Builds and sends a framed ForceDisconnectClient packet to every connected client  
+        /// • Packet structure: [4-byte length][1-byte opcode][16-byte target UID]  
+        /// • Forces each client to call its Disconnect sequence upon decoding  
+        /// </summary>
+        public static void BroadcastForceDisconnect()
+        {
+            foreach (var user in Users.Where(u => u.ClientSocket.Connected))
+            {
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ServerPacketOpCode.ForceDisconnectClient);
+                builder.WriteUid(user.UID);
+
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
+
+                try
+                {
+                    user.ClientSocket.Client.Send(framedPacket);
+                }
+                catch (Exception ex)
+                {
+                    ServerLogger.LogLocalized("BroadcastForceDisconnectFailed",
+                        ServerLogLevel.Warn, user.Username, ex.Message);
+                }
+            }
+
+            ServerLogger.LogLocalized("BroadcastForceDisconnectSuccess",
+                ServerLogLevel.Debug, Users.Count.ToString());
         }
 
         /// <summary>
@@ -119,111 +235,43 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Removes the specified user from the server roster and notifies all remaining clients.
-        /// Constructs a framed packet (4-byte length prefix + payload) containing:
-        ///   • opcode (DisconnectNotify)
-        ///   • UID of the disconnected user
-        /// Then sends it via the raw socket API and logs success or failure for each recipient.
-        /// </summary>
-        /// <param name="disconnectedUserId">Unique identifier of the client who disconnected.</param>
-        public static void BroadcastDisconnect(string disconnectedUserId)
-        {
-            // Snapshot users
-            var snapshot = Users.ToList();
-
-            // Tries to find the gone user
-            Client goneUser = snapshot.FirstOrDefault(u => u.UID.ToString() == disconnectedUserId);
-
-            // If found, removes from the live Users list
-            if (goneUser != null)
-            {
-                lock (Users)
-                    Users.Remove(goneUser);
-            }
-
-            // Prepares a safe username fallback
-            string username = goneUser?.Username ?? disconnectedUserId;
-
-            // Notifies each listener
-            foreach (var listener in snapshot)
-            {
-                if (!listener.ClientSocket.Connected)
-                    continue;
-
-                var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
-                builder.WriteUid(Guid.Parse(disconnectedUserId));
-                builder.WriteString(username);   // safe fallback
-
-                // Frames the packet
-                byte[] payload = builder.GetPacketBytes();
-                int netLen = IPAddress.HostToNetworkOrder(payload.Length);
-                byte[] lenBuf = BitConverter.GetBytes(netLen);
-
-                try
-                {
-                    listener.ClientSocket.Client.Send(lenBuf);
-                    listener.ClientSocket.Client.Send(payload);
-
-                    ServerLogger.LogLocalized("DisconnectNotifySuccess", ServerLogLevel.Debug,
-                        listener.Username);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn,
-                        listener.Username, ex.Message);
-                }
-            }
-
-            // Logs the disconnection event once
-            ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, username);
-        }
-
-        /// <summary>
-        /// Broadcasts a plain‐text chat message from one client to all connected clients.
-        /// Constructs a framed packet (4-byte length prefix + payload) containing:
-        ///   • opcode (PlainMessage)
-        ///   • sender UID
-        ///   • recipient UID placeholder
-        ///   • UTF-8 message text
-        /// Then sends it via the raw socket API and logs each delivery result.
+        /// Broadcasts a plain-text chat message from one client to all connected clients.
+        /// Packet structure:
+        ///   [4-byte big-endian length]
+        ///   [1-byte opcode: PlainMessage]
+        ///   [16-byte sender UID]
+        ///   [16-byte recipient UID]
+        ///   [4-byte message length][UTF-8 message bytes]
         /// </summary>
         /// <param name="messageText">The message content to broadcast.</param>
         /// <param name="senderUid">Unique identifier of the message sender.</param>
         public static void BroadcastPlainMessage(string messageText, Guid senderUid)
         {
-            // Snapshots the user list to avoid concurrent-modification
-            List<Client> targets;
-            targets = Users.ToList();
+            var targets = Users.ToList();  // snapshot to avoid concurrent modifications
 
             foreach (var target in targets)
             {
                 if (!target.ClientSocket.Connected)
                     continue;
 
-                // Builds the packet
+                // Build the packet
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
-                builder.WriteUid(senderUid);       // sender’s UID
-                builder.WriteUid(target.UID);      // recipient placeholder
-                builder.WriteString(messageText);  // the actual message
+                builder.WriteUid(senderUid);     // sender’s UID
+                builder.WriteUid(target.UID);    // recipient UID placeholder
+                builder.WriteString(messageText);// length+UTF-8 bytes
 
-                // Frames with 4-byte network-order length prefix
                 byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
+                byte[] framedPacket = Frame(payload);  // prepend 4-byte length
 
                 try
                 {
-                    // Sends via raw socket
                     target.ClientSocket.Client.Send(framedPacket);
-                    ServerLogger.LogLocalized("MessageRelaySuccess", ServerLogLevel.Debug,
-                        target.Username);
+                    ServerLogger.LogLocalized("MessageRelaySuccess", ServerLogLevel.Debug, target.Username);
                 }
                 catch (Exception ex)
                 {
-                    // Logs any failure
-                    ServerLogger.LogLocalized("MessageRelayFailed", ServerLogLevel.Warn,
-                        target.Username, ex.Message);
+                    ServerLogger.LogLocalized("MessageRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
                 }
             }
         }
@@ -393,46 +441,71 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Relays a public key response from one client back to the original requester.
-        /// Constructs a framed packet (4-byte length prefix + payload) containing:
-        ///   • opcode (PublicKeyResponse)
-        ///   • origin UID
-        ///   • Base64 public key string
-        ///   • requester UID
-        /// Then sends it via the raw socket API and logs success or failure.
+        /// Sends a PublicKeyResponse packet back to the original requester.
+        /// Packet structure:
+        ///   [4-byte length prefix]
+        ///   [1-byte opcode: PublicKeyResponse]
+        ///   [16-byte origin UID]
+        ///   [4-byte string length][UTF-8 bytes of Base64 public key]
+        ///   [16-byte requester UID]
         /// </summary>
-        /// <param name="originUid">Unique identifier of the client sending its key.</param>
-        /// <param name="keyBase64">Base64 string of the public key.</param>
-        /// <param name="requesterUid">Unique identifier of the original requesting client.</param>
+        /// <param name="originUid">UID of the client providing its public key.</param>
+        /// <param name="keyBase64">Base64-encoded public key.</param>
+        /// <param name="requesterUid">UID of the client that requested the key.</param>
         public static void RelayPublicKeyToUser(Guid originUid, string keyBase64, Guid requesterUid)
         {
-            List<Client> snapshot;
-            snapshot = Users.ToList();
+            var snapshot = Users.ToList();
+            var target = snapshot.FirstOrDefault(u => u.UID == requesterUid);
+            if (target?.ClientSocket.Connected != true)
+                return;
 
-            var requester = snapshot.FirstOrDefault(u => u.UID == requesterUid);
-            if (requester?.ClientSocket.Connected == true)
+            var builder = new PacketBuilder();
+            builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
+            builder.WriteUid(originUid);
+            builder.WriteString(keyBase64);
+            builder.WriteUid(requesterUid);
+
+            byte[] payload = builder.GetPacketBytes();
+            byte[] framedPacket = Frame(payload);
+
+            try
             {
-                var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-                builder.WriteUid(originUid);
-                builder.WriteString(keyBase64);
-                builder.WriteUid(requesterUid);
-
-                byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
-
-                try
-                {
-                    requester.ClientSocket.Client.Send(framedPacket);
-                    ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess",
-                        ServerLogLevel.Debug, requester.Username);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("PublicKeyResponseRelayFailed", ServerLogLevel.Warn,
-                        requester.Username, ex.Message);
-                }
+                target.ClientSocket.Client.Send(framedPacket);
+                ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess",
+                    ServerLogLevel.Debug, target.Username);
             }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("PublicKeyResponseRelayFailed",
+                    ServerLogLevel.Warn, target.Username, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// • Registers handlers for Ctrl+C and normal process exit  
+        /// • On normal exit, broadcasts a framed ForceDisconnectClient packet to all clients  
+        /// • Waits up to 500 ms to let packets traverse the network  
+        /// • Skips notification on Ctrl+C for immediate shutdown  
+        /// </summary>
+        private static void SetupShutdownHooks()
+        {
+            // Captures CTRL+C and prevents immediate termination
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                _exitByCtrlC = true;
+                e.Cancel = true;
+                Environment.Exit(0);
+            };
+
+            // Fires when the process is exiting normally
+            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
+            {
+                if (_exitByCtrlC)
+                    return;
+
+                BroadcastForceDisconnect();
+                Thread.Sleep(500);
+            };
         }
 
         /// <summary>

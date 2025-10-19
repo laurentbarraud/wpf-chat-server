@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 17th, 2025</date>
+/// <date>October 19th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -80,9 +80,11 @@ namespace chat_client.Helpers
                             themeChosen = "light";
                             break;
                         case "--en":
+                        case "--english":
                             languageChosen = "en";
                             break;
                         case "--fr":
+                        case "--french":
                             languageChosen = "fr";
                             break;
                         case "--lang":
@@ -243,7 +245,7 @@ namespace chat_client.Helpers
             {
                 var aboutWindow = new AboutWindow();
                 aboutWindow.ShowDialog();
-                Application.Current.Shutdown();
+                Environment.Exit(0);
                 return;
             }
 

@@ -21,18 +21,18 @@
         </Grid.Background>
 
         <!-- Top content area -->
-        <Grid Margin="0,0,0,60">
+        <Grid Margin="0,0,0,42">
             <!-- Wireframe overlay docked to bottom -->
             <Image Source="/Resources/AboutWireframeOverlay.png"
                    Width="550" Height="360"
-                   Opacity="0.7"
+                   Opacity="0.6"
                    Stretch="Uniform"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Bottom"
-                   Margin="0,0,0,-30"/>
+                   Margin="0,0,0,0"/>
 
             <!-- Title -->
-            <TextBlock Text="WPF Chat Client"
+            <TextBlock x:Name="AppTitle" Text="WPF Chat Client"
                    FontSize="34"                
                    FontWeight="Normal"
                    Foreground="Black"
@@ -42,28 +42,28 @@
 
             <!-- Licence info block -->
             <TextBlock x:Name="LicenceInfo1Text"
-                       FontSize="12"
+                       FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="56,80,0,0"
+                       Margin="65,118,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       TextWrapping="Wrap"/>
+                       TextWrapping="Wrap" Width="293" Height="17" LineHeight="1" RenderTransformOrigin="0.504,0.526"/>
 
             <TextBlock x:Name="LicenceInfo2Text"
-                       FontSize="12"
+                       FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="56,98,0,0"
+                       Margin="65,72,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       TextWrapping="Wrap"/>
+                       TextWrapping="Wrap" Width="293" Height="41" LineHeight="1"/>
 
             <TextBlock x:Name="LicenceInfoResourcesText"
-                       FontSize="12"
+                       FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="56,150,0,0"
+                       Margin="65,138,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       TextWrapping="Wrap" />
+                       TextWrapping="Wrap" Width="293" Height="16" LineHeight="1" />
         </Grid>
 
         <!-- Bottom panel -->
@@ -91,7 +91,7 @@
                    VerticalAlignment="Center" />
 
                 <!-- Spacer between CLI link and licence text -->
-                <Rectangle Width="60" Fill="Transparent" />
+                <Rectangle Width="68" Fill="Transparent" />
 
                 <!-- Licence and version text -->
                 <TextBlock x:Name="LicenceFinalText"

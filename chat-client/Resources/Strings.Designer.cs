@@ -295,7 +295,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.0 - october 2025 - Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.0 - oct. 2025 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {
@@ -313,7 +313,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à In no event shall the author be liable for any indirect, incidental\nor consequential damages, including loss of data, lost profits,\nor business interruption with the use of this software..
+        ///   Recherche une chaîne localisée semblable à In no event shall the author be liable for any indirect, incidental or consequential damages, including loss of data, lost profits, or business interruption with the use of this software..
         /// </summary>
         public static string LicenceInfo2 {
             get {

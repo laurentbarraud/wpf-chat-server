@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 17th, 2025</date>
+/// <date>October 19th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -611,7 +611,7 @@ namespace chat_client.MVVM.ViewModel
                     ClientLogger.Log("Publishes local public key to server.", ClientLogLevel.Debug);
 
                     // Requests all known public keys from the server
-                    _server.RequestAllPublicKeysFromServer();
+                    _server.SendRequestAllPublicKeysFromServer();
 
                     // Initializes the encryption context and logs the outcome
                     if (InitializeEncryption())
@@ -679,30 +679,39 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
         /// <summary>
-        /// Disconnects the client from the server and resets the UI state.
+        /// • Sends a framed DisconnectNotify packet if still connected  
+        /// • Closes the underlying TCP connection via the server wrapper  
+        /// • Clears all user and message data from the UI  
+        /// • Updates the connection state to false, re-enabling login controls and hiding chat panels  
         /// </summary>
         public void Disconnect()
         {
             try
             {
-                // Attempts to close the connection to the server
-                _server.DisconnectFromServer();
+                // Sends a clean-disconnect notification if the client is still connected
+                if (_server?.IsConnected == true)
+                {
+                    _server.SendDisconnectNotifyToServer();
+                    // Closes the connection to the server and underlying socket
+                    _server.DisconnectFromServer();
+                }
 
-                // Clears user/message data
+                // Clears all user and message data in the view
                 ReinitializeUI();
 
-                // Sets IsConnected to false, which:
-                // - Enables the username/IP inputs
-                // - Hides the chat panels
-                // - Updates the window title and button text
+                // Updates the connection state to false, re-enabling login controls
                 IsConnected = false;
             }
             catch (Exception ex)
             {
-                // Displays an error message if disconnection fails
-                MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message, LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                // Displays an error dialog if the disconnection process fails
+                MessageBox.Show(
+                    LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
+                    LocalizationManager.GetString("Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
         }
 
@@ -958,14 +967,12 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-        public void NotifyConnected() => IsConnected = true;
-
-        public void NotifyDisconnected() => IsConnected = false;
-
         /// <summary>
-        /// Handles a server-initiated disconnect command (opcode 12).
-        /// Disconnects from the server, clears the user list, posts a localized system message,
-        /// and notifies the UI that the connection status changed.
+        /// Handles a server-initiated disconnect command (opcode: DisconnectClient).  
+        /// • Closes the client connection gracefully.  
+        /// • Clears the user list.  
+        /// • Posts a localized system message indicating server disconnection.  
+        /// • Raises PropertyChanged for IsConnected to refresh the UI state.  
         /// </summary>
         public void OnDisconnectedByServer()
         {
@@ -983,12 +990,17 @@ namespace chat_client.MVVM.ViewModel
             // Executes UI-bound updates on the dispatcher thread
             Application.Current.Dispatcher.Invoke(() =>
             {
+                // Clears all users
                 Users.Clear();
-                Messages.Add(
-                    $"# {LocalizationManager.GetString("ServerDisconnected")} #");
+
+                // Posts a system notice to the chat history
+                Messages.Add($"# {LocalizationManager.GetString("ServerDisconnected")} #");
+
+                // Notifies the UI that the connection status changed
                 OnPropertyChanged(nameof(IsConnected));
             });
         }
+
 
         /// <summary>
         /// Handles an incoming encrypted message.
@@ -1181,14 +1193,14 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a user disconnect event (opcode 10).
-        /// Removes the specified user from the Users list,
-        /// posts a localized system notice to the chat,
+        /// Handles a user disconnect event (opcode: DisconnectNotify).
+        /// Removes the specified user from the roster,
+        /// posts a system notice to the chat,
         /// updates the expected client count,
-        /// and re-evaluates encryption readiness if enabled.
+        /// and rechecks encryption readiness if enabled.
         /// </summary>
-        /// <param name="uid">The UID of the user who disconnected.</param>
-        /// <param name="username">The display name of the user who disconnected.</param>
+        /// <param name="uid">UID of the user who disconnected.</param>
+        /// <param name="username">Display name of the user who disconnected.</param>
         public void OnUserDisconnected(string uid, string username)
         {
             try
@@ -1198,31 +1210,24 @@ namespace chat_client.MVVM.ViewModel
                 if (user == null)
                     return;
 
-                // Updates UI-bound state on the dispatcher thread
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    // Removes the disconnected user
-                    Users.Remove(user);
+                // Removes the user from the UI-bound list
+                Users.Remove(user);
 
-                    // Updates and logs the expected client count
-                    ExpectedClientCount = Users.Count;
-                    ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
-                        ClientLogLevel.Debug);
+                // Updates and logs the expected client count
+                ExpectedClientCount = Users.Count;
+                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
+                    ClientLogLevel.Debug);
 
+                // Rechecks encryption readiness when encryption is active
+                if (Settings.Default.UseEncryption)
+                    EvaluateEncryptionState();
 
-                    // Re-evaluates encryption readiness if encryption is active
-                    if (Settings.Default.UseEncryption)
-                    {
-                        EvaluateEncryptionState();
-                    }
-
-                    ClientLogger.Log($"User disconnected — Username: {username}, UID: {uid}",
-                        ClientLogLevel.Debug);
-                });
+                // Logs the disconnect event
+                ClientLogger.Log($"User disconnected — Username: {username}, UID: {uid}",
+                    ClientLogLevel.Debug);
             }
             catch (Exception ex)
             {
-                // Logs any unexpected error in the handler
                 ClientLogger.Log($"UserDisconnected handler failed: {ex.Message}", ClientLogLevel.Error);
             }
         }
@@ -1349,7 +1354,7 @@ namespace chat_client.MVVM.ViewModel
 
             // Requests each missing peer key
             foreach (var uid in missingKeys)
-                _server.RequestPeerPublicKey(Guid.Parse(uid));
+                _server.SendRequestToPeerForPublicKey(Guid.Parse(uid));
 
             // Finalizes flags
             IsEncryptionReady = (missingKeys.Count == 0);

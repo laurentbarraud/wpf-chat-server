@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 17th, 2025</date>
+/// <date>October 19th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -277,56 +277,60 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.PlainMessage:
-                            // Uses C# tuple deconstruction: ReadPlainMessage() returns a (Guid, string) tuple.
-                            // The compiler unpacks the tuple’s Item1 into senderUid and Item2
-                            // into message (the text payload).
+                            // Plain-text message payload format:
+                            //   [16-byte sender UID]
+                            //   [16-byte recipient UID placeholder]
+                            //   [4-byte text length][UTF-8 text bytes]
                             var (senderUid, message) = reader.ReadPlainMessage();
 
-                            // Looks up the username in Users by matching the UID, fallbacks to the UID string if not found
+                            // Lookup sender’s display name
                             string senderName = viewModel.Users
                                 .FirstOrDefault(u => u.UID == senderUid.ToString())?.Username
                                 ?? senderUid.ToString();
+
                             Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnPlainMessageReceived(senderName, message)
-                            );
+                                viewModel.OnPlainMessageReceived(senderName, message));
                             break;
 
                         case ClientPacketOpCode.EncryptedMessage:
-                            // Reads the sender’s UID and the raw encrypted bytes
-                            // Uses C# tuple deconstruction: ReadEncryptedMessage() returns a (Guid, string) tuple.
-                            var (encSenderUid, encryptedPayload) = reader.ReadEncryptedMessage();
+                            // Encrypted payload format:
+                            //   [16-byte sender UID]
+                            //   [16-byte recipient UID]
+                            //   [4-byte ciphertext length][raw ciphertext bytes]
+                            var (encSenderUid, cipherBytes) = reader.ReadEncryptedMessage();
 
-                            // Resolves the sender’s display name (fallbacks to UID if missing)
                             string encSenderName = viewModel.Users
-                                .FirstOrDefault(u => u.UID == encSenderUid.ToString())
-                                ?.Username
+                                .FirstOrDefault(u => u.UID == encSenderUid.ToString())?.Username
                                 ?? encSenderUid.ToString();
 
-                            // Converts the raw cipher bytes into a Base64 string,
-                            // because DecryptMessage expects a Base64‐encoded input
-                            string cipherBase64 = Convert.ToBase64String(encryptedPayload);
+                            // Decrypt: expects Base64 input
+                            string cipherB64 = Convert.ToBase64String(cipherBytes);
+                            string plainText = EncryptionHelper.DecryptMessage(cipherB64);
 
-                            // Gets the UTF-8 plaintext directly
-                            string plainText = EncryptionHelper.DecryptMessage(cipherBase64);
-
-                            // Activates the UI thread and displays "sender: message"
                             Application.Current.Dispatcher.Invoke(() =>
                                 viewModel.OnPlainMessageReceived(encSenderName, plainText));
                             break;
 
                         case ClientPacketOpCode.PublicKeyResponse:
-                            var (keySender, keyB64) = reader.ReadPublicKeyResponse();
+                            // PublicKeyResponse payload:
+                            //   [16-byte origin UID]
+                            //   [4-byte string length][UTF-8 bytes of Base64 public key]
+                            //   [16-byte requester UID]
+                            var (originUid, keyB64) = reader.ReadPublicKeyResponse();
                             Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnPublicKeyReceived(keySender.ToString(), keyB64));
+                                viewModel.OnPublicKeyReceived(originUid.ToString(), keyB64));
                             break;
 
                         case ClientPacketOpCode.DisconnectNotify:
+                            // Reads a framed DisconnectNotify:
+                            //   [16-byte UID][4-byte string length][UTF-8 username bytes]
                             var (discUid, discName) = reader.ReadUserDisconnected();
                             Application.Current.Dispatcher.Invoke(() =>
                                 viewModel.OnUserDisconnected(discUid.ToString(), discName));
                             break;
 
-                        case ClientPacketOpCode.DisconnectClient:
+                        // Reads a framed ForceDisconnectClient packet and invokes the server-initiated disconnect handler
+                        case ClientPacketOpCode.ForceDisconnectClient:
                             Application.Current.Dispatcher.Invoke(() =>
                                 viewModel.OnDisconnectedByServer());
                             return;
@@ -354,7 +358,7 @@ namespace chat_client.Net
         /// flushes the stream to guarantee delivery,
         /// and logs the action for traceability.
         /// </summary>
-        public void RequestAllPublicKeysFromServer()
+        public void SendRequestAllPublicKeysFromServer()
         {
             // Builds the request packet: opcode + sender UID
             var packetBuilder = new PacketBuilder();
@@ -373,53 +377,31 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends a PublicKeyRequest packet to retrieve a peer’s public key.
+        /// Sends a framed DisconnectNotify packet to the server
+        /// to announce a clean disconnect.
+        /// Packet layout:
+        ///   [4-byte big-endian length prefix]
+        ///   [1-byte opcode: DisconnectNotify]
+        ///   [16-byte UID of the disconnecting client]
         /// </summary>
-        /// <param name="targetUid">The GUID of the peer whose key is requested.</param>
-        public void RequestPeerPublicKey(Guid targetUid)
+        public void SendDisconnectNotifyToServer()
         {
             try
             {
-                // Builds the request: opcode + your UID + target UID
-                var packetBuilder = new PacketBuilder();
-                packetBuilder.WriteOpCode((byte)ClientPacketOpCode.PublicKeyRequest);
-                packetBuilder.WriteUid(LocalUid);
-                packetBuilder.WriteUid(targetUid);
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ClientPacketOpCode.DisconnectNotify);
+                builder.WriteUid(LocalUid);
 
-                // Sends it over the existing TCP connection
-                NetworkStream stream = _tcpClient.GetStream();
-                byte[] payload = packetBuilder.GetPacketBytes();
-                stream.Write(payload, 0, payload.Length);
-                stream.Flush();
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
 
-                ClientLogger.Log($"Requested public key for {targetUid}.",
-                    ClientLogLevel.Debug);
+                _tcpClient.Client.Send(framedPacket);
+                ClientLogger.Log($"Sent DisconnectNotify for {LocalUid}", ClientLogLevel.Debug);
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"Key request for {targetUid} failed: {ex.Message}",
-                    ClientLogLevel.Error);
+                ClientLogger.Log($"DisconnectNotify failed: {ex.Message}", ClientLogLevel.Warn);
             }
-        }
-
-        /// <summary>
-        /// Resends the client's public RSA key to the server for recovery or synchronization purposes.
-        /// Typically called when key distribution fails or when a new client joins and requires the key.
-        /// Ensures that the server and all connected clients have access to the sender's encryption identity.
-        /// Designed to be safe and idempotent — skips transmission if prerequisites are missing.
-        /// </summary>
-        public void ResendPublicKey()
-        {
-            // Validates prerequisites before attempting to resend
-            if (LocalUid == Guid.Empty || string.IsNullOrEmpty(LocalPublicKey))
-            {
-                ClientLogger.Log("Cannot resend public key — UID or key is missing.", ClientLogLevel.Warn);
-                return;
-            }
-
-            // Sends the public key to the server for redistribution
-            SendPublicKeyToServer(LocalUid.ToString(), LocalPublicKey);
-            ClientLogger.Log("Public key resent manually — UID: " + LocalUid, ClientLogLevel.Debug);
         }
 
         /// <summary>
@@ -482,7 +464,7 @@ namespace chat_client.Net
                         if (!viewModel.CanEncryptMessageFor(recipientUid))
                         {
                             if (Guid.TryParse(recipientUid, out var peerGuid))
-                                RequestPeerPublicKey(peerGuid);
+                                SendRequestToPeerForPublicKey(peerGuid);
                             else
                                 ClientLogger.Log($"Invalid recipient UID: {recipientUid}",
                                     ClientLogLevel.Error);
@@ -576,10 +558,13 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Builds and sends a framed plain-text chat packet to the server via raw socket send.
-        /// Payload format:
-        ///   [1-byte opcode][senderUID][recipientUID=Empty][UTF8 message]
-        /// The entire payload is prefixed by a 4-byte big-endian length before transmission.
+        /// Builds and sends a framed plain-text chat packet to the server.
+        /// Packet structure:
+        ///   [4-byte big-endian length]
+        ///   [1-byte opcode: PlainMessage]
+        ///   [16-byte sender UID]
+        ///   [16-byte recipient UID placeholder]
+        ///   [4-byte message length][UTF-8 message bytes]
         /// </summary>
         /// <param name="message">The chat message to broadcast.</param>
         /// <returns>True if the packet was sent; false on error or invalid state.</returns>
@@ -594,7 +579,6 @@ namespace chat_client.Net
                 return false;
             }
 
-            // Ensures we have a valid local user UID
             if (Application.Current.MainWindow is not MainWindow mainWindow ||
                 mainWindow.ViewModel is not MainViewModel viewModel ||
                 viewModel.LocalUser == null ||
@@ -607,24 +591,22 @@ namespace chat_client.Net
             string trimmed = message.Trim();
             try
             {
-                // Builds the payload: opcode + sender UID + empty recipient UID + message
+                // Build payload: opcode + sender UID + empty recipient UID + message
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
                 builder.WriteUid(userUid);
                 builder.WriteUid(Guid.Empty);
                 builder.WriteString(trimmed);
 
-                // Frames it with a 4-byte network-order length prefix
                 byte[] payload = builder.GetPacketBytes();
-                byte[] framed = Frame(payload);
+                byte[] framedPacket = Frame(payload);  // prepend 4-byte length
 
-                // Logs a preview and send via the raw socket API
                 string preview = trimmed.Length > 64
-                    ? trimmed.Substring(0, 64) + "…"
+                    ? trimmed[..64] + "…"
                     : trimmed;
                 ClientLogger.Log($"Sending plain message: \"{preview}\"", ClientLogLevel.Debug);
 
-                _tcpClient.Client.Send(framed);
+                _tcpClient.Client.Send(framedPacket);
                 return true;
             }
             catch (Exception ex)
@@ -666,6 +648,36 @@ namespace chat_client.Net
 
             ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
             return true;
+        }
+
+        /// <summary>
+        /// Builds and sends a PublicKeyRequest packet to the server.
+        /// Packet structure:
+        ///   [4-byte length prefix]
+        ///   [1-byte opcode: PublicKeyRequest]
+        ///   [16-byte requester UID]
+        ///   [16-byte target UID]
+        /// </summary>
+        /// <param name="targetUid">UID of the peer whose key is requested.</param>
+        public void SendRequestToPeerForPublicKey(Guid targetUid)
+        {
+            try
+            {
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ClientPacketOpCode.PublicKeyRequest);
+                builder.WriteUid(LocalUid);
+                builder.WriteUid(targetUid);
+
+                byte[] payload = builder.GetPacketBytes();
+                byte[] framedPacket = Frame(payload);
+
+                _tcpClient.Client.Send(framedPacket);
+                ClientLogger.Log($"Requested public key for {targetUid}.", ClientLogLevel.Debug);
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"Key request for {targetUid} failed: {ex.Message}", ClientLogLevel.Error);
+            }
         }
     }
 }

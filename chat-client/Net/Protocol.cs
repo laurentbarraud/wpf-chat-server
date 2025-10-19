@@ -1,7 +1,7 @@
 ﻿/// <file>Protocol.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 17th, 2025</date>
+/// <date>October 19th, 2025</date>
 
 using System;
 
@@ -53,7 +53,7 @@ namespace chat_client.Net
         /// <summary>
         /// Server instructs this client to disconnect.
         /// Contains: TargetUserId.</summary>
-        DisconnectClient = 12
+        ForceDisconnectClient = 12
     }
 }
 
