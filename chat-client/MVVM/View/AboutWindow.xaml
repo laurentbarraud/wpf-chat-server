@@ -44,10 +44,10 @@
             <TextBlock x:Name="LicenceInfo1Text"
                        FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="65,118,0,0"
+                       Margin="65,128,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       TextWrapping="Wrap" Width="293" Height="17" LineHeight="1" RenderTransformOrigin="0.504,0.526"/>
+                       TextWrapping="Wrap" Width="293" Height="15" LineHeight="1"/>
 
             <TextBlock x:Name="LicenceInfo2Text"
                        FontSize="10"
@@ -55,15 +55,15 @@
                        Margin="65,72,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       TextWrapping="Wrap" Width="293" Height="41" LineHeight="1"/>
+                       TextWrapping="Wrap" Width="293" Height="56" LineHeight="1"/>
 
             <TextBlock x:Name="LicenceInfoResourcesText"
                        FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="65,138,0,0"
+                       Margin="65,141,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       TextWrapping="Wrap" Width="293" Height="16" LineHeight="1" />
+                       TextWrapping="Wrap" Width="293" Height="31" LineHeight="1" />
         </Grid>
 
         <!-- Bottom panel -->

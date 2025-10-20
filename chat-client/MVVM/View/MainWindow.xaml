@@ -88,11 +88,11 @@
 
             <!-- Default grey syncing icon, invisible when encryption off -->
             <Setter Property="Visibility"
-          Value="{Binding IsEncryptionIconVisible, Converter={StaticResource BoolToVis}}"/>
+                    Value="{Binding UseEncryptionSetting, Converter={StaticResource BoolToVis}}"/>
             <Setter Property="Source" Value="/Resources/syncing-keys.png"/>
             <!-- Use markup extension to pull localized tooltip text -->
             <Setter Property="ToolTip"
-          Value="{helpers:LocalizeExtension GettingMissingKeys}"/>
+                    Value="{helpers:LocalizeExtension GettingMissingKeys}"/>
 
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsEncryptionReady}" Value="True">
@@ -100,8 +100,7 @@
                     <Setter Property="Source" Value="/Resources/encrypted.png"/>
                     <!-- Localize the “Encrypted” tooltip -->
                     <Setter Property="ToolTip"
-              Value="{helpers:LocalizeExtension EncryptionEnabled}"/>
-
+                            Value="{helpers:LocalizeExtension EncryptionEnabled}"/>
                     <DataTrigger.EnterActions>
                         <!-- Starts the drop-and-zoom animation once -->
                         <BeginStoryboard Storyboard="{StaticResource LockDropAnim}"/>

@@ -322,7 +322,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Button images inspired by resources available on Flaticon.com..
+        ///   Recherche une chaîne localisée semblable à Button images and icons inspired by resources available on Flaticon.com..
         /// </summary>
         public static string LicenceInfoResources {
             get {

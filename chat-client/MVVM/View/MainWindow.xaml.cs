@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 19th, 2025</date>
+/// <date>October 21th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -271,7 +271,7 @@ namespace chat_client
 
         /// <summary>
         /// Executes when the user clicks the Send button.
-        /// Determines whether to encrypt or send as plain text based on MainViewModel.UseEncryption.
+        /// Determines whether to encrypt or send as plain text based on UseEncryption app setting.
         /// Each packet is passed through the Frame method, which prefixes the payload with a
         /// 4-byte big-endian length header so the server can correctly parse the incoming data.
         /// </summary>
@@ -284,7 +284,7 @@ namespace chat_client
             bool sendingMessageSucceeded;
 
             // Chooses the appropriate send method based on the user’s encryption preference
-            if (ViewModel.UseEncryption)
+            if (Properties.Settings.Default.UseEncryption)
             {
                 sendingMessageSucceeded = ViewModel._server.SendEncryptedMessageToServer(MainViewModel.Message);
             }
@@ -302,7 +302,7 @@ namespace chat_client
             else
             {
                 // Logs the failure and adds a localized error notice to the chat history
-                string mode = ViewModel.UseEncryption ? "encrypted" : "plain";
+                string mode = Properties.Settings.Default.UseEncryption ? "encrypted" : "plain";
                 ClientLogger.Log($"Failed to send {mode} message: {MainViewModel.Message}", ClientLogLevel.Error);
                 ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
             }
@@ -405,35 +405,15 @@ namespace chat_client
             }
         }
 
-        /// <summary>
-        /// Handles the window’s Closing event.  
-        /// If the user has chosen to minimise to tray, cancels the close and hides the window.  
-        /// Otherwise, sends a clean DisconnectNotify packet if still connected, waits up to 500 ms
-        /// for the packet to traverse the network, then allows the window to close.
-        /// </summary>
-        private async void MainWindow1_Closing(object sender, CancelEventArgs e)
+        private void MainWindow1_Closing(object sender, CancelEventArgs e)
         {
-            // Checks if the application should reduce to system tray
+            // If “minimize to tray” is enabled, cancel close and hide instead
             if (Properties.Settings.Default.ReduceToTray)
             {
-                // Prevents the window from closing, hides it instead
                 e.Cancel = true;
                 ReduceToTray();
                 return;
             }
-
-            // Cancels immediate close to allow packet send
-            e.Cancel = true;
-
-            // Sends a clean-disconnect notification if the client is still connected
-            if (ViewModel._server?.IsConnected == true)
-                ViewModel._server.SendDisconnectNotifyToServer();
-
-            // Waits briefly to ensure the framed packet is sent
-            await Task.Delay(500);
-
-            // Allows the window to close
-            e.Cancel = false;
         }
 
 

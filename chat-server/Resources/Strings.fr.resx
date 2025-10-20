@@ -237,4 +237,10 @@
   <data name="RosterSendSuccess" xml:space="preserve">
     <value>Envoi de la liste des utilisateurs vers « {0} » réussi</value>
   </data>
+  <data name="MessageRelaySuccess" xml:space="preserve">
+    <value>Message relayé avec succès à {0}.</value>
+  </data>
+  <data name="MessageRelayFailed" xml:space="preserve">
+    <value>Échec du relais du message à {0} : {1}</value>
+  </data>
 </root>

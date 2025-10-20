@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 18th, 2025</date>
+/// <date>October 21th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -63,12 +63,12 @@ namespace chat_server
         /// </summary>
         private void CleanupAfterDisconnect()
         {
-            try 
+            try
             {
-                ClientSocket.Close(); 
-            } 
-            catch 
-            { 
+                ClientSocket.Close();
+            }
+            catch
+            {
             }
 
             /// <summary>
@@ -77,32 +77,29 @@ namespace chat_server
             /// </summary>
             Program.BroadcastDisconnectNotify(UID.ToString());
         }
-
         /// <summary>
-        /// Main loop that reads framed packets from the client socket.
-        /// Processes each ServerPacketOpCode until the client disconnects or an error occurs.
-        /// Exits the loop on any disconnection or error, then calls CleanupAfterDisconnect() exactly once.
+        /// • Reads one framed packet per iteration (4-byte length prefix followed by payload).  
+        /// • Wraps the payload in a dedicated PacketReader to isolate parsing logic.  
+        /// • Switches on the extracted opcode and invokes the corresponding handler.  
+        /// • Exits the loop on client disconnection or error, then calls CleanupAfterDisconnect() exactly once.  
         /// </summary>
         private void ProcessReadPackets()
         {
             ServerLogger.LogLocalized("StartPacketLoop", ServerLogLevel.Info, Username);
 
-            while (true)
+            try
             {
-                try
+                while (true)
                 {
-                    /// <summary>
-                    /// Reads next framed packet
-                    /// </summary>
                     int bodyLength = packetReader.ReadInt32NetworkOrder();
                     if (bodyLength <= 0)
                         continue;
 
-                    /// <summary >
-                    /// Reads opcode
-                    /// <summary >
-                    var opcode = (ServerPacketOpCode)packetReader.ReadByte();
+                    byte[] frame = packetReader.ReadExact(bodyLength);
+                    using var ms = new MemoryStream(frame);
+                    var _packetReader = new PacketReader(ms);
 
+                    var opcode = (ServerPacketOpCode)_packetReader.ReadByte();
                     switch (opcode)
                     {
                         case ServerPacketOpCode.RosterBroadcast:
@@ -110,97 +107,62 @@ namespace chat_server
                             break;
 
                         case ServerPacketOpCode.PublicKeyRequest:
-                            /// <summary>
-                            /// PublicKeyRequest payload:
-                            ///  [16-byte requester UID]
-                            ///  [16-byte target UID]
-                            /// </ summary >
-                            Guid requestSender = packetReader.ReadUid();
-                            Guid requestTarget = packetReader.ReadUid();
+                            var requestSender = _packetReader.ReadUid();
+                            var requestTarget = _packetReader.ReadUid();
                             Program.RelayPublicKeyRequest(requestSender, requestTarget);
                             break;
 
                         case ServerPacketOpCode.PublicKeyResponse:
-                            Guid respSenderUid = packetReader.ReadUid();
-                            string publicKeyB64 = packetReader.ReadString();
-                            Guid recipientUid = packetReader.ReadUid();
-                            Program.RelayPublicKeyToUser(respSenderUid, publicKeyB64, recipientUid);
+                            var responseSender = _packetReader.ReadUid();
+                            var publicKeyB64 = _packetReader.ReadString();
+                            var responseRecipient = _packetReader.ReadUid();
+                            Program.RelayPublicKeyToUser(responseSender, publicKeyB64, responseRecipient);
                             break;
 
                         case ServerPacketOpCode.PlainMessage:
-                            /// <summary>
-                            ///  Plain-text message payload format:
-                            ///  [16-byte sender UID]
-                            ///  [16-byte recipient UID placeholder]
-                            ///  [4-byte text length][UTF-8 text bytes]
-                            /// </summary>
-                            Guid senderUid = packetReader.ReadUid();
-                            _ = packetReader.ReadUid();                  // discard recipient UID placeholder
-                            string text = packetReader.ReadString();   // reads length+UTF-8 bytes
+                            var senderUid = _packetReader.ReadUid();
+                            _ = _packetReader.ReadUid(); // discards placeholder
+                            var text = _packetReader.ReadString();
                             Program.BroadcastPlainMessage(text, senderUid);
                             break;
 
                         case ServerPacketOpCode.EncryptedMessage:
-                            Guid encSenderUid = packetReader.ReadUid();
-                            Guid encRecipientUid = packetReader.ReadUid();
-                            /// <summary> 
-                            /// Reads the encrypted message payload (ciphertext)
-                            /// into a byte array 
-                            /// </summary>
-                            byte[] ciphertext = packetReader.ReadBytesWithLength();
-                            /// <summary> 
-                            /// Converts the raw ciphertext to a Base64
-                            /// string for safe transmission 
-                            /// </summary>
-                            string ciphertextB64 = Convert.ToBase64String(ciphertext);
+                            var encSenderUid = _packetReader.ReadUid();
+                            var encRecipientUid = _packetReader.ReadUid();
+                            var ciphertext = _packetReader.ReadBytesWithLength();
+                            var ciphertextB64 = Convert.ToBase64String(ciphertext);
                             Program.RelayEncryptedMessageToAUser(ciphertextB64, encSenderUid, encRecipientUid);
                             break;
 
                         case ServerPacketOpCode.DisconnectNotify:
-                            /// <summary>
-                            /// Reads a DisconnectNotify:
-                            /// [16-byte disconnecting UID]
-                            /// </summary>
-                            Guid disconnectedUid = packetReader.ReadUid();
+                            var disconnectedUid = _packetReader.ReadUid();
                             Program.BroadcastDisconnectNotify(disconnectedUid.ToString());
                             break;
 
                         default:
-                            ServerLogger.LogLocalized("UnknownOpcode", ServerLogLevel.Warn,
-                                Username, $"{opcode}");
+                            ServerLogger.LogLocalized("UnknownOpcode", ServerLogLevel.Warn, Username, $"{(byte)opcode}");
                             break;
                     }
                 }
-                catch (EndOfStreamException)
-                {
-                    /// <summary>
-                    /// User closed client application or explicitly disconnected
-                    /// </summary>
-                    ServerLogger.LogLocalized("StreamClosed", ServerLogLevel.Info, Username);
-                    break;
-                }
-                catch (IOException ioe)
-                {   /// <summary >
-                    /// Network I/O error
-                    /// </summary>
-                    ServerLogger.LogLocalized("IOError", ServerLogLevel.Info, Username, ioe.Message);
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    /// <summary>
-                    /// Logs unexpected error and exits loop
-                    /// </ summary >
-                    ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex.Message);
-                    break;
-                }
             }
-
-            /// <summary> 
-            /// Once the read loop ends, performs cleanup
-            /// </summary>
-            CleanupAfterDisconnect();
+            catch (EndOfStreamException)
+            {
+                ServerLogger.LogLocalized("StreamClosed", ServerLogLevel.Info, Username);
+            }
+            catch (IOException ioe)
+            {
+                ServerLogger.LogLocalized("IOError", ServerLogLevel.Info, Username, ioe.Message);
+            }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex.Message);
+            }
+            finally
+            {
+                CleanupAfterDisconnect();
+            }
         }
     }
 }
+
 

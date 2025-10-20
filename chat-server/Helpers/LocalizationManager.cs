@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 19th, 2025</date>
+/// <date>October 21th, 2025</date>
 
 using System;
 using System.Diagnostics;

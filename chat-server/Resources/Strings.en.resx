@@ -237,4 +237,10 @@
   <data name="RosterSendSuccess" xml:space="preserve">
     <value>Successfully sent roster to '{0}'</value>
   </data>
+  <data name="MessageRelaySuccess" xml:space="preserve">
+    <value>Message relayed successfully to {0}.</value>
+  </data>
+  <data name="MessageRelayFailed" xml:space="preserve">
+    <value>Failed to relay message to {0}: {1}</value>
+  </data>
 </root>

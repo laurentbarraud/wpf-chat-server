@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 18th, 2025</date>
+/// <date>October 21th, 2025</date>
 
 using System;
 using System.Windows.Controls;
@@ -142,14 +142,16 @@ namespace chat_client.MVVM.View
         {
             // Delegate to MainViewModel
             if (Application.Current.MainWindow is MainWindow mainWindow)
-                mainWindow.ViewModel.UseEncryption = true;
+            {
+                Properties.Settings.Default.UseEncryption = true;
+            }
         }
 
         private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             // Delegate to MainViewModel
             if (Application.Current.MainWindow is MainWindow mainWindow)
-                mainWindow.ViewModel.UseEncryption = false;
+                Properties.Settings.Default.UseEncryption = false;
         }
 
         private void ValidatePortInput()

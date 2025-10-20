@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 17th, 2025</date>
+/// <date>October 21th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -23,36 +23,41 @@ namespace chat_server
         static TcpListener Listener;
 
         private static bool _exitByCtrlC;
-
         /// <summary>
-        /// Registers a handler for AppDomain.ProcessExit to send a framed 
-        /// ForceDisconnectClient packet to all connected clients when the server
-        /// shuts down normally, then pauses briefly so notifications traverse
-        /// the network. Skips this on Ctrl+C for immediate exit.
+        /// • Initializes localization based on OS culture.  
+        /// • Configures console output to UTF-8.  
+        /// • Handles Ctrl+C for graceful shutdown.  
+        /// • Registers ProcessExit handler for normal shutdown.  
+        /// • Displays banner and prompts for TCP port.  
+        /// • Starts TcpListener on loopback with the chosen port.  
+        /// • Accepts incoming clients in a continuous loop.  
+        /// • Adds each client to Users and broadcasts roster updates.  
         /// </summary>
         public static void Main(string[] args)
         {
-            // Initialize localization based on OS culture.
-            // If the two-letter code is “fr”, use French; otherwise use English.
-            string osTwoLetter = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-            string uiLang = osTwoLetter.Equals("fr", StringComparison.OrdinalIgnoreCase)
-                                ? "fr"
-                                : "en";
+            // Initializes localization based on OS culture
+            string twoLetterLanguageCode = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
+            string uiLang = twoLetterLanguageCode.Equals("fr", StringComparison.OrdinalIgnoreCase)
+                              ? "fr"
+                              : "en";
             LocalizationManager.Initialize(uiLang);
 
+            // Configures console for UTF-8 output
             Console.OutputEncoding = Encoding.UTF8;
 
-            // Graceful shutdown on Ctrl+C
-            Console.CancelKeyPress += (s, e) =>
+            // Handles Ctrl+C for graceful shutdown
+            Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;
+                _exitByCtrlC = true;
                 Shutdown();
                 Environment.Exit(0);
             };
 
-            // Registers ProcessExit hook to broadcast ForceDisconnectClient on normal shutdown
+            // Registers ProcessExit handler for normal shutdown
             SetupShutdownHooks();
 
+            // Displays banner and prompt user for port
             DisplayBanner();
             int port = GetPortFromUser();
 
@@ -61,13 +66,17 @@ namespace chat_server
                 Users = new List<Client>();
                 Listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
                 Listener.Start();
-                Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"),
+                Console.WriteLine(
+                  string.Format(
+                    LocalizationManager.GetString("ServerStartedOnPort"),
                     port));
 
-                // Main loop: accepts incoming clients and broadcasts their connection
+                // Accepts incoming clients and broadcasts roster updates
                 while (true)
                 {
-                    var client = new Client(Listener.AcceptTcpClient());
+                    TcpClient tcp = Listener.AcceptTcpClient();
+                    var client = new Client(tcp);
+
                     Users.Add(client);
                     BroadcastRoster();
                 }

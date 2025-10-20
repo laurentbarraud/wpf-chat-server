@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 19th, 2025</date>
+/// <date>October 21th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -106,7 +106,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
                 // When opening a connection with encryption enabled, runs the pipeline
-                if (_isConnected && UseEncryption)
+                if (_isConnected && UseEncryptionSetting)
                     ApplyEncryptionPipeline(enableEncryption: true);
             }
         }
@@ -229,25 +229,21 @@ namespace chat_client.MVVM.ViewModel
         public ICommand ThemeToggleCommand { get; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether encryption is enabled.
-        /// Persists user choice and invokes the encryption pipeline when connected.
+        /// Proxy-property : gets or sets a value in the app settings 
+        /// indicating whether encryption is enabled.
         /// </summary>
-        public bool UseEncryption
+        public bool UseEncryptionSetting
         {
-            get => _useEncryption;
+            get => Settings.Default.UseEncryption;
             set
             {
-                if (_useEncryption == value) return;
-                _useEncryption = value;
-                OnPropertyChanged(nameof(UseEncryption));
+                if (Settings.Default.UseEncryption == value)
+                    return;
 
-                // Persists the new setting
                 Settings.Default.UseEncryption = value;
                 Settings.Default.Save();
 
-                // If already connected, performs the encryption pipeline
-                if (IsConnected)
-                    ApplyEncryptionPipeline(value);
+                OnPropertyChanged(nameof(UseEncryptionSetting));
             }
         }
 
@@ -422,7 +418,7 @@ namespace chat_client.MVVM.ViewModel
                 if (!initSucceeded)
                 {
                     ClientLogger.Log("Encryption init failed – rolling back.", ClientLogLevel.Error);
-                    UseEncryption = false;
+                    Settings.Default.UseEncryption = false;
                 }
                 else
                 {
@@ -994,7 +990,7 @@ namespace chat_client.MVVM.ViewModel
                 Users.Clear();
 
                 // Posts a system notice to the chat history
-                Messages.Add($"# {LocalizationManager.GetString("ServerDisconnected")} #");
+                Messages.Add($"# {LocalizationManager.GetString("ServerHasClosed")} #");
 
                 // Notifies the UI that the connection status changed
                 OnPropertyChanged(nameof(IsConnected));
