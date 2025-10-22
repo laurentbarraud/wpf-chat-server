@@ -1,7 +1,7 @@
 ﻿/// <file>UserModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 21th, 2025</date>
+/// <date>October 23th, 2025</date>
 
 using System;
 
@@ -23,22 +23,23 @@ namespace chat_client.MVVM.Model
         /// <summary>
         /// Globally unique identifier assigned to the user upon connection.
         /// Used for key exchange and message routing.
-        /// Initialized to empty string to satisfy nullable warnings.
+        /// Initialized to Guid.Empty to satisfy nullable warnings.
         /// </summary>
-        public string UID { get; set; } = string.Empty;
+        public Guid UID { get; set; } = Guid.Empty;
 
         /// <summary>
-        /// Base64-encoded XML RSA public key used to encrypt outgoing messages to this user.
-        /// Assigned during encryption setup and transmitted to other clients.
-        /// Initialized to empty string to satisfy nullable warnings.
+        /// RSA public key used for encrypting outbound messages and verifying identity.
+        /// Encoded as a DER-formatted byte array and stored locally for session use.
+        /// Never transmitted unless explicitly shared during key exchange.
+        /// Initialized to an empty array to avoid null handling across the codebase.
         /// </summary>
-        public string PublicKeyBase64 { get; set; } = string.Empty;
+        public byte[] PublicKeyDer { get; set; } = Array.Empty<byte>();
 
         /// <summary>
-        /// Base64-encoded XML RSA private key used to decrypt incoming messages.
-        /// Stored locally and never transmitted.
-        /// Initialized to empty string to satisfy nullable warnings.
+        /// RSA private key used to decrypt incoming messages addressed to the local client.
+        /// Stored locally as a DER-encoded byte array and never transmitted over the network.
+        /// Initialized to an empty array to avoid null handling across the codebase.
         /// </summary>
-        public string PrivateKeyBase64 { get; set; } = string.Empty;
+        public byte[] PrivateKeyDer { get; set; } = Array.Empty<byte>();
     }
 }

@@ -1,12 +1,11 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 21th, 2025</date>
+/// <date>October 23th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
-using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -98,22 +97,18 @@ namespace chat_server
         ///   [16-byte UID of the disconnected user]
         ///   [4-byte string length][UTF-8 bytes of username]
         /// </summary>
-        /// <param name="disconnectedUserId">String GUID of the client who disconnected.</param>
-        public static void BroadcastDisconnectNotify(string disconnectedUserId)
+        /// <param name="disconnectedUserId">UID of the client who disconnected.</param>
+        public static void BroadcastDisconnectNotify(Guid disconnectedUserId)
         {
-            // Parses the incoming string into a Guid; aborts if invalid
-            if (!Guid.TryParse(disconnectedUserId, out Guid disconnectedGuid))
-            {
-                ServerLogger.LogLocalized("InvalidDisconnectUid", ServerLogLevel.Warn, disconnectedUserId);
-                return;
-            }
+            // Use the provided Guid directly
+            Guid disconnectedGuid = disconnectedUserId;
 
             // Takes a snapshot of all current users
             var snapshot = Users.ToList();
 
             /// <summary>
-            /// FirstOrDefault returns a nullable Client if no match is found, 
-            /// so we declare goneUser as Client? to reflect that. 
+            /// FirstOrDefault returns a nullable Client if no match is found,
+            /// so we declare goneUser as Client? to reflect that.
             /// </summary>
             Client? goneUser = snapshot.FirstOrDefault(u => u.UID == disconnectedGuid);
 
@@ -126,13 +121,13 @@ namespace chat_server
                     Users.Remove(goneUser);
             }
 
-            /// <summary>
-            /// Chooses a safe username fallback
-            /// </summary>
-            string username = goneUser?.Username ?? disconnectedUserId;
+            // Chooses a safe username fallback:
+            // use disconnected GUID string when username is unavailable
+            string username = goneUser?.Username ?? disconnectedUserId.ToString();
 
             /// <summary>
             /// Builds the framed DisconnectNotify for each remaining client
+            /// and sends it if their socket is connected.
             /// </summary>
             foreach (var listener in snapshot)
             {
@@ -455,13 +450,13 @@ namespace chat_server
         ///   [4-byte length prefix]
         ///   [1-byte opcode: PublicKeyResponse]
         ///   [16-byte origin UID]
-        ///   [4-byte string length][UTF-8 bytes of Base64 public key]
+        ///   [4-byte byte-array length][DER-encoded RSA public key bytes]
         ///   [16-byte requester UID]
         /// </summary>
         /// <param name="originUid">UID of the client providing its public key.</param>
-        /// <param name="keyBase64">Base64-encoded public key.</param>
+        /// <param name="publicKeyDer">The RSA public key in DER-encoded byte array format.</param>
         /// <param name="requesterUid">UID of the client that requested the key.</param>
-        public static void RelayPublicKeyToUser(Guid originUid, string keyBase64, Guid requesterUid)
+        public static void RelayPublicKeyToUser(Guid originUid, byte[] publicKeyDer, Guid requesterUid)
         {
             var snapshot = Users.ToList();
             var target = snapshot.FirstOrDefault(u => u.UID == requesterUid);
@@ -471,7 +466,7 @@ namespace chat_server
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
             builder.WriteUid(originUid);
-            builder.WriteString(keyBase64);
+            builder.WriteBytesWithLength(publicKeyDer);
             builder.WriteUid(requesterUid);
 
             byte[] payload = builder.GetPacketBytes();

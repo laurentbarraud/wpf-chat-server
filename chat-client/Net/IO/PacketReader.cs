@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 21th, 2025</date>
+/// <date>October 23th, 2025</date>
 
 using System;
 using System.IO;
@@ -161,16 +161,15 @@ namespace chat_client.Net.IO
             return (sender, target);
         }
 
-
         /// <summary>
         /// Packet model D: Reads a public-key response packet (sender UID + public key).
         /// </summary>
-        /// <returns>Tuple of (sender UID, publicKeyBase64).</returns>
-        public (Guid senderUid, string publicKeyBase64) ReadPublicKeyResponse()
+        /// <returns>Tuple of (sender UID, publicKeyDer).</returns>
+        public (Guid senderUid, byte[] publicKeyDer) ReadPublicKeyResponse()
         {
             Guid sender = ReadUid();
-            string key = ReadString();
-            return (sender, key);
+            byte[] keyDer = ReadBytesWithLength();
+            return (sender, keyDer);
         }
 
         /// <summary>

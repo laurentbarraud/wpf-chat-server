@@ -169,15 +169,6 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à [Decryption failed].
-        /// </summary>
-        public static string DecryptionFailed {
-            get {
-                return ResourceManager.GetString("DecryptionFailed", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Recherche une chaîne localisée semblable à Disconnect.
         /// </summary>
         public static string Disconnect {
@@ -223,6 +214,24 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à [Decryption failed].
+        /// </summary>
+        public static string ErrorDecryptionFailed {
+            get {
+                return ResourceManager.GetString("ErrorDecryptionFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Encryption failed: {0}.
+        /// </summary>
+        public static string ErrorEncryptionFailed {
+            get {
+                return ResourceManager.GetString("ErrorEncryptionFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Encryption could not be activated..
         /// </summary>
         public static string ErrorInActivatingEncryption {
@@ -237,6 +246,24 @@ namespace chat_client.Resources {
         public static string ErrorLoadingThemeResources {
             get {
                 return ResourceManager.GetString("ErrorLoadingThemeResources", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Plaintext must not be empty..
+        /// </summary>
+        public static string ErrorPlaintextEmpty {
+            get {
+                return ResourceManager.GetString("ErrorPlaintextEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Recipient public key DER must not be null or empty..
+        /// </summary>
+        public static string ErrorPublicKeyMissing {
+            get {
+                return ResourceManager.GetString("ErrorPublicKeyMissing", resourceCulture);
             }
         }
         

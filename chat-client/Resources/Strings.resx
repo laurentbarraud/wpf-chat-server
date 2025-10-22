@@ -138,7 +138,7 @@
   <data name="ConnectionFailed" xml:space="preserve">
     <value>Connection failed.</value>
   </data>
-  <data name="DecryptionFailed" xml:space="preserve">
+  <data name="ErrorDecryptionFailed" xml:space="preserve">
     <value>[Decryption failed]</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
@@ -278,5 +278,14 @@ Example:
   </data>
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
+  </data>
+  <data name="ErrorPlaintextEmpty" xml:space="preserve">
+    <value>Plaintext must not be empty.</value>
+  </data>
+  <data name="ErrorPublicKeyMissing" xml:space="preserve">
+    <value>Recipient public key DER must not be null or empty.</value>
+  </data>
+  <data name="ErrorEncryptionFailed" xml:space="preserve">
+    <value>Encryption failed: {0}</value>
   </data>
 </root>

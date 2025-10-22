@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 21th, 2025</date>
+/// <date>October 23th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -75,7 +75,7 @@ namespace chat_server
             /// Removes the user from the server roster 
             /// and notifies all remaining clients.
             /// </summary>
-            Program.BroadcastDisconnectNotify(UID.ToString());
+            Program.BroadcastDisconnectNotify(UID);
         }
         /// <summary>
         /// • Reads one framed packet per iteration (4-byte length prefix followed by payload).  
@@ -114,9 +114,9 @@ namespace chat_server
 
                         case ServerPacketOpCode.PublicKeyResponse:
                             var responseSender = _packetReader.ReadUid();
-                            var publicKeyB64 = _packetReader.ReadString();
+                            var publicKeyDer = _packetReader.ReadBytesWithLength();
                             var responseRecipient = _packetReader.ReadUid();
-                            Program.RelayPublicKeyToUser(responseSender, publicKeyB64, responseRecipient);
+                            Program.RelayPublicKeyToUser(responseSender, publicKeyDer, responseRecipient);
                             break;
 
                         case ServerPacketOpCode.PlainMessage:
@@ -136,7 +136,7 @@ namespace chat_server
 
                         case ServerPacketOpCode.DisconnectNotify:
                             var disconnectedUid = _packetReader.ReadUid();
-                            Program.BroadcastDisconnectNotify(disconnectedUid.ToString());
+                            Program.BroadcastDisconnectNotify(disconnectedUid);
                             break;
 
                         default:

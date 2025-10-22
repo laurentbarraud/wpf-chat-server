@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 21th, 2025</date>
+/// <date>October 23th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -41,7 +41,7 @@ namespace chat_client.Net
 
         // A new user joined (opcode 1)
         //   Parameters: uid, username, publicKey
-        public event Action<string, string, string>? UserConnectedEvent;
+        public event Action<Guid, string, byte[]>? UserConnectedEvent;
 
         // A plain-text message arrived (opcode 5)
         //   Parameter: the fully formatted text
@@ -52,12 +52,12 @@ namespace chat_client.Net
         public event Action<Guid, byte[]>? EncryptedMessageReceivedEvent;
 
         // A peer’s public key arrived (opcode 6)
-        //   Parameters: senderUid, publicKeyBase64
-        public event Action<string, string>? PublicKeyReceivedEvent;
-
+        //   Parameters: senderUid, publicKeyDer
+        public event Action<Guid, byte[]>? PublicKeyReceivedEvent;
+   
         // A user disconnected (opcode 10)
         //   Parameters: uid, username
-        public event Action<string, string>? UserDisconnectedEvent;
+        public event Action<Guid, string>? UserDisconnectedEvent;
 
         // Server-initiated disconnect (opcode 12)
         //   No parameters
@@ -67,22 +67,22 @@ namespace chat_client.Net
         public Guid LocalUid { get; private set; }
 
         /// <summary>Gets the public key assigned to the local user.</summary>
-        public string LocalPublicKey { get; private set; }
+        public byte[] LocalPublicKey { get; private set; }
 
 
         private TcpClient _tcpClient;
- 
+
         /// <summary>
         /// Instantiates a new Server.
         /// Creates a fresh TcpClient, resets the local UID to Guid.Empty,
-        /// and initializes the public key string to an empty value.
+        /// and initializes the local public key to an empty byte array.
         /// </summary>
         public Server()
         {
             _tcpClient = new TcpClient();
-            
+
             LocalUid = Guid.Empty;
-            LocalPublicKey = string.Empty;
+            LocalPublicKey = Array.Empty<byte>();
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace chat_client.Net
         /// sends a framed handshake packet (username, UID, RSA key), and then
         /// starts the packet-reading loop on a background thread.
         /// </summary>
-        public (Guid uid, string publicKeyBase64) ConnectToServer(string username,
+        public (Guid uid, byte[] publicKeyDer) ConnectToServer(string username,
             string IPAddressOfServer)
         {
             try
@@ -120,11 +120,11 @@ namespace chat_client.Net
 
                 // Generates UID and public key
                 Guid uid = Guid.NewGuid();
-                string publicKeyBase64 = EncryptionHelper.PublicKeyBase64;
+                byte[] publicKeyDer = EncryptionHelper.PublicKeyDer;
 
                 // Stores locally for ReadPackets logic
                 LocalUid = uid;
-                LocalPublicKey = publicKeyBase64;
+                LocalPublicKey = publicKeyDer;
 
                 // Notify that a fresh connection is established
                 ConnectionEstablished?.Invoke();
@@ -133,16 +133,16 @@ namespace chat_client.Net
                 Task.Run(() => ReadPackets());
 
                 // Sends the framed handshake (username, uid, publicKey)
-                if (!SendInitialConnectionPacket(username, uid, publicKeyBase64))
+                if (!SendInitialConnectionPacket(username, uid, publicKeyDer))
                     throw new InvalidOperationException("Failed to send initial handshake.");
 
-                return (uid, publicKeyBase64);
+                return (uid, publicKeyDer);
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"[ERROR] Connection failed: {ex.Message}",
                     ClientLogLevel.Error);
-                return (Guid.Empty, string.Empty);
+                return (Guid.Empty, Array.Empty<byte>());
             }
         }
 
@@ -175,24 +175,29 @@ namespace chat_client.Net
             }
         }
 
-
-        /// <summary>
-        /// Returns all known public RSA keys for connected users.
-        /// Keys may include the caller's own key; filtering is done client-side.
-        /// Filters out users with missing UID or public key.
-        /// After checking, we tell the compiler that the values are safe to use.
+        /// <summary> 
+        /// Returns all known public RSA keys for connected users. 
+        /// Filters out users with empty UID or missing public key bytes 
+        /// and returns a Dictionary keyed by Guid with DER byte[] values. 
+        /// A Dictionary is a collection of key/value pairs that allows 
+        /// fast lookup of a value by its unique key; here the key is the
+        /// user’s Guid and the value is the user’s public key in DER format.
+        /// Using a Dictionary makes it efficient to find a specific user’s
+        /// public key when encrypting a message or verifying signatures.
         /// </summary>
-        public static Dictionary<string, string> GetAllKnownPublicKeys(MainViewModel viewModel)
+
+        public static Dictionary<Guid, byte[]> GetAllKnownPublicKeys(MainViewModel viewModel)
         {
             // Returns an empty dictionary if viewModel or Users list is null
             if (viewModel?.Users == null)
-                return new Dictionary<string, string>();
+                return new Dictionary<Guid, byte[]>();
 
             return viewModel.Users
-                // Filters out users with null or empty UID or public key
-                .Where(u => !string.IsNullOrEmpty(u.UID) && !string.IsNullOrEmpty(u.PublicKeyBase64))
-                // Uses ! to assert non-nullability after filtering
-                .ToDictionary(u => u.UID!, u => u.PublicKeyBase64!);
+                // Uses lambdas functions : short parameter names like usr are generic.
+                // This filters out users with uninitialized UID or empty public key.
+                .Where(usr => usr.UID != Guid.Empty && usr.PublicKeyDer != null && usr.PublicKeyDer.Length > 0)
+                // Project to Guid -> byte[] dictionary
+                .ToDictionary(usr => usr.UID, usr => usr.PublicKeyDer!);
         }
 
         /// <summary>
@@ -252,26 +257,25 @@ namespace chat_client.Net
                     switch (opcode)
                     {
                         case ClientPacketOpCode.RosterBroadcast:
-                            // Reads the number of users in this roster update
-                            string countString = reader.ReadString();
-                            int totalUsers = int.Parse(countString);
+                            // Reads the number of users in this roster update (stored as a 32-bit network-order int)
+                            int totalUsers = reader.ReadInt32NetworkOrder();
 
-                            // Assembles the full roster list from the packet data
-                            var rosterEntries = new List<(Guid UserId, string Username, string PublicKeyBase64)>();
+                            // Assembles the full roster list from the packet data using DER bytes for the public key
+                            var rosterEntries = new List<(Guid UserId, string Username, byte[] PublicKeyDer)>();
                             for (int i = 0; i < totalUsers; i++)
                             {
-                                // Extracts each user's unique ID, display name, and public key
+                                // Extracts each user's unique ID, display name, and public key (binary DER)
                                 Guid userId = reader.ReadUid();
                                 string username = reader.ReadString();
-                                string publicKeyB64 = reader.ReadString();
+                                byte[] publicKeyDer = reader.ReadBytesWithLength();
 
-                                rosterEntries.Add((userId, username, publicKeyB64));
+                                rosterEntries.Add((userId, username, publicKeyDer));
                             }
 
                             // Dispatches to the UI thread to apply the diff-based snapshot update
                             Application.Current.Dispatcher.Invoke(() =>
                             {
-                                // DisplayRosterSnapshot will handle clearing, joined and left users
+                                // DisplayRosterSnapshot expects byte[] PublicKeyDer
                                 viewModel.DisplayRosterSnapshot(rosterEntries);
                             });
                             break;
@@ -285,7 +289,7 @@ namespace chat_client.Net
 
                             // Lookup sender’s display name
                             string senderName = viewModel.Users
-                                .FirstOrDefault(u => u.UID == senderUid.ToString())?.Username
+                                .FirstOrDefault(u => u.UID == senderUid)?.Username
                                 ?? senderUid.ToString();
 
                             Application.Current.Dispatcher.Invoke(() =>
@@ -300,12 +304,11 @@ namespace chat_client.Net
                             var (encSenderUid, cipherBytes) = reader.ReadEncryptedMessage();
 
                             string encSenderName = viewModel.Users
-                                .FirstOrDefault(u => u.UID == encSenderUid.ToString())?.Username
+                                .FirstOrDefault(u => u.UID == encSenderUid)?.Username
                                 ?? encSenderUid.ToString();
 
-                            // Decrypt: expects Base64 input
-                            string cipherB64 = Convert.ToBase64String(cipherBytes);
-                            string plainText = EncryptionHelper.DecryptMessage(cipherB64);
+                            // Decrypts using the byte[] overload
+                            string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
 
                             Application.Current.Dispatcher.Invoke(() =>
                                 viewModel.OnPlainMessageReceived(encSenderName, plainText));
@@ -314,11 +317,11 @@ namespace chat_client.Net
                         case ClientPacketOpCode.PublicKeyResponse:
                             // PublicKeyResponse payload:
                             //   [16-byte origin UID]
-                            //   [4-byte string length][UTF-8 bytes of Base64 public key]
+                            //   [4-byte string length][UTF-8 bytes of DER public key]
                             //   [16-byte requester UID]
-                            var (originUid, keyB64) = reader.ReadPublicKeyResponse();
+                            var (originUid, keyDer) = reader.ReadPublicKeyResponse();
                             Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnPublicKeyReceived(originUid.ToString(), keyB64));
+                                viewModel.OnPublicKeyReceived(originUid, keyDer));
                             break;
 
                         case ClientPacketOpCode.DisconnectNotify:
@@ -326,7 +329,7 @@ namespace chat_client.Net
                             //   [16-byte UID][4-byte string length][UTF-8 username bytes]
                             var (discUid, discName) = reader.ReadUserDisconnected();
                             Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnUserDisconnected(discUid.ToString(), discName));
+                                viewModel.OnUserDisconnected(discUid, discName));
                             break;
 
                         // Reads a framed ForceDisconnectClient packet and invokes the server-initiated disconnect handler
@@ -406,14 +409,21 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Encrypts the given plaintext and sends it securely to each recipient.
-        /// Validates input and user context, handles solo mode, requests missing keys,
-        /// builds and dispatches encrypted‐message packets, and tracks send success.
+        /// Encrypts and sends a plaintext to selected recipients, handling missing keys and solo mode.
+        /// • Validate input and UI context.
+        /// • Build recipient list (other users or self in solo mode).
+        /// • Lock KnownPublicKeys for thread-safe access.
+        /// • For each recipient determine or request their DER public key.
+        /// • Ensure server has our public key when needed.
+        /// • Encrypt plaintext to raw bytes with recipient's DER key using RSA-OAEP-SHA256.
+        /// • If ciphertext non-empty, frame and send an EncryptedMessage packet over the socket.
+        /// • Log per-recipient errors and continue; return true if at least one send succeeded.
         /// </summary>
         /// <param name="plainText">The text to encrypt and send.</param>
+        /// <returns>True if the message was successfully sent; otherwise false.</returns>
         public bool SendEncryptedMessageToServer(string plainText)
         {
-            // Prevents sending empty or whitespace‐only messages
+            // Prevents sending empty or whitespace-only messages
             if (string.IsNullOrWhiteSpace(plainText))
                 return false;
 
@@ -426,7 +436,7 @@ namespace chat_client.Net
             }
 
             // Determines sender UID
-            string senderUid = viewModel.LocalUser.UID;
+            Guid senderUid = viewModel.LocalUser.UID;
 
             // Builds recipient list: all other users or local user in solo mode
             var recipients = viewModel.Users
@@ -440,19 +450,19 @@ namespace chat_client.Net
 
             bool messageSent = false;
 
-            // Ensures thread‐safe access to the known‐keys dictionary
+            // Ensures thread-safe access to the known-keys dictionary
             lock (viewModel.KnownPublicKeys)
             {
                 foreach (var recipient in recipients)
                 {
-                    string recipientUid = recipient.UID;
-                    string publicKeyBase64;
+                    Guid recipientUid = recipient.UID;
+                    byte[] publicKeyDer;
 
                     if (recipientUid == senderUid)
                     {
                         // Solo mode: uses own public key
-                        publicKeyBase64 = viewModel.LocalUser.PublicKeyBase64;
-                        if (string.IsNullOrWhiteSpace(publicKeyBase64))
+                        publicKeyDer = viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>();
+                        if (publicKeyDer.Length == 0)
                         {
                             ClientLogger.Log($"Cannot encrypt to self: missing local public key for UID {senderUid}",
                                 ClientLogLevel.Error);
@@ -464,43 +474,55 @@ namespace chat_client.Net
                         // Requests peer key if missing
                         if (!viewModel.CanEncryptMessageFor(recipientUid))
                         {
-                            if (Guid.TryParse(recipientUid, out var peerGuid))
-                                SendRequestToPeerForPublicKey(peerGuid);
-                            else
-                                ClientLogger.Log($"Invalid recipient UID: {recipientUid}",
-                                    ClientLogLevel.Error);
-
+                            SendRequestToPeerForPublicKey(recipientUid);
                             continue;
                         }
 
                         // Ensures server has our public key
                         if (!viewModel.HasSentKeyTo(recipientUid))
                         {
-                            var localKey = viewModel.LocalUser.PublicKeyBase64;
-                            if (string.IsNullOrWhiteSpace(localKey))
-                                ClientLogger.Log("Cannot send public key: LocalUser.PublicKeyBase64 is uninitialized.",
+                            var localKey = viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>();
+                            if (localKey.Length == 0)
+                            {
+                                ClientLogger.Log("Cannot send public key: LocalUser.PublicKeyDer is uninitialized.",
                                     ClientLogLevel.Warn);
+                            }
                             else
-                                viewModel._server.SendPublicKeyToServer(recipientUid, localKey);
+                            {
+                                // Send our public key to the server for distribution; sender is our local UID
+                                viewModel._server.SendPublicKeyToServer(viewModel.LocalUser.UID, localKey);
+                            }
 
                             viewModel.MarkKeyAsSentTo(recipientUid);
                         }
 
                         // Retrieves peer public key from dictionary
-                        publicKeyBase64 = viewModel.KnownPublicKeys[recipientUid];
+                        if (!viewModel.KnownPublicKeys.TryGetValue(recipientUid, out byte[]? peerPublicKey) || peerPublicKey == null || peerPublicKey.Length == 0)
+                        {
+                            ClientLogger.Log($"Missing public key for recipient {recipientUid} after sync attempt.", ClientLogLevel.Warn);
+                            continue;
+                        }
+                        publicKeyDer = peerPublicKey; // peerPublicKey is now non-null and non-empty
                     }
 
                     try
                     {
-                        // Encrypts plaintext with the appropriate public key
-                        string cipher = EncryptionHelper.EncryptMessage(plainText, publicKeyBase64);
+                        // Encrypts plaintext to raw ciphertext bytes using DER public key
+                        byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
 
-                        // Builds and sends an encrypted‐message packet
+                        // If encryption failed or produced no data, skips this recipient
+                        if (cipherArray == null || cipherArray.Length == 0)
+                        {
+                            ClientLogger.Log($"Encryption produced empty ciphertext for recipient {recipientUid}.", ClientLogLevel.Warn);
+                            continue;
+                        }
+
+                        // Builds and sends an encrypted-message packet
                         var encryptedMessagePacket = new PacketBuilder();
                         encryptedMessagePacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
-                        encryptedMessagePacket.WriteUid(Guid.Parse(senderUid));
-                        encryptedMessagePacket.WriteUid(Guid.Parse(recipientUid));
-                        encryptedMessagePacket.WriteString(cipher);
+                        encryptedMessagePacket.WriteUid(senderUid);
+                        encryptedMessagePacket.WriteUid(recipientUid);
+                        encryptedMessagePacket.WriteBytesWithLength(cipherArray);
 
                         _tcpClient.Client.Send(encryptedMessagePacket.GetPacketBytes());
                         ClientLogger.Log($"Encrypted message sent to {recipientUid}.", ClientLogLevel.Debug);
@@ -509,8 +531,7 @@ namespace chat_client.Net
                     }
                     catch (Exception ex)
                     {
-                        ClientLogger.Log($"Failed to encrypt or send to {recipientUid}: {ex.Message}",
-                            ClientLogLevel.Error);
+                        ClientLogger.Log($"Failed to encrypt or send to {recipientUid}: {ex.Message}", ClientLogLevel.Error);
                     }
                 }
             }
@@ -521,26 +542,26 @@ namespace chat_client.Net
         /// <summary>
         /// Builds and sends a framed handshake packet (opcode = Handshake) to the server via raw socket send.
         /// Packet format on the wire:
-        ///   [4-byte big-endian length][1-byte opcode][username][UID][publicKeyBase64]
+        ///   [4-byte big-endian length][1-byte opcode][username][UID][publicKeyDer length][publicKeyDer bytes]
         /// On success, generates the inbound ReadPackets loop on a background thread.
         /// </summary>
         /// <param name="username">The display name of the user.</param>
         /// <param name="uid">The unique identifier assigned to the client during connection.</param>
-        /// <param name="publicKeyBase64">The Base64-encoded RSA public key.</param>
+        /// <param name="publicKeyDer">The DER-encoded RSA public key bytes.</param>
         /// <returns>True if the handshake packet was sent and reader started; false otherwise.</returns>
-        public bool SendInitialConnectionPacket(string username, Guid uid, string publicKeyBase64)
+        public bool SendInitialConnectionPacket(string username, Guid uid, byte[] publicKeyDer)
         {
             if (string.IsNullOrWhiteSpace(username))
                 return false;
 
             try
             {
-                // Builds the payload: opcode + username + UID + public key
+                // Builds the payload: opcode + username + UID + public key (as length-prefixed bytes)
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ClientPacketOpCode.Handshake);
                 builder.WriteString(username);
                 builder.WriteUid(uid);
-                builder.WriteString(publicKeyBase64);
+                builder.WriteBytesWithLength(publicKeyDer);
 
                 // Frames it with a 4-byte network-order length prefix
                 byte[] payload = builder.GetPacketBytes();
@@ -582,17 +603,24 @@ namespace chat_client.Net
 
             if (Application.Current.MainWindow is not MainWindow mainWindow ||
                 mainWindow.ViewModel is not MainViewModel viewModel ||
-                viewModel.LocalUser == null ||
-                !Guid.TryParse(viewModel.LocalUser.UID, out Guid userUid))
+                viewModel.LocalUser == null)
             {
                 ClientLogger.Log("SendPlainMessageToServer failed: Local user is not initialized.", ClientLogLevel.Error);
+                return false;
+            }
+
+            // LocalUser.UID is a Guid now; use it directly and validate it's initialized
+            Guid userUid = viewModel.LocalUser.UID;
+            if (userUid == Guid.Empty)
+            {
+                ClientLogger.Log("SendPlainMessageToServer failed: LocalUser.UID is empty.", ClientLogLevel.Error);
                 return false;
             }
 
             string trimmed = message.Trim();
             try
             {
-                // Build payload: opcode + sender UID + empty recipient UID + message
+                // Builds payload: opcode + sender UID + empty recipient UID + message
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
                 builder.WriteUid(userUid);
@@ -627,7 +655,7 @@ namespace chat_client.Net
         /// <param name="uid">The UID of the sender.</param>
         /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
         /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
-        public bool SendPublicKeyToServer(string uid, string publicKeyBase64)
+        public bool SendPublicKeyToServer(Guid targetUid, byte[] publicKeyDer)
         {
             // Validates socket connection before attempting to send
             if (_tcpClient?.Client == null || !_tcpClient.Connected)
@@ -639,10 +667,10 @@ namespace chat_client.Net
             // Builds the packet with required fields
             var publicKeyPacket = new PacketBuilder();
             publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
-            publicKeyPacket.WriteUid(Guid.Parse(uid));
-            publicKeyPacket.WriteString(publicKeyBase64);
+            publicKeyPacket.WriteUid(targetUid);
+            publicKeyPacket.WriteBytesWithLength(publicKeyDer);
 
-            ClientLogger.Log($"Sending public key — UID: {uid}, Key length: {publicKeyBase64.Length}", ClientLogLevel.Debug);
+            ClientLogger.Log($"Sending public key — UID: {targetUid}, Key length: {publicKeyDer.Length}", ClientLogLevel.Debug);
 
             // Sends the packet to the server
             _tcpClient.Client.Send(publicKeyPacket.GetPacketBytes());
