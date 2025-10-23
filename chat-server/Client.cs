@@ -20,23 +20,31 @@ namespace chat_server
     {
         public string Username { get; private set; }
         public Guid UID { get; private set; }
-        public TcpClient ClientSocket { get; set; }
+        public TcpClient ClientSocket { get; private set; } = null!;
         public byte[] PublicKeyDer { get; private set; }
 
         private readonly PacketReader packetReader;
 
-        private volatile bool _cleanupDone = false;
+        private int _cleanupState = 0; // field in Client class: 0 = not cleaned, 1 = cleaning/done
+
+        ///<summary>
+        /// Atomic flag used to ensure the per-client packet reader is started once.
+        /// 0 = not started, 1 = started
+        /// </summary>
+        private int _readerStarted = 0;
 
         /// <summary>
-        /// • Initializes a new connected client, parses the framed handshake payload.
-        /// • Validates received fields: username, UID, public key DER.
-        /// • Logs errors and closes the socket on invalid input.
-        /// • Starts the per-client packet reading loop only when the socket remains connected.
+        /// • Initializes a new connected client, 
+        /// • parses the framed handshake payload,
+        /// • validates username, UID and public key DER,
+        /// • logs and closes the socket on invalid input,
+        /// • starts the per-client packet reading loop only when the socket remains connected.
+        /// ClientSocket will be non-null on constructor exit.
         /// </summary>
         public Client(TcpClient client)
         {
             // Assigns the raw TcpClient and generates a provisional UID for server-side bookkeeping
-            ClientSocket = client;
+            ClientSocket = client ?? throw new ArgumentNullException(nameof(client));
             UID = Guid.NewGuid();
 
             // Creates a PacketReader over the underlying network stream to decode framed payloads
@@ -123,18 +131,49 @@ namespace chat_server
             // Logs successful connection and starts the per-client packet read loop only if still connected
             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, Username);
 
+            /// <summary>
+            /// Starts the packet reader task once if the socket is connected.
+            /// Uses Interlocked.CompareExchange to atomically set _readerStarted from 0 to 1.
+            /// If the call returns 0, this thread won the race and is allowed to start the Task.
+            /// If it returns a non-zero value, another thread already started the reader and we skip starting it again.
+            /// </summary>
             if (ClientSocket?.Connected == true)
             {
-                Task.Run(() => ProcessReadPackets());
+                /// <summary> 
+                /// Tries to atomically change _readerStarted from 0 to 1
+                /// </summary> 
+                if (Interlocked.CompareExchange(ref _readerStarted, 1, 0) == 0)
+                {
+                    Task.Run(() => ProcessReadPackets());
+                }
             }
         }
 
         /// <summary>
-        /// Performs a safe cleanup of the client connection and notifies the server.
-        /// Ensures resources are closed and the disconnect is broadcasted exactly once.
+        /// Performs an atomic compare-and-swap on the cleanup flag :
+        /// if the current value equals 0, set it to 1 and return success; otherwise indicate another thread won.
+        /// This operation is fast, thread-safe and provided by System.Threading. 
+        /// It prevents concurrent threads from executing the cleanup sequence more than once, avoiding duplicated
+        /// socket closes, duplicate broadcast notifications, and reentrancy-related exceptions.
         /// </summary>
         private void CleanupAfterDisconnect()
         {
+            /// <summary>
+            /// Attempts to set _cleanupState from 0 to 1. 
+            /// Syntax of Interlocked.CompareExchange :
+            /// • ref _cleanupState: we pass the variable by reference, so the method can read and modify the value 
+            ///   directly.
+            /// • 1: the new value we want to set if the condition is met
+            /// • 0: the currently present expected value; the operation will only replace the value if the variable 
+            ///   is exactly 0.
+            /// • method return: the old value that was in _cleanupState at the time of the call.
+            ///   If the returned value is 0, it means that the caller was successful in replacing it with 1.
+            ///   If the returned value is not 0, it means that another thread has already changed the value.
+            ///   The test!= 0 in the code therefore means: «if the previous value was not 0, we do nothing and we exit».
+            /// </summary>
+            if (Interlocked.CompareExchange(ref _cleanupState, 1, 0) != 0)
+                return; 
+
             try
             {
                 ClientSocket?.Close();
@@ -144,9 +183,8 @@ namespace chat_server
                 ServerLogger.LogLocalized("ErrorClientCleanup", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
             }
 
-            // Removes user from roster and notifies remaining clients
             try
-            {
+            {   /// <summary>Removes user from roster and notifies remaining clients</summary>
                 Program.BroadcastDisconnectNotify(UID);
             }
             catch (Exception ex)
@@ -158,10 +196,11 @@ namespace chat_server
         }
 
         /// <summary>
-        /// • Reads one framed packet per iteration (4-byte length prefix followed by payload).  
-        /// • Wraps the payload in a dedicated PacketReader to isolate parsing logic.  
-        /// • Switches on the extracted opcode and invokes the corresponding handler.  
-        /// • Exits the loop on client disconnection or error, then calls CleanupAfterDisconnect() exactly once.  
+        /// • Reads one framed packet per iteration (4-byte length prefix followed by payload)
+        /// • Wraps the payload in a dedicated PacketReader to isolate parsing logic
+        /// • Switches on the extracted opcode, invokes the corresponding handler
+        /// • Exits the loop on client disconnection or error, then calls CleanupAfterDisconnect
+        ///   exactly once.
         /// </summary>
         private void ProcessReadPackets()
         {
@@ -169,13 +208,39 @@ namespace chat_server
 
             try
             {
+                // Uses the instance packetReader created during construction.
+                // If for any reason it is null, treat as disconnection.
+                if (packetReader == null)
+                {
+                    ServerLogger.LogLocalized("PacketReaderMissing", ServerLogLevel.Warn, Username);
+                    return;
+                }
+
                 while (true)
                 {
-                    int bodyLength = packetReader.ReadInt32NetworkOrder();
+                    // If the socket is no longer connected, exits the loop to trigger cleanup.
+                    if (ClientSocket == null || ClientSocket?.Connected == false)
+                    {
+                        ServerLogger.LogLocalized("SocketNotConnected", ServerLogLevel.Info, Username);
+                        break;
+                    }
+
+                    int bodyLength;
+                    try
+                    {
+                        bodyLength = packetReader.ReadInt32NetworkOrder();
+                    }
+                    catch (EndOfStreamException)
+                    {
+                        // Stream closed by remote peer
+                        ServerLogger.LogLocalized("StreamClosed", ServerLogLevel.Info, Username);
+                        break;
+                    }
+
                     if (bodyLength <= 0)
                     {
                         ServerLogger.LogLocalized("InvalidFrameLength", ServerLogLevel.Warn, Username, bodyLength.ToString());
-                        break; // break to reach finally and cleanup
+                        break;
                     }
 
                     byte[] frame = packetReader.ReadExact(bodyLength);
@@ -190,49 +255,52 @@ namespace chat_server
                             break;
 
                         case ServerPacketOpCode.PublicKeyRequest:
-                            var requestSender = _packetReader.ReadUid();
-                            var requestTarget = _packetReader.ReadUid();
-                            Program.RelayPublicKeyRequest(requestSender, requestTarget);
-                            break;
+                            {
+                                var requestSender = _packetReader.ReadUid();
+                                var requestTarget = _packetReader.ReadUid();
+                                Program.RelayPublicKeyRequest(requestSender, requestTarget);
+                                break;
+                            }
 
                         case ServerPacketOpCode.PublicKeyResponse:
-                            var responseSender = _packetReader.ReadUid();
-                            var publicKeyDer = _packetReader.ReadBytesWithLength();
-                            var responseRecipient = _packetReader.ReadUid();
-                            Program.RelayPublicKeyToUser(responseSender, publicKeyDer, responseRecipient);
-                            break;
+                            {
+                                var responseSender = _packetReader.ReadUid();
+                                var publicKeyDer = _packetReader.ReadBytesWithLength();
+                                var responseRecipient = _packetReader.ReadUid();
+                                Program.RelayPublicKeyToUser(responseSender, publicKeyDer, responseRecipient);
+                                break;
+                            }
 
                         case ServerPacketOpCode.PlainMessage:
-                            var senderUid = _packetReader.ReadUid();
-                            _ = _packetReader.ReadUid(); // discards placeholder
-                            var text = _packetReader.ReadString();
-                            Program.BroadcastPlainMessage(text, senderUid);
-                            break;
+                            {
+                                var senderUid = _packetReader.ReadUid();
+                                _ = _packetReader.ReadUid(); // discards placeholder
+                                var text = _packetReader.ReadString();
+                                Program.BroadcastPlainMessage(text, senderUid);
+                                break;
+                            }
 
                         case ServerPacketOpCode.EncryptedMessage:
-                            var encSenderUid = _packetReader.ReadUid();
-                            var encRecipientUid = _packetReader.ReadUid();
-                            var ciphertext = _packetReader.ReadBytesWithLength();
-
-                            // Relays raw binary ciphertext
-                            Program.RelayEncryptedMessageToAUser(ciphertext, encSenderUid, encRecipientUid);
-                            break;
-
+                            {
+                                var encSenderUid = _packetReader.ReadUid();
+                                var encRecipientUid = _packetReader.ReadUid();
+                                var ciphertext = _packetReader.ReadBytesWithLength();
+                                Program.RelayEncryptedMessageToAUser(ciphertext, encSenderUid, encRecipientUid);
+                                break;
+                            }
 
                         case ServerPacketOpCode.DisconnectNotify:
-                            var disconnectedUid = _packetReader.ReadUid();
-                            Program.BroadcastDisconnectNotify(disconnectedUid);
-                            break;
+                            {
+                                var disconnectedUid = _packetReader.ReadUid();
+                                Program.BroadcastDisconnectNotify(disconnectedUid);
+                                break;
+                            }
 
                         default:
                             ServerLogger.LogLocalized("UnknownOpcode", ServerLogLevel.Warn, Username, $"{(byte)opcode}");
                             break;
                     }
                 }
-            }
-            catch (EndOfStreamException)
-            {
-                ServerLogger.LogLocalized("StreamClosed", ServerLogLevel.Info, Username);
             }
             catch (ObjectDisposedException)
             {
@@ -248,7 +316,7 @@ namespace chat_server
             }
             finally
             {
-                // Ensure cleanup is idempotent and logs reason
+                // Ensures cleanup is idempotent and executed exactly once
                 CleanupAfterDisconnect();
             }
         }

@@ -20,10 +20,10 @@ namespace chat_server.Helpers
     public static class LocalizationManager
     {
         // Holds the ResourceManager for looking up localized strings
-        private static ResourceManager _resourceManager;
+        private static ResourceManager _resourceManager = null!;
 
         // Holds the CultureInfo used for lookups
-        private static CultureInfo _currentCulture;
+        private static CultureInfo _currentCulture = CultureInfo.InvariantCulture;
 
         /// <summary>
         /// Retrieves a localized string by key.

@@ -13,6 +13,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace chat_server
 {
@@ -60,37 +61,55 @@ namespace chat_server
             DisplayBanner();
             int port = GetPortFromUser();
 
+            /// <summary>
+            /// Starts the TCP listener, accepts incoming clients and ensures
+            /// only fully-initialized Client instances are added to Users. 
+            /// Logs and frees raw sockets when initialization fails.
+            /// </summary>
             try
             {
                 Users = new List<Client>();
                 Listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
                 Listener.Start();
-                Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"),
-                    port));
 
-                // Accepts incoming clients and broadcasts roster updates
+                // Informs about server start using localized string
+                Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
+
+                /// <summary>
+                /// Accepts incoming clients and broadcasts roster updates
+                /// </summary>
                 while (true)
                 {
-                    // Tries to accept and initialize the client.
-                    // If initialization fails, closes socket and continues.
+                    /// <summary>
+                    /// Blocks until a new TCP connection is accepted
+                    /// </summary>
                     TcpClient tcp = Listener.AcceptTcpClient();
+
+                    /// <summary>
+                    /// Tries to accept and initialize the client.
+                    /// If initialization fails, logs the reason and ensures the raw socket is closed.
+                    /// </summary>
                     try
                     {
+                        ///<summary>Constructor will throw on bad handshakes</summary>
                         var client = new Client(tcp);
+
+                        ///<summary>Only adds when constructor succeeded</summary>
                         Users.Add(client);
                         BroadcastRoster();
                     }
                     catch (Exception ex)
                     {
-                        // Logs reason and closes raw socket to free resources
                         ServerLogger.LogLocalized("ErrorInitializeClient", ServerLogLevel.Warn, ex.Message);
 
                         try
-                        { 
+                        {
+                            /// <summary>Closes raw socket to free resources</summary>
                             tcp.Close();
-                        } 
-                        catch 
-                        { 
+                        }
+                        catch
+                        {
+                           
                         }
                     }
                 }
