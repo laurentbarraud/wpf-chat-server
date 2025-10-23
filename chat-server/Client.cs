@@ -52,8 +52,8 @@ namespace chat_server
             UID = handshakeReader.ReadUid();
 
             // Reads length-prefixed raw public key bytes (DER)
-            int pkLen = handshakeReader.ReadInt32NetworkOrder();
-            if (pkLen <= 0)
+            int publicKeyLength = handshakeReader.ReadInt32NetworkOrder();
+            if (publicKeyLength <= 0)
             {
                 // Logs localized error, closes the socket and aborts client initialization
                 ServerLogger.LogLocalized("ErrorPublicKeyLengthInvalid", ServerLogLevel.Warn, UID.ToString());
@@ -69,7 +69,7 @@ namespace chat_server
                 return;
             }
 
-            PublicKeyDer = handshakeReader.ReadExact(pkLen);
+            PublicKeyDer = handshakeReader.ReadExact(publicKeyLength);
 
             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, Username);
 

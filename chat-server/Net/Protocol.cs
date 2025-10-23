@@ -5,13 +5,13 @@
 
 using System;
 
-namespace chat_client.Net
+namespace chat_server.Net
 {
     /// <summary>
     /// Defines all opcodes used in the chat protocol.
     /// Includes both client→server and server→client packet types.
     /// </summary>
-    public enum ClientPacketOpCode : byte
+    public enum ServerPacketOpCode : byte
     {
         /// <summary>
         /// Client handshake packet.
