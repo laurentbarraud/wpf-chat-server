@@ -161,15 +161,17 @@ namespace chat_server.Net.IO
             return (sender, target);
         }
 
-
         /// <summary>
-        /// Packet model D: Reads a public-key response packet (sender UID + public key).
+        /// • Packet model D: Reads a public-key response packet (sender UID + public key).
+        /// • Reads sender UID as Guid.
+        /// • Reads public key as length-prefixed DER bytes.
+        /// • Returns the sender UID and raw DER public key bytes.
         /// </summary>
-        /// <returns>Tuple of (sender UID, publicKeyBase64).</returns>
-        public (Guid senderUid, string publicKeyBase64) ReadPublicKeyResponse()
+        /// <returns>Tuple of (sender UID, publicKeyDer).</returns>
+        public (Guid senderUid, byte[] publicKeyDer) ReadPublicKeyResponse()
         {
             Guid sender = ReadUid();
-            string key = ReadString();
+            byte[] key = ReadBytesWithLength();
             return (sender, key);
         }
 

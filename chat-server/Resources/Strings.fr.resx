@@ -243,4 +243,7 @@
   <data name="MessageRelayFailed" xml:space="preserve">
     <value>Échec du relais du message à {0} : {1}</value>
   </data>
+  <data name="ErrorPublicKeyLengthInvalid" xml:space="preserve">
+    <value>Longueur de clé publique invalide reçue du client {0}.</value>
+  </data>
 </root>

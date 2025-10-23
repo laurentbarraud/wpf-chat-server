@@ -30,11 +30,18 @@ namespace chat_client.Helpers
 {
     /// <summary>
     /// Provides RSA-based end-to-end encryption utilities for secure message exchange.
-    /// Generates a single 2048-bit RSA key pair at startup,
-    /// exposes the public key as DER for the handshake,
-    /// and keeps the private key local for decryption.
-    /// Uses OAEP with SHA-256 padding to ensure semantic security.
+    /// • Generates one 2048-bit RSA key pair at startup.
+    /// • Publishes the public key as DER (PKCS#1 RSAPublicKey) for the handshake.
+    /// • Retains the private key locally for decryption; never transmits private material.
+    /// • Uses RSA-OAEP with SHA-256 for padding to provide semantic security.
+    /// 
+    /// PKCS#1 (simplified):
+    /// • Public key: compact DER encoding of modulus + exponent.
+    /// • Private key: DER encoding of the full RSA private components required for decryption.
+    /// • Intended for RSA-only key interchange when both endpoints agree on the format.
+    /// • Use ExportRSAPublicKey / ImportRSAPublicKey for PKCS#1 DER serialization.
     /// </summary>
+
     public static class EncryptionHelper
     {
         /// <summary>Indicates whether decryption is currently enabled.</summary>

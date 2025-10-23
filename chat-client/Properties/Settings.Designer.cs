@@ -106,29 +106,5 @@ namespace chat_client.Properties {
                 this["AppLanguage"] = value;
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string HandshakePublicKey {
-            get {
-                return ((string)(this["HandshakePublicKey"]));
-            }
-            set {
-                this["HandshakePublicKey"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string HandshakePrivateKey {
-            get {
-                return ((string)(this["HandshakePrivateKey"]));
-            }
-            set {
-                this["HandshakePrivateKey"] = value;
-            }
-        }
     }
 }

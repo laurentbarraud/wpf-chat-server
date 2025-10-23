@@ -21,7 +21,6 @@ namespace chat_server
         public string Username { get; private set; }
         public Guid UID { get; private set; }
         public TcpClient ClientSocket { get; set; }
-        public string PublicKeyBase64 { get; private set; }
         public byte[] PublicKeyDer { get; private set; }
 
         private readonly PacketReader packetReader;
@@ -45,12 +44,32 @@ namespace chat_server
             var handshakeReader = new PacketReader(ms);
             var opcode = (ServerPacketOpCode)handshakeReader.ReadByte();
             if (opcode != ServerPacketOpCode.Handshake)
+            {
                 throw new InvalidOperationException("Expected Handshake opcode");
+            }
 
             Username = handshakeReader.ReadString();
             UID = handshakeReader.ReadUid();
-            PublicKeyBase64 = handshakeReader.ReadString();
-            PublicKeyDer = Convert.FromBase64String(PublicKeyBase64);
+
+            // Reads length-prefixed raw public key bytes (DER)
+            int pkLen = handshakeReader.ReadInt32NetworkOrder();
+            if (pkLen <= 0)
+            {
+                // Logs localized error, closes the socket and aborts client initialization
+                ServerLogger.LogLocalized("ErrorPublicKeyLengthInvalid", ServerLogLevel.Warn, UID.ToString());
+                try 
+                { 
+                    ClientSocket.Close();
+                } 
+                catch 
+                {  
+                
+                }
+                
+                return;
+            }
+
+            PublicKeyDer = handshakeReader.ReadExact(pkLen);
 
             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, Username);
 
@@ -130,9 +149,11 @@ namespace chat_server
                             var encSenderUid = _packetReader.ReadUid();
                             var encRecipientUid = _packetReader.ReadUid();
                             var ciphertext = _packetReader.ReadBytesWithLength();
-                            var ciphertextB64 = Convert.ToBase64String(ciphertext);
-                            Program.RelayEncryptedMessageToAUser(ciphertextB64, encSenderUid, encRecipientUid);
+
+                            // Relays raw binary ciphertext
+                            Program.RelayEncryptedMessageToAUser(ciphertext, encSenderUid, encRecipientUid);
                             break;
+
 
                         case ServerPacketOpCode.DisconnectNotify:
                             var disconnectedUid = _packetReader.ReadUid();

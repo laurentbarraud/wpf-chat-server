@@ -646,14 +646,14 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends the client's public RSA key to the server for distribution to other connected clients.
-        /// Builds a packet with OpCode 6, including the sender's UID and public key in Base64 format.
-        /// Validates socket connectivity before dispatching, and logs each step for traceability.
-        /// Allows transmission even if handshake is not completed, to support single-client scenarios.
-        /// Returns true if the packet was sent successfully; false otherwise.
+        /// • Sends the client's public RSA key to the server for distribution to other connected clients.
+        /// • Builds a packet with OpCode 6, including the sender's UID and public key in DER byte-array format.
+        /// • Validates socket connectivity before dispatching and logs each step for traceability.
+        /// • Allows transmission even if handshake is not completed to support single-client scenarios.
+        /// • Returns true if the packet was sent successfully; false otherwise.
         /// </summary>
-        /// <param name="uid">The UID of the sender.</param>
-        /// <param name="publicKeyBase64">The public RSA key in Base64 format.</param>
+        /// <param name="targetUid">The UID of the sender.</param>
+        /// <param name="publicKeyDer">The public RSA key as DER bytes (PKCS#1 RSAPublicKey).</param>
         /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
         public bool SendPublicKeyToServer(Guid targetUid, byte[] publicKeyDer)
         {

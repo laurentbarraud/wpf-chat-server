@@ -708,7 +708,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Applies a full roster snapshot from the server, updates the Users list,
         /// and emits “X has joined” or “Y has left” messages only on subsequent updates.
-        /// Expects the incoming public key in DER byte[] form to avoid repeated Base64 conversions.
+        /// Expects the incoming public key in DER byte[] form.
         /// </summary>
         /// <param name="rosterEntries">
         /// The complete list of connected users as tuples of (UserId, Username, PublicKeyDer).
@@ -846,15 +846,15 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Executes the complete encryption setup:
-        ///   • Skips if no LocalUser is set or encryption is already active.
-        ///   • Sets the syncing flag to true so the UI shows the grey syncing icon.
-        ///   • Clears all stale peer public key data.
-        ///   • Clears local key material from memory.
-        ///   • Generates a new RSA key pair (DER PKCS#1 for public), registers it locally, and publishes the public key to the server.
-        ///   • Enables encryption in application settings upon successful publish.
-        ///   • Synchronizes peer public keys, requesting missing ones if necessary.
-        ///   • Evaluates final encryption readiness and sets the ready flag.
-        ///   • Persists handshake keys and the encryption flag to application settings as Base64 strings.
+        /// • Skips if no LocalUser is set or encryption is already active.
+        /// • Sets the syncing flag to true so the UI shows the grey syncing icon.
+        /// • Clears all stale peer public key data.
+        /// • Clears local key material from memory.
+        /// • Generates a new RSA key pair and exports DER bytes (public PKCS#1, private PKCS#1).
+        /// • Registers the public key locally and publishes the raw DER public key to the server.
+        /// • Enables encryption in application settings upon successful publish.
+        /// • Synchronizes peer public keys and evaluates final encryption readiness.
+        /// • Persists handshake keys and the encryption flag to application settings as raw DER bytes.
         /// Wraps all steps in exception handling to maintain a safe state and ensure settings are always saved.
         /// </summary>
         /// <returns>True if encryption is successfully initialized and ready; false otherwise.</returns>
@@ -950,18 +950,8 @@ namespace chat_client.MVVM.ViewModel
             }
             finally
             {
-                // Persists handshake keys as Base64 strings (empty if missing)
-                Settings.Default.HandshakePublicKey = (LocalUser?.PublicKeyDer != null && LocalUser.PublicKeyDer.Length > 0)
-                    ? Convert.ToBase64String(LocalUser.PublicKeyDer)
-                    : string.Empty;
-
-                Settings.Default.HandshakePrivateKey = (LocalUser?.PrivateKeyDer != null && LocalUser.PrivateKeyDer.Length > 0)
-                    ? Convert.ToBase64String(LocalUser.PrivateKeyDer)
-                    : string.Empty;
-
                 Settings.Default.Save();
-                ClientLogger.Log("Persisted handshake public and private keys as Base64 strings.", ClientLogLevel.Debug);
-
+                
                 // Clears the syncing flag only if the icon would switch off grey
                 if (IsEncryptionReady || !Settings.Default.UseEncryption)
                 {
@@ -969,6 +959,7 @@ namespace chat_client.MVVM.ViewModel
                 }
             }
         }
+
 
         /// <summary>
         /// Handles a server-initiated disconnect command (opcode: DisconnectClient).  
@@ -1140,15 +1131,15 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a new user join event.
-        /// Reads the provided UID, username, and public key.
-        /// Adds the user to the Users collection if not already present.
-        /// Registers the user’s public key and re-evaluates encryption state.
-        /// Posts a system notice to the chat UI on the dispatcher thread.
+        /// • Handles a new user join event.
+        /// • Reads the provided UID, username, and public key DER bytes.
+        /// • Adds the user to the Users collection if not already present.
+        /// • Registers the user’s public key and re-evaluates encryption state.
+        /// • Posts a system notice to the chat UI on the dispatcher thread.
         /// </summary>
         /// <param name="uid">The joining user’s unique identifier.</param>
         /// <param name="username">The joining user’s display name.</param>
-        /// <param name="publicKey">The joining user’s RSA public key (base64).</param>
+        /// <param name="publicKey">The joining user’s RSA public key as DER bytes.</param>
         public void OnUserConnected(Guid uid, string username, byte[] publicKey)
         {
             // Prevents duplicates

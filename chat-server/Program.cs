@@ -19,7 +19,7 @@ namespace chat_server
     public class Program
     {
         static internal List<Client> Users = new List<Client>();
-        static TcpListener Listener;
+        static TcpListener Listener = null!;
 
         private static bool _exitByCtrlC;
         /// <summary>
@@ -188,55 +188,58 @@ namespace chat_server
             ServerLogger.LogLocalized("BroadcastForceDisconnectSuccess",
                 ServerLogLevel.Debug, Users.Count.ToString());
         }
-
         /// <summary>
-        /// Broadcasts the full roster of connected users to every client.
+        /// Broadcasts the full roster of connected users to every client:
+        /// • Snapshots current users to avoid concurrent modification.
+        /// • Builds a RosterBroadcast packet containing per-user: UID, username, and raw DER public key (length-prefixed).
+        /// • Frames each packet with a 4-byte length prefix for wire transport.
+        /// • Sends framed packet to each recipient and logs success or failure.
         /// </summary>
         public static void BroadcastRoster()
         {
-            // Creates a snapshot of the current user list to avoid concurrent modifications
+            // Snapshots the current user list to avoid concurrent modifications.
             var snapshot = Users.ToList();
 
             foreach (var recipient in snapshot)
             {
                 try
                 {
-                    // Start building a RosterBroadcast packet
+                    // Starts building a RosterBroadcast packet.
                     var builder = new PacketBuilder();
                     builder.WriteOpCode((byte)ServerPacketOpCode.RosterBroadcast);
 
-                    // Writes the total number of users as a string
+                    // Writes the total number of users as a string (kept for compatibility).
                     builder.WriteString(snapshot.Count.ToString());
 
-                    // Appends each user’s UID, username, and public key (or empty if missing)
+                    // Appends each user's UID, username, and length-prefixed DER public key (empty if missing).
                     foreach (var target in snapshot)
                     {
                         builder.WriteUid(target.UID);
                         builder.WriteString(target.Username);
-                        builder.WriteString(target.PublicKeyBase64 ?? string.Empty);
+
+                        // Writes raw public key bytes with a length prefix; uses empty array when absent.
+                        byte[] pk = target.PublicKeyDer ?? Array.Empty<byte>();
+                        builder.WriteBytesWithLength(pk);
                     }
 
-                    // Extracts the raw packet bytes
+                    // Extracts the raw packet bytes and frames them for on-the-wire transport.
                     byte[] payload = builder.GetPacketBytes();
-
-                    // Frames the payload with a 4-byte big-endian length prefix
                     byte[] framedPacket = Frame(payload);
 
-                    // Sends the framed packet to the recipient’s socket
+                    // Sends the framed packet to the recipient's socket.
                     recipient.ClientSocket.Client.Send(framedPacket);
 
-                    // Logs success for this recipient
-                    ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug,
-                        recipient.Username);
+                    // Logs success for this recipient.
+                    ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug, recipient.Username);
                 }
                 catch (Exception ex)
                 {
-                    // Logs any failure to deliver this roster packet
-                    ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error,
-                        recipient.Username, ex.Message);
+                    // Logs any failure to deliver this roster packet.
+                    ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error, recipient.Username, ex.Message);
                 }
             }
         }
+
 
         /// <summary>
         /// Broadcasts a plain-text chat message from one client to all connected clients.
@@ -320,16 +323,19 @@ namespace chat_server
 
             if (!string.IsNullOrWhiteSpace(input))
             {
-                // Validate port number
+                // Validates port number
                 if (int.TryParse(input, out int port) && port >= 1000 && port <= 65535)
                 {
                     chosenPort = port;
                 }
                 else
                 {
-                    // Ask user if they want to use default port
-                    Console.Write("Invalid port, would you like to use default port (7123)? (y/n): ");
-                    string confirm = Console.ReadLine()?.Trim().ToLower();
+                    // Asks user if they want to use default port
+                    Console.WriteLine("Invalid port, would you like to use default port (7123)? (y/n): ");
+
+                    // Uses ReadLineWithTimeout and normalizes null to empty string to satisfy nullable analysis
+                    string confirmRaw = ReadLineWithTimeout(7000);
+                    string confirm = (confirmRaw ?? string.Empty).Trim().ToLowerInvariant();
 
                     if (confirm == "y")
                     {
@@ -346,63 +352,74 @@ namespace chat_server
             return chosenPort;
         }
 
+
         /// <summary>
         /// Reads a line from the console with a timeout.
         /// </summary>
         /// <param name="timeoutMs">Timeout in milliseconds</param>
-        /// <returns>User input or null if timeout</returns>
+        /// <returns>User input or empty string if timeout or input is null</returns>
         static string ReadLineWithTimeout(int timeoutMs)
         {
-            string input = "";
-            var task = Task.Run(() => input = Console.ReadLine());
-            bool completed = task.Wait(timeoutMs);
-            return completed ? input : "";
+            var task = Task.Run(() => Console.ReadLine());
+            if (task.Wait(timeoutMs))
+            {
+                // Console.ReadLine() may return null; normalizes to empty string to satisfy nullable analysis.
+                return task.Result ?? string.Empty;
+            }
+
+            return string.Empty;
         }
 
         /// <summary>
-        /// Relays an encrypted payload from one client to another specific client.
-        /// Constructs a framed packet (4-byte length prefix + payload) containing:
-        ///   • opcode (EncryptedMessage)
-        ///   • sender UID
-        ///   • recipient UID
-        ///   • length-prefixed ciphertext bytes
-        /// Then sends it via the raw socket API and logs success or failure.
+        /// Relays an encrypted payload from sender to recipient:
+        /// • Validates recipient connection and ciphertext presence.
+        /// • Builds packet: opcode, sender UID, recipient UID, length-prefixed ciphertext.
+        /// • Frames packet for wire transport (4-byte length prefix + payload).
+        /// • Sends framed packet via socket and logs success or failure.
         /// </summary>
-        /// <param name="cipherB64">Base64 string of the encrypted payload.</param>
-        /// <param name="senderUid">Unique identifier of the sending client.</param>
-        /// <param name="recipientUid">Unique identifier of the receiving client.</param>
-        public static void RelayEncryptedMessageToAUser(string cipherB64, Guid senderUid, Guid recipientUid)
+        public static void RelayEncryptedMessageToAUser(byte[] ciphertext, Guid senderUid, Guid recipientUid)
         {
-            List<Client> snapshot;
-            snapshot = Users.ToList();
+            // Snapshots current users to avoid collection modification races.
+            List<Client> snapshot = Users.ToList();
 
+            // Finds recipient and ensures socket is connected.
             var recipient = snapshot.FirstOrDefault(u => u.UID == recipientUid);
-            if (recipient?.ClientSocket.Connected == true)
+            if (recipient == null || recipient.ClientSocket == null || recipient.ClientSocket.Connected != true)
             {
-                byte[] cipherBytes = Convert.FromBase64String(cipherB64);
+                ServerLogger.LogLocalized("EncryptedMessageRelayFailed", ServerLogLevel.Warn, recipientUid.ToString(), "Recipient not connected");
+                return;
+            }
 
-                var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
-                builder.WriteUid(senderUid);
-                builder.WriteUid(recipientUid);
-                builder.WriteBytesWithLength(cipherBytes);
+            // Validates ciphertext presence.
+            if (ciphertext == null || ciphertext.Length == 0)
+            {
+                ServerLogger.LogLocalized("ErrorEmptyCiphertext", ServerLogLevel.Warn, senderUid.ToString(), recipientUid.ToString());
+                return;
+            }
 
-                byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
+            // Builds encrypted-message packet: opcode + sender UID + recipient UID + length-prefixed ciphertext.
+            var builder = new PacketBuilder();
+            builder.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
+            builder.WriteUid(senderUid);
+            builder.WriteUid(recipientUid);
+            builder.WriteBytesWithLength(ciphertext);
 
-                try
-                {
-                    recipient.ClientSocket.Client.Send(framedPacket);
-                    ServerLogger.LogLocalized("EncryptedMessageRelaySuccess",
-                        ServerLogLevel.Debug, recipient.Username);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("EncryptedMessageRelayFailed",
-                        ServerLogLevel.Warn, recipient.Username, ex.Message);
-                }
+            // Frames payload for on-the-wire transport.
+            byte[] payload = builder.GetPacketBytes();
+            byte[] framedPacket = Frame(payload);
+
+            // Sends framed packet and logs outcome.
+            try
+            {
+                recipient.ClientSocket.Client.Send(framedPacket);
+                ServerLogger.LogLocalized("EncryptedMessageRelaySuccess", ServerLogLevel.Debug, recipient.Username);
+            }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("EncryptedMessageRelayFailed", ServerLogLevel.Warn, recipient.Username, ex.Message);
             }
         }
+
 
         /// <summary>
         /// Relays a public key request from one client to another specific client.
