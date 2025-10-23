@@ -246,4 +246,25 @@
   <data name="ErrorPublicKeyLengthInvalid" xml:space="preserve">
     <value>Longueur de clé publique invalide reçue du client {0}.</value>
   </data>
+  <data name="ErrorInvalidOperationException" xml:space="preserve">
+    <value>Opcode inattendu reçu lors du handshake : {0}</value>
+  </data>
+  <data name="ErrorInvalidDataException" xml:space="preserve">
+    <value>Données de handshake invalides : {0}</value>
+  </data>
+  <data name="ErrorInvalidHandshakeLength" xml:space="preserve">
+    <value>Longueur du payload de handshake invalide : {0}</value>
+  </data>
+  <data name="InvalidFrameLength" xml:space="preserve">
+    <value>Longueur de trame invalide reçue du client {0} : {1}</value>
+  </data>
+  <data name="StreamDisposed" xml:space="preserve">
+    <value>Flux réseau disposé pour le client {0}</value>
+  </data>
+  <data name="ErrorClientCleanup" xml:space="preserve">
+    <value>Erreur lors du nettoyage pour le client {0} : {1}</value>
+  </data>
+  <data name="ClientCleanupComplete" xml:space="preserve">
+    <value>Nettoyage du client terminé pour {0}</value>
+  </data>
 </root>

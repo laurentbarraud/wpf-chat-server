@@ -70,32 +70,51 @@ namespace chat_server.Net.IO
             return buffer;
         }
 
+
         /// <summary>
-        /// Reads a length‐prefixed byte array: 4-byte length (network order) + payload.
-        /// </summary>
+        /// Reads a length-prefixed byte array from the underlying stream.
+        /// Expects a 4-byte network-order length followed by that many bytes of payload.
+        /// Validates the length against a sensible maximum to protect against corrupted frames or DoS.
+        /// </summary
+        /// <returns>Byte array containing the payload read from the stream.</returns>
         public byte[] ReadBytesWithLength()
         {
+            const int MaxAllowedLength = 65_536; // protects against corrupted length fields and large allocations
+
             int length = ReadInt32NetworkOrder();
+            if (length <= 0 || length > MaxAllowedLength)
+                throw new InvalidDataException($"Invalid length {length} in ReadBytesWithLength");
+
             return ReadExact(length);
         }
 
         /// <summary>
-        /// Reads exactly count bytes from the stream.
-        /// Throws EndOfStreamException if the stream closes too early.
+        /// Reads exactly count bytes from the underlying stream.
+        /// Returns a byte array of length 'count' or throws EndOfStreamException if the stream closes early.
         /// </summary>
+        /// <returns>Byte array of length 'count' filled with data read from the stream.</returns>
         public byte[] ReadExact(int count)
         {
             if (count <= 0)
                 return Array.Empty<byte>();
 
             var buffer = new byte[count];
-            int reader = 0;
-            while (reader < count)
+            int offset = 0;
+
+            /// <summary>
+            /// Loops until the requested number of bytes has been read
+            /// or the stream closes early.
+            /// </summary>
+            while (offset < count)
             {
-                int n = BaseStream.Read(buffer, reader, count - reader);
-                if (n == 0)
-                    throw new EndOfStreamException($"Stream closed while reading {count} bytes");
-                reader += n;
+                ///<summary>
+                ///Performs a blocking read into buffer; returns bytes read, 
+                ///0 means stream closed.
+                ///</summary>
+                int read = BaseStream.Read(buffer, offset, count - offset);
+                if (read == 0)
+                    throw new EndOfStreamException($"Stream closed while reading {count} bytes; read {offset} bytes so far");
+                offset += read;
             }
 
             return buffer;
@@ -121,11 +140,6 @@ namespace chat_server.Net.IO
             byte[] payload = ReadBytesWithLength();
             return (sender, payload);
         }
-
-        /// <summary>
-        /// Alias for reading the protocol opcode byte.
-        /// </summary>
-        public byte ReadOpCode() => ReadByte();
 
         /// <summary>
         /// Packet model C: Reads a plain-text message packet.

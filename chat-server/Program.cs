@@ -65,19 +65,34 @@ namespace chat_server
                 Users = new List<Client>();
                 Listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
                 Listener.Start();
-                Console.WriteLine(
-                  string.Format(
-                    LocalizationManager.GetString("ServerStartedOnPort"),
+                Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"),
                     port));
 
                 // Accepts incoming clients and broadcasts roster updates
                 while (true)
                 {
+                    // Tries to accept and initialize the client.
+                    // If initialization fails, closes socket and continues.
                     TcpClient tcp = Listener.AcceptTcpClient();
-                    var client = new Client(tcp);
+                    try
+                    {
+                        var client = new Client(tcp);
+                        Users.Add(client);
+                        BroadcastRoster();
+                    }
+                    catch (Exception ex)
+                    {
+                        // Logs reason and closes raw socket to free resources
+                        ServerLogger.LogLocalized("ErrorInitializeClient", ServerLogLevel.Warn, ex.Message);
 
-                    Users.Add(client);
-                    BroadcastRoster();
+                        try
+                        { 
+                            tcp.Close();
+                        } 
+                        catch 
+                        { 
+                        }
+                    }
                 }
             }
             catch (Exception ex)

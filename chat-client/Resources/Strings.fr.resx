@@ -288,4 +288,7 @@ Exemple :
   <data name="ErrorEncryptionFailed" xml:space="preserve">
     <value>Échec du chiffrement : {0}</value>
   </data>
+  <data name="ErrorInitializeClient" xml:space="preserve">
+    <value>Échec de l'initialisation du client : {0}</value>
+  </data>
 </root>

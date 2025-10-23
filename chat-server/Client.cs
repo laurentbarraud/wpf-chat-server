@@ -25,77 +25,138 @@ namespace chat_server
 
         private readonly PacketReader packetReader;
 
+        private volatile bool _cleanupDone = false;
+
+        /// <summary>
+        /// • Initializes a new connected client, parses the framed handshake payload.
+        /// • Validates received fields: username, UID, public key DER.
+        /// • Logs errors and closes the socket on invalid input.
+        /// • Starts the per-client packet reading loop only when the socket remains connected.
+        /// </summary>
         public Client(TcpClient client)
         {
+            // Assigns the raw TcpClient and generates a provisional UID for server-side bookkeeping
             ClientSocket = client;
             UID = Guid.NewGuid();
+
+            // Creates a PacketReader over the underlying network stream to decode framed payloads
             packetReader = new PacketReader(ClientSocket.GetStream());
 
-            // Decodes framed handshake
+            // Reads the 4-byte network-order payload length and validates it
             int payloadLength = packetReader.ReadInt32NetworkOrder();
             if (payloadLength <= 0)
+            {
+                ServerLogger.LogLocalized("ErrorInvalidHandshakeLength", ServerLogLevel.Warn, UID.ToString());
+                try { ClientSocket.Close(); } catch { }
                 throw new InvalidDataException("Handshake length invalid");
+            }
 
-            // Reads exactly payloadLength bytes into a temp buffer
+            // Reads exactly payloadLength bytes from the stream into a temporary buffer
             byte[] payload = packetReader.ReadExact(payloadLength);
 
-            // Parses the handshake fields from that buffer
+            // Parses the handshake fields from the buffered payload
             using var ms = new MemoryStream(payload);
             var handshakeReader = new PacketReader(ms);
             var opcode = (ServerPacketOpCode)handshakeReader.ReadByte();
+
+            // If opcode is not Handshake, logs localized error and aborts initialization
             if (opcode != ServerPacketOpCode.Handshake)
             {
-                throw new InvalidOperationException("Expected Handshake opcode");
+                ServerLogger.LogLocalized("ErrorInvalidOperationException", ServerLogLevel.Warn, Username ?? string.Empty, $"{(byte)opcode}");
+                try { ClientSocket.Close(); } catch { }
+                throw new InvalidDataException("Expected Handshake opcode");
             }
 
+            // Reads username and UID from the handshake payload
             Username = handshakeReader.ReadString();
             UID = handshakeReader.ReadUid();
 
-            // Reads length-prefixed raw public key bytes (DER)
+            // Reads length-prefixed raw public key bytes (DER) and validates bounds
             int publicKeyLength = handshakeReader.ReadInt32NetworkOrder();
-            if (publicKeyLength <= 0)
+
+            // Protects against invalid or malicious length fields
+            const int MaxPublicKeyLength = 65_536;
+            if (publicKeyLength <= 0 || publicKeyLength > MaxPublicKeyLength)
             {
-                // Logs localized error, closes the socket and aborts client initialization
+                // Logs and defensive closes when public key length is invalid
                 ServerLogger.LogLocalized("ErrorPublicKeyLengthInvalid", ServerLogLevel.Warn, UID.ToString());
-                try 
-                { 
-                    ClientSocket.Close();
-                } 
-                catch 
-                {  
-                
+
+                try
+                {
+                    // If the socket is already closed or disposed, logs at Debug level for diagnostics
+                    if (ClientSocket == null || !ClientSocket.Connected)
+                    {
+                        ServerLogger.LogLocalized("SocketAlreadyClosed", ServerLogLevel.Debug, UID.ToString());
+                    }
+
+                    ClientSocket?.Close();
                 }
-                
-                return;
+                catch
+                {
+                    // Best-effort close; avoid throwing during error handling
+                    ServerLogger.LogLocalized("SocketCloseFailed", ServerLogLevel.Debug, UID.ToString());
+                }
+
+                ServerLogger.LogLocalized("ErrorInvalidDataException", ServerLogLevel.Warn, UID.ToString(), publicKeyLength.ToString());
+
+                try
+                {
+                    if (ClientSocket == null || !ClientSocket.Connected)
+                    {
+                        ServerLogger.LogLocalized("SocketAlreadyClosed", ServerLogLevel.Debug, UID.ToString());
+                    }
+
+                    ClientSocket?.Close();
+                }
+                catch
+                {
+                    ServerLogger.LogLocalized("SocketCloseFailed", ServerLogLevel.Debug, UID.ToString());
+                }
+
+                throw new InvalidDataException($"PublicKey length invalid in handshake: {publicKeyLength}");
+
             }
 
+            // Reads the public key bytes exactly as declared and assigns to the client record
             PublicKeyDer = handshakeReader.ReadExact(publicKeyLength);
 
+            // Logs successful connection and starts the per-client packet read loop only if still connected
             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, Username);
 
-            Task.Run(() => ProcessReadPackets());
+            if (ClientSocket?.Connected == true)
+            {
+                Task.Run(() => ProcessReadPackets());
+            }
         }
 
         /// <summary>
-        /// Safely closes the client socket and broadcasts a disconnect notification.
-        /// Safe to call multiple times; 
+        /// Performs a safe cleanup of the client connection and notifies the server.
+        /// Ensures resources are closed and the disconnect is broadcasted exactly once.
         /// </summary>
         private void CleanupAfterDisconnect()
         {
             try
             {
-                ClientSocket.Close();
+                ClientSocket?.Close();
             }
-            catch
+            catch (Exception ex)
             {
+                ServerLogger.LogLocalized("ErrorClientCleanup", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
             }
 
-            /// <summary>
-            /// Removes the user from the server roster 
-            /// and notifies all remaining clients.
-            /// </summary>
-            Program.BroadcastDisconnectNotify(UID);
+            // Removes user from roster and notifies remaining clients
+            try
+            {
+                Program.BroadcastDisconnectNotify(UID);
+            }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("ErrorClientCleanup", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
+            }
+
+            ServerLogger.LogLocalized("ClientCleanupComplete", ServerLogLevel.Info, Username ?? UID.ToString());
         }
+
         /// <summary>
         /// • Reads one framed packet per iteration (4-byte length prefix followed by payload).  
         /// • Wraps the payload in a dedicated PacketReader to isolate parsing logic.  
@@ -112,7 +173,10 @@ namespace chat_server
                 {
                     int bodyLength = packetReader.ReadInt32NetworkOrder();
                     if (bodyLength <= 0)
-                        continue;
+                    {
+                        ServerLogger.LogLocalized("InvalidFrameLength", ServerLogLevel.Warn, Username, bodyLength.ToString());
+                        break; // break to reach finally and cleanup
+                    }
 
                     byte[] frame = packetReader.ReadExact(bodyLength);
                     using var ms = new MemoryStream(frame);
@@ -170,16 +234,21 @@ namespace chat_server
             {
                 ServerLogger.LogLocalized("StreamClosed", ServerLogLevel.Info, Username);
             }
+            catch (ObjectDisposedException)
+            {
+                ServerLogger.LogLocalized("StreamDisposed", ServerLogLevel.Info, Username);
+            }
             catch (IOException ioe)
             {
                 ServerLogger.LogLocalized("IOError", ServerLogLevel.Info, Username, ioe.Message);
             }
             catch (Exception ex)
             {
-                ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex.Message);
+                ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex.ToString());
             }
             finally
             {
+                // Ensure cleanup is idempotent and logs reason
                 CleanupAfterDisconnect();
             }
         }

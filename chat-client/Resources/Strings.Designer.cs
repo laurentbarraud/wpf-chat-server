@@ -241,6 +241,15 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Failed to initialize client: {0}.
+        /// </summary>
+        public static string ErrorInitializeClient {
+            get {
+                return ResourceManager.GetString("ErrorInitializeClient", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à An error occurred while loading settings. Please check your theme resources..
         /// </summary>
         public static string ErrorLoadingThemeResources {
