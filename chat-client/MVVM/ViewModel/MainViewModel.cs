@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 23th, 2025</date>
+/// <date>October 25th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -290,6 +290,12 @@ namespace chat_client.MVVM.ViewModel
         /// A UID can only be added once. This prevents redundant key transmissions.
         /// </summary>
         private readonly HashSet<Guid> _uidsKeySentTo = new();
+
+        /// <summary>
+        /// Atomic guard to ensure the client-side disconnect sequence runs only once.
+        /// 0 = not running, 1 = already invoked.
+        /// </summary>
+        private int _clientDisconnecting = 0;
 
         /// <summary>
         /// Stores the current theme selection state.
@@ -960,16 +966,20 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
         /// <summary>
-        /// Handles a server-initiated disconnect command (opcode: DisconnectClient).  
-        /// • Closes the client connection gracefully.  
-        /// • Clears the user list.  
-        /// • Posts a localized system message indicating server disconnection.  
-        /// • Raises PropertyChanged for IsConnected to refresh the UI state.  
+        /// Handles a server-initiated disconnect command.
+        /// • Closes the client connection gracefully.
+        /// • Clears the user list.
+        /// • Posts a localized system message indicating server disconnection.
+        /// • Raises PropertyChanged for IsConnected to refresh the UI state.
+        /// Will run only once even if invoked multiple times.
         /// </summary>
         public void OnDisconnectedByServer()
         {
+            // Ensures this handler runs exactly once (atomic guard).
+            if (Interlocked.Exchange(ref _clientDisconnecting, 1) != 0)
+                return;
+
             // Attempts to close the connection
             try
             {
@@ -977,8 +987,7 @@ namespace chat_client.MVVM.ViewModel
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}",
-                    ClientLogLevel.Error);
+                ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}", ClientLogLevel.Error);
             }
 
             // Executes UI-bound updates on the dispatcher thread

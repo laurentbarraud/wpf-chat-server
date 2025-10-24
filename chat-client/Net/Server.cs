@@ -1,7 +1,7 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 23th, 2025</date>
+/// <date>October 25th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -10,6 +10,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Windows;
+using System.Threading;
 
 namespace chat_client.Net
 {
@@ -69,6 +70,17 @@ namespace chat_client.Net
         /// <summary>Gets the public key assigned to the local user.</summary>
         public byte[] LocalPublicKey { get; private set; }
 
+        /// <summary>
+        /// Counts consecutive unknown opcodes seen in ReadPackets; resets when a valid opcode is processed.
+        /// Used to close the connection if too many unexpected opcodes arrive in a row.
+        /// </summary>
+        private int _consecutiveUnexpectedOpcodes = 0;
+
+        /// <summary>
+        /// Atomic guard to ensure DisconnectFromServer logic runs once.
+        /// 0 = not called, 1 = called.
+        /// </summary>
+        private int _disconnectFromServerCalled = 0;
 
         private TcpClient _tcpClient;
 
@@ -147,30 +159,59 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Safely closes the TCP connection and resets the client state.
-        /// Can be called multiple times without causing errors.
-        /// Disposes the packet reader and resets the TCP client for future reconnection.
-        /// Logs any failure silently as an error.
+        /// Gracefully disconnects from the server and resets local connection state.
+        /// Safe to call multiple times; performs cleanup and notifies listeners.
         /// </summary>
         public void DisconnectFromServer()
         {
+            // Ensures close logic runs only once per instance
+            if (Interlocked.Exchange(ref _disconnectFromServerCalled, 1) != 0)
+            {
+                return;
+            }
+
             try
             {
-                // Closes the TCP connection if it's still active
-                if (_tcpClient != null && _tcpClient.Connected)
+                // Attempts to close the network stream if accessible
+                try
                 {
-                    _tcpClient.Close();
+                    var networkStream = _tcpClient?.GetStream();
+                    networkStream?.Close();
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"NetworkStream close failed: {ex.Message}", ClientLogLevel.Warn);
                 }
 
-                // Prepares for future reconnection
-                _tcpClient = new TcpClient();
+                // Attempts to close the underlying TcpClient
+                try
+                {
+                    if (_tcpClient != null)
+                    {
+                        _tcpClient.Close();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"TcpClient close failed: {ex.Message}", ClientLogLevel.Warn);
+                }
 
-                // Notifies that the connection is terminated
+                // Attempts to reset the TcpClient for potential future reconnection
+                try
+                {
+                    _tcpClient = new TcpClient();
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"TcpClient reset failed: {ex.Message}", ClientLogLevel.Warn);
+                }
+
+                // Notifies local listeners/UI that the connection has been terminated
                 ConnectionTerminated?.Invoke();
             }
             catch (Exception ex)
             {
-                // Logs the error silently without interrupting the user
+                // Avoids errors during cleanup
                 ClientLogger.Log($"Disconnect failed: {ex.Message}", ClientLogLevel.Error);
             }
         }
@@ -257,6 +298,14 @@ namespace chat_client.Net
                     switch (opcode)
                     {
                         case ClientPacketOpCode.RosterBroadcast:
+                            // Resets consecutive unexpected-opcode counter when a valid packet is processed</summary> 
+                            if (_consecutiveUnexpectedOpcodes != 0)
+                            {
+                                // Volatile.Write offers a safe, performant middle ground to preserve 
+                                // lightweight cross-thread visibility guarantees.
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+                            }
+                                
                             // Reads the number of users in this roster update (stored as a 32-bit network-order int)
                             int totalUsers = reader.ReadInt32NetworkOrder();
 
@@ -281,6 +330,11 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.PlainMessage:
+                            if (_consecutiveUnexpectedOpcodes != 0)
+                            {
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+                            }
+
                             // Plain-text message payload format:
                             //   [16-byte sender UID]
                             //   [16-byte recipient UID placeholder]
@@ -297,6 +351,10 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.EncryptedMessage:
+                            if (_consecutiveUnexpectedOpcodes != 0)
+                            {
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+                            }
                             // Encrypted payload format:
                             //   [16-byte sender UID]
                             //   [16-byte recipient UID]
@@ -315,6 +373,10 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.PublicKeyResponse:
+                            if (_consecutiveUnexpectedOpcodes != 0)
+                            {
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+                            }
                             // PublicKeyResponse payload:
                             //   [16-byte origin UID]
                             //   [4-byte string length][UTF-8 bytes of DER public key]
@@ -325,6 +387,10 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.DisconnectNotify:
+                            if (_consecutiveUnexpectedOpcodes != 0)
+                            {
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+                            }
                             // Reads a framed DisconnectNotify:
                             //   [16-byte UID][4-byte string length][UTF-8 username bytes]
                             var (discUid, discName) = reader.ReadUserDisconnected();
@@ -334,24 +400,41 @@ namespace chat_client.Net
 
                         // Reads a framed ForceDisconnectClient packet and invokes the server-initiated disconnect handler
                         case ClientPacketOpCode.ForceDisconnectClient:
-                            Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnDisconnectedByServer());
+                             Application.Current.Dispatcher.Invoke(() =>
+                             viewModel.OnDisconnectedByServer());
                             return;
 
                         default:
-                            ClientLogger.Log($"Unexpected opcode 0x{opcodeByte:X2} in framed packet",
-                                ClientLogLevel.Warn);
-                            break;
+                            {
+                                // Logs the unexpected opcode
+                                ClientLogger.Log($"Unexpected opcode 0x{opcodeByte:X2} in framed packet", ClientLogLevel.Warn);
+
+                                // Increments the consecutive counter and tests threshold (3 consecutive unexpected opcodes)
+                                if (Interlocked.Increment(ref _consecutiveUnexpectedOpcodes) >= 3)
+                                {
+                                    ClientLogger.Log("Too many consecutive unexpected opcodes, initiating graceful disconnect.", ClientLogLevel.Warn);
+                                    // Notifies UI and stops the read loop
+                                    viewModel.OnDisconnectedByServer();
+                                    return;
+                                }
+
+                                break;
+                            }
+
                     }
                 }
                 catch (IOException)
                 {
                     viewModel.OnDisconnectedByServer();
+                    // Ensures ReadPackets exits after signalling the UI
+                    return;
                 }
                 catch (Exception ex)
                 {
                     ClientLogger.Log($"ReadPackets error: {ex.Message}", ClientLogLevel.Error);
                     viewModel.OnDisconnectedByServer();
+                    // Ensures ReadPackets exits after signalling the UI
+                    return;
                 }
             }
         }
