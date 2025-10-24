@@ -1,0 +1,66 @@
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION  
+Based on Apache 2.0 licence with restrictions – Version 1.0 – October 2025  
+
+1. Definitions  
+   “License” means this document.  
+   “Author” means Laurent Barraud.  
+   “You” means any individual or legal entity exercising rights under this License.  
+   “Code” means all source code, object code, documentation, resources, and related files distributed under this License.  
+   “Derivative Project” means any work based on or including the Code.  
+   “Contribution” means any submission proposed for inclusion in the Code.  
+
+2. Grant of License  
+   Subject to the terms of this License, Author grants You a non-exclusive, worldwide, 
+royalty-free copyright license to use, reproduce, display, and perform the Code solely 
+for educational, demonstration, and recreational purposes.  
+
+3. Academic & Media Restrictions  
+   You may not present the Code or any Derivative Project as the academic work of any third
+ party (including universities, colleges, or other schools). Any reportage, recommendation, or
+ any media based on the Code is welcomed, but it requires Author’s prior written consent.  
+
+4. Redistribution  
+   You may not reproduce, distribute, sell, or publish the Code or any Derivative Project in any
+ physical or online library, journal, or commercial medium without Author’s prior written 
+permission. 
+Authorized downloads are limited to 
+https://github.com/laurentbarraud/wpf-chat-server and direct link sharing.  
+
+5. Derivative Projects & Contributions  
+   Before any public distribution or publication of a Derivative Project, You must notify Author 
+via pull request on GitHub or by email (laurent.barraud@bluewin.ch). 
+All Contributions must be submitted via pull request on GitHub or by email. 
+Notification and submissions do not obligate Author to accept inclusion; inclusion is at Author’s
+ sole discretion.  
+
+6. Author Impersonation, Notice, Attribution, and Scope  
+   You may not claim authorship of the Code or misrepresent your affiliation with Author. 
+You must include this License unmodified in every distribution (source or binary) and display
+ “Based on WPF Chat Server by Laurent Barraud” in any documentation or user interface. 
+This License applies to all Code and all integrated resources under this project.  
+
+7. Trademarks  
+   This License does not grant rights to use Author’s trademarks, service marks, trade names, 
+or product names.  
+
+8. Enforcement & Remedies  
+   If the Code is used commercially without attribution or without this License, author reserves the right to bring legal action for copyright infringement or plagiarism.
+In such cases, damages will be claimed proportionally to any profits realized.  
+
+9. Disclaimer of Warranty & Limitation of Liability  
+   This software is provided “as is”, without any kind of warranty.  
+   In no event shall the Author be liable for any indirect, incidental, or consequential damages, including loss of data, lost profits, or business interruption arising from use of this software.  
+
+10. Severability & Ownership  
+   If any provision of this License is held invalid or unenforceable under Swiss law, the remaining provisions shall remain in full force and effect. 
+Notwithstanding termination, Author retains all copyrights and moral rights as protected by CopA art. 2 para. 3 (computer programs as literary works) and art. 10 (moral rights).  
+
+11. Governing Law & Venue  
+   This License is governed by the laws of Switzerland, Canton of Vaud. 
+Venue for any dispute shall be the courts of Lausanne.  
+
+END OF TERMS AND CONDITIONS  
+
+Version 1.0 – October 2025  
+Created by Laurent Barraud.
+Button images and icons inspired by resources available on Flaticon.com.
