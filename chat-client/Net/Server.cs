@@ -279,6 +279,12 @@ namespace chat_client.Net
         }
 
         /// <summary>
+        /// Marks the client-side handshake as complete so the UI/logic can safely proceed.
+        /// Keeps _handshakeComplete private while offering a clear, thread-safe API.
+        /// </summary>
+        public void MarkHandshakeComplete() => _handshakeComplete = true;
+
+        /// <summary>
         /// Runs on a background thread to read all incoming framed packets  
         /// until the connection closes. Captures the MainViewModel on the UI thread,
         /// clears the user list on the first roster broadcast, and dispatches each

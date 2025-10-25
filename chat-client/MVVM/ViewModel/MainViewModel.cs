@@ -604,6 +604,9 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}",
                     ClientLogLevel.Debug);
 
+                // Marks client-side handshake as complete so ReadPackets and other logic can proceed safely
+                _server.MarkHandshakeComplete();
+
                 // Marks the client as connected for plain messaging
                 IsConnected = _server.IsConnected;
                 ClientLogger.Log("Client connected — plain messages allowed before handshake.",

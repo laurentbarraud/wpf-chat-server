@@ -224,7 +224,47 @@ namespace chat_server
         /// </summary>
         private void ProcessReadPackets()
         {
-            ServerLogger.LogLocalized("StartPacketLoop", ServerLogLevel.Info, Username);
+            /// <summary>
+            /// Defensive startup gate for ProcessReadPackets.
+            /// Waits briefly for the server-side handshake flag to be set before consuming framed packets.
+            /// Uses a Stopwatch to enforce a precise timeout and a small sleep-based poll to avoid busy-waiting.
+            /// If the handshake flag is not observed within the timeout, a warning is logged and the reader exits to prevent stream desynchronization.
+            /// </summary>
+            {
+                // Maximum time to wait for the server-side handshake to be marked processed
+                // Chosen small to avoid delaying client processing, but long enough to tolerate scheduling jitter.
+                const int handshakeWaitTimeoutMs = 2000;
+
+                // Poll interval between checks of the handshake flag.
+                // A small interval keeps latency low without burning CPU in a tight loop.
+                const int handshakePollIntervalMs = 20;
+
+                // Stopwatch is used here for elapsed time measurement.
+                // Rationale: Stopwatch is not affected by system clock changes and gives accurate elapsed time for timeout checks.
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                // Polls the `_handshakeProcessed` flag until either it becomes true or the timeout elapses.
+                while (!_handshakeProcessed && stopwatch.ElapsedMilliseconds < handshakeWaitTimeoutMs)
+                {
+                    // Each iteration sleeps for handshakePollIntervalMs to yield CPU and reduce contention.
+                    System.Threading.Thread.Sleep(handshakePollIntervalMs);
+                }
+
+                // If handshake was not completed within the timeout window, logs and aborts the reader.
+                // This prevents the reader from misinterpreting handshake bytes as a framed payload length.
+                if (!_handshakeProcessed)
+                {
+                    // Localized warning to help triage which client experienced the timeout.
+                    ServerLogger.LogLocalized("HandshakeTimeoutBeforePacketLoop", ServerLogLevel.Warn, Username);
+
+                    // Early return to abort the reader
+                    return;
+                }
+
+                // Debug trace showing the reader is starting, after the handshake is confirmed.
+                ServerLogger.LogLocalized("StartingPacketLoop", ServerLogLevel.Debug, Username);
+            }
+
 
             try
             {
