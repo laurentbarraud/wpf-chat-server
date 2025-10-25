@@ -232,6 +232,15 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Failed to send initial handshake to server.
+        /// </summary>
+        public static string ErrorFailedToSendInitialHandshake {
+            get {
+                return ResourceManager.GetString("ErrorFailedToSendInitialHandshake", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Encryption could not be activated..
         /// </summary>
         public static string ErrorInActivatingEncryption {

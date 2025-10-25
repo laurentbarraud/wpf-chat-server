@@ -147,8 +147,8 @@
   <data name="ServerStartedOnPort" xml:space="preserve">
     <value>Écouteur démarré sur le port {0} — en attente de connexions entrantes...</value>
   </data>
-  <data name="StartPacketLoop" xml:space="preserve">
-    <value>Boucle de traitement des paquets démarrée pour l’utilisateur '{0}'</value>
+  <data name="StartingPacketLoop" xml:space="preserve">
+    <value>Démarrage de la boucle de lecture des paquets pour le client {0}</value>
   </data>
   <data name="PublicKeyBroadcastFail" xml:space="preserve">
     <value>Échec de la diffusion de la clé publique pour '{0}' : {1}</value>
@@ -165,7 +165,7 @@
   <data name="IOError" xml:space="preserve">
     <value>Erreur E/S pour le client '{0}' : {1}</value>
   </data>
-  <data name="PacketLoopError" xml:space="preserve">
+  <data name="ErrorPacketLoop" xml:space="preserve">
     <value>Erreur dans la boucle de paquets pour '{0}'.</value>
   </data>
   <data name="ClientRemoved" xml:space="preserve">
@@ -188,9 +188,6 @@
   </data>
   <data name="UnexpectedOpcode" xml:space="preserve">
     <value>Opcode inattendu '{1}' reçu de '{0}'</value>
-  </data>
-  <data name="HandleNewClientError" xml:space="preserve">
-    <value>Erreur lors du traitement du nouveau client '{0}' : {1}</value>
   </data>
   <data name="EncryptedDeliverFailed" xml:space="preserve">
     <value>Échec de la livraison du message chiffré à '{0}' : {1}</value>
@@ -266,5 +263,11 @@
   </data>
   <data name="ClientCleanupComplete" xml:space="preserve">
     <value>Nettoyage du client terminé pour {0}</value>
+  </data>
+  <data name="ErrorInitializeClient" xml:space="preserve">
+    <value>Échec de l'initialisation du client : {0}</value>
+  </data>
+  <data name="HandshakeTimeoutBeforePacketLoop" xml:space="preserve">
+    <value>Handshake non complété à temps avant le démarrage de la boucle de paquets</value>
   </data>
 </root>

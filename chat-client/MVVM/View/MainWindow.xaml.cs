@@ -308,7 +308,6 @@ namespace chat_client
             }
         }
 
-
         /// <summary>
         /// Toggles the SettingsWindow visibility:
         /// - If an instance is already open, it closes it.

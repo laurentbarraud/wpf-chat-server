@@ -291,4 +291,7 @@ Example:
   <data name="ErrorInitializeClient" xml:space="preserve">
     <value>Failed to initialize client: {0}</value>
   </data>
+  <data name="ErrorFailedToSendInitialHandshake" xml:space="preserve">
+    <value>Failed to send initial handshake to server</value>
+  </data>
 </root>

@@ -82,6 +82,12 @@ namespace chat_client.Net
         /// </summary>
         private int _disconnectFromServerCalled = 0;
 
+        /// <summary>
+        /// True when the client-side handshake has been completed and it is safe to fully process framed server packets.
+        /// Using volatile ensures reads/writes are immediately visible across threads without heavier synchronization.
+        /// </summary>
+        private volatile bool _handshakeComplete = false;
+
         private TcpClient _tcpClient;
 
         /// <summary>
@@ -141,12 +147,29 @@ namespace chat_client.Net
                 // Notify that a fresh connection is established
                 ConnectionEstablished?.Invoke();
 
-                // Starts the background reader
-                Task.Run(() => ReadPackets());
-
                 // Sends the framed handshake (username, uid, publicKey)
                 if (!SendInitialConnectionPacket(username, uid, publicKeyDer))
-                    throw new InvalidOperationException("Failed to send initial handshake.");
+                {
+                    // Logs the failure and disconnects silently
+                    ClientLogger.LogLocalized(LocalizationManager.GetString("ErrorFailedToSendInitialHandshake"), ClientLogLevel.Error);
+
+                    try
+                    {
+                        // Silent closes the TCP client to avoid leaving half-open socket
+                        _tcpClient?.Close();
+                    }
+                    catch
+                    {
+                        // Swallows to keep disconnection silent and robust
+                    }
+
+                    // Returns empty result to indicate failure to caller
+                    return (Guid.Empty, Array.Empty<byte>());
+                }
+
+                // Starts the background reader after the handshake frame was written to the socket
+                // This reduces the risk that the reader consumes stream bytes intended for the handshake response.
+                Task.Run(() => ReadPackets());
 
                 return (uid, publicKeyDer);
             }

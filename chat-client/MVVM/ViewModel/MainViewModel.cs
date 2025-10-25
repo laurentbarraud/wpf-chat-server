@@ -580,7 +580,19 @@ namespace chat_client.MVVM.ViewModel
                 // Performs the TCP handshake and retrieves UID and server public key
                 var result = _server.ConnectToServer(Username.Trim(), IPAddressOfServer);
                 if (result.uid == Guid.Empty || result.publicKeyDer == null || result.publicKeyDer.Length == 0)
-                    throw new Exception(LocalizationManager.GetString("ConnectionFailed"));
+                {
+                    // Logs the failure and silently aborts the connection sequence
+                    ClientLogger.LogLocalized(LocalizationManager.GetString("ConnectionFailed"), ClientLogLevel.Error);
+
+                    // Resets UI and internal state without throwing so XAML bindings handle connected state
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        ReinitializeUI();
+                        IsConnected = false;
+                    });
+
+                    return;
+                }
 
                 // Initializes the LocalUser model with the server-provided identity
                 LocalUser = new UserModel
@@ -639,17 +651,14 @@ namespace chat_client.MVVM.ViewModel
             {
                 ClientLogger.Log($"Fails to connect or handshake: {ex.Message}", ClientLogLevel.Error);
 
-                // Handles connection failure by showing an error dialog and resetting the UI
                 Application.Current.Dispatcher.Invoke(() =>
                 {
+                    // Shows a network/unreachable dialog to the user for non-handshake failures
                     MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
                         LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
-                    ReinitializeUI();
 
-                    // Sets IsConnected to false, which:
-                    // - Enables the username/IP inputs
-                    // - Hides the chat panels
-                    // - Updates the window title and button text
+                    // Ensures UI is reset and binding-driven connected state is false
+                    ReinitializeUI();
                     IsConnected = false;
                 });
             }

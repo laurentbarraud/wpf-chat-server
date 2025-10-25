@@ -27,11 +27,25 @@ namespace chat_server
 
         private int _cleanupState = 0; // field in Client class: 0 = not cleaned, 1 = cleaning/done
 
+        /// <summary>
+        /// Guard to ensure we broadcast a given client's disconnect notify at most once.
+        /// 0 = not sent, 1 = sent.
+        /// </summary>
+        private int _disconnectNotifySent = 0;
+
         ///<summary>
         /// Atomic flag used to ensure the per-client packet reader is started once.
         /// 0 = not started, 1 = started
         /// </summary>
         private int _readerStarted = 0;
+
+        /// <summary>
+        /// True when this client's handshake has been fully processed on the server side.
+        /// Placed with other instance fields in Client.cs.
+        /// Using volatile ensures reads/writes are immediately visible across threads 
+        /// without heavier synchronization.
+        /// </summary>
+        private volatile bool _handshakeProcessed = false;
 
         /// <summary>
         /// • Initializes a new connected client, 
@@ -128,8 +142,14 @@ namespace chat_server
             // Reads the public key bytes exactly as declared and assigns to the client record
             PublicKeyDer = handshakeReader.ReadExact(publicKeyLength);
 
-            // Logs successful connection and starts the per-client packet read loop only if still connected
+            // Mark the handshake as processed so server-side code knows the framed stream is aligned
+            _handshakeProcessed = true;
+
+            // Logs successful connection (preserve existing behavior)
             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, Username);
+
+            // Debug log to trace exactly when the per-client packet loop is started
+            ServerLogger.LogLocalized("StartingPacketLoop", ServerLogLevel.Debug, Username);
 
             /// <summary>
             /// Starts the packet reader task once if the socket is connected.
@@ -251,8 +271,10 @@ namespace chat_server
                     switch (opcode)
                     {
                         case ServerPacketOpCode.RosterBroadcast:
-                            Program.BroadcastRoster();
-                            break;
+                            {
+                                Program.BroadcastRoster();
+                                break;
+                            }
 
                         case ServerPacketOpCode.PublicKeyRequest:
                             {
@@ -292,7 +314,18 @@ namespace chat_server
                         case ServerPacketOpCode.DisconnectNotify:
                             {
                                 var disconnectedUid = _packetReader.ReadUid();
-                                Program.BroadcastDisconnectNotify(disconnectedUid);
+
+                                // Ensures we broadcast this client's disconnect notify at most once.
+                                // Use Interlocked to prevent races if Cleanup/other threads attempt broadcast simultaneously.
+                                if (Interlocked.CompareExchange(ref _disconnectNotifySent, 1, 0) == 0)
+                                {
+                                    Program.BroadcastDisconnectNotify(disconnectedUid);
+                                }
+                                else
+                                {
+                                    ServerLogger.LogLocalized("DisconnectNotifyAlreadySent", ServerLogLevel.Debug, Username, disconnectedUid.ToString());
+                                }
+
                                 break;
                             }
 
@@ -312,7 +345,7 @@ namespace chat_server
             }
             catch (Exception ex)
             {
-                ServerLogger.LogLocalized("PacketLoopError", ServerLogLevel.Error, Username, ex.ToString());
+                ServerLogger.LogLocalized("ErrorPacketLoop", ServerLogLevel.Error, Username, ex.ToString());
             }
             finally
             {

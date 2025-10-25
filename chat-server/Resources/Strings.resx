@@ -147,8 +147,8 @@
   <data name="ServerStartedOnPort" xml:space="preserve">
     <value>Listener started on port {0} — waiting for incoming connections...</value>
   </data>
-  <data name="StartPacketLoop" xml:space="preserve">
-    <value>Packet loop started for user '{0}'</value>
+  <data name="StartingPacketLoop" xml:space="preserve">
+    <value>Starting per-client packet loop for user {0}</value>
   </data>
   <data name="PublicKeyBroadcastFail" xml:space="preserve">
     <value>Failed to broadcast public key for '{0}': {1}</value>
@@ -165,7 +165,7 @@
   <data name="IOError" xml:space="preserve">
     <value>I/O error for client '{0}': {1}</value>
   </data>
-  <data name="PacketLoopError" xml:space="preserve">
+  <data name="ErrorPacketLoop" xml:space="preserve">
     <value>Error in packet loop for '{0}'.</value>
   </data>
   <data name="ClientRemoved" xml:space="preserve">
@@ -188,9 +188,6 @@
   </data>
   <data name="UnexpectedOpcode" xml:space="preserve">
     <value>Unexpected opcode '{1}' from '{0}'</value>
-  </data>
-  <data name="HandleNewClientError" xml:space="preserve">
-    <value>Error handling new client '{0}': {1}</value>
   </data>
   <data name="EncryptedDeliverFailed" xml:space="preserve">
     <value>Failed to deliver encrypted message to '{0}': {1}</value>
@@ -266,5 +263,11 @@
   </data>
   <data name="ClientCleanupComplete" xml:space="preserve">
     <value>Client cleanup complete for {0}</value>
+  </data>
+  <data name="ErrorInitializeClient" xml:space="preserve">
+    <value>Failed to initialize client: {0}</value>
+  </data>
+  <data name="HandshakeTimeoutBeforePacketLoop" xml:space="preserve">
+    <value>Handshake not completed in time before starting packet loop</value>
   </data>
 </root>

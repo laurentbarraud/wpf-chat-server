@@ -95,7 +95,6 @@
 
                 <!-- Licence and version text -->
                 <TextBlock x:Name="LicenceFinalText"
-                   FontSize="12"
                    Foreground="WhiteSmoke"
                    VerticalAlignment="Center"
                    TextWrapping="NoWrap" />
