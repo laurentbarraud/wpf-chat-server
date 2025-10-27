@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 25th, 2025</date>
+/// <date>h</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -31,7 +31,10 @@ namespace chat_server
         /// • Displays banner and prompts for TCP port.  
         /// • Starts TcpListener on loopback with the chosen port.  
         /// • Accepts incoming clients in a continuous loop.  
-        /// • Adds each client to Users and broadcasts roster updates.  
+        /// • Constructs a Client for each accepted connection and only adds fully-initialized
+        ///   Client objects to Users.  
+        /// • Closes raw sockets and logs reasons when client initialization fails.
+        /// • Broadcasts roster updates after adding a validated Client.
         /// </summary>
         public static void Main(string[] args)
         {

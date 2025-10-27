@@ -1,7 +1,7 @@
 ﻿/// <file>RelayCommand.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 25th, 2025</date>
+/// <date>October 27th, 2025</date>
 
 using System;                               
 using System.Windows.Input;                // Imports ICommand and CommandManager.

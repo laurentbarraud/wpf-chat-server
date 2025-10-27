@@ -1,7 +1,7 @@
 ﻿/// <file>Client.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 25th, 2025</date>
+/// <date>October 27th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -48,12 +48,13 @@ namespace chat_server
         private volatile bool _handshakeProcessed = false;
 
         /// <summary>
-        /// • Initializes a new connected client, 
-        /// • parses the framed handshake payload,
-        /// • validates username, UID and public key DER,
-        /// • logs and closes the socket on invalid input,
-        /// • starts the per-client packet reading loop only when the socket remains connected.
-        /// ClientSocket will be non-null on constructor exit.
+        /// • Creates and initializes a connected Client from an accepted TcpClient.  
+        /// • Wraps the network stream with a PacketReader and reads the framed handshake payload length.  
+        /// • Converts the length from network to host order and validates it against sensible bounds.  
+        /// • On invalid or out-of-range length performs a clean socket close and logs the reason.  
+        /// • Continues parsing and validating the remaining handshake fields only when the length is valid.  
+        /// • Marks the handshake as processed only after full validation and starts the per-client reader.
+        /// • Throws on fatal initialization errors to prevent partially-initialized clients from being used.
         /// </summary>
         public Client(TcpClient client)
         {
@@ -64,12 +65,31 @@ namespace chat_server
             // Creates a PacketReader over the underlying network stream to decode framed payloads
             packetReader = new PacketReader(ClientSocket.GetStream());
 
-            // Reads the 4-byte network-order payload length and validates it
-            int payloadLength = packetReader.ReadInt32NetworkOrder();
-            if (payloadLength <= 0)
+            // Reads the 4-byte network-order payload length, converts to host order and validates it.
+            int payloadLengthNetworkOrder = packetReader.ReadInt32NetworkOrder();
+            int payloadLength = System.Net.IPAddress.NetworkToHostOrder(payloadLengthNetworkOrder);
+
+            const int MaxHandshakePayload = 65_536; // 64 KB sanity bound for handshake payloads
+            if (payloadLength <= 0 || payloadLength > MaxHandshakePayload)
             {
-                ServerLogger.LogLocalized("ErrorInvalidHandshakeLength", ServerLogLevel.Warn, UID.ToString());
-                try { ClientSocket.Close(); } catch { }
+                // Logs the invalid length at Warn level for operations visibility
+                ServerLogger.LogLocalized("ErrorInvalidHandshakeLength", ServerLogLevel.Warn, UID.ToString(), payloadLength.ToString());
+
+                // Ensures the raw socket is closed to free resources and avoid half-open connections
+                try
+                {
+                    if (ClientSocket == null || !ClientSocket.Connected)
+                    {
+                        ServerLogger.LogLocalized("SocketAlreadyClosed", ServerLogLevel.Debug, UID.ToString());
+                    }
+                    ClientSocket?.Close();
+                }
+                catch
+                {
+                    ServerLogger.LogLocalized("SocketCloseFailed", ServerLogLevel.Debug, UID.ToString());
+                }
+
+                // Throws after cleanup to preserve existing control flow (caller expects an exception).
                 throw new InvalidDataException("Handshake length invalid");
             }
 

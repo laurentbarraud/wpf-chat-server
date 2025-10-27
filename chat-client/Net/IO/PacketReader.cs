@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 25th, 2025</date>
+/// <date>October 27th, 2025</date>
 
 using System;
 using System.IO;
@@ -49,74 +49,76 @@ namespace chat_client.Net.IO
         }
 
         /// <summary>
-        /// Reads exactly count bytes from the underlying stream.
-        /// Throws EndOfStreamException if the stream closes before count bytes are read.
+        /// Reads a length-prefixed byte array from the stream and returns the payload.
         /// </summary>
-        /// <param name="count">Number of bytes to read.</param>
-        /// <returns>Byte array of length count.</returns>
-        public byte[] ReadBytesExactFromStream(int count)
-        {
-            if (count <= 0) return Array.Empty<byte>();
-
-            byte[] buffer = new byte[count];
-            int read = 0;
-            while (read < count)
-            {
-                int n = BaseStream.Read(buffer, read, count - read);
-                if (n == 0)
-                    throw new EndOfStreamException("Stream closed while reading exact bytes");
-                read += n;
-            }
-            return buffer;
-        }
-
-        /// <summary>
-        /// Reads a length-prefixed byte array from the underlying stream.
-        /// Expects a 4-byte network-order length followed by that many bytes of payload.
-        /// Validates the length against a sensible maximum to protect against corrupted frames or DoS.
-        /// </summary
-        /// <returns>Byte array containing the payload read from the stream.</returns>
+        /// <returns>Payload bytes, or an empty array on invalid length or read failure.</returns>
         public byte[] ReadBytesWithLength()
         {
-            const int MaxAllowedLength = 65_536; // protects against corrupted length fields and large allocations
+            const int MaxAllowedLength = 65_536; // 64 KB upper sanity bound
 
-            int length = ReadInt32NetworkOrder();
-            if (length <= 0 || length > MaxAllowedLength)
-                throw new InvalidDataException($"Invalid length {length} in ReadBytesWithLength");
+            // Reads the 4-byte length prefix in network byte order (big-endian).
+            int lengthNetworkOrder = ReadInt32NetworkOrder();
 
-            return ReadExact(length);
+            // Converts the network-order length to host byte order.
+            int lengthHostOrder = System.Net.IPAddress.NetworkToHostOrder(lengthNetworkOrder);
+
+            // Validates length
+            if (lengthHostOrder <= 0 || lengthHostOrder > MaxAllowedLength)
+            {
+                // Silent failure : returns an empty payload on invalid values 
+                return Array.Empty<byte>();
+            }
+
+            // Reads exactly lengthHostOrder bytes.
+            try
+            {
+                return ReadExact(lengthHostOrder);
+            }
+            catch
+            {
+                // Silent failure on read error: return empty payload to avoid bubbling exceptions.
+                return Array.Empty<byte>();
+            }
         }
 
         /// <summary>
-        /// Reads exactly count bytes from the underlying stream.
-        /// Returns a byte array of length 'count' or throws EndOfStreamException if the stream closes early.
+        /// Reads exactly count bytes from the underlying stream and returns them.
+        /// On early EOF or I/O error, returns an empty array instead of throwing.
         /// </summary>
-        /// <returns>Byte array of length 'count' filled with data read from the stream.</returns>
+        /// <returns>Byte array of length 'count' filled with data read, or empty array on failure.</returns>
         public byte[] ReadExact(int count)
         {
             if (count <= 0)
                 return Array.Empty<byte>();
 
+            // Holds the bytes read from the stream
             var buffer = new byte[count];
+            // Tracks how many bytes have been written into 'buffer' so far; next write starts at this index.
             int offset = 0;
 
-            /// <summary>
-            /// Loops until the requested number of bytes has been read
-            /// or the stream closes early.
-            /// </summary>
-            while (offset < count)
+            // Loops until the requested number of bytes has been read or a fatal read occurs.
+            try
             {
-                ///<summary>
-                ///Performs a blocking read into buffer; returns bytes read, 
-                ///0 means stream closed.
-                ///</summary>
-                int read = BaseStream.Read(buffer, offset, count - offset);
-                if (read == 0)
-                    throw new EndOfStreamException($"Stream closed while reading {count} bytes; read {offset} bytes so far");
-                offset += read;
-            }
+                while (offset < count)
+                {
+                    // Reads from the base stream; returns number of bytes read or 0 on EOF.
+                    int read = BaseStream.Read(buffer, offset, count - offset);
+                    if (read == 0)
+                    {
+                        // Silent failure on EOF: return empty payload to let caller decide.
+                        return Array.Empty<byte>();
+                    }
+                    offset += read;
+                }
 
-            return buffer;
+                // Returns the full buffer when successful.
+                return buffer;
+            }
+            catch
+            {
+                // Silent failure on any I/O exception: return empty payload.
+                return Array.Empty<byte>();
+            }
         }
 
         /// <summary>
@@ -127,91 +129,6 @@ namespace chat_client.Net.IO
             byte[] netBytes = ReadExact(4);
             int netValue = BitConverter.ToInt32(netBytes, 0);
             return IPAddress.NetworkToHostOrder(netValue);
-        }
-
-        /// <summary>
-        /// Packet model E: Reads an encrypted-message packet (sender UID + encrypted payload).
-        /// </summary>
-        /// <returns>Tuple of (sender UID, encrypted payload).</returns>
-        public (Guid senderUid, byte[] encryptedPayload) ReadEncryptedMessage()
-        {
-            Guid sender = ReadUid();
-            byte[] payload = ReadBytesWithLength();
-            return (sender, payload);
-        }
-
-        /// <summary>
-        /// Packet model C: Reads a plain-text message packet.
-        /// Reads and returns the sender UID and the message text.
-        /// Consumes the placeholder recipient UID written by the server and discards it,
-        /// ensuring subsequent reads remain aligned with the stream.
-        /// </summary>
-        /// <returns>Tuple of (sender UID, message).</returns>
-        public (Guid senderUid, string message) ReadPlainMessage()
-        {
-            // Read the sender UID written by the server
-            Guid sender = ReadUid();
-
-            // Read and discard the recipient UID that the server includes for all messages.
-            // For broadcast/plain messages the server writes Guid.Empty; keep it here to
-            // preserve stream alignment for the next field.
-            _ = ReadUid();
-
-            // Read the UTF-8 length-prefixed message string
-            string msg = ReadString();
-
-            return (sender, msg);
-        }
-
-        /// <summary>
-        /// Packet model B: Reads a public-key request packet (sender UID + target UID).
-        /// </summary>
-        /// <returns>Tuple of (sender UID, target UID).</returns>
-        public (Guid senderUid, Guid targetUid) ReadPublicKeyRequest()
-        {
-            Guid sender = ReadUid();
-            Guid target = ReadUid();
-            return (sender, target);
-        }
-
-        /// <summary>
-        /// Packet model D: Reads a public-key response packet (sender UID + public key).
-        /// </summary>
-        /// <returns>Tuple of (sender UID, publicKeyDer).</returns>
-        public (Guid senderUid, byte[] publicKeyDer) ReadPublicKeyResponse()
-        {
-            Guid sender = ReadUid();
-            byte[] keyDer = ReadBytesWithLength();
-            return (sender, keyDer);
-        }
-
-        /// <summary>
-        /// Packet model F: Reads a server-disconnect packet (recipient UID).
-        /// </summary>
-        /// <returns>The UID of the client to disconnect.</returns>
-        public Guid ReadServerDisconnect() =>
-            ReadUid();
-
-        /// <summary>
-        /// Packet model A: Reads a user-connected packet (UID + username).
-        /// </summary>
-        /// <returns>Tuple of (UID, username).</returns>
-        public (Guid uid, string username) ReadUserConnected()
-        {
-            Guid uid = ReadUid();
-            string username = ReadString();
-            return (uid, username);
-        }
-
-        /// <summary>
-        /// Packet model A: Reads a user-disconnected packet (UID + username).
-        /// </summary>
-        /// <returns>Tuple of (UID, username).</returns>
-        public (Guid uid, string username) ReadUserDisconnected()
-        {
-            Guid uid = ReadUid();
-            string username = ReadString();
-            return (uid, username);
         }
 
         /// <summary>

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 25th, 2025</date>
+/// <date>October 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -10,8 +10,10 @@ using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Security.Policy;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -108,7 +110,6 @@ namespace chat_client.MVVM.ViewModel
                     ApplyEncryptionPipeline(enableEncryption: true);
             }
         }
-
 
         /// <summary>
         /// Gets or sets a value indicating whether the dark theme is active.
@@ -979,20 +980,27 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a server-initiated disconnect command.
-        /// • Closes the client connection gracefully.
-        /// • Clears the user list.
-        /// • Posts a localized system message indicating server disconnection.
-        /// • Raises PropertyChanged for IsConnected to refresh the UI state.
-        /// Will run only once even if invoked multiple times.
+        /// • Handles a server-initiated disconnect command.  
+        /// • Ensures the handler runs exactly once.  
+        /// • Requests disconnect from the underlying server connection.  
+        /// • Clears the user list and posts a localized system message to chat history.  
+        /// • Sets IsConnected to false so all UI bindings and dependent logic update.  
+        /// • Cleanup and avoids throwing from error paths.
         /// </summary>
         public void OnDisconnectedByServer()
         {
-            // Ensures this handler runs exactly once (atomic guard).
+            /// <summary>
+            /// Ensures the disconnect cleanup runs only once across threads.
+            /// Uses Interlocked.Exchange to set the sentinel _clientDisconnecting to 1 and
+            /// obtain the previous value in a single atomic operation.
+            /// If the previous value was non-zero it means another thread already started
+            /// the cleanup, so this call returns early to avoid double-closing sockets
+            /// or duplicate UI updates.
+            /// </summary>
             if (Interlocked.Exchange(ref _clientDisconnecting, 1) != 0)
                 return;
 
-            // Attempts to close the connection
+            // Attempts server-side disconnect
             try
             {
                 _server.DisconnectFromServer();
@@ -1002,17 +1010,26 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}", ClientLogLevel.Error);
             }
 
-            // Executes UI-bound updates on the dispatcher thread
+            // Runs UI-bound updates on the Dispatcher
             Application.Current.Dispatcher.Invoke(() =>
             {
-                // Clears all users
+                // Removes all entries from the UI user list.
                 Users.Clear();
 
-                // Posts a system notice to the chat history
+                // Appends a localized system message to the chat history
                 Messages.Add($"# {LocalizationManager.GetString("ServerHasClosed")} #");
 
-                // Notifies the UI that the connection status changed
-                OnPropertyChanged(nameof(IsConnected));
+                // Attempts to update the connection state so bindings and dependent logic refresh.
+                try
+                {
+                    // This property has a private setter that raises PropertyChanged
+                    IsConnected = false;
+                }
+                catch
+                {
+                    // If assigning the property fails for any reason, explicitly notifies UI consumers.
+                    OnPropertyChanged(nameof(IsConnected));
+                }
             });
         }
 

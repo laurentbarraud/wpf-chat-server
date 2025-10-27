@@ -1,16 +1,17 @@
 ﻿/// <file>Server.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 25th, 2025</date>
+/// <date>October 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
+using chat_client.Properties;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Windows;
 using System.Threading;
+using System.Windows;
 
 namespace chat_client.Net
 {
@@ -359,16 +360,19 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.PlainMessage:
-                            if (_consecutiveUnexpectedOpcodes != 0)
-                            {
-                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-                            }
+                            // Resets the unexpected-opcode counter unconditionally
+                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
                             // Plain-text message payload format:
                             //   [16-byte sender UID]
                             //   [16-byte recipient UID placeholder]
                             //   [4-byte text length][UTF-8 text bytes]
-                            var (senderUid, message) = reader.ReadPlainMessage();
+                            Guid senderUid = reader.ReadUid();
+
+                            // Discards recipient UID placeholder written by the server to preserve alignment
+                            _ = reader.ReadUid();
+
+                            string message = reader.ReadString();
 
                             // Lookup sender’s display name
                             string senderName = viewModel.Users
@@ -380,15 +384,19 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.EncryptedMessage:
-                            if (_consecutiveUnexpectedOpcodes != 0)
-                            {
-                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-                            }
+                            // Reset the unexpected-opcode counter unconditionally
+                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+
                             // Encrypted payload format:
                             //   [16-byte sender UID]
                             //   [16-byte recipient UID]
                             //   [4-byte ciphertext length][raw ciphertext bytes]
-                            var (encSenderUid, cipherBytes) = reader.ReadEncryptedMessage();
+                            Guid encSenderUid = reader.ReadUid();
+
+                            // Reads and discards recipient UID (keeps stream alignment)
+                            _ = reader.ReadUid();
+
+                            byte[] cipherBytes = reader.ReadBytesWithLength();
 
                             string encSenderName = viewModel.Users
                                 .FirstOrDefault(u => u.UID == encSenderUid)?.Username
@@ -402,27 +410,36 @@ namespace chat_client.Net
                             break;
 
                         case ClientPacketOpCode.PublicKeyResponse:
-                            if (_consecutiveUnexpectedOpcodes != 0)
-                            {
-                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-                            }
-                            // PublicKeyResponse payload:
+                            // Resets the unexpected-opcode counter unconditionally
+                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+
+                            // PublicKeyResponse payload format:
                             //   [16-byte origin UID]
-                            //   [4-byte string length][UTF-8 bytes of DER public key]
+                            //   [4-byte key length][raw DER bytes]
                             //   [16-byte requester UID]
-                            var (originUid, keyDer) = reader.ReadPublicKeyResponse();
+                            Guid originUid = reader.ReadUid();
+
+                            // Reads the DER-encoded public key bytes (length-prefixed)
+                            byte[] keyDer = reader.ReadBytesWithLength();
+
+                            // Reads and discard the requester UID (keeps stream alignment)
+                            _ = reader.ReadUid();
+
+                            // Dispatches the received public key to the view model on the UI thread
                             Application.Current.Dispatcher.Invoke(() =>
                                 viewModel.OnPublicKeyReceived(originUid, keyDer));
                             break;
 
                         case ClientPacketOpCode.DisconnectNotify:
-                            if (_consecutiveUnexpectedOpcodes != 0)
-                            {
-                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-                            }
-                            // Reads a framed DisconnectNotify:
+
+                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+
+                            // Reads a framed DisconnectNotify inline:
                             //   [16-byte UID][4-byte string length][UTF-8 username bytes]
-                            var (discUid, discName) = reader.ReadUserDisconnected();
+                            Guid discUid = reader.ReadUid();
+                            string discName = reader.ReadString();
+
+                            // Propagates the disconnect event to the UI/view model on the UI thread
                             Application.Current.Dispatcher.Invoke(() =>
                                 viewModel.OnUserDisconnected(discUid, discName));
                             break;
@@ -454,15 +471,53 @@ namespace chat_client.Net
                 }
                 catch (IOException)
                 {
-                    viewModel.OnDisconnectedByServer();
-                    // Ensures ReadPackets exits after signalling the UI
+                    // IO usually means EOF or temporary network fault.
+                    ClientLogger.Log("ReadPackets IO: remote closed or network fault", ClientLogLevel.Debug);
+
+                    // Notifies application-level disconnect logic that runs UI updates and clears state.
+                    try 
+                    {
+                        viewModel.OnDisconnectedByServer(); 
+                    } 
+                    catch 
+                    { 
+                    }
+
+                    // Closes the underlying socket to free resources.
+                    try 
+                    { 
+                        _tcpClient?.Close(); 
+                    } 
+                    catch 
+                    { 
+                    }
+
+                    // Exits the reader loop.
                     return;
                 }
                 catch (Exception ex)
                 {
                     ClientLogger.Log($"ReadPackets error: {ex.Message}", ClientLogLevel.Error);
-                    viewModel.OnDisconnectedByServer();
-                    // Ensures ReadPackets exits after signalling the UI
+
+                    // Notifies application-level disconnect logic and ensure UI is updated.
+                    try 
+                    {
+                        viewModel.OnDisconnectedByServer(); 
+                    } 
+                    catch 
+                    { 
+                    }
+
+                    // Closes the underlying socket to free resources.
+                    try 
+                    { 
+                        _tcpClient?.Close(); 
+                    } 
+                    catch
+                    { 
+                    }
+
+                    // Exits the reader loop.
                     return;
                 }
             }
@@ -679,10 +734,20 @@ namespace chat_client.Net
                 byte[] payload = builder.GetPacketBytes();
                 byte[] framed = Frame(payload);
 
-                // Logs and sends via the raw socket API
+                // Avoids sending via the raw socket API to ensure full buffer transmission
                 ClientLogger.Log($"Sending handshake packet — Username: {username}, UID: {uid}", ClientLogLevel.Debug);
-                _tcpClient.Client.Send(framed);
-                return true;
+                try
+                {
+                    var networkStream = _tcpClient.GetStream();
+                    networkStream.Write(framed, 0, framed.Length);
+                    networkStream.Flush();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"Failed to send handshake packet: {ex.Message}", ClientLogLevel.Error);
+                    return false;
+                }
             }
             catch (Exception ex)
             {
