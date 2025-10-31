@@ -19,7 +19,7 @@ namespace chat_server
 {
     public class Program
     {
-        static internal List<Client> Users = new List<Client>();
+        static internal List<ServerConnectionHandler> Users = new List<ServerConnectionHandler>();
         static TcpListener Listener = null!;
 
         private static bool _exitByCtrlC;
@@ -71,7 +71,7 @@ namespace chat_server
             /// </summary>
             try
             {
-                Users = new List<Client>();
+                Users = new List<ServerConnectionHandler>();
                 Listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
                 Listener.Start();
 
@@ -95,7 +95,7 @@ namespace chat_server
                     try
                     {
                         ///<summary>Constructor will throw on bad handshakes</summary>
-                        var client = new Client(tcp);
+                        var client = new ServerConnectionHandler(tcp);
 
                         ///<summary>Only adds when constructor succeeded</summary>
                         Users.Add(client);
@@ -147,7 +147,7 @@ namespace chat_server
             /// FirstOrDefault returns a nullable Client if no match is found,
             /// so we declare goneUser as Client? to reflect that.
             /// </summary>
-            Client? goneUser = snapshot.FirstOrDefault(u => u.UID == disconnectedGuid);
+            ServerConnectionHandler? goneUser = snapshot.FirstOrDefault(u => u.UID == disconnectedGuid);
 
             /// <summary>
             /// Safely guards the removal logic
@@ -417,7 +417,7 @@ namespace chat_server
         public static void RelayEncryptedMessageToAUser(byte[] ciphertext, Guid senderUid, Guid recipientUid)
         {
             // Snapshots current users to avoid collection modification races.
-            List<Client> snapshot = Users.ToList();
+            List<ServerConnectionHandler> snapshot = Users.ToList();
 
             // Finds recipient and ensures socket is connected.
             var recipient = snapshot.FirstOrDefault(u => u.UID == recipientUid);
@@ -470,7 +470,7 @@ namespace chat_server
         /// <param name="targetUid">Unique identifier of the client whose key is requested.</param>
         public static void RelayPublicKeyRequest(Guid requesterUid, Guid targetUid)
         {
-            List<Client> snapshot;
+            List<ServerConnectionHandler> snapshot;
             snapshot = Users.ToList();
 
             var target = snapshot.FirstOrDefault(u => u.UID == targetUid);

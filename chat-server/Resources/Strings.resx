@@ -118,7 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="ClientConnected" xml:space="preserve">
-    <value>Client has connected with the username : {0}</value>
+    <value>Client connected successfully.</value>
   </data>
   <data name="MessageReceived" xml:space="preserve">
     <value>Message received from {0} :</value>
@@ -148,7 +148,7 @@
     <value>Listener started on port {0} — waiting for incoming connections...</value>
   </data>
   <data name="StartingPacketLoop" xml:space="preserve">
-    <value>Starting per-client packet loop for user {0}</value>
+    <value>Starting per-client packet read loop.</value>
   </data>
   <data name="PublicKeyBroadcastFail" xml:space="preserve">
     <value>Failed to broadcast public key for '{0}': {1}</value>
@@ -157,16 +157,16 @@
     <value>Broadcasted public key for '{0}'</value>
   </data>
   <data name="UnknownOpcode" xml:space="preserve">
-    <value>Received unknown opcode '{1}' from '{0}'</value>
+    <value>Received packet with unknown opcode.</value>
   </data>
   <data name="StreamClosed" xml:space="preserve">
-    <value>Stream closed by remote peer '{0}'</value>
+    <value>Remote peer closed the stream.</value>
   </data>
   <data name="IOError" xml:space="preserve">
-    <value>I/O error for client '{0}': {1}</value>
+    <value>I/O error during packet loop.</value>
   </data>
   <data name="ErrorPacketLoop" xml:space="preserve">
-    <value>Error in packet loop for '{0}'.</value>
+    <value>Unhandled error in packet processing loop.</value>
   </data>
   <data name="ClientRemoved" xml:space="preserve">
     <value>Client '{0}' removed</value>
@@ -241,33 +241,66 @@
     <value>Failed to relay message to {0}: {1}</value>
   </data>
   <data name="ErrorPublicKeyLengthInvalid" xml:space="preserve">
-    <value>Invalid public key length received from client {0}.</value>
+    <value>Public key length in handshake is invalid.</value>
   </data>
   <data name="ErrorInvalidOperationException" xml:space="preserve">
-    <value>Received unexpected opcode during handshake: {0}</value>
+    <value>Unexpected opcode during handshake processing.</value>
   </data>
   <data name="ErrorInvalidDataException" xml:space="preserve">
-    <value>Invalid handshake data: {0}</value>
+    <value>Invalid data encountered while processing handshake.</value>
   </data>
   <data name="ErrorInvalidHandshakeLength" xml:space="preserve">
-    <value>Handshake payload length invalid: {0}</value>
+    <value>Invalid handshake payload length received during connection initialization.</value>
   </data>
   <data name="InvalidFrameLength" xml:space="preserve">
-    <value>Invalid frame length received from client {0}: {1}</value>
+    <value>Received invalid frame length.</value>
   </data>
   <data name="StreamDisposed" xml:space="preserve">
-    <value>Network stream disposed for client {0}</value>
+    <value>Stream disposed while reading.</value>
   </data>
   <data name="ErrorClientCleanup" xml:space="preserve">
-    <value>Cleanup error for client {0}: {1}</value>
+    <value>Error occurred during client cleanup.</value>
   </data>
   <data name="ClientCleanupComplete" xml:space="preserve">
-    <value>Client cleanup complete for {0}</value>
+    <value>Client cleanup completed.</value>
   </data>
   <data name="ErrorInitializeClient" xml:space="preserve">
     <value>Failed to initialize client: {0}</value>
   </data>
-  <data name="HandshakeTimeoutBeforePacketLoop" xml:space="preserve">
-    <value>Handshake not completed in time before starting packet loop</value>
+  <data name="HandShakeTimeOutBeforePacketLoop" xml:space="preserve">
+    <value>Handshake not completed in time; aborting packet loop.</value>
+  </data>
+  <data name="SocketAlreadyClosed" xml:space="preserve">
+    <value>Socket already closed or not connected.</value>
+  </data>
+  <data name="SocketCloseFailed" xml:space="preserve">
+    <value>Failed to close client socket during cleanup.</value>
+  </data>
+  <data name="PacketReaderMissing" xml:space="preserve">
+    <value>PacketReader instance missing; aborting connection handler.</value>
+  </data>
+  <data name="SocketNotConnected" xml:space="preserve">
+    <value>Client socket is not connected; exiting read loop.</value>
+  </data>
+  <data name="EmptyFrame" xml:space="preserve">
+    <value>Received empty frame; ignoring.</value>
+  </data>
+  <data name="DisconnectNotifyAlreadySent" xml:space="preserve">
+    <value>Disconnect notification already sent for this client.</value>
+  </data>
+  <data name="HandshakeAckSendFailed" xml:space="preserve">
+    <value>Failed to send handshake acknowledgement to client.</value>
+  </data>
+  <data name="ConnectionClosingDueToError" xml:space="preserve">
+    <value>Closing connection due to an error.</value>
+  </data>
+  <data name="PlainMessageReceived" xml:space="preserve">
+    <value>Plain message received from client.</value>
+  </data>
+  <data name="ForceDisconnectReceived" xml:space="preserve">
+    <value>Force-disconnect command received for this client.</value>
+  </data>
+  <data name="ReadCancelled" xml:space="preserve">
+    <value>Read operation cancelled.</value>
   </data>
 </root>

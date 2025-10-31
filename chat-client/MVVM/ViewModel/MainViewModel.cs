@@ -1,21 +1,20 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 27th, 2025</date>
+/// <date>October 31th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
-using System.Security.Policy;
-using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 
@@ -213,7 +212,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public Server _server = new Server();
+        public ClientConnection _server = new ClientConnection();
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -354,7 +353,7 @@ namespace chat_client.MVVM.ViewModel
             Messages = new ObservableCollection<string>();
 
             // Instantiates the server client and subscribes to its events
-            _server = new Server();
+            _server = new ClientConnection();
             _server.UserConnectedEvent += OnUserConnected;
             _server.PlainMessageReceivedEvent += OnPlainMessageReceived;
             _server.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
@@ -556,17 +555,17 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Connects to the chat server : 
-        /// - validates the username 
-        /// - performs the TCP handshake to obtain the user GUID and server public key
-        /// - initializes LocalUser 
-        /// - marks the connection as established
-        /// - publishes the local public key and requests peers’ keys 
-        /// - initializes encryption and synchronizes missing keys
-        /// - updates the UI connection state 
-        /// - saves the last used IP address
+        /// Connects to the chat server:
+        /// • validates the username
+        /// • performs the TCP handshake to obtain the user GUID and server public key
+        /// • initializes LocalUser
+        /// • marks the connection as established
+        /// • publishes the local public key and requests peers’ keys
+        /// • initializes encryption and synchronizes missing keys
+        /// • updates the UI connection state
+        /// • saves the last used IP address
         /// </summary>
-        public void Connect()
+        public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
             // Validates the username and shows an error if it is invalid
             var allowedPattern = @"^[a-zA-Z0-9éèàöüî_-]+$";
@@ -578,9 +577,9 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Performs the TCP handshake and retrieves UID and server public key
-                var result = _server.ConnectToServer(Username.Trim(), IPAddressOfServer);
-                if (result.uid == Guid.Empty || result.publicKeyDer == null || result.publicKeyDer.Length == 0)
+                // Performs the TCP handshake and retrieves UID and server public key asynchronously
+                var (uid, publicKeyDer) = await _server.ConnectToServerAsync(Username.Trim(), IPAddressOfServer, cancellationToken).ConfigureAwait(false);
+                if (uid == Guid.Empty || publicKeyDer == null || publicKeyDer.Length == 0)
                 {
                     // Logs the failure and silently aborts the connection sequence
                     ClientLogger.LogLocalized(LocalizationManager.GetString("ConnectionFailed"), ClientLogLevel.Error);
@@ -599,8 +598,8 @@ namespace chat_client.MVVM.ViewModel
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
-                    UID = result.uid,
-                    PublicKeyDer = result.publicKeyDer
+                    UID = uid,
+                    PublicKeyDer = publicKeyDer
                 };
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}",
                     ClientLogLevel.Debug);
@@ -676,8 +675,10 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Connects or disconnects the client, depending on the server state.
+        /// ConfigureAwait(true) ensures continuation runs back on the UI
+        /// context so subsequent UI updates are safe.
         /// </summary>
-        public void ConnectDisconnect()
+        public async void ConnectDisconnect()
         {
             if (_server.IsConnected)
             {
@@ -685,7 +686,12 @@ namespace chat_client.MVVM.ViewModel
             }
             else
             {
-                Connect();
+                ///<summary> 
+                /// Awaits the asynchronous ConnectAsync to run the handshake without blocking the caller
+                /// and let exceptions propagate; ConfigureAwait(true) ensures continuation runs back on
+                /// the UI context so subsequent UI updates are safe.
+                /// </summary>
+                await ConnectAsync().ConfigureAwait(true);
             }
         }
 

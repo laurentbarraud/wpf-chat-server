@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 27th, 2025</date>
+/// <date>October 31th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -273,7 +273,7 @@ namespace chat_client
         /// Executes when the user clicks the Send button.
         /// Determines whether to encrypt or send as plain text based on UseEncryption app setting.
         /// Each packet is passed through the Frame method, which prefixes the payload with a
-        /// 4-byte big-endian length header so the server can correctly parse the incoming data.
+        /// 4-byte big-endian length header, so the server can correctly parse the incoming data.
         /// </summary>
         private void CmdSend_Click(object sender, RoutedEventArgs e)
         {
@@ -281,29 +281,43 @@ namespace chat_client
             if (string.IsNullOrEmpty(MainViewModel.Message) || ViewModel._server?.IsConnected != true)
                 return;
 
-            bool sendingMessageSucceeded;
+            try
+            {
+                bool sendingMessageSucceeded;
 
-            // Chooses the appropriate send method based on the user’s encryption preference
-            if (Properties.Settings.Default.UseEncryption)
-            {
-                sendingMessageSucceeded = ViewModel._server.SendEncryptedMessageToServer(MainViewModel.Message);
-            }
-            else
-            {
-                sendingMessageSucceeded = ViewModel._server.SendPlainMessageToServer(MainViewModel.Message);
-            }
+                // Chooses the appropriate send method based on the user’s encryption preference
+                if (Properties.Settings.Default.UseEncryption)
+                {
+                    // Awaiting the send ensures we observe success/failure before allowing further sends.
+                    sendingMessageSucceeded = ViewModel._server.SendEncryptedMessageToServerAsync(MainViewModel.Message).GetAwaiter().GetResult();
+                }
+                else
+                {
+                    sendingMessageSucceeded = sendingMessageSucceeded = ViewModel._server.SendPlainMessageToServerAsync(MainViewModel.Message).GetAwaiter().GetResult();
 
-            if (sendingMessageSucceeded)
-            {
-                // Clears the input box and refocuses it on success
-                TxtMessageToSend.Text = "";
-                TxtMessageToSend.Focus();
+                }
+
+                if (sendingMessageSucceeded)
+                {
+                    // Clears the input box and refocuses it on success
+                    TxtMessageToSend.Text = "";
+                    TxtMessageToSend.Focus();
+                }
+                else
+                {
+                    // Logs the failure and adds a localized error notice to the chat history
+                    string mode = Properties.Settings.Default.UseEncryption ? "encrypted" : "plain";
+                    ClientLogger.Log($"Failed to send {mode} message: {MainViewModel.Message}", ClientLogLevel.Error);
+                    ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
+                }
             }
-            else
+            catch (OperationCanceledException)
             {
-                // Logs the failure and adds a localized error notice to the chat history
-                string mode = Properties.Settings.Default.UseEncryption ? "encrypted" : "plain";
-                ClientLogger.Log($"Failed to send {mode} message: {MainViewModel.Message}", ClientLogLevel.Error);
+                ClientLogger.Log("Send operation cancelled", ClientLogLevel.Debug);
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"Send failed: {ex.Message}", ClientLogLevel.Error);
                 ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
             }
         }

@@ -1,7 +1,7 @@
 ﻿/// <file>Protocol.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 27th, 2025</date>
+/// <date>October 31th, 2025</date>
 
 using System;
 
@@ -29,6 +29,13 @@ namespace chat_server.Net
         /// Uses raw DER bytes for compactness and unambiguous format.
         /// </summary>
         RosterBroadcast = 1,
+
+        /// <summary>
+        /// Server acknowledges a successful handshake from the client.
+        /// Payload: single-byte ServerPacketOpCode.HandshakeAck (no additional fields).
+        /// The client waits for this framed opcode before treating the connection as established.
+        /// </summary>
+        HandshakeAck = 2,
 
         /// <summary>
         /// Client requests a peer's public key.
