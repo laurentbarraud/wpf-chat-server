@@ -1,121 +1,196 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>h</date>
+/// <date>November 2nd, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
+using System.Threading;
 
 namespace chat_server
 {
     public class Program
     {
+        // Holds the current connected client handlers
         static internal List<ServerConnectionHandler> Users = new List<ServerConnectionHandler>();
+
+        // TCP listener that accepts incoming client connections
         static TcpListener Listener = null!;
 
+        // Cancellation token source used to stop the accept loop and shutdown accepting new clients
+        private static CancellationTokenSource _acceptCts = new CancellationTokenSource();
+
+        // True when the server shutdown was initiated by Ctrl+C
         private static bool _exitByCtrlC;
+
+        // Maps each connected user's UID to a per-connection SemaphoreSlim
+        // used to serialize async writes to that user's NetworkStream.
+        // Ensures only one async send runs at a time per client, preventing
+        // interleaved writes that would corrupt length-prefixed framing.
+        private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _sendSemaphores = new ConcurrentDictionary<Guid, SemaphoreSlim>();
+
         /// <summary>
-        /// • Initializes localization based on OS culture.  
-        /// • Configures console output to UTF-8.  
-        /// • Handles Ctrl+C for graceful shutdown.  
-        /// • Registers ProcessExit handler for normal shutdown.  
-        /// • Displays banner and prompts for TCP port.  
-        /// • Starts TcpListener on loopback with the chosen port.  
-        /// • Accepts incoming clients in a continuous loop.  
-        /// • Constructs a Client for each accepted connection and only adds fully-initialized
-        ///   Client objects to Users.  
-        /// • Closes raw sockets and logs reasons when client initialization fails.
-        /// • Broadcasts roster updates after adding a validated Client.
+        /// • Initializes localization and console encoding.  
+        /// • Wires Ctrl+C and ProcessExit to call Shutdown.  
+        /// • Starts a TcpListener and accepts incoming clients with AcceptTcpClientAsync.  
+        /// • Adds only fully-initialized ServerConnectionHandler instances to Users list.  
+        /// • Sends an explicit HandshakeAck to the client before broadcasting roster.  
+        /// • Uses locks around Users for thread-safety and cancels background work on shutdown.
         /// </summary>
         public static void Main(string[] args)
         {
             // Initializes localization based on OS culture
             string twoLetterLanguageCode = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-            string uiLang = twoLetterLanguageCode.Equals("fr", StringComparison.OrdinalIgnoreCase)
-                              ? "fr"
-                              : "en";
+            string uiLang = twoLetterLanguageCode.Equals("fr", StringComparison.OrdinalIgnoreCase) ? "fr" : "en";
             LocalizationManager.Initialize(uiLang);
 
             // Configures console for UTF-8 output
             Console.OutputEncoding = Encoding.UTF8;
 
-            // Handles Ctrl+C for graceful shutdown
-            Console.CancelKeyPress += (sender, e) =>
+            CancellationToken token = _acceptCts.Token;
+
+            // Graceful shutdown then exits
+            Console.CancelKeyPress += async (sender, e) =>
             {
                 e.Cancel = true;
                 _exitByCtrlC = true;
-                Shutdown();
+                try
+                {
+                    await ShutdownAsync(_acceptCts.Token).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
                 Environment.Exit(0);
             };
 
-            // Registers ProcessExit handler for normal shutdown
-            SetupShutdownHooks();
+            // Normal shutdown (skip if Ctrl+C already requested)
+            AppDomain.CurrentDomain.ProcessExit += async (sender, e) =>
+            {
+                if (_exitByCtrlC)
+                    return;
 
-            // Displays banner and prompt user for port
+                try
+                {
+                    await ShutdownAsync(_acceptCts.Token).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            };
+
+            // Displays banner and prompts user for port
             DisplayBanner();
             int port = GetPortFromUser();
 
-            /// <summary>
-            /// Starts the TCP listener, accepts incoming clients and ensures
-            /// only fully-initialized Client instances are added to Users. 
-            /// Logs and frees raw sockets when initialization fails.
-            /// </summary>
             try
             {
                 Users = new List<ServerConnectionHandler>();
                 Listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
                 Listener.Start();
 
-                // Informs about server start using localized string
                 Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
 
-                /// <summary>
-                /// Accepts incoming clients and broadcasts roster updates
-                /// </summary>
-                while (true)
+                // Async accept loop — runs until _acceptCts is cancelled or Listener is stopped
+                var acceptTask = Task.Run(async () =>
                 {
-                    /// <summary>
-                    /// Blocks until a new TCP connection is accepted
-                    /// </summary>
-                    TcpClient tcp = Listener.AcceptTcpClient();
-
-                    /// <summary>
-                    /// Tries to accept and initialize the client.
-                    /// If initialization fails, logs the reason and ensures the raw socket is closed.
-                    /// </summary>
-                    try
+                    while (!token.IsCancellationRequested)
                     {
-                        ///<summary>Constructor will throw on bad handshakes</summary>
-                        var client = new ServerConnectionHandler(tcp);
-
-                        ///<summary>Only adds when constructor succeeded</summary>
-                        Users.Add(client);
-                        BroadcastRoster();
-                    }
-                    catch (Exception ex)
-                    {
-                        ServerLogger.LogLocalized("ErrorInitializeClient", ServerLogLevel.Warn, ex.Message);
-
+                        TcpClient acceptedTcpClient;
                         try
                         {
-                            /// <summary>Closes raw socket to free resources</summary>
-                            tcp.Close();
+                            acceptedTcpClient = await Listener.AcceptTcpClientAsync().ConfigureAwait(false);
                         }
-                        catch
+                        catch (ObjectDisposedException)
                         {
-                           
+                            // Listener stopped; exits loop cleanly
+                            break;
                         }
+                        catch (Exception ex)
+                        {
+                            ServerLogger.LogLocalized("AcceptTcpClientFailed", ServerLogLevel.Warn, ex.Message);
+                            
+                            try 
+                            {
+                                // Task.Delay is used to avoid a too fast loop in case of a temporary failure of
+                                // AcceptTcpClientAsync (for example, if the listener is temporarily unavailable).
+                                // The token allows to properly interrupt this delay if the server is shutting down.
+                                await Task.Delay(100, token).ConfigureAwait(false); 
+                            } 
+                            catch 
+                            { 
+                            }
+                            continue;
+                        }
+
+                        // Processes the accepted socket on a background task, so accept loop stays responsive
+                        _ = Task.Run(async () =>
+                        {
+                            var client = TryCreateHandler(acceptedTcpClient);
+                            if (client == null)
+                            {
+                                return;
+                            }
+
+                            lock (Users)
+                            {
+                                Users.Add(client);
+                            }
+
+                            // Builds and send explicit HandshakeAck to the new client before roster broadcast
+                            try
+                            {
+                                var ackBuilder = new PacketBuilder();
+                                ackBuilder.WriteOpCode((byte)ServerPacketOpCode.HandshakeAck);
+                                byte[] ackPayload = ackBuilder.GetPacketBytes();
+
+                                int ackLenNetwork = IPAddress.HostToNetworkOrder(ackPayload.Length);
+                                byte[] ackHeader = BitConverter.GetBytes(ackLenNetwork);
+
+                                NetworkStream stream = client.ClientSocket.GetStream();
+
+                                // Uses async writes with the shared cancellation token
+                                await stream.WriteAsync(ackHeader, 0, ackHeader.Length, token).ConfigureAwait(false);
+                                await stream.FlushAsync(token).ConfigureAwait(false);
+                                await stream.WriteAsync(ackPayload, 0, ackPayload.Length, token).ConfigureAwait(false);
+                                await stream.FlushAsync(token).ConfigureAwait(false);
+
+                                ServerLogger.LogLocalized("SentHandshakeAck", ServerLogLevel.Debug, client.Username);
+                            }
+                            catch (Exception ex)
+                            {
+                                // If ack send fails, close socket and remove client to avoid half-open connection
+                                ServerLogger.LogLocalized("HandshakeAckSendFailed", ServerLogLevel.Warn, client.UID.ToString(), ex.Message);
+                                try { client.ClientSocket?.Close(); } catch { }
+                                lock (Users) { Users.Remove(client); }
+                                return;
+                            }
+
+                            try
+                            {
+                                // Awaiting ensures ack is flushed before roster is sent and surfaces errors here
+                                await BroadcastRosterAsync(token).ConfigureAwait(false);
+                            }
+                            catch (OperationCanceledException) 
+                            { 
+                            }
+                            catch (Exception ex)
+                            {
+                                ServerLogger.LogLocalized("BroadcastRosterFailed", ServerLogLevel.Warn, ex.Message);
+                            }
+                        }, token);
                     }
-                }
+                }, token);
+
+                // Blocks main until accept loop completes
+                acceptTask.GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -135,12 +210,12 @@ namespace chat_server
         ///   [4-byte string length][UTF-8 bytes of username]
         /// </summary>
         /// <param name="disconnectedUserId">UID of the client who disconnected.</param>
-        public static void BroadcastDisconnectNotify(Guid disconnectedUserId)
+        public static async Task BroadcastDisconnectNotify(Guid disconnectedUserId, CancellationToken cancellationToken)
         {
-            // Use the provided Guid directly
+            // Uses the provided Guid directly
             Guid disconnectedGuid = disconnectedUserId;
 
-            // Takes a snapshot of all current users
+            // Snapshots current users
             var snapshot = Users.ToList();
 
             /// <summary>
@@ -159,13 +234,15 @@ namespace chat_server
             }
 
             // Chooses a safe username fallback:
-            // use disconnected GUID string when username is unavailable
+            // uses disconnected GUID string when username is unavailable
             string username = goneUser?.Username ?? disconnectedUserId.ToString();
 
             /// <summary>
             /// Builds the framed DisconnectNotify for each remaining client
             /// and sends it if their socket is connected.
             /// </summary>
+            var sendTasks = new List<Task>();
+
             foreach (var listener in snapshot)
             {
                 if (!listener.ClientSocket.Connected)
@@ -177,19 +254,34 @@ namespace chat_server
                 builder.WriteString(username);
 
                 byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
 
-                try
+                // Creates a per-listener task that performs the send and preserves existing logging.
+                var sendTask = Task.Run(async () =>
                 {
-                    listener.ClientSocket.Client.Send(framedPacket);
-                    ServerLogger.LogLocalized("DisconnectNotifySuccess", ServerLogLevel.Debug,
-                        listener.Username);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn,
-                        listener.Username, ex.Message);
-                }
+                    try
+                    {
+                        await SendFramedAsync(listener, payload, cancellationToken).ConfigureAwait(false);
+                        ServerLogger.LogLocalized("DisconnectNotifySuccess", ServerLogLevel.Debug,
+                            listener.Username);
+                    }
+                    catch (Exception ex)
+                    {
+                        ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn,
+                            listener.Username, ex.Message);
+                    }
+                }, cancellationToken);
+
+                sendTasks.Add(sendTask);
+            }
+
+            // Awaits all sends; if cancellation requested this will observe it via the token passed to each send.
+            try
+            {
+                await Task.WhenAll(sendTasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                
             }
 
             ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, username);
@@ -200,31 +292,50 @@ namespace chat_server
         /// • Packet structure: [4-byte length][1-byte opcode][16-byte target UID]  
         /// • Forces each client to call its Disconnect sequence upon decoding  
         /// </summary>
-        public static void BroadcastForceDisconnect()
+        public static async Task BroadcastForceDisconnect(CancellationToken cancellationToken)
         {
-            foreach (var user in Users.Where(u => u.ClientSocket.Connected))
+            // Takes a snapshot to avoid collection-modified issues while iterating
+            var listeners = Users.Where(usr => usr.ClientSocket.Connected).ToList();
+
+            var sendTasks = new List<Task>(listeners.Count);
+
+            foreach (var user in listeners)
             {
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ServerPacketOpCode.ForceDisconnectClient);
                 builder.WriteUid(user.UID);
 
                 byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
 
-                try
+                // Per-listener send task
+                var sendTask = Task.Run(async () =>
                 {
-                    user.ClientSocket.Client.Send(framedPacket);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("BroadcastForceDisconnectFailed",
-                        ServerLogLevel.Warn, user.Username, ex.Message);
-                }
+                    try
+                    {
+                        await SendFramedAsync(user, payload, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        ServerLogger.LogLocalized("BroadcastForceDisconnectFailed",
+                            ServerLogLevel.Warn, user.Username, ex.Message);
+                    }
+                }, cancellationToken);
+
+                sendTasks.Add(sendTask);
+            }
+
+            try
+            {
+                await Task.WhenAll(sendTasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
             }
 
             ServerLogger.LogLocalized("BroadcastForceDisconnectSuccess",
                 ServerLogLevel.Debug, Users.Count.ToString());
         }
+
         /// <summary>
         /// Broadcasts the full roster of connected users to every client:
         /// • Snapshots current users to avoid concurrent modification.
@@ -232,51 +343,68 @@ namespace chat_server
         /// • Frames each packet with a 4-byte length prefix for wire transport.
         /// • Sends framed packet to each recipient and logs success or failure.
         /// </summary>
-        public static void BroadcastRoster()
+        public static async Task BroadcastRosterAsync(CancellationToken cancellationToken = default)
         {
-            // Snapshots the current user list to avoid concurrent modifications.
+            // Snapshots current users
             var snapshot = Users.ToList();
 
+            // Builds the roster payload
+            var builder = new PacketBuilder();
+            builder.WriteOpCode((byte)ServerPacketOpCode.RosterBroadcast);
+            builder.WriteString(snapshot.Count.ToString());
+
+            foreach (var target in snapshot)
+            {
+                builder.WriteUid(target.UID);
+                builder.WriteString(target.Username);
+                byte[] pk = target.PublicKeyDer ?? Array.Empty<byte>();
+                builder.WriteBytesWithLength(pk);
+            }
+
+            byte[] payload = builder.GetPacketBytes();
+
+            // Launches send tasks for all recipients
+            var sendTasks = new List<Task>(snapshot.Count);
             foreach (var recipient in snapshot)
             {
-                try
+                var task = Task.Run(async () =>
                 {
-                    // Starts building a RosterBroadcast packet.
-                    var builder = new PacketBuilder();
-                    builder.WriteOpCode((byte)ServerPacketOpCode.RosterBroadcast);
-
-                    // Writes the total number of users as a string (kept for compatibility).
-                    builder.WriteString(snapshot.Count.ToString());
-
-                    // Appends each user's UID, username, and length-prefixed DER public key (empty if missing).
-                    foreach (var target in snapshot)
+                    try
                     {
-                        builder.WriteUid(target.UID);
-                        builder.WriteString(target.Username);
+                        // If recipient socket disconnected
+                        if (recipient.ClientSocket == null || !recipient.ClientSocket.Connected)
+                        {
+                            ServerLogger.LogLocalized("RosterSendSkippedNotConnected", ServerLogLevel.Debug, recipient.Username);
+                            return;
+                        }
 
-                        // Writes raw public key bytes with a length prefix; uses empty array when absent.
-                        byte[] pk = target.PublicKeyDer ?? Array.Empty<byte>();
-                        builder.WriteBytesWithLength(pk);
+                        // Sends the framed payload to the recipient, awaiting completion so the
+                        // per-connection semaphore enforces ordered, non-interleaved writes and
+                        // any send errors or cancellation are observed.
+                        await SendFramedAsync(recipient, payload, cancellationToken).ConfigureAwait(false);
+                        ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug, recipient.Username);
                     }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error, recipient.Username, ex.Message);
+                    }
+                }, cancellationToken);
 
-                    // Extracts the raw packet bytes and frames them for on-the-wire transport.
-                    byte[] payload = builder.GetPacketBytes();
-                    byte[] framedPacket = Frame(payload);
+                sendTasks.Add(task);
+            }
 
-                    // Sends the framed packet to the recipient's socket.
-                    recipient.ClientSocket.Client.Send(framedPacket);
-
-                    // Logs success for this recipient.
-                    ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug, recipient.Username);
-                }
-                catch (Exception ex)
-                {
-                    // Logs any failure to deliver this roster packet.
-                    ServerLogger.LogLocalized("RosterSendFailed", ServerLogLevel.Error, recipient.Username, ex.Message);
-                }
+            // Awaits all sends. Use WhenAll so one failure doesn't cancel others.
+            try
+            {
+                await Task.WhenAll(sendTasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
             }
         }
-
 
         /// <summary>
         /// Broadcasts a plain-text chat message from one client to all connected clients.
@@ -289,16 +417,19 @@ namespace chat_server
         /// </summary>
         /// <param name="messageText">The message content to broadcast.</param>
         /// <param name="senderUid">Unique identifier of the message sender.</param>
-        public static void BroadcastPlainMessage(string messageText, Guid senderUid)
+        public static async Task BroadcastPlainMessage(string messageText, Guid senderUid, CancellationToken cancellationToken)
         {
-            var targets = Users.ToList();  // snapshot to avoid concurrent modifications
+            // Snapshots current users
+            var snapshot = Users.ToList();
 
-            foreach (var target in targets)
+            var sendTasks = new List<Task>(snapshot.Count);
+
+            foreach (var target in snapshot)
             {
                 if (!target.ClientSocket.Connected)
                     continue;
 
-                // Build the packet
+                // Builds the packet
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
                 builder.WriteUid(senderUid);     // sender’s UID
@@ -306,17 +437,33 @@ namespace chat_server
                 builder.WriteString(messageText);// length+UTF-8 bytes
 
                 byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);  // prepend 4-byte length
 
-                try
+                // Per-target task that preserves existing logging
+                var sendTask = Task.Run(async () =>
                 {
-                    target.ClientSocket.Client.Send(framedPacket);
-                    ServerLogger.LogLocalized("MessageRelaySuccess", ServerLogLevel.Debug, target.Username);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("MessageRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
-                }
+                    try
+                    {
+                        await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
+                        ServerLogger.LogLocalized("MessageRelaySuccess", ServerLogLevel.Debug, target.Username);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        ServerLogger.LogLocalized("MessageRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
+                    }
+                }, cancellationToken);
+
+                sendTasks.Add(sendTask);
+            }
+
+            try
+            {
+                await Task.WhenAll(sendTasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
             }
         }
 
@@ -333,10 +480,13 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Frames a raw payload with a network-order length prefix for packet transmission.
+        /// Frames a raw payload with a 4‑byte big‑endian length prefix for network transmission.
         /// </summary>
-        /// <param name="payload">Raw packet payload bytes.</param>
-        /// <returns>Framed packet ready for network send.</returns>
+        /// <param name="payload">Raw packet payload bytes (opcode + body).</param>
+        /// <returns>
+        /// A new byte array containing a 4‑byte network-order (big-endian) length prefix followed by the payload.
+        /// This buffer is ready to be written directly to the socket stream.
+        /// </returns>
         static byte[] Frame(byte[] payload)
         {
             using MemoryStream memoryStream = new MemoryStream();
@@ -389,7 +539,6 @@ namespace chat_server
             return chosenPort;
         }
 
-
         /// <summary>
         /// Reads a line from the console with a timeout.
         /// </summary>
@@ -412,12 +561,12 @@ namespace chat_server
         /// • Validates recipient connection and ciphertext presence.
         /// • Builds packet: opcode, sender UID, recipient UID, length-prefixed ciphertext.
         /// • Frames packet for wire transport (4-byte length prefix + payload).
-        /// • Sends framed packet via socket and logs success or failure.
+        /// • Sends framed packet via SendFramedAsync and logs success or failure.
         /// </summary>
-        public static void RelayEncryptedMessageToAUser(byte[] ciphertext, Guid senderUid, Guid recipientUid)
+        public static async Task RelayEncryptedMessageToAUser(byte[] ciphertext, Guid senderUid, Guid recipientUid, CancellationToken cancellationToken)
         {
-            // Snapshots current users to avoid collection modification races.
-            List<ServerConnectionHandler> snapshot = Users.ToList();
+            // Snapshots current users
+            var snapshot = Users.ToList();
 
             // Finds recipient and ensures socket is connected.
             var recipient = snapshot.FirstOrDefault(u => u.UID == recipientUid);
@@ -443,13 +592,15 @@ namespace chat_server
 
             // Frames payload for on-the-wire transport.
             byte[] payload = builder.GetPacketBytes();
-            byte[] framedPacket = Frame(payload);
 
-            // Sends framed packet and logs outcome.
+            // Sends framed packet via SendFramedAsync and logs outcome.
             try
             {
-                recipient.ClientSocket.Client.Send(framedPacket);
+                await SendFramedAsync(recipient, payload, cancellationToken).ConfigureAwait(false);
                 ServerLogger.LogLocalized("EncryptedMessageRelaySuccess", ServerLogLevel.Debug, recipient.Username);
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
@@ -457,44 +608,45 @@ namespace chat_server
             }
         }
 
-
         /// <summary>
         /// Relays a public key request from one client to another specific client.
         /// Constructs a framed packet (4-byte length prefix + payload) containing:
         ///   • opcode (PublicKeyRequest)
         ///   • requester UID
         ///   • target UID
-        /// Then sends it via the raw socket API and logs success or failure.
+        /// Then sends it via SendFramedAsync and logs success or failure.
         /// </summary>
         /// <param name="requesterUid">Unique identifier of the requesting client.</param>
         /// <param name="targetUid">Unique identifier of the client whose key is requested.</param>
-        public static void RelayPublicKeyRequest(Guid requesterUid, Guid targetUid)
+        public static async Task RelayPublicKeyRequest(Guid requesterUid, Guid targetUid, CancellationToken cancellationToken)
         {
-            List<ServerConnectionHandler> snapshot;
-            snapshot = Users.ToList();
+            // Snapshots current users
+            var snapshot = Users.ToList();
 
             var target = snapshot.FirstOrDefault(u => u.UID == targetUid);
-            if (target?.ClientSocket.Connected == true)
+            if (target?.ClientSocket?.Connected != true)
+                return;
+
+            var builder = new PacketBuilder();
+            builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
+            builder.WriteUid(requesterUid);
+            builder.WriteUid(targetUid);
+
+            byte[] payload = builder.GetPacketBytes();
+
+            try
             {
-                var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
-                builder.WriteUid(requesterUid);
-                builder.WriteUid(targetUid);
-
-                byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
-
-                try
-                {
-                    target.ClientSocket.Client.Send(framedPacket);
-                    ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess", 
-                        ServerLogLevel.Debug, target.Username);
-                }
-                catch (Exception ex)
-                {
-                    ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
-                        ServerLogLevel.Warn, target.Username, ex.Message);
-                }
+                await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
+                ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess",
+                    ServerLogLevel.Debug, target.Username);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
+                    ServerLogLevel.Warn, target.Username, ex.Message);
             }
         }
 
@@ -510,11 +662,13 @@ namespace chat_server
         /// <param name="originUid">UID of the client providing its public key.</param>
         /// <param name="publicKeyDer">The RSA public key in DER-encoded byte array format.</param>
         /// <param name="requesterUid">UID of the client that requested the key.</param>
-        public static void RelayPublicKeyToUser(Guid originUid, byte[] publicKeyDer, Guid requesterUid)
+        public static async Task RelayPublicKeyToUser(Guid originUid, byte[] publicKeyDer, Guid requesterUid, CancellationToken cancellationToken)
         {
+            // Snapshots current users
             var snapshot = Users.ToList();
-            var target = snapshot.FirstOrDefault(u => u.UID == requesterUid);
-            if (target?.ClientSocket.Connected != true)
+
+            var target = snapshot.FirstOrDefault(usr => usr.UID == requesterUid);
+            if (target?.ClientSocket?.Connected != true)
                 return;
 
             var builder = new PacketBuilder();
@@ -524,13 +678,15 @@ namespace chat_server
             builder.WriteUid(requesterUid);
 
             byte[] payload = builder.GetPacketBytes();
-            byte[] framedPacket = Frame(payload);
 
             try
             {
-                target.ClientSocket.Client.Send(framedPacket);
+                await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
                 ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess",
                     ServerLogLevel.Debug, target.Username);
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
@@ -539,41 +695,160 @@ namespace chat_server
             }
         }
 
-        /// <summary>
-        /// • Registers handlers for Ctrl+C and normal process exit  
-        /// • On normal exit, broadcasts a framed ForceDisconnectClient packet to all clients  
-        /// • Waits up to 500 ms to let packets traverse the network  
-        /// • Skips notification on Ctrl+C for immediate shutdown  
-        /// </summary>
-        private static void SetupShutdownHooks()
+        // Removes and disposes the per-connection semaphore for the given UID if present.
+        // Safe to call from other classes.
+        internal static void RemoveAndDisposeSendSemaphore(Guid uid)
         {
-            // Captures CTRL+C and prevents immediate termination
-            Console.CancelKeyPress += (sender, e) =>
+            if (_sendSemaphores.TryRemove(uid, out var sem))
             {
-                _exitByCtrlC = true;
-                e.Cancel = true;
-                Environment.Exit(0);
-            };
+                try
+                {
+                    sem?.Dispose();
+                }
+                catch
+                {
+                }
+            }
+        }
 
-            // Fires when the process is exiting normally
-            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
+
+        private static async Task SendFramedAsync(ServerConnectionHandler recipient, byte[] payload, CancellationToken cancellationToken = default)
+        {
+            if (recipient == null)
             {
-                if (_exitByCtrlC)
-                    return;
+                throw new ArgumentNullException(nameof(recipient));
+            }
 
-                BroadcastForceDisconnect();
-                Thread.Sleep(500);
-            };
+            if (payload == null)
+            {
+                throw new ArgumentNullException(nameof(payload));
+            }
+
+            // Ensure a SemaphoreSlim exists for this recipient, creating it only once in a thread-safe way.
+            // GetOrAdd returns an existing semaphore if present, or atomically inserts the provided factory result.
+            // The semaphore is created with initial/count 1 so only one async writer can enter at a time.
+            // This serializes async WriteAsync/FlushAsync calls to the same client's NetworkStream, preventing
+            // interleaved bytes that would corrupt the length-prefixed framing.
+            var sem = _sendSemaphores.GetOrAdd(recipient.UID, _ => new SemaphoreSlim(1, 1));
+
+            await sem.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var stream = recipient.ClientSocket.GetStream();
+
+                // Builds network-order header
+                int payloadLenNetwork = IPAddress.HostToNetworkOrder(payload.Length);
+                byte[] header = BitConverter.GetBytes(payloadLenNetwork);
+
+                // Writes header then payload in order, using async APIs
+                await stream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+                await stream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                sem.Release();
+            }
         }
 
         /// <summary>
-        /// Signals all clients to disconnect and shuts down the server gracefully.
+        /// • Gracefully stops the listener and cancels background accept/dispatch work.
+        /// • Broadcasts a framed ForceDisconnectClient packet to all clients.
+        /// • Closes all client sockets and clears Users.
         /// </summary>
-        public static void Shutdown()
+        public static async Task ShutdownAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine(LocalizationManager.GetString("ServerShutdown"));
-            BroadcastPlainMessage("/disconnect", Guid.Empty);
-            Console.WriteLine(LocalizationManager.GetString("ServerShutdownComplete"));
+
+            // Stops accepting new clients
+            try
+            { 
+                Listener?.Stop(); 
+            } 
+            catch 
+            { 
+            }
+
+            // Cancels accept loop and any background tasks
+            try 
+            { 
+                _acceptCts?.Cancel(); 
+            } 
+            catch 
+            { 
+            }
+
+            // Broadcasts a ForceDisconnect to all clients (uses provided token)
+            try
+            {
+                await BroadcastForceDisconnect(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("BroadcastForceDisconnectFailed", ServerLogLevel.Warn, ex.Message);
+            }
+
+            // Allow in-flight packets to traverse briefly (100 ms)
+            try
+            {
+                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            // Closes all client sockets and clears the roster
+            try
+            {
+                lock (Users)
+                {
+                    foreach (var usr in Users.ToList())
+                    {
+                        try { usr.ClientSocket?.Close(); } catch { }
+                    }
+                    Users.Clear();
+                }
+            }
+            catch { }
+
+            // Disposes and recreates the accept CancellationTokenSource for possible restart
+            try
+            {
+                _acceptCts?.Dispose();
+                _acceptCts = new CancellationTokenSource();
+            }
+            catch { }
+
+            try { Console.WriteLine(LocalizationManager.GetString("ServerShutdownComplete")); } catch { }
+        }
+
+        /// <summary>
+        /// Attempts to construct a ServerConnectionHandler from a raw TcpClient.
+        /// On failure this method closes the raw socket and returns null
+        /// </summary>
+        private static ServerConnectionHandler? TryCreateHandler(TcpClient tcp)
+        {
+            try
+            {
+                // Constructor performs handshake synchronously and may throw on invalid data
+                return new ServerConnectionHandler(tcp);
+            }
+            catch (Exception ex)
+            {
+                // Initialization failed: logs and ensures raw socket is closed
+                ServerLogger.LogLocalized("ErrorInitializeClient", ServerLogLevel.Warn, ex.Message);
+                try
+                {
+                    tcp?.Close();
+                }
+                catch
+                {
+                }
+                return null;
+            }
         }
     }
 }

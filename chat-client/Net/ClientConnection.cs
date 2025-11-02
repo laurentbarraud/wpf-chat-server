@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 31th, 2025</date>
+/// <date>November 2nd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -125,12 +125,25 @@ namespace chat_client.Net
             try
             {
                 // Defensive dispose of any previous client to ensure a fresh start.
-                try { _tcpClient?.Close(); } catch { }
-                try { _tcpClient?.Dispose(); } catch { }
+                try 
+                { 
+                    _tcpClient?.Close();
+                } 
+                catch 
+                { 
+                }
+                
+                try 
+                {
+                    _tcpClient?.Dispose();
+                } 
+                catch 
+                { 
+                }
 
                 _tcpClient = new TcpClient();
 
-                // Choose target IP, defaulting to loopback for convenience in local dev.
+                // Chooses target IP, defaulting to loopback for convenience in local dev.
                 string ipToConnect = string.IsNullOrWhiteSpace(ipAddressOfServer) ? "127.0.0.1" : ipAddressOfServer;
 
                 // Validates the IP string when it's not the explicit local default.
@@ -245,8 +258,21 @@ namespace chat_client.Net
                     {
                         ClientLogger.Log("Handshake ack not received within timeout", ClientLogLevel.Error);
 
-                        try { _tcpClient?.Close(); } catch { }
-                        try { _tcpClient?.Dispose(); } catch { }
+                        try 
+                        {
+                            _tcpClient?.Close(); 
+                        } 
+                        catch 
+                        { 
+                        }
+                        
+                        try 
+                        { 
+                            _tcpClient?.Dispose(); 
+                        } 
+                        catch 
+                        { 
+                        }
 
                         _tcpClient = new TcpClient();
                         packetReader = new PacketReader(Stream.Null);
@@ -257,8 +283,21 @@ namespace chat_client.Net
                     {
                         ClientLogger.Log($"Error while waiting for handshake ack: {ex.Message}", ClientLogLevel.Error);
 
-                        try { _tcpClient?.Close(); } catch { }
-                        try { _tcpClient?.Dispose(); } catch { }
+                        try 
+                        { 
+                            _tcpClient?.Close(); 
+                        } 
+                        catch 
+                        { 
+                        }
+                        
+                        try 
+                        { 
+                            _tcpClient?.Dispose(); 
+                        } 
+                        catch 
+                        { 
+                        }
 
                         _tcpClient = new TcpClient();
                         packetReader = new PacketReader(Stream.Null);
@@ -868,30 +907,20 @@ namespace chat_client.Net
             });
         }
 
-
         /// <summary>
-        /// Builds and sends a framed handshake packet (opcode = Handshake) to the server asynchronously.
-        /// Packet format on the wire:
+        /// Builds and sends a framed handshake packet, with handshake opcode,
+        /// to the server asynchronously.
+        /// Packet on wire:
         ///   [4-byte big-endian length][1-byte opcode][username (length-prefixed UTF-8)]
         ///   [16-byte UID][4-byte publicKeyDer length][publicKeyDer bytes]
-        /// This method only sends the handshake; it does NOT start the read loop. Caller is responsible
-        /// for starting the inbound reader after verifying the server handshake ack.
         /// </summary>
-        /// <param name="username">The display name of the user.</param>
-        /// <param name="uid">The unique identifier assigned to the client during connection.</param>
-        /// <param name="publicKeyDer">The DER-encoded RSA public key bytes.</param>
-        /// <param name="cancellationToken">Cancellation token for the send operation.</param>
-        /// <returns>True if the handshake packet was sent; false on error or invalid state.</returns>
-        public async Task<bool> SendInitialConnectionPacketAsync(
-            string username,
-            Guid uid,
-            byte[] publicKeyDer,
-            CancellationToken cancellationToken = default)
+        public async Task<bool> SendInitialConnectionPacketAsync(string username, Guid uid,
+            byte[] publicKeyDer, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(username))
                 return false;
 
-            if (_tcpClient == null || _tcpClient?.Connected != true)
+            if (_tcpClient == null || !_tcpClient.Connected)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync failed: socket not connected.", ClientLogLevel.Error);
                 return false;
@@ -911,21 +940,30 @@ namespace chat_client.Net
 
             try
             {
-                // Builds the payload using PacketBuilder: opcode + username + uid + length-prefixed public key
+                // Builds the payload: opcode + username + uid + length-prefixed public key
                 var packetBuilder = new PacketBuilder();
                 packetBuilder.WriteOpCode((byte)ClientPacketOpCode.Handshake);
                 packetBuilder.WriteString(username);
                 packetBuilder.WriteUid(uid);
                 packetBuilder.WriteBytesWithLength(publicKeyDer);
-
-                // Obtains raw payload bytes and frames them with the 4-byte big-endian length prefix.
                 byte[] payload = packetBuilder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
 
-                // Sends framed bytes via the NetworkStream using async APIs.
+                // Frame header: 4-byte big-endian length
+                int lenNetwork = IPAddress.HostToNetworkOrder(payload.Length);
+                byte[] header = BitConverter.GetBytes(lenNetwork);
+
                 NetworkStream networkStream = _tcpClient.GetStream();
 
-                await networkStream.WriteAsync(framedPacket, 0, framedPacket.Length, cancellationToken).ConfigureAwait(false);
+                // Temporary diagnostic logs
+                ClientLogger.Log($"SENDING_HANDSHAKE_HEADER={BitConverter.ToString(header)} LEN={payload.Length}", ClientLogLevel.Debug);
+                ClientLogger.Log($"SENDING_HANDSHAKE_PAYLOAD_PREFIX={BitConverter.ToString(payload, 0, Math.Min(16, payload.Length))}", ClientLogLevel.Debug);
+
+                // Writes header then flushes to delimit message (reduces OS coalescing risk)
+                await networkStream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+                await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+                // Writes payload then flushes
+                await networkStream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
                 await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
                 return true;

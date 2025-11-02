@@ -138,10 +138,10 @@
   <data name="InvalidPortPrompt" xml:space="preserve">
     <value>Port invalide, voulez-vous utiliser le port par défaut (7123) ? (o/n) :</value>
   </data>
-  <data name="ShutdownStart" xml:space="preserve">
-    <value>Arrêt du serveur...</value>
+  <data name="ServerShutdown" xml:space="preserve">
+    <value>Arrêt du serveur en cours…</value>
   </data>
-  <data name="ShutdownComplete" xml:space="preserve">
+  <data name="ServerShutdownComplete" xml:space="preserve">
     <value>Arrêt du serveur terminé.</value>
   </data>
   <data name="ServerStartedOnPort" xml:space="preserve">
@@ -289,7 +289,7 @@
     <value>Notification de déconnexion déjà envoyée pour ce client.</value>
   </data>
   <data name="HandshakeAckSendFailed" xml:space="preserve">
-    <value>Échec de l'envoi de l'accusé de réception du handshake au client.</value>
+    <value>Échec de l’envoi du HandshakeAck pour {0} : {1}</value>
   </data>
   <data name="ConnectionClosingDueToError" xml:space="preserve">
     <value>Fermeture de la connexion en raison d'une erreur.</value>
@@ -302,5 +302,17 @@
   </data>
   <data name="ReadCancelled" xml:space="preserve">
     <value>Opération de lecture annulée.</value>
+  </data>
+  <data name="AcceptTcpClientFailed" xml:space="preserve">
+    <value>Échec lors de l’acceptation d’un client TCP : {0}</value>
+  </data>
+  <data name="SentHandshakeAck" xml:space="preserve">
+    <value>Paquet HandshakeAck envoyé à {0}</value>
+  </data>
+  <data name="BroadcastRosterFailed" xml:space="preserve">
+    <value>Échec lors de la diffusion du roster : {0}</value>
+  </data>
+  <data name="BroadcastForceDisconnectFailed" xml:space="preserve">
+    <value>Échec lors de l’envoi du paquet ForceDisconnect : {0}</value>
   </data>
 </root>

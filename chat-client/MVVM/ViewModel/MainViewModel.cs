@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>October 31th, 2025</date>
+/// <date>November 2nd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -582,7 +582,7 @@ namespace chat_client.MVVM.ViewModel
                 if (uid == Guid.Empty || publicKeyDer == null || publicKeyDer.Length == 0)
                 {
                     // Logs the failure and silently aborts the connection sequence
-                    ClientLogger.LogLocalized(LocalizationManager.GetString("ConnectionFailed"), ClientLogLevel.Error);
+                    ClientLogger.LogLocalized("ConnectionFailed", ClientLogLevel.Error);
 
                     // Resets UI and internal state without throwing so XAML bindings handle connected state
                     Application.Current.Dispatcher.Invoke(() =>

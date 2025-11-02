@@ -138,10 +138,10 @@
   <data name="InvalidPortPrompt" xml:space="preserve">
     <value>Invalid port, would you like to use default port (7123)? (y/n):</value>
   </data>
-  <data name="ShutdownStart" xml:space="preserve">
-    <value>Shutting down server...</value>
+  <data name="ServerShutdown" xml:space="preserve">
+    <value>Shutting down server…</value>
   </data>
-  <data name="ShutdownComplete" xml:space="preserve">
+  <data name="ServerShutdownComplete" xml:space="preserve">
     <value>Server shutdown complete.</value>
   </data>
   <data name="ServerStartedOnPort" xml:space="preserve">
@@ -289,7 +289,7 @@
     <value>Disconnect notification already sent for this client.</value>
   </data>
   <data name="HandshakeAckSendFailed" xml:space="preserve">
-    <value>Failed to send handshake acknowledgement to client.</value>
+    <value>Failed to send HandshakeAck for {0}: {1}</value>
   </data>
   <data name="ConnectionClosingDueToError" xml:space="preserve">
     <value>Closing connection due to an error.</value>
@@ -302,5 +302,17 @@
   </data>
   <data name="ReadCancelled" xml:space="preserve">
     <value>Read operation cancelled.</value>
+  </data>
+  <data name="AcceptTcpClientFailed" xml:space="preserve">
+    <value>Failed to accept TCP client: {0}</value>
+  </data>
+  <data name="SentHandshakeAck" xml:space="preserve">
+    <value>HandshakeAck packet sent to {0}</value>
+  </data>
+  <data name="BroadcastRosterFailed" xml:space="preserve">
+    <value>Failed to broadcast roster: {0}</value>
+  </data>
+  <data name="BroadcastForceDisconnectFailed" xml:space="preserve">
+    <value>Failed to send ForceDisconnect packet: {0}</value>
   </data>
 </root>
