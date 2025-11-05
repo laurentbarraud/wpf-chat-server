@@ -9,14 +9,18 @@ An open source chat server and WPF client.
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="screenshot of chat server and client" >
 </p>
 
-- A real-time list of connected users is included, which updates automatically when users log in or out.
-- Both the server and client use a packet protocol, with an opcode added to each packet, allowing the receiver to identify its type. 
-- The TCP port used by the client can be changed before connecting.
-- The client can run locally if no IP address is provided.
-- The client also remembers the last IP address it successfully connected to, making reconnections faster and more convenient.
-- The server supports custom port binding at startup, allowing it to listen on a user-specified port.
-- Emoji support featuring a dedicated selection toolbar, accessible during text input.
-- The client supports both light and dark themes, which can be switched seamlessly using a toggle button.
+ ### Features
+
+- Packet protocol with opcodes — both server and client use a packet format that includes an opcode so receivers can identify packet types.  
+- Real‑time user list — the client shows connected users and updates automatically on login/logout.  
+- Configurable TCP port — the client can choose the TCP port before connecting; the server accepts a custom bind port at startup.  
+- Local mode — the client will run locally if no IP address is provided.
+- Last‑IP memory — the client remembers the last successful IP for faster reconnection.  
+- UTF‑8 message encoding — messages use UTF‑8 (emoji supported); an emoji toolbar is available during text entry.  
+- Theme support — light and dark themes switchable at any time via a toggle.  
+- Tray and Escape behavior — the client can minimize to the system tray on close or when pressing Escape.  
+- Localization — both projects include French and English translations.
+
 
 ### How to Run
 
