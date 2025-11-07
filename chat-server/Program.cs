@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 2nd, 2025</date>
+/// <date>November 7th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -480,20 +480,27 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Frames a raw payload with a 4‑byte big‑endian length prefix for network transmission.
+        /// Frames a raw payload with a 4-byte network-order (big-endian) length prefix
+        /// and returns the combined buffer ready to be sent on the wire.
         /// </summary>
-        /// <param name="payload">Raw packet payload bytes (opcode + body).</param>
-        /// <returns>
-        /// A new byte array containing a 4‑byte network-order (big-endian) length prefix followed by the payload.
-        /// This buffer is ready to be written directly to the socket stream.
-        /// </returns>
+        /// <param name="payload">Raw packet payload bytes.</param>
+        /// <returns>Framed packet: 4-byte big-endian length prefix followed by payload.</returns>
         static byte[] Frame(byte[] payload)
         {
-            using MemoryStream memoryStream = new MemoryStream();
-            using BinaryWriter binaryWriter = new BinaryWriter(memoryStream);
-            binaryWriter.Write(IPAddress.HostToNetworkOrder(payload.Length));
-            binaryWriter.Write(payload);
-            return memoryStream.ToArray();
+            // Allocates single buffer for header + payload to avoid extra allocations/copies
+            var framed = new byte[4 + payload.Length];
+
+            // Writes length in big-endian (network) order explicitly
+            int len = payload.Length;
+            framed[0] = (byte)(len >> 24);
+            framed[1] = (byte)(len >> 16);
+            framed[2] = (byte)(len >> 8);
+            framed[3] = (byte)len;
+
+            // Copies payload immediately after the 4-byte header
+            Buffer.BlockCopy(payload, 0, framed, 4, payload.Length);
+
+            return framed;
         }
 
         /// <summary>

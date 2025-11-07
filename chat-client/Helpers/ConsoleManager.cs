@@ -1,7 +1,7 @@
 ﻿/// <file>ConsoleManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 2nd, 2025</date>
+/// <date>November 7th, 2025</date>
 
 using System;
 using System.IO;

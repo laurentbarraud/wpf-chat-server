@@ -1,22 +1,26 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 2nd, 2025</date>
+/// <date>November 7th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
+using System.Windows.Documents;
 using System.Windows.Input;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace chat_client.MVVM.ViewModel
 {
@@ -104,9 +108,20 @@ namespace chat_client.MVVM.ViewModel
                 // Shows or hides chat controls
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
-                // When opening a connection with encryption enabled, runs the pipeline
+                // When opening a connection with encryption enabled, run the async pipeline;
+                // when disconnecting, cancel any running pipeline.
                 if (_isConnected && UseEncryptionSetting)
-                    ApplyEncryptionPipeline(enableEncryption: true);
+                {
+                    // Start async pipeline safely (cancels previous run if any)
+                    StartEncryptionPipelineBackground();
+                }
+                else
+                {
+                    // Cancel and dispose the current pipeline cancellation source if present
+                    _encryptionCts?.Cancel();
+                    _encryptionCts?.Dispose();
+                    _encryptionCts = null;
+                }
             }
         }
 
@@ -236,12 +251,45 @@ namespace chat_client.MVVM.ViewModel
             set
             {
                 if (Settings.Default.UseEncryption == value)
+                {
                     return;
+                }
 
+                // Persists new preference immediately
                 Settings.Default.UseEncryption = value;
                 Settings.Default.Save();
 
+                // Notifies UI bindings
                 OnPropertyChanged(nameof(UseEncryptionSetting));
+
+                // If enabling and we are connected,
+                // starts the async pipeline safely.
+                // If disabling, cancels any running pipeline
+                // and applies disable path synchronously.
+                if (value && _isConnected)
+                {
+                    // Starts the pipeline in background without blocking the caller;
+                    // this cancels any previous run and observes completion to log errors.
+                    StartEncryptionPipelineBackground();
+                }
+                else
+                {
+                    // Cancels any in-flight pipeline and
+                    // disposes the Canceltoken source to free resources.
+                    _encryptionCts?.Cancel();
+                    _encryptionCts?.Dispose();
+                    _encryptionCts = null;
+
+                    // Clears key material quickly
+                    KnownPublicKeys.Clear();
+                    LocalUser.PublicKeyDer = Array.Empty<byte>();
+                    LocalUser.PrivateKeyDer = Array.Empty<byte>();
+                    EncryptionHelper.ClearPrivateKey();
+
+                    // Updates state for the UI
+                    EvaluateEncryptionState();
+                    ClientLogger.Log("Encryption disabled via settings.", ClientLogLevel.Info);
+                }
             }
         }
 
@@ -296,6 +344,10 @@ namespace chat_client.MVVM.ViewModel
         /// 0 = not running, 1 = already invoked.
         /// </summary>
         private int _clientDisconnecting = 0;
+
+        // Cancellation source for the running encryption pipeline;
+        // cancelled when connection or setting changes
+        private CancellationTokenSource? _encryptionCts;
 
         /// <summary>
         /// Stores the current theme selection state.
@@ -398,22 +450,40 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Performs the encryption pipeline:
         /// clears old key material,
-        /// initializes or tears down encryption,
+        /// initializes encryption when UseEncryptionSetting is true and the client is connected,
         /// rolls back on failure,
         /// and logs the result.
+        /// Respects cooperative cancellation via the provided token.
         /// </summary>
-        private void ApplyEncryptionPipeline(bool enableEncryption)
+        private async Task ApplyEncryptionPipelineAsync(CancellationToken cancellationToken)
         {
-            // Clears existing key material
+            // Clears existing key material synchronously
             KnownPublicKeys.Clear();
             LocalUser.PublicKeyDer = Array.Empty<byte>();
             LocalUser.PrivateKeyDer = Array.Empty<byte>();
             EncryptionHelper.ClearPrivateKey();
 
-            if (enableEncryption)
+            if (!UseEncryptionSetting)
             {
-                // Attempts to initialize encryption
-                bool initSucceeded = InitializeEncryption();
+                EvaluateEncryptionState();
+                ClientLogger.Log("Encryption disabled or not requested; pipeline exited.", ClientLogLevel.Info);
+                return;
+            }
+
+            // Requires local user and connection to proceed
+            if (LocalUser == null || !_isConnected)
+            {
+                ClientLogger.Log("Encryption pipeline aborted: missing LocalUser or not connected.", ClientLogLevel.Debug);
+                return;
+            }
+
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Awaits the async initialization, propagates cancellation
+                bool initSucceeded = await InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
+
                 if (!initSucceeded)
                 {
                     ClientLogger.Log("Encryption init failed – rolling back.", ClientLogLevel.Error);
@@ -424,13 +494,34 @@ namespace chat_client.MVVM.ViewModel
                     ClientLogger.Log("Encryption enabled successfully.", ClientLogLevel.Info);
                 }
             }
-            else
+            catch (OperationCanceledException)
             {
-                // Disables encryption path
-                EvaluateEncryptionState();
-                ClientLogger.Log("Encryption disabled successfully.", ClientLogLevel.Info);
+                ClientLogger.Log("ApplyEncryptionPipelineAsync was cancelled.", ClientLogLevel.Debug);
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"ApplyEncryptionPipelineAsync failed: {ex.Message}", ClientLogLevel.Error);
+                Settings.Default.UseEncryption = false;
+            }
+            finally
+            {
+                try 
+                { 
+                    Settings.Default.Save(); 
+                } 
+                catch 
+                {    
+                }
+
+                IsEncryptionReady = EvaluateEncryptionState();
+
+                if (IsEncryptionReady || !Settings.Default.UseEncryption)
+                {
+                    IsSyncingKeys = false;
+                }
             }
         }
+
 
         /// <summary>
         /// Determines whether encryption can proceed by checking:
@@ -618,29 +709,38 @@ namespace chat_client.MVVM.ViewModel
                     LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
                     ClientLogger.Log("Assigns in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
-                    // Publishes the local public key to the server to initiate key exchange
-                    _server.SendPublicKeyToServer(LocalUser.UID, LocalUser.PublicKeyDer);
+                    // Awaits sending local public key so server has it
+                    // before further exchanges; propagates cancellation
+                    await _server.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
                     ClientLogger.Log("Publishes local public key to server.", ClientLogLevel.Debug);
 
-                    // Requests all known public keys from the server
-                    _server.SendRequestAllPublicKeysFromServer();
+                    // Awaits request for all known public keys;
+                    // allows cancellation and ensures the request is observed
+                    await _server.SendRequestAllPublicKeysFromServerAsync(cancellationToken).ConfigureAwait(false);
 
-                    // Initializes the encryption context and logs the outcome
-                    if (InitializeEncryption())
+                    // Initializes the encryption context and logs the outcome (awaited with token)
+                    bool initOk = await InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
+                    if (initOk)
+                    {
                         ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
+                    }
                     else
+                    {
                         ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
+                    }
 
-                    // Synchronizes missing peer public keys
-                    SyncKeys();
+                    // Awaits key synchronization to ensure missing keys
+                    // are requested and processed; propagates cancellation
+                    await SyncKeysAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                // Updates the UI to the connected state and focuses the message input
+
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow &&
                         mainWindow.DataContext is MainViewModel viewModel)
                     {
+                        // Updates the UI to the connected state
                         viewModel.IsConnected = true;
                         mainWindow.TxtMessageToSend.Focus();
                     }
@@ -705,11 +805,22 @@ namespace chat_client.MVVM.ViewModel
         {
             try
             {
-                // Sends a clean-disconnect notification if the client is still connected
+                
                 if (_server?.IsConnected == true)
                 {
-                    _server.SendDisconnectNotifyToServer();
-                    // Closes the connection to the server and underlying socket
+                    // Launches the async send in background and
+                    // observes completion to avoid unobserved exceptions.
+                    // We use CancellationToken.None
+                    // because there is no caller token in this UI method.
+                    _ = _server.SendDisconnectNotifyToServerAsync(CancellationToken.None)
+                        .ContinueWith(t =>
+                        {
+                            if (t.IsCanceled)
+                                ClientLogger.Log("SendDisconnectNotifyToServerAsync was canceled.", ClientLogLevel.Debug);
+                            else if (t.IsFaulted)
+                                ClientLogger.Log($"SendDisconnectNotifyToServerAsync failed: {t.Exception?.GetBaseException().Message}", ClientLogLevel.Error);
+                        }, TaskScheduler.Default);
+
                     _server.DisconnectFromServer();
                 }
 
@@ -721,7 +832,6 @@ namespace chat_client.MVVM.ViewModel
             }
             catch (Exception ex)
             {
-                // Displays an error dialog if the disconnection process fails
                 MessageBox.Show(
                     LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
                     LocalizationManager.GetString("Error"),
@@ -730,6 +840,8 @@ namespace chat_client.MVVM.ViewModel
                 );
             }
         }
+
+
         /// <summary>
         /// Applies a full roster snapshot from the server, updates the Users list,
         /// and emits “X has joined” or “Y has left” messages only on subsequent updates.
@@ -881,9 +993,12 @@ namespace chat_client.MVVM.ViewModel
         /// • Synchronizes peer public keys and evaluates final encryption readiness.
         /// • Persists handshake keys and the encryption flag to application settings as raw DER bytes.
         /// Wraps all steps in exception handling to maintain a safe state and ensure settings are always saved.
+        /// Respects cooperative cancellation via the provided CancellationToken.
         /// </summary>
+        /// <param name="cancellationToken">CancellationToken to cooperatively cancel the operation.</param>
         /// <returns>True if encryption is successfully initialized and ready; false otherwise.</returns>
-        public bool InitializeEncryption()
+
+        public async Task<bool> InitializeEncryptionAsync(CancellationToken cancellationToken)
         {
             if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
             {
@@ -896,47 +1011,48 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Clears previous peer keys
                 lock (KnownPublicKeys)
                 {
                     KnownPublicKeys.Clear();
                 }
 
-                // Clears local key material in memory (uses empty arrays to avoid nulls)
+                // Clears local key material
                 LocalUser.PublicKeyDer = Array.Empty<byte>();
                 LocalUser.PrivateKeyDer = Array.Empty<byte>();
                 EncryptionHelper.ClearPrivateKey();
                 ClientLogger.Log("Cleared all previous key state.", ClientLogLevel.Debug);
 
-                // Generates a new 2048-bit RSA key pair and exports DER bytes
+                // Generates RSA keypair and exports DER bytes
                 using var rsa = RSA.Create(2048);
-
-                // Exports PKCS#1 public key (RSAPublicKey) so ImportRSAPublicKey can consume it
                 byte[] publicKeyDer = rsa.ExportRSAPublicKey();
-
-                // Exports private key as PKCS#1 DER for local use
                 byte[] privateKeyDer = rsa.ExportRSAPrivateKey();
 
-                // Registers locally on the user model
+                // Registers locally
                 LocalUser.PublicKeyDer = publicKeyDer;
                 LocalUser.PrivateKeyDer = privateKeyDer;
                 ClientLogger.Log($"Generated RSA key pair for UID {LocalUser.UID}.", ClientLogLevel.Debug);
 
-                // Registers the new public key in the known-keys collection
                 lock (KnownPublicKeys)
                 {
                     KnownPublicKeys[LocalUser.UID] = publicKeyDer;
                     ClientLogger.Log($"Registered local public key for UID {LocalUser.UID}.", ClientLogLevel.Debug);
                 }
 
-                // Sends the public key to the server
-                bool keySentToServer = _server.SendPublicKeyToServer(LocalUser.UID, publicKeyDer);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Sends public key to server and awaits so server has
+                // the key before further steps; allows caller to cancel.
+                bool keySentToServer = await _server.SendPublicKeyToServerAsync(LocalUser.UID, publicKeyDer, cancellationToken);
+
                 if (!keySentToServer)
                 {
-                    ClientLogger.Log("Fails to send public key to server — aborts encryption setup.",
-                        ClientLogLevel.Error);
+                    ClientLogger.Log("Fails to send public key to server — aborts encryption setup.", ClientLogLevel.Error);
 
-                    MessageBox.Show(LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
+                    MessageBox.Show(
+                        LocalizationManager.GetString("SendingClientsPublicRSAKeyToTheServerFailed"),
                         LocalizationManager.GetString("Error"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
@@ -945,27 +1061,33 @@ namespace chat_client.MVVM.ViewModel
                     return false;
                 }
 
-                // Enables encryption in application settings
+                // Enables encryption in settings now that server has our key
                 Settings.Default.UseEncryption = true;
                 ClientLogger.Log("Enables encryption in application settings.", ClientLogLevel.Info);
 
-                // Synchronizes peer public keys; abort if that fails
-                if (!SyncKeys())
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Awaits synchronization to ensure
+                // peer keys are requested/received before marking ready.
+                bool syncOk = await SyncKeysAsync(cancellationToken);
+                if (!syncOk)
                 {
-                    ClientLogger.Log("Peer key synchronization failed — aborts encryption setup.",
-                        ClientLogLevel.Error);
+                    ClientLogger.Log("Peer key synchronization failed — aborts encryption setup.", ClientLogLevel.Error);
                     return false;
                 }
 
-                // Evaluates final encryption readiness and sets the flag
+                // Evaluates readiness
                 IsEncryptionReady = EvaluateEncryptionState();
 
                 if (IsEncryptionReady)
-                {
                     ClientLogger.Log("Encryption ready — coloured lock icon displayed.", ClientLogLevel.Info);
-                }
 
                 return IsEncryptionReady;
+            }
+            catch (OperationCanceledException)
+            {
+                ClientLogger.Log("InitializeEncryptionAsync was cancelled.", ClientLogLevel.Debug);
+                throw;
             }
             catch (Exception ex)
             {
@@ -973,15 +1095,20 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"Exception during encryption initialization: {ex.Message}", ClientLogLevel.Error);
                 return false;
             }
+
             finally
             {
-                Settings.Default.Save();
-                
-                // Clears the syncing flag only if the icon would switch off grey
-                if (IsEncryptionReady || !Settings.Default.UseEncryption)
+                try
                 {
-                    IsSyncingKeys = false;
+                    Settings.Default.Save();
                 }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"Failed to save settings after encryption init: {ex.Message}", ClientLogLevel.Warn);
+                }
+
+                if (IsEncryptionReady || !Settings.Default.UseEncryption)
+                    IsSyncingKeys = false;
             }
         }
 
@@ -1335,12 +1462,51 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Synchronizes the local public key with each connected peer.
-        /// Shows the grey “syncing” icon, requests any missing peer key,
-        /// then updates encryption readiness and hides the syncing icon.
+        /// Starts the encryption pipeline asynchronously without blocking the caller.
+        /// Cancels any previously running pipeline, creates a fresh CancellationToken,
+        /// and observes completion to log cancellation or failure.
+        /// Used when connection or encryption settings change and the pipeline must react safely.
         /// </summary>
-        /// <returns>True if encryption is ready (all keys present or solo mode), false otherwise.</returns>
-        public bool SyncKeys()
+        public void StartEncryptionPipelineBackground()
+        {
+            // Cancels previous pipeline if any
+            _encryptionCts?.Cancel();
+            _encryptionCts?.Dispose();
+            _encryptionCts = new CancellationTokenSource();
+
+            var encryptionCtsToken = _encryptionCts.Token;
+
+            // Launches the pipeline in an asynchronous task without
+            // waiting for its result and without blocking the caller
+            _ = ApplyEncryptionPipelineAsync(encryptionCtsToken)
+                                                           
+                .ContinueWith(taskApplyEnc =>              /// Attaches a continuation: this block will
+                                                           /// be executed when the task is completed,
+                                                           /// whether successful, aborted or failed.
+                                                           
+                {                                   
+                    if (taskApplyEnc.IsCanceled)
+                    {
+                        ClientLogger.Log("Encryption pipeline cancelled.", ClientLogLevel.Debug);
+                    }
+                else if (taskApplyEnc.IsFaulted)
+                    {
+                        ClientLogger.Log($"Encryption pipeline failed: {taskApplyEnc.Exception?.GetBaseException().Message}", ClientLogLevel.Error);
+                    }
+                }, TaskScheduler.Default);
+                                                    /// TaskScheduler.Default indicates that the 
+                                                    /// continuation(block taskApplyEnc => { ... }) should run on
+                                                    /// a pool thread, not on the UI thread.
+                                                    /// It is important to avoid blocking or disrupting the
+                                                    /// graphical interface.
+        }
+
+        /// <summary>
+        /// Synchronizes the local public key with each connected peer.
+        /// Gets each missing peer UID and ensures each request is awaited so cancellation
+        /// and transient errors are handled; allows cancellation via the provided token.
+        /// </summary>
+        public async Task<bool> SyncKeysAsync(CancellationToken cancellationToken)
         {
             // Exits if encryption is disabled
             if (!Settings.Default.UseEncryption)
@@ -1353,90 +1519,115 @@ namespace chat_client.MVVM.ViewModel
             // Shows grey syncing icon
             IsSyncingKeys = true;
 
-            // Snapshots a list of peer UIDs (exclude local)
-            var lstPeerIds = Users
-                .Where(u => u.UID != LocalUser.UID)
-                .Select(u => u.UID)
-                .ToList();
-
-            // If solo mode is detected, marks ready immediately
-            if (lstPeerIds.Count == 0)
+            try
             {
-                IsEncryptionReady = true;
-                IsSyncingKeys = false;
-                return true;
-            }
-
-            // Identifies missing keys
-            List<Guid> missingKeys;
-            lock (KnownPublicKeys)
-            {
-                missingKeys = lstPeerIds.Where(uid => !KnownPublicKeys.ContainsKey(uid))
+                // Snapshots a list of peer UIDs (excludes local)
+                var lstPeerIds = Users
+                    .Where(u => u.UID != LocalUser.UID)
+                    .Select(u => u.UID)
                     .ToList();
+
+                // If solo mode is detected, marks ready immediately
+                if (lstPeerIds.Count == 0)
+                {
+                    IsEncryptionReady = true;
+                    return true;
+                }
+
+                // Identifies missing keys
+                List<Guid> missingKeys;
+                lock (KnownPublicKeys)
+                {
+                    missingKeys = lstPeerIds.Where(uid => !KnownPublicKeys.ContainsKey(uid))
+                        .ToList();
+                }
+
+                // Requests each missing peer key sequentially (awaits each send)
+                foreach (var uid in missingKeys)
+                {
+                    // awaits without ConfigureAwait(false), so UI-bound property updates remain safe
+                    await _server.SendRequestToPeerForPublicKeyAsync(uid, cancellationToken);
+                }
+
+                // Finalizes flags
+                IsEncryptionReady = (missingKeys.Count == 0);
+                return IsEncryptionReady;
             }
-
-            // Requests each missing peer key
-            foreach (var uid in missingKeys)
-                _server.SendRequestToPeerForPublicKey(uid);
-
-            // Finalizes flags
-            IsEncryptionReady = (missingKeys.Count == 0);
-            IsSyncingKeys = !IsEncryptionReady;
-            return IsEncryptionReady;
+            catch (OperationCanceledException)
+            {
+                // Preserves cancellation semantics for callers
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"SyncKeys failed: {ex.Message}", ClientLogLevel.Error);
+                // Returns false on unexpected errors
+                return false;
+            }
+            finally
+            {
+                // Ensures the UI state is always reset
+                IsSyncingKeys = false;
+            }
         }
 
+
         /// <summary>
-        /// Enables or disables encryption, with full validation, key‐wipe,
-        /// pipeline execution (init or teardown), rollback on failure, and logging.
+        /// This UI method enables or disables encryption safely: 
+        /// it saves the new setting, 
+        /// validates that a user and connection exist,
+        /// clears any local key material, 
+        /// then either starts the asynchronous initialization 
+        /// pipeline in the background when enabling or 
+        /// runs the synchronous disable path when disabling.
+        /// If the pipeline fails, it rolls back the setting and logs the error.
         /// </summary>
+        /// <param name="enableEncryption"></param>
         public void ToggleEncryption(bool enableEncryption)
         {
-            // Remember the old setting in case we need to roll back
-            bool settingPreviousValue = Settings.Default.UseEncryption;
+            bool previous = Settings.Default.UseEncryption;
 
-            // Persists the new flag
             Settings.Default.UseEncryption = enableEncryption;
             Settings.Default.Save();
 
-            // Validates prerequisites
             if (LocalUser == null || !IsConnected)
             {
-                ClientLogger.Log("Encryption process failed – missing LocalUser or not connected.",
-                    ClientLogLevel.Warn);
-
-                // Roll back UI and settings
-                Settings.Default.UseEncryption = settingPreviousValue;
-                OnPropertyChanged(nameof(Settings.Default.UseEncryption));
+                ClientLogger.Log("Encryption process failed – missing LocalUser or not connected.", ClientLogLevel.Warn);
+                Settings.Default.UseEncryption = previous;
+                OnPropertyChanged(nameof(UseEncryptionSetting));
                 return;
             }
 
-            // Clears old key material
+            // Clears keys immediately
             KnownPublicKeys.Clear();
             LocalUser.PublicKeyDer = Array.Empty<byte>();
             LocalUser.PrivateKeyDer = Array.Empty<byte>();
             EncryptionHelper.ClearPrivateKey();
 
-            // Executes the pipeline: init or disable
-            bool pipelineSucceeded = enableEncryption ? 
-                InitializeEncryption()       // true if init succeeded
-                : EvaluateEncryptionState();   // true if disable succeeded
+            bool pipelineSucceeded;
 
-            if (!pipelineSucceeded)
+            if (enableEncryption)
             {
-                ClientLogger.Log($"Encryption pipeline {(enableEncryption ? "init" : "teardown")} failed – rolling back.",
-                    ClientLogLevel.Error);
-
-                // Restores previous setting
-                Settings.Default.UseEncryption = settingPreviousValue;
-                Settings.Default.Save();
-                OnPropertyChanged(nameof(Settings.Default.UseEncryption));
+                // Starts async init in background; don't block UI
+                StartEncryptionPipelineBackground();
+                pipelineSucceeded = true; // optimistic: real result will be logged by the background task
             }
             else
             {
-                ClientLogger.Log(enableEncryption ?
-                    "Encryption enabled successfully."
-                    : "Encryption disabled successfully.",
-                    ClientLogLevel.Info);
+                // Runs synchronous disable path and gets real result now
+                pipelineSucceeded = EvaluateEncryptionState();
+            }
+
+            if (!pipelineSucceeded)
+            {
+                ClientLogger.Log($"Encryption pipeline {(enableEncryption ? "init" : "teardown")} failed – rolling back.", ClientLogLevel.Error);
+                Settings.Default.UseEncryption = previous;
+                Settings.Default.Save();
+                OnPropertyChanged(nameof(UseEncryptionSetting));
+            }
+            else
+            {
+                ClientLogger.Log(enableEncryption ? "Encryption enabled successfully." : "Encryption disabled successfully.", ClientLogLevel.Info);
             }
         }
 

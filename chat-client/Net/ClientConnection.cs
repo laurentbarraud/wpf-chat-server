@@ -1,18 +1,21 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 2nd, 2025</date>
+/// <date>November 7th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
 using chat_client.Properties;
+using Microsoft.VisualBasic.ApplicationServices;
+using System.CodeDom.Compiler;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Windows;
+using System.Windows.Documents;
 
 namespace chat_client.Net
 {
@@ -83,6 +86,9 @@ namespace chat_client.Net
         /// 0 = not called, 1 = called.
         /// </summary>
         private int _disconnectFromServerCalled = 0;
+
+        // single-writer guard for this connection instance
+        private readonly System.Threading.SemaphoreSlim _writeLock = new System.Threading.SemaphoreSlim(1, 1);
 
         // Represents the handshake lifecycle; completed with true on success, false or exception on failure.
         // Recreate (or set to null) after completion to avoid accidental reuse.
@@ -464,18 +470,29 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Frames a raw payload with a network-order length prefix for packet transmission.
+        /// Frames a raw payload with a 4-byte network-order (big-endian) length prefix
+        /// and returns the combined buffer ready to be sent on the wire.
         /// </summary>
         /// <param name="payload">Raw packet payload bytes.</param>
-        /// <returns>Framed packet ready for network send.</returns>
+        /// <returns>Framed packet: 4-byte big-endian length prefix followed by payload.</returns>
         static byte[] Frame(byte[] payload)
         {
-            using MemoryStream memoryStream = new MemoryStream();
-            using BinaryWriter binaryWriter = new BinaryWriter(memoryStream);
-            binaryWriter.Write(IPAddress.HostToNetworkOrder(payload.Length));
-            binaryWriter.Write(payload);
-            return memoryStream.ToArray();
+            // Allocates single buffer for header + payload to avoid extra allocations/copies
+            var framed = new byte[4 + payload.Length];
+
+            // Writes length in big-endian (network) order explicitly
+            int len = payload.Length;
+            framed[0] = (byte)(len >> 24);
+            framed[1] = (byte)(len >> 16);
+            framed[2] = (byte)(len >> 8);
+            framed[3] = (byte)len;
+
+            // Copies payload immediately after the 4-byte header
+            Buffer.BlockCopy(payload, 0, framed, 4, payload.Length);
+
+            return framed;
         }
+
 
         /// <summary>
         /// Marks the client-side handshake as complete so the UI/logic can safely proceed.
@@ -753,38 +770,42 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends a PublicKeyRequest packet to the server to retrieve all known public keys.
-        /// Writes the PublicKeyRequest opcode followed by this client’s UID,
-        /// flushes the stream to guarantee delivery,
-        /// and logs the action for traceability.
+        /// Sends a PublicKeyRequest packet to the server asynchronously to retrieve known public keys.
+        /// Gets this client's UID, ensures the packet is framed and sent atomically,
+        /// allows cancellation and logs activity.
         /// </summary>
-        public void SendRequestAllPublicKeysFromServer()
+        public async Task SendRequestAllPublicKeysFromServerAsync(CancellationToken cancellationToken)
         {
-            // Builds the request packet: opcode + sender UID
-            var packetBuilder = new PacketBuilder();
-            packetBuilder.WriteOpCode((byte)ClientPacketOpCode.PublicKeyRequest);
-            packetBuilder.WriteUid(LocalUid);
+            try
+            {
+                var packetBuilder = new PacketBuilder();
+                packetBuilder.WriteOpCode((byte)ClientPacketOpCode.PublicKeyRequest);
+                packetBuilder.WriteUid(LocalUid);
 
-            // Sends the packet over the network stream and flushes immediately
-            NetworkStream stream = _tcpClient.GetStream();
-            byte[] payload = packetBuilder.GetPacketBytes();
-            stream.Write(payload, 0, payload.Length);
-            stream.Flush();
+                byte[] payload = packetBuilder.GetPacketBytes();
 
-            // Logs the sync request with this client's UID
-            ClientLogger.Log($"Public key sync request sent — UID: {LocalUid}",
-                ClientLogLevel.Debug);
+                // Use unified writer instead of direct stream writes
+                await SendFramedAsync(payload, cancellationToken).ConfigureAwait(false);
+
+                ClientLogger.Log($"Public key sync request sent — UID: {LocalUid}", ClientLogLevel.Debug);
+            }
+            catch (OperationCanceledException)
+            {
+                ClientLogger.Log("SendRequestAllPublicKeysFromServer cancelled.", ClientLogLevel.Debug);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"Public key request failed: {ex.Message}", ClientLogLevel.Error);
+            }
         }
 
         /// <summary>
-        /// Sends a framed DisconnectNotify packet to the server
-        /// to announce a clean disconnect.
-        /// Packet layout:
-        ///   [4-byte big-endian length prefix]
-        ///   [1-byte opcode: DisconnectNotify]
-        ///   [16-byte UID of the disconnecting client]
+        /// Sends a framed DisconnectNotify packet to the server asynchronously.
+        /// Gets the disconnect UID, ensures the packet is framed and sent atomically,
+        /// allows cancellation via the provided token.
         /// </summary>
-        public void SendDisconnectNotifyToServer()
+        public async Task SendDisconnectNotifyToServerAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -793,10 +814,16 @@ namespace chat_client.Net
                 builder.WriteUid(LocalUid);
 
                 byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
 
-                _tcpClient.Client.Send(framedPacket);
+                // Use the connection-level sender that frames + serializes writes
+                await SendFramedAsync(payload, cancellationToken).ConfigureAwait(false);
+
                 ClientLogger.Log($"Sent DisconnectNotify for {LocalUid}", ClientLogLevel.Debug);
+            }
+            catch (OperationCanceledException)
+            {
+                ClientLogger.Log("SendDisconnectNotifyToServer cancelled.", ClientLogLevel.Debug);
+                throw;
             }
             catch (Exception ex)
             {
@@ -804,21 +831,31 @@ namespace chat_client.Net
             }
         }
 
-        public Task<bool> SendEncryptedMessageToServerAsync(string plainText)
+        /// <summary>
+        /// Encrypts and sends a plaintext message to all peers via the server.
+        /// 
+        /// 
+        /// Allows cancellation.
+        /// Returns true if at least one encrypted message was sent.
+        /// </summary>
+        public async Task<bool> SendEncryptedMessageToServerAsync(string plainText, CancellationToken cancellationToken)
         {
-            // Sanity checks kept on caller thread
             if (string.IsNullOrWhiteSpace(plainText))
-                return Task.FromResult(false);
+                return false;
 
             if (Application.Current.MainWindow is not MainWindow mainWindow ||
                 mainWindow.ViewModel is not MainViewModel viewModel ||
                 viewModel.LocalUser == null)
             {
-                return Task.FromResult(false);
+                return false;
             }
 
-            // Offloads the heavy work to the thread pool to avoid blocking UI
-            return Task.Run(() =>
+            /// <summary>
+            /// Runs on the thread-pool: a shared, reusable platform thread for background work.
+            /// Moves CPU-bound or potentially blocking work off the UI thread to avoid freezes,
+            /// while still allowing awaited asynchronous network calls inside the task.
+            /// </summary>
+            return await Task.Run(async () =>
             {
                 Guid senderUid = viewModel.LocalUser.UID;
                 var recipients = viewModel.Users.Where(u => u.UID != senderUid).ToList();
@@ -829,10 +866,12 @@ namespace chat_client.Net
 
                 foreach (var recipient in recipients)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     Guid recipientUid = recipient.UID;
                     byte[] publicKeyDer;
 
-                    // Obtain public key with minimal locking
+                    // Obtains public key with minimal locking
                     lock (viewModel.KnownPublicKeys)
                     {
                         if (recipientUid == senderUid)
@@ -856,14 +895,10 @@ namespace chat_client.Net
                     }
                     else
                     {
-                        if (publicKeyDer.Length == 0)
-                        {
-                            // Request peer key (fire-and-forget; keeps UI flow non-blocking)
-                            SendRequestToPeerForPublicKey(recipientUid);
-                            continue;
-                        }
+                        // Awaits the request and allow cancellation; keeps UI responsive while ensuring send is observed
+                        await SendRequestToPeerForPublicKeyAsync(recipientUid, cancellationToken).ConfigureAwait(false);
 
-                        // Ensure server has our public key; keep this sync call but it's off the UI thread now
+                        // Ensures server has our public key
                         var localKey = viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>();
                         if (localKey.Length == 0)
                         {
@@ -871,7 +906,8 @@ namespace chat_client.Net
                         }
                         else
                         {
-                            viewModel._server.SendPublicKeyToServer(viewModel.LocalUser.UID, localKey);
+                            // Awaits so forwarding can occur before encryption attempt
+                            await viewModel._server.SendPublicKeyToServerAsync(viewModel.LocalUser.UID, localKey, cancellationToken).ConfigureAwait(false);
                         }
 
                         viewModel.MarkKeyAsSentTo(recipientUid);
@@ -879,6 +915,7 @@ namespace chat_client.Net
 
                     try
                     {
+                        // Encryption is CPU-bound; still runs on thread-pool because we're inside Task.Run
                         byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
                         if (cipherArray == null || cipherArray.Length == 0)
                         {
@@ -892,10 +929,16 @@ namespace chat_client.Net
                         encryptedMessagePacket.WriteUid(recipientUid);
                         encryptedMessagePacket.WriteBytesWithLength(cipherArray);
 
-                        _tcpClient.Client.Send(encryptedMessagePacket.GetPacketBytes());
-                        ClientLogger.Log($"Encrypted message sent to {recipientUid}.", ClientLogLevel.Debug);
+                        // Uses the centralized SendFramedAsync helper (frames + single-writer) for robustness
+                        await SendFramedAsync(encryptedMessagePacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
 
+                        ClientLogger.Log($"Encrypted message sent to {recipientUid}.", ClientLogLevel.Debug);
                         messageSent = true;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Propagates cancellation to caller
+                        throw;
                     }
                     catch (Exception ex)
                     {
@@ -904,7 +947,43 @@ namespace chat_client.Net
                 }
 
                 return messageSent;
-            });
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sends a raw payload (not pre-framed). 
+        /// This helper frames the payload and writes atomically.
+        /// </summary>
+        /// <param name="payload"></param>
+        /// <param name="cancellationToken"></param>
+        private async Task SendFramedAsync(byte[] payload, CancellationToken cancellationToken)
+        {
+            if (payload == null) payload = Array.Empty<byte>();
+            var framed = Framing.Frame(payload);
+
+            await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                // Capture stream once to avoid races if TcpClient is disposed concurrently
+                var stream = _tcpClient.GetStream();
+
+                // Write and flush using the captured stream
+                await stream.WriteAsync(framed, 0, framed.Length, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (IOException ex)
+            {
+                // Indicates a connection-level write failure
+                throw new InvalidOperationException("Connection write failed", ex);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         /// <summary>
@@ -1060,49 +1139,53 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// • Sends the client's public RSA key to the server for distribution to other connected clients.
-        /// • Builds a packet with OpCode 6, including the sender's UID and public key in DER byte-array format.
-        /// • Validates socket connectivity before dispatching and logs each step for traceability.
-        /// • Allows transmission even if handshake is not completed to support single-client scenarios.
-        /// • Returns true if the packet was sent successfully; false otherwise.
+        /// Sends the client's public RSA key to the server asynchronously.
+        /// Gets the target UID and DER bytes, ensures packet is framed and sent atomically,
+        /// allows cancellation and returns true on success.
         /// </summary>
-        /// <param name="targetUid">The UID of the sender.</param>
-        /// <param name="publicKeyDer">The public RSA key as DER bytes (PKCS#1 RSAPublicKey).</param>
-        /// <returns>True if the packet was sent successfully; false if the client is not connected.</returns>
-        public bool SendPublicKeyToServer(Guid targetUid, byte[] publicKeyDer)
+        public async Task<bool> SendPublicKeyToServerAsync(Guid targetUid, byte[] publicKeyDer, CancellationToken cancellationToken)
         {
-            // Validates socket connection before attempting to send
+            // Validates connection early
             if (_tcpClient?.Client == null || !_tcpClient.Connected)
             {
                 ClientLogger.Log("Cannot send public key — client is not connected.", ClientLogLevel.Error);
                 return false;
             }
 
-            // Builds the packet with required fields
-            var publicKeyPacket = new PacketBuilder();
-            publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
-            publicKeyPacket.WriteUid(targetUid);
-            publicKeyPacket.WriteBytesWithLength(publicKeyDer);
+            try
+            {
+                // Builds the packet with required fields
+                var publicKeyPacket = new PacketBuilder();
+                publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
+                publicKeyPacket.WriteUid(targetUid);
+                publicKeyPacket.WriteBytesWithLength(publicKeyDer);
 
-            ClientLogger.Log($"Sending public key — UID: {targetUid}, Key length: {publicKeyDer.Length}", ClientLogLevel.Debug);
+                ClientLogger.Log($"Sending public key — UID: {targetUid}, Key length: {publicKeyDer.Length}", ClientLogLevel.Debug);
 
-            // Sends the packet to the server
-            _tcpClient.Client.Send(publicKeyPacket.GetPacketBytes());
+                // Sends the raw payload via unified sender
+                await SendFramedAsync(publicKeyPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
 
-            ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
-            return true;
+                ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                ClientLogger.Log("SendPublicKeyToServer cancelled.", ClientLogLevel.Debug);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"Public key send failed: {ex.Message}", ClientLogLevel.Error);
+                return false;
+            }
         }
 
         /// <summary>
-        /// Builds and sends a PublicKeyRequest packet to the server.
-        /// Packet structure:
-        ///   [4-byte length prefix]
-        ///   [1-byte opcode: PublicKeyRequest]
-        ///   [16-byte requester UID]
-        ///   [16-byte target UID]
+        /// Builds and sends a PublicKeyRequest packet to the server asynchronously.
+        /// Gets the target UID, ensures the packet is framed and sent atomically,
+        /// allows cancellation and logs the result.
         /// </summary>
-        /// <param name="targetUid">UID of the peer whose key is requested.</param>
-        public void SendRequestToPeerForPublicKey(Guid targetUid)
+        public async Task SendRequestToPeerForPublicKeyAsync(Guid targetUid, CancellationToken cancellationToken)
         {
             try
             {
@@ -1112,10 +1195,16 @@ namespace chat_client.Net
                 builder.WriteUid(targetUid);
 
                 byte[] payload = builder.GetPacketBytes();
-                byte[] framedPacket = Frame(payload);
 
-                _tcpClient.Client.Send(framedPacket);
+                // Sends via unified send helper
+                await SendFramedAsync(payload, cancellationToken).ConfigureAwait(false);
+
                 ClientLogger.Log($"Requested public key for {targetUid}.", ClientLogLevel.Debug);
+            }
+            catch (OperationCanceledException)
+            {
+                ClientLogger.Log($"Key request for {targetUid} cancelled.", ClientLogLevel.Debug);
+                throw;
             }
             catch (Exception ex)
             {

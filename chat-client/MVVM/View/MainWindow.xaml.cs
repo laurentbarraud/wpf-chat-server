@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 2nd, 2025</date>
+/// <date>November 7th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -279,7 +279,9 @@ namespace chat_client
         {
             // Prevents sending if the message is empty or the client is disconnected
             if (string.IsNullOrEmpty(MainViewModel.Message) || ViewModel._server?.IsConnected != true)
+            {
                 return;
+            }
 
             try
             {
@@ -288,14 +290,30 @@ namespace chat_client
                 // Chooses the appropriate send method based on the user’s encryption preference
                 if (Properties.Settings.Default.UseEncryption)
                 {
-                    // Awaiting the send ensures we observe success/failure before allowing further sends.
-                    sendingMessageSucceeded = ViewModel._server.SendEncryptedMessageToServerAsync(MainViewModel.Message).GetAwaiter().GetResult();
+                    // Fire-and-forget: launch async send with CancellationToken.None
+                    // and observes result to avoid unobserved exceptions
+                    // ContinueWith is useful when we can't make the calling method async.
+                    _ = ViewModel._server.SendEncryptedMessageToServerAsync(MainViewModel.Message, CancellationToken.None)
+                        .ContinueWith(taskSend =>
+                        {
+                            if (taskSend.IsCanceled)
+                            {
+                                ClientLogger.Log("SendEncryptedMessageToServerAsync cancelled.", ClientLogLevel.Debug);
+                            }
+                            else if (taskSend.IsFaulted)
+                            {
+                                ClientLogger.Log($"SendEncryptedMessageToServerAsync failed: {taskSend.Exception?.GetBaseException().Message}", ClientLogLevel.Error);
+                            }
+                        }, TaskScheduler.Default);
+
+                    sendingMessageSucceeded = true; // optimistic: UI doesn't block waiting for network
                 }
                 else
                 {
-                    sendingMessageSucceeded = sendingMessageSucceeded = ViewModel._server.SendPlainMessageToServerAsync(MainViewModel.Message).GetAwaiter().GetResult();
-
+                    // Keeps plain send synchronous observation
+                    sendingMessageSucceeded = ViewModel._server.SendPlainMessageToServerAsync(MainViewModel.Message).GetAwaiter().GetResult();
                 }
+
 
                 if (sendingMessageSucceeded)
                 {

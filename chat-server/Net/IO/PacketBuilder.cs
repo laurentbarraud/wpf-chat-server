@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 2nd, 2025</date>
+/// <date>November 7th, 2025</date>
 
 using System;
 using System.IO;
@@ -26,6 +26,15 @@ namespace chat_server.Net
         public PacketBuilder()
         {
             _buffer = new MemoryStream();
+        }
+
+        /// <summary>
+        /// Returns a copy of the current packet body bytes (no framing).
+        /// Caller may mutate the returned array without affecting the builder.
+        /// </summary>
+        public byte[] GetPacketBytes()
+        {
+            return _buffer.ToArray();
         }
 
         /// <summary>
@@ -75,15 +84,6 @@ namespace chat_server.Net
         }
 
         /// <summary>
-        /// Returns a copy of the current packet body bytes (no framing).
-        /// Caller may mutate the returned array without affecting the builder.
-        /// </summary>
-        public byte[] GetPacketBytes()
-        {
-            return _buffer.ToArray();
-        }
-
-        /// <summary>
         /// Writes the framed packet (4-byte big-endian length prefix + current payload)
         /// to the provided stream using a single async write for the full buffer and a flush.
         /// This helper guarantees atomic write ordering from the application's perspective.
@@ -111,15 +111,6 @@ namespace chat_server.Net
             // Writes the full framed buffer and flush to ensure ordering
             await destination.WriteAsync(framed, 0, framed.Length, cancellationToken).ConfigureAwait(false);
             await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Clears the internal buffer so the builder can be reused for another packet.
-        /// </summary>
-        public void Reset()
-        {
-            _buffer.SetLength(0);
-            _buffer.Position = 0;
         }
     }
 }

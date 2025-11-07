@@ -1,11 +1,15 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 2nd, 2025</date>
+/// <date>November 7th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
+using System;
+using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Documents;
+using System.Xml.Linq;
 
 namespace chat_client.Helpers
 {
@@ -249,7 +253,7 @@ namespace chat_client.Helpers
                 return;
             }
 
-            // Re-apply chosen localization
+            // Re-applies chosen localization
             if (!string.IsNullOrEmpty(languageChosen))
             {
                 var supported = new[] { "en", "fr" };
@@ -265,45 +269,68 @@ namespace chat_client.Helpers
                 }
             }
 
-            // Retrieve window and view model
+            // Retrieves window and view model if available
             if (Application.Current.MainWindow is MainWindow mainWindow &&
                 mainWindow.ViewModel is MainViewModel viewModel)
             {
                 if (enableEncryption)
                 {
                     Properties.Settings.Default.UseEncryption = true;
-                    viewModel.InitializeEncryption();
-                }
-
-                if (!string.IsNullOrEmpty(themeChosen))
-                {
-                    bool isDarkThemeChosen = themeChosen.Equals("dark", System.StringComparison.OrdinalIgnoreCase);
-                    ThemeManager.ApplyTheme(isDarkThemeChosen);
-                    Properties.Settings.Default.AppTheme = isDarkThemeChosen ? "Dark" : "Light";
-                }
-
-                if (reduceInTray)
-                    Properties.Settings.Default.ReduceToTray = true;
-
-                // Show debug console if requested
-                if (debugMode)
-                {
-                    ClientLogger.IsDebugEnabled = true;
-                    ConsoleManager.Show();
+                    
+                    // Starts the safe background pipeline on the ViewModel (non-blocking, observed)
+                    viewModel.StartEncryptionPipelineBackground();
                 }
 
                 if (!string.IsNullOrEmpty(usernameChosen))
                 {
                     viewModel.Username = usernameChosen;
-                    mainWindow.Loaded += (_, _) =>
+
+                    // We assign the name onLoaded before the lambda
+                    // to be able to use it inside the same lambda.
+                    RoutedEventHandler onLoaded = null!;
+                    onLoaded = (s, e) =>
                     {
+                        // Unsubscribes immediately to avoid being called back several times
+                        mainWindow.Loaded -= onLoaded;
+
+                        // Executes the command if it is available and executable
                         if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
+                        {
                             viewModel.ConnectDisconnectCommand.Execute(null);
+                        }
                     };
+
+                    mainWindow.Loaded += onLoaded;
                 }
 
-                Properties.Settings.Default.Save();
             }
+            else
+            {
+                ClientLogger.Log("MainWindow or MainViewModel not found during startup configuration.", ClientLogLevel.Warn);
+            }
+
+            // Theme
+            if (!string.IsNullOrEmpty(themeChosen))
+            {
+                bool isDarkThemeChosen = themeChosen.Equals("dark", StringComparison.OrdinalIgnoreCase);
+                ThemeManager.ApplyTheme(isDarkThemeChosen);
+                Properties.Settings.Default.AppTheme = isDarkThemeChosen ? "Dark" : "Light";
+            }
+
+            // Reduce to tray
+            if (reduceInTray)
+                Properties.Settings.Default.ReduceToTray = true;
+
+            // Debug console
+            if (debugMode)
+            {
+                ClientLogger.IsDebugEnabled = true;
+                ConsoleManager.Show();
+            }
+
+            // Persists settings last
+            Properties.Settings.Default.Save();
+
         }
     }
 }
