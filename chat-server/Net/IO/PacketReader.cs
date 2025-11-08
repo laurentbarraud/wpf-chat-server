@@ -32,6 +32,11 @@ namespace chat_server.Net.IO
         private const int AbsoluteMaxFrameSize = 10 * 1024 * 1024; // 10 MB
 
         /// <summary>
+        /// Gets the underlying stream used for reads.
+        /// </summary>
+        private Stream BaseStream => _stream;
+
+        /// <summary>
         /// Creates a new PacketReader over the provided stream. 
         /// The stream must remain open for the reader's lifetime.
         /// </summary>
@@ -39,11 +44,6 @@ namespace chat_server.Net.IO
         {
             _stream = stream ?? throw new ArgumentNullException(nameof(stream));
         }
-
-        /// <summary>
-        /// Gets the underlying stream used for reads.
-        /// </summary>
-        private Stream BaseStream => _stream;
 
         /// <summary>
         /// Reads a single byte asynchronously from the underlying stream.

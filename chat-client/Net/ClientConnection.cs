@@ -77,11 +77,15 @@ namespace chat_client.Net
         /// </summary>
         private int _disconnectFromServerCalled = 0;
 
-        // private backing field used internally (nullable until initialized after connect)
+        // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
         private PacketReader? _packetReader;
 
-        // single-writer guard for this connection instance
-        private readonly System.Threading.SemaphoreSlim _writeLock = new System.Threading.SemaphoreSlim(1, 1);
+        // Reader lock to serialize critical reads and avoid concurrent consumption of the NetworkStream.
+        // This field may be reset by CleanConnection to guarantee a fresh, uncontended semaphore.
+        private SemaphoreSlim _readerLock = new SemaphoreSlim(1, 1);
+
+        // Single-writer guard for this connection instance; kept readonly for the connection lifetime.
+        private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
 
         // Represents the handshake lifecycle; completed with true on success, false or exception on failure.
         // Recreate (or set to null) after completion to avoid accidental reuse.
@@ -101,6 +105,39 @@ namespace chat_client.Net
             LocalUid = Guid.Empty;
             LocalPublicKey = Array.Empty<byte>();
         }
+
+        /// <summary>
+        /// Cleanly resets the connection state:
+        /// • closes/disposes the TcpClient (which also closes the NetworkStream),
+        /// • clears the PacketReader backing field (do not dispose it, PacketReader is not IDisposable),
+        /// • disposes and recreates the reader lock to ensure a fresh semaphore after cleanup.
+        /// </summary>
+        private void CleanConnection()
+        {
+            try 
+            { 
+                _tcpClient?.Close(); 
+            } 
+            catch { }
+            
+            try 
+            { 
+                _tcpClient?.Dispose(); 
+            } 
+            catch { }
+            
+            _tcpClient = new TcpClient();
+
+            // PacketReader is not IDisposable; clears the reference so callers will reinitialize it.
+            _packetReader = null!;
+
+            // Disposes and recreates reader lock to ensure a fresh semaphore after cleanup.
+            try { _readerLock?.Dispose(); } catch { }
+            _readerLock = new SemaphoreSlim(1, 1);
+
+            // Note: _writeLock is readonly and intentionally not disposed here.
+        }
+
 
         /// <summary>
         /// • Validates and resolves the target IP address and port.
@@ -123,223 +160,68 @@ namespace chat_client.Net
         {
             try
             {
-                // Defensive dispose of any previous client to ensure a fresh start.
-                try 
-                { 
-                    _tcpClient?.Close();
-                } 
-                catch 
-                { 
-                }
-                
-                try 
-                {
-                    _tcpClient?.Dispose();
-                } 
-                catch 
-                { 
-                }
-
+                // Defensive teardown of any previous socket to ensure a fresh start.
+                try { _tcpClient?.Close(); } catch { }
+                try { _tcpClient?.Dispose(); } catch { }
                 _tcpClient = new TcpClient();
 
-                // Chooses target IP, defaulting to loopback for convenience in local dev.
+                // Chooses target IP, default to loopback.
                 string ipToConnect = string.IsNullOrWhiteSpace(ipAddressOfServer) ? "127.0.0.1" : ipAddressOfServer;
 
-                // Validates the IP string when it's not the explicit local default.
+                // Validates IP when not default.
                 if (ipToConnect != "127.0.0.1" && !System.Net.IPAddress.TryParse(ipToConnect, out _))
-                {
                     throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
-                }
 
-                // Selects port from settings or fallback to the well-known default.
+                // Selects port from settings or fallback default.
                 int port = Properties.Settings.Default.UseCustomPort ? Properties.Settings.Default.CustomPortNumber : 7123;
 
                 // Establishes TCP connection asynchronously.
                 await _tcpClient.ConnectAsync(ipToConnect, port).ConfigureAwait(false);
                 ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {port}", ClientLogLevel.Debug);
 
-                // Builds the packet reader over the network stream. PacketReader is async-first.
-                // Initialize shared PacketReader exactly once for this connection
+                // Initializes shared PacketReader exactly once for this connection.
                 if (_packetReader == null)
-                {
                     _packetReader = new PacketReader(_tcpClient.GetStream());
-                }
 
-                // Generates a new session identity and load the local public key bytes.
+                // Ensures a reader-lock exists to serialize critical reads if needed elsewhere.
+                if (_readerLock == null)
+                    _readerLock = new SemaphoreSlim(1, 1);
+
+                // Generate session identity and load local public key bytes.
                 Guid uid = Guid.NewGuid();
                 byte[] publicKeyDer = EncryptionHelper.PublicKeyDer ?? Array.Empty<byte>();
 
-                // Persists locally for other components to reference.
+                // Persists locally for other components.
                 LocalUid = uid;
                 LocalPublicKey = publicKeyDer;
 
-                // Notifies listeners that a low-level connection has been established.
+                // Notifies listeners that a low-level connection is up.
                 ConnectionEstablished?.Invoke();
 
-                // Sends the initial handshake packet to the server.
+                // Sends initial handshake packet; the method is responsible for reading and validating the ACK.
                 bool handshakeSent = await SendInitialConnectionPacketAsync(username, uid, publicKeyDer, cancellationToken).ConfigureAwait(false);
                 if (!handshakeSent)
                 {
                     ClientLogger.LogLocalized(LocalizationManager.GetString("ErrorFailedToSendInitialHandshake"), ClientLogLevel.Error);
-
-                    try 
-                    {
-                        _tcpClient?.Close(); 
-                    } 
-                    catch 
-                    { 
-                    }
-
-                    try
-                    { 
-                        _tcpClient?.Dispose(); 
-                    } 
-                    catch 
-                    { 
-                    }
-
-                    _tcpClient = new TcpClient();
-                    _packetReader = null!;
-
+                    CleanConnection();
                     return (Guid.Empty, Array.Empty<byte>());
                 }
 
-                // Waits for an explicit HandshakeAck from the server before starting the read loop.
-                // This prevents the client from consuming messages before the server accepted the session.
-                using (var ackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-                {
-                    ackCts.CancelAfter(TimeSpan.FromSeconds(5)); // tunable handshake ack timeout
-                    try
-                    {
-                        // Reads one framed body (4B length + payload) using the async packetReader helper
-                        // packetReader was created earlier over the same NetworkStream
-                        byte[] ackFrame = await _packetReader.ReadFramedBodyAsync(ackCts.Token).ConfigureAwait(false);
-
-                        if (ackFrame == null || ackFrame.Length == 0)
-                            throw new InvalidDataException("Empty handshake ack frame");
-
-                        using var ackMs = new MemoryStream(ackFrame);
-                        var ackReader = new PacketReader(ackMs);
-
-                        // Reads the opcode byte asynchronously using the handshake-specific cancellation token.
-                        var ackOpcodeByte = await ackReader.ReadByteAsync(ackCts.Token).ConfigureAwait(false);
-                        var ackOpcode = (ClientPacketOpCode)ackOpcodeByte;
-
-                        if (ackOpcode != ClientPacketOpCode.HandshakeAck)
-                        {
-                            ClientLogger.Log($"Handshake failed: unexpected opcode {(byte)ackOpcode}", ClientLogLevel.Error);
-
-                            try 
-                            { 
-                                _tcpClient?.Close();
-                            } 
-                            catch
-                            { 
-                            }
-                            
-                            try 
-                            { 
-                                _tcpClient?.Dispose(); 
-                            } 
-                            catch 
-                            { 
-                            }
-
-                            _tcpClient = new TcpClient();
-                            _packetReader = null!;
-
-                            return (Guid.Empty, Array.Empty<byte>());
-                        }
-
-                        /// <summary>
-                        /// Launches the packet reader on a background thread to handle
-                        /// incoming messages without blocking the caller.
-                        /// </summary>
-                        _ = Task.Run(() => ReadPacketsAsync(cancellationToken), cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        ClientLogger.Log("Handshake ack not received within timeout", ClientLogLevel.Error);
-
-                        try 
-                        {
-                            _tcpClient?.Close(); 
-                        } 
-                        catch 
-                        { 
-                        }
-                        
-                        try 
-                        { 
-                            _tcpClient?.Dispose(); 
-                        } 
-                        catch 
-                        { 
-                        }
-
-                        _tcpClient = new TcpClient();
-                        _packetReader = null!;
-
-                        return (Guid.Empty, Array.Empty<byte>());
-                    }
-                    catch (Exception ex)
-                    {
-                        ClientLogger.Log($"Error while waiting for handshake ack: {ex.Message}", ClientLogLevel.Error);
-
-                        try 
-                        { 
-                            _tcpClient?.Close(); 
-                        } 
-                        catch 
-                        { 
-                        }
-                        
-                        try 
-                        { 
-                            _tcpClient?.Dispose(); 
-                        } 
-                        catch 
-                        { 
-                        }
-
-                        _tcpClient = new TcpClient();
-                        _packetReader = null!;
-
-                        return (Guid.Empty, Array.Empty<byte>());
-                    }
-                }
+                // Handshake succeeded and ACK was consumed by SendInitialConnectionPacketAsync.
+                // Starts the background reader which will own subsequent reads from _packetReader.
+                // ReadPacketsAsync must use _packetReader and respect _readerLock to avoid concurrent reads.
+                _ = Task.Run(() => ReadPacketsAsync(cancellationToken), cancellationToken);
 
                 return (uid, publicKeyDer);
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"[ERROR] ConnectToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
-
-                try 
-                {
-                    _tcpClient?.Close(); 
-                } 
-                catch 
-                { 
-                
-                }
-                
-                try 
-                { 
-                    _tcpClient?.Dispose(); 
-                } 
-                catch
-                { 
-                
-                }
-
-                // Ensures safe placeholders so callers never observe null references.
-                _tcpClient = new TcpClient();
-                _packetReader = null!;
-
+                CleanConnection();
                 return (Guid.Empty, Array.Empty<byte>());
             }
         }
+
 
         public void DisconnectFromServer()
         {
