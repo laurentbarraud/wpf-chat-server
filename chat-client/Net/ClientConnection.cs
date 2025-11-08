@@ -22,10 +22,6 @@ namespace chat_client.Net
         /// <summary>Used to build outgoing packets. Never null.</summary>
         public PacketBuilder packetBuilder { get; } = new PacketBuilder();
 
-        /// <summary>Provides the PacketReader used to read incoming packets; 
-        /// initialized after connecting to the server.</summary>
-        public PacketReader packetReader { get; private set; } = null!;
-
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _tcpClient?.Connected ?? false;
 
@@ -80,6 +76,9 @@ namespace chat_client.Net
         /// 0 = not called, 1 = called.
         /// </summary>
         private int _disconnectFromServerCalled = 0;
+
+        // private backing field used internally (nullable until initialized after connect)
+        private PacketReader? _packetReader;
 
         // single-writer guard for this connection instance
         private readonly System.Threading.SemaphoreSlim _writeLock = new System.Threading.SemaphoreSlim(1, 1);
@@ -160,7 +159,11 @@ namespace chat_client.Net
                 ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {port}", ClientLogLevel.Debug);
 
                 // Builds the packet reader over the network stream. PacketReader is async-first.
-                packetReader = new PacketReader(_tcpClient.GetStream());
+                // Initialize shared PacketReader exactly once for this connection
+                if (_packetReader == null)
+                {
+                    _packetReader = new PacketReader(_tcpClient.GetStream());
+                }
 
                 // Generates a new session identity and load the local public key bytes.
                 Guid uid = Guid.NewGuid();
@@ -196,7 +199,7 @@ namespace chat_client.Net
                     }
 
                     _tcpClient = new TcpClient();
-                    packetReader = null!;
+                    _packetReader = null!;
 
                     return (Guid.Empty, Array.Empty<byte>());
                 }
@@ -210,7 +213,7 @@ namespace chat_client.Net
                     {
                         // Reads one framed body (4B length + payload) using the async packetReader helper
                         // packetReader was created earlier over the same NetworkStream
-                        byte[] ackFrame = await packetReader.ReadFramedBodyAsync(ackCts.Token).ConfigureAwait(false);
+                        byte[] ackFrame = await _packetReader.ReadFramedBodyAsync(ackCts.Token).ConfigureAwait(false);
 
                         if (ackFrame == null || ackFrame.Length == 0)
                             throw new InvalidDataException("Empty handshake ack frame");
@@ -243,7 +246,7 @@ namespace chat_client.Net
                             }
 
                             _tcpClient = new TcpClient();
-                            packetReader = null!;
+                            _packetReader = null!;
 
                             return (Guid.Empty, Array.Empty<byte>());
                         }
@@ -275,7 +278,7 @@ namespace chat_client.Net
                         }
 
                         _tcpClient = new TcpClient();
-                        packetReader = null!;
+                        _packetReader = null!;
 
                         return (Guid.Empty, Array.Empty<byte>());
                     }
@@ -300,7 +303,7 @@ namespace chat_client.Net
                         }
 
                         _tcpClient = new TcpClient();
-                        packetReader = null!;
+                        _packetReader = null!;
 
                         return (Guid.Empty, Array.Empty<byte>());
                     }
@@ -332,7 +335,7 @@ namespace chat_client.Net
 
                 // Ensures safe placeholders so callers never observe null references.
                 _tcpClient = new TcpClient();
-                packetReader = null!;
+                _packetReader = null!;
 
                 return (Guid.Empty, Array.Empty<byte>());
             }
@@ -386,7 +389,7 @@ namespace chat_client.Net
                 try { _tcpClient = new TcpClient(); } catch (Exception ex) { ClientLogger.Log($"TcpClient placeholder creation failed: {ex.Message}", ClientLogLevel.Warn); }
 
                 // Keeps null-forgiving pattern you preferred
-                packetReader = null!;
+                _packetReader = null!;
 
                 // Resets counters and notify listeners
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
@@ -509,7 +512,7 @@ namespace chat_client.Net
                 try
                 {
                     // Reads a single framed body
-                    byte[] framedBody = await packetReader.ReadFramedBodyAsync(cancellationToken).ConfigureAwait(false);
+                    byte[] framedBody = await _packetReader.ReadFramedBodyAsync(cancellationToken).ConfigureAwait(false);
 
                     if (framedBody == null || framedBody.Length == 0)
                         throw new InvalidDataException("Empty framed body received from server.");
@@ -716,7 +719,7 @@ namespace chat_client.Net
 
                     // Provides a harmless reader over Stream.Null so code that reads the
                     // variable never gets a null reference. This avoids nullable warnings.
-                    packetReader = null!;
+                    _packetReader = null!;
 
                     // Resets runtime counter
                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
@@ -1017,8 +1020,8 @@ namespace chat_client.Net
                     return false;
                 }
 
-                // Reads the exact ack payload bytes
-                byte[] ackPayload = await reader.ReadExactAsync(networkStream, ackLen, cancellationToken).ConfigureAwait(false);
+                // Reads the exact ack payload bytes using the static helper
+                byte[] ackPayload = await PacketReader.ReadExactAsync(networkStream, ackLen, cancellationToken).ConfigureAwait(false);
 
                 // Logs opcode for diagnostics (temporary)
                 byte ackOpcode = ackPayload.Length > 0 ? ackPayload[0] : (byte)0xFF;
