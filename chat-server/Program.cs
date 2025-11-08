@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 7th, 2025</date>
+/// <date>November 8th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -149,27 +149,35 @@ namespace chat_server
                             {
                                 var ackBuilder = new PacketBuilder();
                                 ackBuilder.WriteOpCode((byte)ServerPacketOpCode.HandshakeAck);
+
+                                // Frames payload for on-the-wire transport
                                 byte[] ackPayload = ackBuilder.GetPacketBytes();
 
-                                int ackLenNetwork = IPAddress.HostToNetworkOrder(ackPayload.Length);
-                                byte[] ackHeader = BitConverter.GetBytes(ackLenNetwork);
+                                // Shows what the builder returned before sending
+                                ServerLogger.Log($"BUILDER_RETURNS_LEN={ackPayload.Length} PREFIX={BitConverter.ToString(ackPayload.Take(Math.Min(24, ackPayload.Length)).ToArray())}", ServerLogLevel.Debug);
 
-                                NetworkStream stream = client.ClientSocket.GetStream();
-
-                                // Uses async writes with the shared cancellation token
-                                await stream.WriteAsync(ackHeader, 0, ackHeader.Length, token).ConfigureAwait(false);
-                                await stream.FlushAsync(token).ConfigureAwait(false);
-                                await stream.WriteAsync(ackPayload, 0, ackPayload.Length, token).ConfigureAwait(false);
-                                await stream.FlushAsync(token).ConfigureAwait(false);
+                                // Uses the centralized framed send helper to guarantee atomic, serialized sends
+                                await SendFramedAsync(client, ackPayload, token).ConfigureAwait(false);
 
                                 ServerLogger.LogLocalized("SentHandshakeAck", ServerLogLevel.Debug, client.Username);
                             }
                             catch (Exception ex)
                             {
-                                // If ack send fails, close socket and remove client to avoid half-open connection
+                                // If ack send fails, closes socket and removes client to avoid half-open connection
                                 ServerLogger.LogLocalized("HandshakeAckSendFailed", ServerLogLevel.Warn, client.UID.ToString(), ex.Message);
-                                try { client.ClientSocket?.Close(); } catch { }
-                                lock (Users) { Users.Remove(client); }
+                                try 
+                                { 
+                                    client.ClientSocket?.Close(); 
+                                } 
+                                catch 
+                                { 
+                                }
+                                
+                                lock (Users) 
+                                { 
+                                    Users.Remove(client); 
+                                }
+
                                 return;
                             }
 
@@ -255,6 +263,9 @@ namespace chat_server
 
                 byte[] payload = builder.GetPacketBytes();
 
+                // Shows what the builder returned before sending
+                ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
+
                 // Creates a per-listener task that performs the send and preserves existing logging.
                 var sendTask = Task.Run(async () =>
                 {
@@ -306,6 +317,9 @@ namespace chat_server
                 builder.WriteUid(user.UID);
 
                 byte[] payload = builder.GetPacketBytes();
+
+                // Shows what the builder returned before sending
+                ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
                 // Per-listener send task
                 var sendTask = Task.Run(async () =>
@@ -362,6 +376,9 @@ namespace chat_server
             }
 
             byte[] payload = builder.GetPacketBytes();
+
+            // Shows what the builder returned before sending
+            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             // Launches send tasks for all recipients
             var sendTasks = new List<Task>(snapshot.Count);
@@ -437,6 +454,9 @@ namespace chat_server
                 builder.WriteString(messageText);// length+UTF-8 bytes
 
                 byte[] payload = builder.GetPacketBytes();
+
+                // Shows what the builder returned before sending
+                ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
                 // Per-target task that preserves existing logging
                 var sendTask = Task.Run(async () =>
@@ -597,8 +617,11 @@ namespace chat_server
             builder.WriteUid(recipientUid);
             builder.WriteBytesWithLength(ciphertext);
 
-            // Frames payload for on-the-wire transport.
+            // Frames payload for on-the-wire transport
             byte[] payload = builder.GetPacketBytes();
+
+            // Shows what the builder returned before sending
+            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             // Sends framed packet via SendFramedAsync and logs outcome.
             try
@@ -639,7 +662,11 @@ namespace chat_server
             builder.WriteUid(requesterUid);
             builder.WriteUid(targetUid);
 
+            // Frames payload for on-the-wire transport
             byte[] payload = builder.GetPacketBytes();
+
+            // Shows what the builder returned before sending
+            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             try
             {
@@ -684,7 +711,11 @@ namespace chat_server
             builder.WriteBytesWithLength(publicKeyDer);
             builder.WriteUid(requesterUid);
 
+            // Frames payload for on-the-wire transport
             byte[] payload = builder.GetPacketBytes();
+
+            // Shows what the builder returned before sending
+            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             try
             {
@@ -718,7 +749,12 @@ namespace chat_server
             }
         }
 
-
+        /// <summary>
+        /// Sends a length-prefixed framed payload to a single recipient.
+        /// Ensures the 4-byte length header is written in network byte order (big-endian)
+        /// and serializes all writes to the recipient's NetworkStream using a per-UID SemaphoreSlim.
+        /// Diagnostic logs show the outgoing header and a short payload prefix (temporary).
+        /// </summary>
         private static async Task SendFramedAsync(ServerConnectionHandler recipient, byte[] payload, CancellationToken cancellationToken = default)
         {
             if (recipient == null)
@@ -731,26 +767,51 @@ namespace chat_server
                 throw new ArgumentNullException(nameof(payload));
             }
 
-            // Ensure a SemaphoreSlim exists for this recipient, creating it only once in a thread-safe way.
-            // GetOrAdd returns an existing semaphore if present, or atomically inserts the provided factory result.
-            // The semaphore is created with initial/count 1 so only one async writer can enter at a time.
-            // This serializes async WriteAsync/FlushAsync calls to the same client's NetworkStream, preventing
-            // interleaved bytes that would corrupt the length-prefixed framing.
+            // Ensures a SemaphoreSlim exists for this recipient, creating it only once in a thread-safe way.
             var sem = _sendSemaphores.GetOrAdd(recipient.UID, _ => new SemaphoreSlim(1, 1));
 
             await sem.WaitAsync(cancellationToken).ConfigureAwait(false);
+            
             try
             {
-                var stream = recipient.ClientSocket.GetStream();
+                var tcp = recipient.ClientSocket;
+                var stream = tcp?.GetStream();
+                if (stream == null || tcp?.Connected != true)
+                    throw new IOException("Recipient NetworkStream is unavailable or socket not connected.");
 
                 // Builds network-order header
                 int payloadLenNetwork = IPAddress.HostToNetworkOrder(payload.Length);
                 byte[] header = BitConverter.GetBytes(payloadLenNetwork);
 
-                // Writes header then payload in order, using async APIs
-                await stream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
-                await stream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                // Temporary diagnostic logs
+                ServerLogger.Log($"OUTGOING_FRAME_HEADER={BitConverter.ToString(header)} LEN={payload.Length}", ServerLogLevel.Debug);
+                ServerLogger.Log($"BUILT_PAYLOAD_LEN={payload.Length}", ServerLogLevel.Debug);
+
+                // Logs prefix of payload for quick visual checksum (first 16 bytes or full if smaller)
+                int prefixLen = Math.Min(16, payload.Length);
+                if (prefixLen > 0)
+                {
+                    var prefix = new byte[prefixLen];
+                    Array.Copy(payload, 0, prefix, 0, prefixLen);
+                    ServerLogger.Log($"OUTGOING_FRAME_PAYLOAD_PREFIX={BitConverter.ToString(prefix)}", ServerLogLevel.Debug);
+                }
+
+                try
+                {
+                    // Writes header then payload in order, using async APIs
+                    await stream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+                    if (payload.Length > 0)
+                    {
+                        await stream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
+                    }
+
+                    await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (IOException ioEx)
+                {
+                    ServerLogger.LogLocalized("SendFramedIoError", ServerLogLevel.Warn, recipient.Username ?? recipient.UID.ToString(), ioEx.Message);
+                    throw;
+                }
             }
             finally
             {

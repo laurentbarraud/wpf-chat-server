@@ -1,12 +1,11 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 7th, 2025</date>
+/// <date>November 8th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
-using Microsoft.VisualBasic.Logging;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -74,14 +73,11 @@ namespace chat_server
             // This is a local blocking choice; the per-connection loop remains async.
             try
             {
-                var headerBytes = PacketReader.ReadExactAsync(ClientSocket.GetStream(), 4).GetAwaiter().GetResult();
-
-                // Logs raw header and interpreted big-endian int
-                ServerLogger.Log($"RAW_LEN_SERVER={BitConverter.ToString(headerBytes)} INT_BE={(headerBytes[0] << 24) | (headerBytes[1] << 16) | (headerBytes[2] << 8) | headerBytes[3]}", ServerLogLevel.Debug);
-
-                // Converts header from network order to host order
-                int payloadLengthNetworkOrder = BitConverter.ToInt32(headerBytes, 0);
-                int payloadLength = IPAddress.NetworkToHostOrder(payloadLengthNetworkOrder);
+                // Blocking read of the 4-byte header using the static overload that accepts a Stream
+                byte[] headerBytes = PacketReader.ReadExactAsync(ClientSocket.GetStream(), 4, CancellationToken.None).GetAwaiter().GetResult();
+                ServerLogger.Log($"RAW_LEN_SERVER={BitConverter.ToString(headerBytes)}", ServerLogLevel.Debug);
+                int payloadLength = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(headerBytes, 0));
+                ServerLogger.Log($"INT_BE={payloadLength}", ServerLogLevel.Debug);
 
                 const int MaxHandshakePayload = 65_536; // 64 KB sanity bound for handshake payloads
                 if (payloadLength <= 0 || payloadLength > MaxHandshakePayload)
@@ -105,8 +101,8 @@ namespace chat_server
                     throw new InvalidDataException("Handshake length invalid");
                 }
 
-                // Reads exact handshake payload
-                byte[] payload = PacketReader.ReadExactAsync(ClientSocket.GetStream(), payloadLength).GetAwaiter().GetResult();
+                // Blocking read of the payload using the static overload that accepts a Stream
+                byte[] payload = PacketReader.ReadExactAsync(ClientSocket.GetStream(), payloadLength, CancellationToken.None).GetAwaiter().GetResult();
 
                 // Parses handshake from in-memory stream
                 using var ms = new MemoryStream(payload);

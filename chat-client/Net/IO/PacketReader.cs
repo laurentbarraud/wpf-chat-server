@@ -1,12 +1,12 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 7th, 2025</date>
+/// <date>November 8th, 2025</date>
 
+using chat_client.Helpers;
 using System;
 using System.IO;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 
 namespace chat_client.Net.IO
@@ -127,13 +127,18 @@ namespace chat_client.Net.IO
 
             return await ReadExactAsync(BaseStream, lengthHost, cancellationToken).ConfigureAwait(false);
         }
-
+   
         /// <summary>
         /// Reads a 4-byte big-endian integer from the stream and returns it in host byte order.
+        /// Diagnostic: logs the raw 4 bytes read as READ_HEADER=xx-xx-xx-xx (Debug).
         /// </summary>
         public async Task<int> ReadInt32NetworkOrderAsync(CancellationToken cancellationToken = default)
         {
             var netBytes = await ReadExactAsync(BaseStream, 4, cancellationToken).ConfigureAwait(false);
+
+            // Diagnostic log: exact 4 bytes read (temporary; remove when debugging complete)
+            ClientLogger.Log($"READ_HEADER={BitConverter.ToString(netBytes)}", ClientLogLevel.Debug);
+
             int netValue = BitConverter.ToInt32(netBytes, 0);
             return IPAddress.NetworkToHostOrder(netValue);
         }

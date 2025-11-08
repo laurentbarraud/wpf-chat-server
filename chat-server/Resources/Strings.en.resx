@@ -315,4 +315,7 @@
   <data name="BroadcastForceDisconnectFailed" xml:space="preserve">
     <value>Failed to send ForceDisconnect packet: {0}</value>
   </data>
+  <data name="SendFramedIoError" xml:space="preserve">
+    <value>I/O error while sending framed packet to user '{0}': {1}</value>
+  </data>
 </root>

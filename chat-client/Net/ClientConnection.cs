@@ -1,21 +1,15 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 7th, 2025</date>
+/// <date>November 8th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
-using chat_client.Properties;
-using Microsoft.VisualBasic.ApplicationServices;
-using System.CodeDom.Compiler;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection;
-using System.Threading;
 using System.Windows;
-using System.Windows.Documents;
 
 namespace chat_client.Net
 {
@@ -202,7 +196,7 @@ namespace chat_client.Net
                     }
 
                     _tcpClient = new TcpClient();
-                    packetReader = new PacketReader(Stream.Null);
+                    packetReader = null!;
 
                     return (Guid.Empty, Array.Empty<byte>());
                 }
@@ -249,7 +243,7 @@ namespace chat_client.Net
                             }
 
                             _tcpClient = new TcpClient();
-                            packetReader = new PacketReader(Stream.Null);
+                            packetReader = null!;
 
                             return (Guid.Empty, Array.Empty<byte>());
                         }
@@ -281,7 +275,7 @@ namespace chat_client.Net
                         }
 
                         _tcpClient = new TcpClient();
-                        packetReader = new PacketReader(Stream.Null);
+                        packetReader = null!;
 
                         return (Guid.Empty, Array.Empty<byte>());
                     }
@@ -306,7 +300,7 @@ namespace chat_client.Net
                         }
 
                         _tcpClient = new TcpClient();
-                        packetReader = new PacketReader(Stream.Null);
+                        packetReader = null!;
 
                         return (Guid.Empty, Array.Empty<byte>());
                     }
@@ -338,68 +332,49 @@ namespace chat_client.Net
 
                 // Ensures safe placeholders so callers never observe null references.
                 _tcpClient = new TcpClient();
-                packetReader = new PacketReader(Stream.Null);
+                packetReader = null!;
 
                 return (Guid.Empty, Array.Empty<byte>());
             }
         }
 
-        /// <summary>
-        /// • Performs deterministic cleanup of network resources and session state.
-        /// • Closes and disposes the active network stream and TcpClient if present.
-        /// • Replaces disposed network objects with safe, not-connected placeholders to preserve non-null invariants.
-        /// • Resets per-connection counters, so future Connect attempts are valid.
-        /// • Notifies listeners/UI that the connection has terminated.
-        /// </summary>
         public void DisconnectFromServer()
         {
-            /// <summary>
-            /// Ensures the close logic runs only once concurrently.
-            /// Uses Interlocked.Exchange to atomically set a guard flag and detect re-entrancy
-            /// so simultaneous calls from different threads do not execute cleanup multiple times.
-            /// </summary>
+            // Ensures single concurrent execution
             if (Interlocked.Exchange(ref _disconnectFromServerCalled, 1) != 0)
                 return;
 
             try
             {
-                // Attempts to close the network stream safely.
+                // Closes/Disposes TcpClient and its stream with minimal duplication
                 try
                 {
-                    var networkStream = _tcpClient?.GetStream();
-                    try
-                    { 
-                        networkStream?.Close();
-                    } 
-                    catch (Exception ex) 
-                    { 
-                        ClientLogger.Log($"NetworkStream close failed: {ex.Message}", ClientLogLevel.Warn); 
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ClientLogger.Log($"NetworkStream access failed: {ex.Message}", ClientLogLevel.Warn);
-                }
-
-                // Attempts to close and dispose the existing TcpClient.
-                try
-                {
-                    try
-                    { 
-                        _tcpClient?.Close();
-                    } 
-                    catch (Exception ex) 
-                    { 
-                        ClientLogger.Log($"TcpClient close failed: {ex.Message}", ClientLogLevel.Warn); 
-                    }
-
-                    try 
-                    { 
-                        _tcpClient?.Dispose();
-                    } 
-                    catch (Exception ex) 
-                    { 
-                        ClientLogger.Log($"TcpClient dispose failed: {ex.Message}", ClientLogLevel.Warn); 
+                    if (_tcpClient != null)
+                    {
+                        try 
+                        { 
+                            _tcpClient.GetStream()?.Close();
+                        } 
+                        catch (Exception ex) 
+                        { 
+                            ClientLogger.Log($"NetworkStream close failed: {ex.Message}", ClientLogLevel.Warn); 
+                        }
+                        try 
+                        { 
+                            _tcpClient.Close(); 
+                        } 
+                        catch (Exception ex) 
+                        { 
+                            ClientLogger.Log($"TcpClient close failed: {ex.Message}", ClientLogLevel.Warn); 
+                        }
+                        try 
+                        {
+                            _tcpClient.Dispose(); 
+                        } 
+                        catch (Exception ex) 
+                        { 
+                            ClientLogger.Log($"TcpClient dispose failed: {ex.Message}", ClientLogLevel.Warn); 
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -407,30 +382,14 @@ namespace chat_client.Net
                     ClientLogger.Log($"TcpClient cleanup failed: {ex.Message}", ClientLogLevel.Warn);
                 }
 
-                // Replaces disposed objects with safe placeholders to avoid nullable warnings and accidental reuse.
-                try
-                {
-                    _tcpClient = new TcpClient();
-                }
-                catch (Exception ex)
-                {
-                    ClientLogger.Log($"TcpClient placeholder creation failed: {ex.Message}", ClientLogLevel.Warn);
-                }
+                // Replaces with safe placeholders
+                try { _tcpClient = new TcpClient(); } catch (Exception ex) { ClientLogger.Log($"TcpClient placeholder creation failed: {ex.Message}", ClientLogLevel.Warn); }
 
-                try
-                {
-                    // PacketReader over Stream.Null provides a harmless, readable no-op stream.
-                    packetReader = new PacketReader(Stream.Null);
-                }
-                catch (Exception ex)
-                {
-                    ClientLogger.Log($"PacketReader placeholder creation failed: {ex.Message}", ClientLogLevel.Warn);
-                }
+                // Keeps null-forgiving pattern you preferred
+                packetReader = null!;
 
-                // Resets runtime counter to a known baseline.
+                // Resets counters and notify listeners
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-                // Notifies UI/listeners that the connection has terminated.
                 ConnectionTerminated?.Invoke();
             }
             catch (Exception ex)
@@ -439,7 +398,6 @@ namespace chat_client.Net
             }
             finally
             {
-                // Allows future disconnect attempts to run if necessary by resetting the guard.
                 Volatile.Write(ref _disconnectFromServerCalled, 0);
             }
         }
@@ -758,7 +716,7 @@ namespace chat_client.Net
 
                     // Provides a harmless reader over Stream.Null so code that reads the
                     // variable never gets a null reference. This avoids nullable warnings.
-                    packetReader = new PacketReader(Stream.Null);
+                    packetReader = null!;
 
                     // Resets runtime counter
                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
@@ -987,11 +945,13 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Builds and sends a framed handshake packet, with handshake opcode,
-        /// to the server asynchronously.
+        /// Builds and sends a framed handshake packet to the server, then waits for an explicit
+        /// HandshakeAck (client-side opcode) before returning success.
         /// Packet on wire:
         ///   [4-byte big-endian length][1-byte opcode][username (length-prefixed UTF-8)]
         ///   [16-byte UID][4-byte publicKeyDer length][publicKeyDer bytes]
+        /// The method writes header+payload in a single sequence, then reads a framed response
+        /// and verifies the server returned the handshake ack opcode (checked against the client-side enum).
         /// </summary>
         public async Task<bool> SendInitialConnectionPacketAsync(string username, Guid uid,
             byte[] publicKeyDer, CancellationToken cancellationToken = default)
@@ -1033,18 +993,45 @@ namespace chat_client.Net
 
                 NetworkStream networkStream = _tcpClient.GetStream();
 
-                // Temporary diagnostic logs
+                // Diagnostic logs (temporary)
                 ClientLogger.Log($"SENDING_HANDSHAKE_HEADER={BitConverter.ToString(header)} LEN={payload.Length}", ClientLogLevel.Debug);
                 ClientLogger.Log($"SENDING_HANDSHAKE_PAYLOAD_PREFIX={BitConverter.ToString(payload, 0, Math.Min(16, payload.Length))}", ClientLogLevel.Debug);
 
-                // Writes header then flushes to delimit message (reduces OS coalescing risk)
+                // Writes header then payload without intermediate flush to keep the write atomic on the wire.
                 await networkStream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+                if (payload.Length > 0)
+                    await networkStream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
+
+                // Single flush afterwards for determinism
                 await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-                // Writes payload then flushes
-                await networkStream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
-                await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                // Creates a PacketReader tied to this stream (adjust if you already have a client-wide instance)
+                var reader = new PacketReader(networkStream);
 
+                // Wait for framed response (HandshakeAck) from server before proceeding.
+                // ReadInt32NetworkOrderAsync logs READ_HEADER=xx-xx-xx-xx for diagnostics.
+                int ackLen = await reader.ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
+                if (ackLen <= 0)
+                {
+                    ClientLogger.Log($"Handshake failed: invalid length {ackLen}", ClientLogLevel.Error);
+                    return false;
+                }
+
+                // Reads the exact ack payload bytes
+                byte[] ackPayload = await reader.ReadExactAsync(networkStream, ackLen, cancellationToken).ConfigureAwait(false);
+
+                // Logs opcode for diagnostics (temporary)
+                byte ackOpcode = ackPayload.Length > 0 ? ackPayload[0] : (byte)0xFF;
+                ClientLogger.Log($"RECEIVED_PACKET_OPCODE={ackOpcode}", ClientLogLevel.Debug);
+
+                // Compares against client-side opcode enum (projects are independent; use client enum)
+                if (ackOpcode != (byte)ClientPacketOpCode.HandshakeAck)
+                {
+                    ClientLogger.Log($"Unexpected packet opcode while waiting for HandshakeAck: {ackOpcode}", ClientLogLevel.Error);
+                    return false;
+                }
+
+                // Handshake acknowledged — safe to continue normal receive/roster handling
                 return true;
             }
             catch (OperationCanceledException)
@@ -1058,6 +1045,7 @@ namespace chat_client.Net
                 return false;
             }
         }
+
 
         /// <summary>
         /// Builds and sends a framed plain-text chat packet to the server asynchronously.

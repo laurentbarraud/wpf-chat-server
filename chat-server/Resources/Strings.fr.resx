@@ -315,4 +315,7 @@
   <data name="BroadcastForceDisconnectFailed" xml:space="preserve">
     <value>Échec lors de l’envoi du paquet ForceDisconnect : {0}</value>
   </data>
+  <data name="SendFramedIoError" xml:space="preserve">
+    <value>Erreur E/S lors de l'envoi du paquet encadré vers l'utilisateur '{0}' : {1}</value>
+  </data>
 </root>
