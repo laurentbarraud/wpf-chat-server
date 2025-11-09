@@ -351,18 +351,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à This software is provided &quot;as is&quot;, without any kind of warranty..
         /// </summary>
-        public static string LicenceInfo1 {
+        public static string LicenceInfo {
             get {
-                return ResourceManager.GetString("LicenceInfo1", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à In no event shall the author be liable for any indirect, incidental or consequential damages, including loss of data, lost profits, or business interruption with the use of this software..
-        /// </summary>
-        public static string LicenceInfo2 {
-            get {
-                return ResourceManager.GetString("LicenceInfo2", resourceCulture);
+                return ResourceManager.GetString("LicenceInfo", resourceCulture);
             }
         }
         

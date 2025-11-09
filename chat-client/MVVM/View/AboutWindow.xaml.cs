@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 8th, 2025</date>
+/// <date>November 9th, 2025</date>
 
 using System;
 using System.Windows;
@@ -20,11 +20,10 @@ namespace chat_client.View
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             this.Title = LocalizationManager.GetString("About");
-            LicenceFinalText.Text = LocalizationManager.GetFormattedString("LicenceFinal");
-            LicenceInfo1Text.Text = LocalizationManager.GetFormattedString("LicenceInfo1");
-            LicenceInfo2Text.Text = LocalizationManager.GetFormattedString("LicenceInfo2");
+            LicenceInfoText.Text = LocalizationManager.GetFormattedString("LicenceInfo");
             LicenceInfoResourcesText.Text = LocalizationManager.GetFormattedString("LicenceInfoResources");
             CliTextBlock.Text = LocalizationManager.GetFormattedString("CommandLineArguments");
+            LicenceFinalText.Text = LocalizationManager.GetFormattedString("LicenceFinal");
         }
 
         /// <summary>

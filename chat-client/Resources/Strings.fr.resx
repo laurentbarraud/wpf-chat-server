@@ -180,11 +180,8 @@
   <data name="LicenceFinal" xml:space="preserve">
     <value> v1.0 - nov. 2025 - Laurent Barraud </value>
   </data>
-  <data name="LicenceInfo1" xml:space="preserve">
+  <data name="LicenceInfo" xml:space="preserve">
     <value>Ce logiciel est fourni tel quel, sans aucune garantie.</value>
-  </data>
-  <data name="LicenceInfo2" xml:space="preserve">
-    <value>En aucun cas, l’auteur ne sera tenu responsable des dommages indirects, accessoires ou consécutifs, y compris la perte de données, le manque à gagner ou l’interruption d’activité liée à l’utilisation de ce logiciel.</value>
   </data>
   <data name="LicenceInfoResources" xml:space="preserve">
     <value>Images de boutons et icônes inspirées par des ressources disponibles sur Flaticon.com.</value>

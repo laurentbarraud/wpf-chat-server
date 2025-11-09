@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 8th, 2025</date>
+/// <date>November 9th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -367,17 +367,21 @@ namespace chat_client.Net
         /// • Applies roster snapshots on the UI thread to avoid transient inconsistencies.
         /// • Completes the handshake TaskCompletionSource when a HandshakeAck is received.
         /// • Detects repeated unexpected opcodes and triggers a graceful disconnect when a
-        /// threshold is reached.
+        ///   threshold is reached.
         /// • Uses ConfigureAwait(false) for I/O awaits and explicitly dispatches UI updates
         ///   via the application dispatcher.
         /// • Stops on stream close, protocol error, or cancellation.
+        /// 
+        /// Notes:
+        /// - This method is the continuous single-reader for framed packets; all frame-level
+        ///   reads must come through the shared _packetReader to preserve framing alignment.
+        /// - Each frame is parsed in-memory (PacketReader over MemoryStream) so parsing code
+        ///   cannot interfere with the underlying network read position.
         /// </summary>
-
         private async Task ReadPacketsAsync(CancellationToken cancellationToken)
         {
-            // Captures ViewModel reference on the UI thread so the reader can dispatch updates.
+            // Captures ViewModel reference on the UI thread for later dispatching to UI.
             MainViewModel viewModel = null!;
-
             Application.Current.Dispatcher.Invoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mw)
@@ -385,232 +389,192 @@ namespace chat_client.Net
             });
 
             if (viewModel == null)
-                return;
-
-            // Loops continuously until cancellation is requested.
-            // This guards the read lifecycle and allows graceful shutdown via a CancellationToken.
-            while (!cancellationToken.IsCancellationRequested)
             {
-                try
+                return;
+            }
+
+            try
+            {
+                // Continuous read loop. This method must be the only continuous reader of frames.
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    // Reads a single framed body
-                    byte[] framedBody = await _packetReader.ReadFramedBodyAsync(cancellationToken).ConfigureAwait(false);
+                    byte[] framedBody;
+                    
+                    try
+                    {
+                        // Reads the next framed body via the shared PacketReader (single-reader invariant).
+                        framedBody = await _packetReader!.ReadFramedBodyAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Cancellation requested — exits gracefully.
+                        break;
+                    }
 
                     if (framedBody == null || framedBody.Length == 0)
-                        throw new InvalidDataException("Empty framed body received from server.");
-
-                    // Parses the frame using an in-memory PacketReader instance.
-                    using var ms = new MemoryStream(framedBody, writable: false);
-                    var reader = new PacketReader(ms);
-
-                    // Opcode is the first byte of the framed payload.
-                    byte opcodeByte = await reader.ReadByteAsync(cancellationToken).ConfigureAwait(false);
-                    var opcode = (ClientPacketOpCode)opcodeByte;
-
-                    switch (opcode)
                     {
-                        case ClientPacketOpCode.RosterBroadcast:
-                            
-                            // Resets consecutive unexpected-opcode counter on valid packet processing.
-                            if (_consecutiveUnexpectedOpcodes != 0)
-                            {
+                        ClientLogger.Log("ReadPackets: remote closed stream or empty frame", ClientLogLevel.Info);
+                        break;
+                    }
+
+                    try
+                    {
+                        // Parses the frame in-memory to avoid touching the underlying NetworkStream.
+                        using var ms = new MemoryStream(framedBody, writable: false);
+                        var reader = new PacketReader(ms);
+
+                        // Opcode is first byte of the framed payload.
+                        byte opcodeByte = await reader.ReadByteAsync(cancellationToken).ConfigureAwait(false);
+                        var opcode = (ClientPacketOpCode)opcodeByte;
+                        ClientLogger.Log($"RECEIVED_PACKET_OPCODE={(byte)opcode}", ClientLogLevel.Debug);
+
+                        switch (opcode)
+                        {
+                            case ClientPacketOpCode.RosterBroadcast:
+                                // Resets unexpected-opcode counter when a valid packet is processed.
+                                if (_consecutiveUnexpectedOpcodes != 0)
+                                    Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+
+                                // Reads roster count (network-order int) and then entries.
+                                int totalUsers = await reader.ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
+
+                                var rosterEntries = new List<(Guid UserId, string Username, byte[] PublicKeyDer)>(totalUsers);
+                                for (int i = 0; i < totalUsers; i++)
+                                {
+                                    Guid userId = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    string username = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
+                                    byte[] publicKeyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: 64 * 1024, cancellationToken).ConfigureAwait(false);
+                                    rosterEntries.Add((userId, username, publicKeyDer));
+                                }
+
+                                // Dispatches roster update to UI thread.
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    viewModel.DisplayRosterSnapshot(rosterEntries);
+                                });
+                                break;
+
+                            case ClientPacketOpCode.HandshakeAck:
+
+                                // Signals handshake completion once and resets error counter.
+                                _handshakeCompletionTcs?.TrySetResult(true);
+                                
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-                            }
+                                break;
 
-                            // totalUsers is sent as a 32-bit network-order int.
-                            int totalUsers = await reader.ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
+                            case ClientPacketOpCode.PlainMessage:
+                                
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                            var rosterEntries = new List<(Guid UserId, string Username, byte[] PublicKeyDer)>();
-                            for (int i = 0; i < totalUsers; i++)
-                            {
-                                // Reads the 16-byte user identifier (UID) from the packet.
-                                Guid userId = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                // Payload: [16-byte sender UID][16-byte recipient UID placeholder][length-prefixed UTF-8 text]
+                                Guid senderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discard recipient placeholder
+                                string message = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 
-                                // Reads the length-prefixed UTF-8 username string.
-                                string username = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
+                                string senderName = viewModel.Users.FirstOrDefault(u => u.UID == senderUid)?.Username ?? senderUid.ToString();
+                                
+                                Application.Current.Dispatcher.Invoke(() => viewModel.OnPlainMessageReceived(senderName, message));
+                                break;
 
-                                // Reads the length-prefixed DER public key bytes (capped at 64 KiB).
-                                byte[] publicKeyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: 64 * 1024, cancellationToken).ConfigureAwait(false);
+                            case ClientPacketOpCode.EncryptedMessage:
+                                
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                rosterEntries.Add((userId, username, publicKeyDer));
-                            }
+                                Guid encSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discard recipient placeholder
+                                byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
 
-                            // Applies roster snapshot on the UI thread to avoid transient inconsistencies.
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                viewModel.DisplayRosterSnapshot(rosterEntries);
-                            });
-                            break;
+                                string encSenderName = viewModel.Users.FirstOrDefault(u => u.UID == encSenderUid)?.Username ?? encSenderUid.ToString();
+                                
+                                // Synchronous decryption kept local to avoid async overhead in crypto path.
+                                string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+                                
+                                Application.Current.Dispatcher.Invoke(() => viewModel.OnPlainMessageReceived(encSenderName, plainText));
+                                break;
 
-                        case ClientPacketOpCode.HandshakeAck:
-                            
-                            // Ensures the handshake completion TCS is observed/completed exactly once.
-                            _handshakeCompletionTcs?.TrySetResult(true);
-                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-                            break;
+                            case ClientPacketOpCode.PublicKeyResponse:
+                                
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                        case ClientPacketOpCode.PlainMessage:
-                            
-                            // Resets unexpected-opcode counter.
-                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+                                Guid originUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                byte[] keyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
+                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discards requester UID
+                                
+                                Application.Current.Dispatcher.Invoke(() => viewModel.OnPublicKeyReceived(originUid, keyDer));
+                                break;
 
-                            // Plain-text message payload:
-                            //   [16-byte sender UID]
-                            //   [16-byte recipient UID placeholder]
-                            //   [length-prefixed UTF-8 text]
-                            Guid senderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                            case ClientPacketOpCode.DisconnectNotify:
+                                
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                            // Discards recipient UID placeholder to preserve alignment.
-                            _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                Guid discUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                string discName = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
+                                
+                                Application.Current.Dispatcher.Invoke(() => viewModel.OnUserDisconnected(discUid, discName));
+                                break;
 
-                            string message = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
+                            case ClientPacketOpCode.ForceDisconnectClient:
+                                
+                                // Server demanded immediate disconnect; informs UI and exits.
+                                Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer());
+                                return;
 
-                            string senderName = viewModel.Users
-                                .FirstOrDefault(u => u.UID == senderUid)?.Username
-                                ?? senderUid.ToString();
-
-                            Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnPlainMessageReceived(senderName, message));
-                            break;
-
-                        case ClientPacketOpCode.EncryptedMessage:
-                            // Resets unexpected-opcode counter.
-                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-                            // Reads the 16-byte sender UID from the packet.
-                            Guid encSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-
-                            // Reads and discard the 16-byte recipient UID to maintain stream alignment.
-                            _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-
-                            // Reads the length-prefixed ciphertext bytes (no explicit max).
-                            byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
-
-                            // Resolves the sender's display name or fall back to the sender UID string.
-                            string encSenderName = viewModel.Users
-                                .FirstOrDefault(u => u.UID == encSenderUid)?.Username
-                                ?? encSenderUid.ToString();
-
-                            // Decrypts using the byte[] overload (synchronous decryption kept local).
-                            string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
-
-                            Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnPlainMessageReceived(encSenderName, plainText));
-                            break;
-
-                        case ClientPacketOpCode.PublicKeyResponse:
-                            
-                            // Resets unexpected-opcode counter.
-                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-                            // Reads the 16-byte origin UID for which the public key is being returned.
-                            Guid originUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-
-                            // Reads the length-prefixed DER-encoded public key bytes (no explicit max).
-                            byte[] keyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
-
-                            // Reads and discard the 16-byte requester UID to preserve stream alignment.
-                            _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-
-                            Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnPublicKeyReceived(originUid, keyDer));
-                            break;
-
-                        case ClientPacketOpCode.DisconnectNotify:
-                            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-                            // DisconnectNotify:
-                            //   [16-byte UID][length-prefixed username]
-                            Guid discUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                            string discName = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
-
-                            Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnUserDisconnected(discUid, discName));
-                            break;
-
-                        case ClientPacketOpCode.ForceDisconnectClient:
-                            // Server requested immediate disconnect; notify UI and exit.
-                            Application.Current.Dispatcher.Invoke(() =>
-                                viewModel.OnDisconnectedByServer());
-                            return;
-
-                        default:
-                            {
-                                // Unexpected opcode handling: increment counter and possibly disconnect.
+                            default:
+                                
+                                // Unexpected opcode: increments counter and optionally disconnects if threshold reached.
                                 ClientLogger.Log($"Unexpected opcode 0x{opcodeByte:X2} in framed packet", ClientLogLevel.Warn);
 
                                 if (Interlocked.Increment(ref _consecutiveUnexpectedOpcodes) >= 3)
                                 {
                                     ClientLogger.Log("Too many consecutive unexpected opcodes, initiating graceful disconnect.", ClientLogLevel.Warn);
-                                    Application.Current.Dispatcher.Invoke(() =>
-                                        viewModel.OnDisconnectedByServer());
+                                    Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer());
                                     return;
                                 }
-
                                 break;
-                            }
+                        }
                     }
-                }
-                catch (EndOfStreamException)
-                {
-                    ClientLogger.Log("ReadPackets: remote closed stream", ClientLogLevel.Debug);
-                }
-                catch (IOException ioe)
-                {
-                    ClientLogger.Log($"ReadPackets IO: {ioe.Message}", ClientLogLevel.Debug);
-                }
-                catch (InvalidDataException ide)
-                {
-                    ClientLogger.Log($"ReadPackets protocol error: {ide.Message}", ClientLogLevel.Warn);
-                }
-                catch (Exception ex)
-                {
-                    ClientLogger.Log($"ReadPackets error: {ex.Message}", ClientLogLevel.Error);
-                }
-                finally
-                {
-                    // Centralized cleanup after any exception or normal exit.
-                    try
+                    catch (InvalidDataException ide)
                     {
-                        // Notifies UI on the dispatcher thread that the server disconnected.
-                        Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer());
+                        // Protocol-level error detected while parsing a frame; aborts read loop to force reconnect/cleanup.
+                        ClientLogger.Log($"ReadPackets protocol error: {ide.Message}", ClientLogLevel.Warn);
+                        break;
                     }
-                    catch { }
-
-                    try
+                    catch (OperationCanceledException)
                     {
-                        _tcpClient?.Close();
+                        // Cancellation observed while parsing — exits gracefully.
+                        break;
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        // Non-fatal processing error; logs and continue reading next frames.
+                        ClientLogger.Log($"ReadPackets processing error: {ex.Message}", ClientLogLevel.Error);
                     }
-
-                    try
-                    {
-                        _tcpClient?.Dispose();
-                    }
-                    catch
-                    {
-                    }
-
-                    // Creates safe, non-null placeholders to satisfy nullable analysis and
-                    // avoid accidental reuse of a disposed instance.
-                    // A freshly constructed TcpClient is in the "not connected" state and
-                    // will be explicitly connected by ConnectToServer().
-                    _tcpClient = new TcpClient();
-
-                    // Provides a harmless reader over Stream.Null so code that reads the
-                    // variable never gets a null reference. This avoids nullable warnings.
-                    _packetReader = null!;
-
-                    // Resets runtime counter
-                    Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
                 }
+            }
+            catch (Exception ex)
+            {
+                // Fatal error in the reader loop — logs for diagnostics.
+                ClientLogger.Log($"ReadPackets fatal error: {ex.Message}", ClientLogLevel.Error);
+            }
+            finally
+            {
+                // Notifies UI then perform centralized cleanup to reset connection state.
+                try 
+                { 
+                    Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer()); 
+                } 
+                catch { }
 
-                // Exits the reader loop
-                return;
+                try 
+                { 
+                    CleanConnection();
+                } 
+                catch { }
+                
+                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
             }
         }
+
 
         /// <summary>
         /// Sends a PublicKeyRequest packet to the server asynchronously to retrieve known public keys.
@@ -830,14 +794,18 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Builds and sends a framed handshake packet to the server, then waits for an explicit
-        /// HandshakeAck (client-side opcode) before returning success.
-        /// Packet on wire:
-        ///   [4-byte big-endian length][1-byte opcode][username (length-prefixed UTF-8)]
-        ///   [16-byte UID][4-byte publicKeyDer length][publicKeyDer bytes]
-        /// The method writes header+payload in a single sequence, then reads a framed response
-        /// and verifies the server returned the handshake ack opcode (checked against the client-side enum).
+        /// Build and send the framed handshake packet, then consume exactly one framed
+        /// response (HandshakeAck) using the shared PacketReader protected by _readerLock.
+        /// The method writes header and payload in a single atomic sequence to the network stream,
+        /// then acquires the shared reader lock (_readerLock) and consumes exactly one framed response
+        /// via the shared PacketReader (_packetReader).
+        /// Packet on wire: 
+        /// [4-byte big-endian length][1-byte opcode][username (length-prefixed UTF-8)] 
+        /// [16-byte UID][4-byte publicKeyDer length][publicKeyDer bytes] 
         /// </summary>
+        /// <return>
+        /// True only if the ack opcode matches ClientPacketOpCode.HandshakeAck.
+        /// </return>
         public async Task<bool> SendInitialConnectionPacketAsync(string username, Guid uid,
             byte[] publicKeyDer, CancellationToken cancellationToken = default)
         {
@@ -864,60 +832,63 @@ namespace chat_client.Net
 
             try
             {
-                // Builds the payload: opcode + username + uid + length-prefixed public key
-                var packetBuilder = new PacketBuilder();
-                packetBuilder.WriteOpCode((byte)ClientPacketOpCode.Handshake);
-                packetBuilder.WriteString(username);
-                packetBuilder.WriteUid(uid);
-                packetBuilder.WriteBytesWithLength(publicKeyDer);
-                byte[] payload = packetBuilder.GetPacketBytes();
+                // Build the payload: opcode + username + uid + length-prefixed public key.
+                var builder = new PacketBuilder();
+                builder.WriteOpCode((byte)ClientPacketOpCode.Handshake);
+                builder.WriteString(username);
+                builder.WriteUid(uid);
+                builder.WriteBytesWithLength(publicKeyDer);
+                byte[] payload = builder.GetPacketBytes();
 
-                // Frame header: 4-byte big-endian length
+                // Frame header: 4-byte big-endian length.
                 int lenNetwork = IPAddress.HostToNetworkOrder(payload.Length);
                 byte[] header = BitConverter.GetBytes(lenNetwork);
 
-                NetworkStream networkStream = _tcpClient.GetStream();
+                NetworkStream stream = _tcpClient.GetStream();
 
-                // Diagnostic logs (temporary)
+                // Diagnostic logs for handshake bytes.
                 ClientLogger.Log($"SENDING_HANDSHAKE_HEADER={BitConverter.ToString(header)} LEN={payload.Length}", ClientLogLevel.Debug);
                 ClientLogger.Log($"SENDING_HANDSHAKE_PAYLOAD_PREFIX={BitConverter.ToString(payload, 0, Math.Min(16, payload.Length))}", ClientLogLevel.Debug);
 
-                // Writes header then payload without intermediate flush to keep the write atomic on the wire.
-                await networkStream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+                // Writes header + payload atomically and flush.
+                await stream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
                 if (payload.Length > 0)
-                    await networkStream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
+                    await stream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-                // Single flush afterwards for determinism
-                await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-
-                // Creates a PacketReader tied to this stream (adjust if you already have a client-wide instance)
-                var reader = new PacketReader(networkStream);
-
-                // Wait for framed response (HandshakeAck) from server before proceeding.
-                // ReadInt32NetworkOrderAsync logs READ_HEADER=xx-xx-xx-xx for diagnostics.
-                int ackLen = await reader.ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
-                if (ackLen <= 0)
+                // Asynchronously waits to enter the reader lock (a SemaphoreSlim)
+                // and ensures the current async method gains exclusive, cancellable
+                // access to the shared PacketReader, before attempting to read a single
+                // framed response from the network.
+                await _readerLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+                
+                try
                 {
-                    ClientLogger.Log($"Handshake failed: invalid length {ackLen}", ClientLogLevel.Error);
-                    return false;
+                    // Reads a single framed body (4-byte length prefix + payload) via shared PacketReader.
+                    byte[] frame = await _packetReader!.ReadFramedBodyAsync(cancellationToken).ConfigureAwait(false);
+                    if (frame == null || frame.Length == 0)
+                    {
+                        ClientLogger.Log("Handshake failed: empty ack frame", ClientLogLevel.Error);
+                        return false;
+                    }
+
+                    // First byte of frame payload is the opcode.
+                    byte receivedOpcode = frame[0];
+                    ClientLogger.Log($"RECEIVED_PACKET_OPCODE={receivedOpcode}", ClientLogLevel.Debug);
+
+                    if (receivedOpcode != (byte)ClientPacketOpCode.HandshakeAck)
+                    {
+                        ClientLogger.Log($"Unexpected packet opcode while waiting for HandshakeAck: {receivedOpcode}", ClientLogLevel.Error);
+                        return false;
+                    }
+
+                    // Ack validated successfully.
+                    return true;
                 }
-
-                // Reads the exact ack payload bytes using the static helper
-                byte[] ackPayload = await PacketReader.ReadExactAsync(networkStream, ackLen, cancellationToken).ConfigureAwait(false);
-
-                // Logs opcode for diagnostics (temporary)
-                byte ackOpcode = ackPayload.Length > 0 ? ackPayload[0] : (byte)0xFF;
-                ClientLogger.Log($"RECEIVED_PACKET_OPCODE={ackOpcode}", ClientLogLevel.Debug);
-
-                // Compares against client-side opcode enum (projects are independent; use client enum)
-                if (ackOpcode != (byte)ClientPacketOpCode.HandshakeAck)
+                finally
                 {
-                    ClientLogger.Log($"Unexpected packet opcode while waiting for HandshakeAck: {ackOpcode}", ClientLogLevel.Error);
-                    return false;
+                    _readerLock.Release();
                 }
-
-                // Handshake acknowledged — safe to continue normal receive/roster handling
-                return true;
             }
             catch (OperationCanceledException)
             {
@@ -930,7 +901,6 @@ namespace chat_client.Net
                 return false;
             }
         }
-
 
         /// <summary>
         /// Builds and sends a framed plain-text chat packet to the server asynchronously.

@@ -41,26 +41,18 @@
                    VerticalAlignment="Top"/>
 
             <!-- Licence info block -->
-            <TextBlock x:Name="LicenceInfo1Text"
+            <TextBlock x:Name="LicenceInfoText"
                        FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="65,128,0,0"
+                       Margin="60,84,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap" Width="293" Height="15" LineHeight="1"/>
 
-            <TextBlock x:Name="LicenceInfo2Text"
-                       FontSize="10"
-                       Foreground="WhiteSmoke"
-                       Margin="65,72,0,0"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Top"
-                       TextWrapping="Wrap" Width="293" Height="56" LineHeight="1"/>
-
             <TextBlock x:Name="LicenceInfoResourcesText"
                        FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="65,141,0,0"
+                       Margin="60,114,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap" Width="293" Height="31" LineHeight="1" />
