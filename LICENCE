@@ -1,63 +1,82 @@
-TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION  
-Based on Apache 2.0 licence with restrictions – Version 1.0 – October 2025  
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
-1. Definitions  
-   “License” means this document.  
-   “Author” means Laurent Barraud.  
-   “You” means any individual or legal entity exercising rights under this License.  
-   “Code” means all source code, object code, documentation, resources, and related files distributed under this License.  
-   “Derivative Project” means any work based on or including the Code.  
-   “Contribution” means any submission proposed for inclusion in the Code.  
+1. Preamble and copyright notice
+The Code in this repository is protected by copyright under
+the Swiss Federal Act on Copyright and Related Rights (CopA). 
+The Author asserts and preserves all copyrights and moral rights
+recognized by CopA and by applicable international copyright treaties.
+This License is intended to give the same practical rights and 
+limitations to users worldwide while preserving the Author’s rights
+under Swiss law.
 
-2. Grant of License  
-   Subject to the terms of this License, Author grants You a non-exclusive, worldwide, 
-royalty-free copyright license to use, reproduce, display, and perform the Code solely 
-for educational, demonstration, and recreational purposes.  
+2. Definitions
+- Author: Laurent Barraud.
+- You: any natural person or legal entity exercising rights under this License.
+- Code: all source code, object code, documentation, images, icons, and other files 
+distributed under this License.
+- Derivative Project: any work that is based on, contains, or incorporates the Code.
+- Contribution: any change, patch, or addition proposed for inclusion in the Code.
 
-3. Academic & Media Restrictions  
-   You may not present the Code or any Derivative Project as the academic work of any third
- party (including universities, colleges, or other schools). Any reportage, recommendation, or
- any media based on the Code is welcomed, but it requires Author’s prior written consent.  
+3. License grant
+Subject to the terms below, the Author grants You a non-exclusive, worldwide,
+royalty-free copyright license to use, run, copy, inspect, study, modify,
+improve, and translate the Code for educational, demonstration, research,
+and recreational purposes.
 
-4. Redistribution  
-   You may not reproduce, distribute, sell, or publish the Code or any Derivative Project in any
- physical or online library, journal, or commercial medium without Author’s prior written 
-permission. 
-Authorized downloads are limited to 
-https://github.com/laurentbarraud/wpf-chat-server and direct link sharing.  
+4. Restrictions on academic claims and media use
+- You may not present the Code or any Derivative Project as the academic work or
+official output of any third-party institution (universities, colleges, research
+labs, etc.).
+- Journalistic use or media citation of the Code is appreciated. 
+The Author asks to be informed by email with a link to the publication, even if 
+no formal permission is sought.
 
-5. Derivative Projects & Contributions  
-   Before any public distribution or publication of a Derivative Project, You must notify Author 
-via pull request on GitHub or by email (laurent.barraud@bluewin.ch). 
-All Contributions must be submitted via pull request on GitHub or by email. 
-Notification and submissions do not obligate Author to accept inclusion; inclusion is at Author’s
- sole discretion.  
+5. Redistribution and commercial publication
+- You may not redistribute, publish, sell, or place the Code or any Derivative Project
+into a physical or online library, journal, commercial archive, marketplace, or other
+mass-distribution service without the Author’s prior written permission.
+- Permitted public distribution is limited to: (a) the original repository at 
+https://github.com/laurentbarraud/wpf-chat-server and (b) direct link sharing that
+points back to that repository.
 
-6. Author Impersonation, Notice, Attribution, and Scope  
-   You may not claim authorship of the Code or misrepresent your affiliation with Author. 
-You must include this License unmodified in every distribution (source or binary) and display
- “Based on WPF Chat Server by Laurent Barraud” in any documentation or user interface. 
-This License applies to all Code and all integrated resources under this project.  
+6. Derivative Projects and contributions
+- Before any public distribution of a Derivative Project, You must notify the Author
+by opening a pull request on GitHub or by email to laurent(dot)barraud(at)bluewin.ch.
+- All Contributions must be submitted by pull request on GitHub or by the same email. 
+The Author is not obliged to accept any Contribution; acceptance is at the Author’s 
+sole discretion.
+- Translations are warmly welcomed and usually simple to implement, when at least one 
+additional language is already present in the app; please feel free to notify the Author
+to coordinate.
 
-7. Trademarks  
-   This License does not grant rights to use Author’s trademarks, service marks, trade names, 
-or product names.  
+7. Notice, attribution and distribution of this License
+- You must not claim authorship of the original Code or falsely state affiliation with 
+the Author.
+- Every distribution (source or binary) must include an unmodified copy of this License.
+- Any user interface, README, or documentation that accompanies a copy or Derivative 
+Project must display the notice: “Based on WPF Chat Server by Laurent Barraud”.
 
-8. Disclaimer of Warranty & Limitation of Liability  
-   This software is provided “as is”, without any kind of warranty.  
-   In no event shall the Author be liable for any indirect, incidental, or consequential damages, including loss of data, lost profits, or business interruption arising from use of this software.  
+8. Disclaimer of warranty and limitation of liability
+- The Code is provided “as is”, without warranty of any kind, express or implied.
+- In no event shall the Author be liable for any direct, indirect, incidental, 
+consequential, exemplary, or special damages arising out of the use of the Code, 
+including but not limited to loss of data, loss of profit, or business interruption.
 
-9. Severability & Ownership  
-   If any provision of this License is held invalid or unenforceable under Swiss law, the remaining provisions shall remain in full force and effect. 
-Notwithstanding termination, Author retains all copyrights and moral rights as protected by CopA art. 2 para. 3 (computer programs as literary works) and art. 10 (moral rights).  
+9. Severability and survival
+If any provision of this License is found to be invalid or unenforceable under 
+applicable law, that provision shall be limited or removed to the minimum extent 
+necessary so that the remainder of the License remains in full force and effect. 
 
-10. Governing Law & Venue  
-   This License is governed by the laws of Switzerland, Canton of Vaud. 
-Venue for any dispute shall be the courts of Lausanne.  
+10. Governing law and venue
+This License is governed by the laws of Switzerland. 
+The courts of the Canton of Vaud (Lausanne) shall have exclusive jurisdiction over 
+disputes arising under this License.
 
-END OF TERMS AND CONDITIONS  
+12. Author rights and moral rights
+Notwithstanding any termination or other provision, the Author retains all copyrights
+and moral rights in the Code as protected by CopA and applicable international law.
 
-Version 1.0 – October 2025  
+END OF TERMS AND CONDITIONS
+
 Created by Laurent Barraud.
-Button images and icons inspired by resources available on Flaticon.com.
-
+November 2025
