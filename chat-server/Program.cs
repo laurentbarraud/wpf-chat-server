@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 9th, 2025</date>
+/// <date>November 10th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -104,6 +104,7 @@ namespace chat_server
                     while (!token.IsCancellationRequested)
                     {
                         TcpClient acceptedTcpClient;
+                        
                         try
                         {
                             acceptedTcpClient = await Listener.AcceptTcpClientAsync().ConfigureAwait(false);
@@ -116,82 +117,130 @@ namespace chat_server
                         catch (Exception ex)
                         {
                             ServerLogger.LogLocalized("AcceptTcpClientFailed", ServerLogLevel.Warn, ex.Message);
-                            
-                            try 
+
+                            try
                             {
-                                // Task.Delay is used to avoid a too fast loop in case of a temporary failure of
-                                // AcceptTcpClientAsync (for example, if the listener is temporarily unavailable).
-                                // The token allows to properly interrupt this delay if the server is shutting down.
-                                await Task.Delay(100, token).ConfigureAwait(false); 
-                            } 
-                            catch 
-                            { 
+                                // backs off briefly; cancellation will interrupt this delay
+                                await Task.Delay(100, token).ConfigureAwait(false);
                             }
+                            catch
+                            {
+                            }
+
                             continue;
                         }
 
-                        // Processes the accepted socket on a background task, so accept loop stays responsive
+                        // Process the accepted socket on a background task so the accept loop remains responsive
                         _ = Task.Run(async () =>
                         {
-                            var client = TryCreateHandler(acceptedTcpClient);
-                            if (client == null)
-                            {
-                                return;
-                            }
-
-                            lock (Users)
-                            {
-                                Users.Add(client);
-                            }
-
-                            // Builds and send explicit HandshakeAck to the new client before roster broadcast
+                            ServerConnectionHandler? client = null;
                             try
                             {
+                                // Uses a local alias for clarity
+                                var ns = acceptedTcpClient.GetStream();
+
+                                // Reads 4-byte big-endian handshake length header
+                                byte[] headerBytes = await PacketReader.ReadExactAsync(ns, 4, token).ConfigureAwait(false);
+                                ServerLogger.Log($"READ_HEADER={BitConverter.ToString(headerBytes)}", ServerLogLevel.Debug);
+
+                                int payloadLength = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(headerBytes, 0));
+                                const int MaxHandshakePayload = 65_536;
+                                if (payloadLength <= 0 || payloadLength > MaxHandshakePayload)
+                                {
+                                    ServerLogger.LogLocalized("ErrorInvalidHandshakeLength", ServerLogLevel.Warn, "?", payloadLength.ToString());
+                                    try 
+                                    { 
+                                        acceptedTcpClient.Close(); 
+                                    } 
+                                    catch { }
+                                    
+                                    return;
+                                }
+
+                                // Reads handshake payload into memory
+                                byte[] payload = await PacketReader.ReadExactAsync(ns, payloadLength, token).ConfigureAwait(false);
+
+                                // Parses handshake from in-memory buffer (safe, synchronous parsing off the network)
+                                using var memoryStream = new MemoryStream(payload);
+                                var handshakeReader = new PacketReader(memoryStream);
+
+                                var opcode = (ServerPacketOpCode)await handshakeReader.ReadByteAsync(token).ConfigureAwait(false);
+                                if (opcode != ServerPacketOpCode.Handshake)
+                                {
+                                    ServerLogger.LogLocalized("ErrorInvalidOperationException", ServerLogLevel.Warn, "?", $"{(byte)opcode}");
+                                    try { acceptedTcpClient.Close(); } catch { }
+                                    return;
+                                }
+
+                                string username = await handshakeReader.ReadStringAsync(token).ConfigureAwait(false);
+                                Guid uid = await handshakeReader.ReadUidAsync(token).ConfigureAwait(false);
+                                int publicKeyLength = await handshakeReader.ReadInt32NetworkOrderAsync(token).ConfigureAwait(false);
+
+                                const int MaxPublicKeyLength = 65_536;
+                                if (publicKeyLength <= 0 || publicKeyLength > MaxPublicKeyLength)
+                                {
+                                    ServerLogger.LogLocalized("ErrorPublicKeyLengthInvalid", ServerLogLevel.Warn, uid.ToString());
+                                    try { acceptedTcpClient.Close(); } catch { }
+                                    return;
+                                }
+
+                                // In-memory read of public key bytes 
+                                byte[] publicKeyDer = await PacketReader.ReadExactAsync(memoryStream, publicKeyLength, token).ConfigureAwait(false);
+
+                                // Handshake validated: creates handler and initializes it (starts cancellable reader)
+                                client = new ServerConnectionHandler(acceptedTcpClient);
+                                client.InitializeAfterHandshake(username, uid, publicKeyDer, token);
+
+                                // Adds to Users only after successful handshake and reader started
+                                lock (Users)
+                                {
+                                    Users.Add(client);
+                                }
+
+                                // Builds HandshakeAck
                                 var ackBuilder = new PacketBuilder();
                                 ackBuilder.WriteOpCode((byte)ServerPacketOpCode.HandshakeAck);
-
-                                // Frames payload for on-the-wire transport
                                 byte[] ackPayload = ackBuilder.GetPacketBytes();
 
-                                // Shows what the builder returned before sending
                                 ServerLogger.Log($"BUILDER_RETURNS_LEN={ackPayload.Length} PREFIX={BitConverter.ToString(ackPayload.Take(Math.Min(24, ackPayload.Length)).ToArray())}", ServerLogLevel.Debug);
 
                                 // Uses the centralized framed send helper to guarantee atomic, serialized sends
                                 await SendFramedAsync(client, ackPayload, token).ConfigureAwait(false);
 
                                 ServerLogger.LogLocalized("SentHandshakeAck", ServerLogLevel.Debug, client.Username);
+
+                                // Ensures roster broadcast happens after the ack is flushed
+                                try
+                                {
+                                    await BroadcastRosterAsync(token).ConfigureAwait(false);
+                                }
+                                catch (OperationCanceledException) 
+                                { }
+                                catch (Exception ex)
+                                {
+                                    ServerLogger.LogLocalized("BroadcastRosterFailed", ServerLogLevel.Warn, ex.Message);
+                                }
                             }
-                            catch (Exception ex)
+                            catch (OperationCanceledException)
                             {
-                                // If ack send fails, closes socket and removes client to avoid half-open connection
-                                ServerLogger.LogLocalized("HandshakeAckSendFailed", ServerLogLevel.Warn, client.UID.ToString(), ex.Message);
                                 try 
                                 { 
-                                    client.ClientSocket?.Close(); 
+                                    acceptedTcpClient.Close(); 
                                 } 
-                                catch 
-                                { 
-                                }
-                                
-                                lock (Users) 
-                                { 
-                                    Users.Remove(client); 
-                                }
-
-                                return;
-                            }
-
-                            try
-                            {
-                                // Awaiting ensures ack is flushed before roster is sent and surfaces errors here
-                                await BroadcastRosterAsync(token).ConfigureAwait(false);
-                            }
-                            catch (OperationCanceledException) 
-                            { 
+                                catch { }
                             }
                             catch (Exception ex)
                             {
-                                ServerLogger.LogLocalized("BroadcastRosterFailed", ServerLogLevel.Warn, ex.Message);
+                                ServerLogger.LogLocalized("AcceptHandshakeFailed", ServerLogLevel.Warn, ex.Message);
+                                try { acceptedTcpClient.Close(); } catch { }
+
+                                if (client != null)
+                                {
+                                    lock (Users) 
+                                    { 
+                                        Users.Remove(client); 
+                                    }
+                                }
                             }
                         }, token);
                     }
@@ -199,6 +248,7 @@ namespace chat_server
 
                 // Blocks main until accept loop completes
                 acceptTask.GetAwaiter().GetResult();
+
             }
             catch (Exception ex)
             {

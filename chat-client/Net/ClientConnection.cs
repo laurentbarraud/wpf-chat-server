@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 9th, 2025</date>
+/// <date>November 10th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -268,7 +268,14 @@ namespace chat_client.Net
                 }
 
                 // Replaces with safe placeholders
-                try { _tcpClient = new TcpClient(); } catch (Exception ex) { ClientLogger.Log($"TcpClient placeholder creation failed: {ex.Message}", ClientLogLevel.Warn); }
+                try 
+                { 
+                    _tcpClient = new TcpClient(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    ClientLogger.Log($"TcpClient placeholder creation failed: {ex.Message}", ClientLogLevel.Warn); 
+                }
 
                 // Keeps null-forgiving pattern you preferred
                 _packetReader = null!;
@@ -912,12 +919,15 @@ namespace chat_client.Net
         /// Sends the framed packet atomically.
         /// </summary>
         /// <param name="message">The chat message to broadcast.</param>
+        /// <param name="cancellationToken">Optional token to cancel the send operation.</param>
         /// <returns>True if the packet was sent; false on error or invalid state.</returns>
-        public async Task<bool> SendPlainMessageToServerAsync(string message)
+        public async Task<bool> SendPlainMessageToServerAsync(string message, CancellationToken cancellationToken = default)
         {
             // Validates input message early to avoid unnecessary allocations or network activity.
             if (string.IsNullOrWhiteSpace(message))
+            {
                 return false;
+            }
 
             // Ensures the TCP client and underlying socket are valid and connected.
             if (_tcpClient?.Connected != true)
@@ -963,7 +973,8 @@ namespace chat_client.Net
                 NetworkStream networkStream = _tcpClient.GetStream();
 
                 // Sends the framed packet atomically via the network stream.
-                await packetBuilder.WriteFramedPacketAsync(networkStream).ConfigureAwait(false);
+                // Use the token-aware overload if available; otherwise the existing overload will be called.
+                await packetBuilder.WriteFramedPacketAsync(networkStream, cancellationToken).ConfigureAwait(false);
 
                 // Creates a short preview for logging to avoid leaking long messages into logs.
                 string logPreview = trimmedMessage.Length > 64
@@ -972,6 +983,11 @@ namespace chat_client.Net
 
                 ClientLogger.Log($"Sending plain message: \"{logPreview}\"", ClientLogLevel.Debug);
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                ClientLogger.Log("SendPlainMessageToServer canceled", ClientLogLevel.Debug);
+                return false;
             }
             catch (Exception ex)
             {

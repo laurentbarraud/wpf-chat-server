@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 9th, 2025</date>
+/// <date>November 10th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -310,10 +310,37 @@ namespace chat_client
                 }
                 else
                 {
-                    // Keeps plain send synchronous observation
-                    sendingMessageSucceeded = ViewModel._server.SendPlainMessageToServerAsync(MainViewModel.Message).GetAwaiter().GetResult();
-                }
+                    // Fire-and-forget plain send: optimistic UI update, observe result to avoid unobserved exceptions.
+                    _ = ViewModel._server.SendPlainMessageToServerAsync(MainViewModel.Message, CancellationToken.None)
+                        .ContinueWith(taskSend =>
+                        {
+                            if (taskSend.IsCanceled)
+                            {
+                                ClientLogger.Log("SendPlainMessageToServerAsync cancelled.", ClientLogLevel.Debug);
+                            }
+                            else if (taskSend.IsFaulted)
+                            {
+                                var errorMessage = taskSend.Exception?.GetBaseException().Message ?? "unknown";
+                                ClientLogger.Log($"SendPlainMessageToServerAsync failed: {errorMessage}", ClientLogLevel.Error);
 
+                                // Marshal UI update to UI thread to show failure notice
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
+                                });
+                            }
+                            else if (taskSend.IsCompleted && taskSend.Result == false)
+                            {
+                                // The send method returned false (logical failure) — notify UI
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
+                                });
+                            }
+                        }, TaskScheduler.Default);
+
+                    sendingMessageSucceeded = true; // optimistic: UI doesn't block waiting for network
+                }
 
                 if (sendingMessageSucceeded)
                 {
