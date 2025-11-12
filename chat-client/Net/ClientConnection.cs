@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 10th, 2025</date>
+/// <date>November 12th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -9,6 +9,7 @@ using chat_client.Net.IO;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Policy;
 using System.Windows;
 
 namespace chat_client.Net
@@ -24,6 +25,11 @@ namespace chat_client.Net
 
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _tcpClient?.Connected ?? false;
+
+        /// <summary>Indicates whether the TCP socket is connected and the handshake(HandshakeAck) 
+        /// has been successfully confirmed</summary>
+        public bool IsEstablished => IsConnected && _handshakeCompletionTcs != null 
+            && _handshakeCompletionTcs.Task.IsCompletedSuccessfully && _handshakeCompletionTcs.Task.Result == true;
 
         // PUBLIC EVENTS
 
@@ -77,6 +83,9 @@ namespace chat_client.Net
         /// </summary>
         private int _disconnectFromServerCalled = 0;
 
+        // Represents the handshake lifecycle; completed with true on success, false on failure/exception.
+        private TaskCompletionSource<bool>? _handshakeCompletionTcs;
+
         // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
         private PacketReader? _packetReader;
 
@@ -86,10 +95,6 @@ namespace chat_client.Net
 
         // Single-writer guard for this connection instance; kept readonly for the connection lifetime.
         private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
-
-        // Represents the handshake lifecycle; completed with true on success, false or exception on failure.
-        // Recreate (or set to null) after completion to avoid accidental reuse.
-        private TaskCompletionSource<bool>? _handshakeCompletionTcs;
 
         private TcpClient _tcpClient;
 
@@ -108,36 +113,44 @@ namespace chat_client.Net
 
         /// <summary>
         /// Cleanly resets the connection state:
-        /// • closes/disposes the TcpClient (which also closes the NetworkStream),
+        /// • cancels and disposes any pending handshake TaskCompletionSource to wake awaiters,
+        /// • closes and disposes the TcpClient (which also closes the NetworkStream),
         /// • clears the PacketReader backing field (do not dispose it, PacketReader is not IDisposable),
         /// • disposes and recreates the reader lock to ensure a fresh semaphore after cleanup.
-        /// </summary>
+        /// </summary>d
         private void CleanConnection()
         {
-            try 
-            { 
-                _tcpClient?.Close(); 
-            } 
+            // Cancels and releases handshake TCS so any waiters are released and TCS won't be reused.
+            _handshakeCompletionTcs?.TrySetCanceled();
+            _handshakeCompletionTcs = null;
+
+            try
+            {
+                _tcpClient?.Close();
+            }
             catch { }
-            
-            try 
-            { 
-                _tcpClient?.Dispose(); 
-            } 
+
+            try
+            {
+                _tcpClient?.Dispose();
+            }
             catch { }
-            
+
             _tcpClient = new TcpClient();
 
             // PacketReader is not IDisposable; clears the reference so callers will reinitialize it.
             _packetReader = null!;
 
             // Disposes and recreates reader lock to ensure a fresh semaphore after cleanup.
-            try { _readerLock?.Dispose(); } catch { }
+            try
+            {
+                _readerLock?.Dispose();
+            }
+            catch
+            { }
+
             _readerLock = new SemaphoreSlim(1, 1);
-
-            // Note: _writeLock is readonly and intentionally not disposed here.
         }
-
 
         /// <summary>
         /// • Validates and resolves the target IP address and port.
@@ -161,8 +174,18 @@ namespace chat_client.Net
             try
             {
                 // Defensive teardown of any previous socket to ensure a fresh start.
-                try { _tcpClient?.Close(); } catch { }
-                try { _tcpClient?.Dispose(); } catch { }
+                try
+                {
+                    _tcpClient?.Close();
+                }
+                catch { }
+
+                try
+                {
+                    _tcpClient?.Dispose();
+                }
+                catch { }
+
                 _tcpClient = new TcpClient();
 
                 // Chooses target IP, default to loopback.
@@ -179,15 +202,15 @@ namespace chat_client.Net
                 await _tcpClient.ConnectAsync(ipToConnect, port).ConfigureAwait(false);
                 ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {port}", ClientLogLevel.Debug);
 
-                // Initializes shared PacketReader exactly once for this connection.
-                if (_packetReader == null)
-                    _packetReader = new PacketReader(_tcpClient.GetStream());
+                // Initializes a fresh PacketReader bound to the active network stream.
+                // We create a new PacketReader per connection to avoid any stream-sharing ambiguity.
+                _packetReader = new PacketReader(_tcpClient.GetStream());
 
                 // Ensures a reader-lock exists to serialize critical reads if needed elsewhere.
                 if (_readerLock == null)
                     _readerLock = new SemaphoreSlim(1, 1);
 
-                // Generate session identity and load local public key bytes.
+                // Generates session identity and loads local public key bytes.
                 Guid uid = Guid.NewGuid();
                 byte[] publicKeyDer = EncryptionHelper.PublicKeyDer ?? Array.Empty<byte>();
 
@@ -195,33 +218,54 @@ namespace chat_client.Net
                 LocalUid = uid;
                 LocalPublicKey = publicKeyDer;
 
-                // Notifies listeners that a low-level connection is up.
-                ConnectionEstablished?.Invoke();
+                // Ensure the handshake TCS is cancelled on any early exit or exception to wake awaiters.
+                _handshakeCompletionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-                // Sends initial handshake packet; the method is responsible for reading and validating the ACK.
-                bool handshakeSent = await SendInitialConnectionPacketAsync(username, uid, publicKeyDer, cancellationToken).ConfigureAwait(false);
-                if (!handshakeSent)
+                // Sends initial handshake packet and waits for an explicit HandshakeAck.
+                bool handshakeConfirmed = await SendInitialConnectionPacketAsync(username, uid, publicKeyDer, cancellationToken).ConfigureAwait(false);
+                if (!handshakeConfirmed)
                 {
                     ClientLogger.LogLocalized(LocalizationManager.GetString("ErrorFailedToSendInitialHandshake"), ClientLogLevel.Error);
                     CleanConnection();
+
+                    _handshakeCompletionTcs?.TrySetCanceled();
+                    _handshakeCompletionTcs = null;
+
                     return (Guid.Empty, Array.Empty<byte>());
                 }
 
                 // Handshake succeeded and ACK was consumed by SendInitialConnectionPacketAsync.
+                _handshakeCompletionTcs?.TrySetResult(true);
+
+                // Notify higher-level listeners that connection and handshake are complete.
+                ConnectionEstablished?.Invoke();
+
                 // Starts the background reader which will own subsequent reads from _packetReader.
-                // ReadPacketsAsync must use _packetReader and respect _readerLock to avoid concurrent reads.
                 _ = Task.Run(() => ReadPacketsAsync(cancellationToken), cancellationToken);
 
                 return (uid, publicKeyDer);
             }
+            catch (OperationCanceledException)
+            {
+                ClientLogger.Log("ConnectToServerAsync canceled", ClientLogLevel.Debug);
+                CleanConnection();
+
+                _handshakeCompletionTcs?.TrySetCanceled();
+                _handshakeCompletionTcs = null;
+
+                return (Guid.Empty, Array.Empty<byte>());
+            }
             catch (Exception ex)
             {
-                ClientLogger.Log($"[ERROR] ConnectToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.Log($"ConnectToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
                 CleanConnection();
+
+                _handshakeCompletionTcs?.TrySetCanceled();
+                _handshakeCompletionTcs = null;
+
                 return (Guid.Empty, Array.Empty<byte>());
             }
         }
-
 
         public void DisconnectFromServer()
         {
@@ -801,11 +845,9 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Build and send the framed handshake packet, then consume exactly one framed
-        /// response (HandshakeAck) using the shared PacketReader protected by _readerLock.
-        /// The method writes header and payload in a single atomic sequence to the network stream,
-        /// then acquires the shared reader lock (_readerLock) and consumes exactly one framed response
-        /// via the shared PacketReader (_packetReader).
+        /// Build and send the framed handshake packet, then consume 
+        /// exactly one framed response (HandshakeAck) using the shared
+        /// PacketReader protected by _readerLock.
         /// Packet on wire: 
         /// [4-byte big-endian length][1-byte opcode][username (length-prefixed UTF-8)] 
         /// [16-byte UID][4-byte publicKeyDer length][publicKeyDer bytes] 
@@ -817,29 +859,35 @@ namespace chat_client.Net
             byte[] publicKeyDer, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(username))
+            {
+                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on invalid input
                 return false;
+            }
 
             if (_tcpClient == null || !_tcpClient.Connected)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync failed: socket not connected.", ClientLogLevel.Error);
+                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on no socket
                 return false;
             }
 
             if (uid == Guid.Empty)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync failed: UID is empty.", ClientLogLevel.Error);
+                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on invalid uid
                 return false;
             }
 
             if (publicKeyDer == null)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync failed: publicKeyDer is null.", ClientLogLevel.Error);
+                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on invalid public key
                 return false;
             }
 
             try
             {
-                // Build the payload: opcode + username + uid + length-prefixed public key.
+                // Builds the payload: opcode + username + uid + length-prefixed public key.
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ClientPacketOpCode.Handshake);
                 builder.WriteString(username);
@@ -847,7 +895,7 @@ namespace chat_client.Net
                 builder.WriteBytesWithLength(publicKeyDer);
                 byte[] payload = builder.GetPacketBytes();
 
-                // Frame header: 4-byte big-endian length.
+                // Frames header: 4-byte big-endian length.
                 int lenNetwork = IPAddress.HostToNetworkOrder(payload.Length);
                 byte[] header = BitConverter.GetBytes(lenNetwork);
 
@@ -864,11 +912,11 @@ namespace chat_client.Net
                 await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
                 // Asynchronously waits to enter the reader lock (a SemaphoreSlim)
-                // and ensures the current async method gains exclusive, cancellable
-                // access to the shared PacketReader, before attempting to read a single
-                // framed response from the network.
+                // and ensures the current async method gains exclusive,
+                // cancellable access to the shared PacketReader,
+                // before attempting to read a single framed response from the network.
                 await _readerLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-                
+
                 try
                 {
                     // Reads a single framed body (4-byte length prefix + payload) via shared PacketReader.
@@ -876,6 +924,7 @@ namespace chat_client.Net
                     if (frame == null || frame.Length == 0)
                     {
                         ClientLogger.Log("Handshake failed: empty ack frame", ClientLogLevel.Error);
+                        _handshakeCompletionTcs?.TrySetCanceled(); // cancel on empty frame
                         return false;
                     }
 
@@ -886,6 +935,7 @@ namespace chat_client.Net
                     if (receivedOpcode != (byte)ClientPacketOpCode.HandshakeAck)
                     {
                         ClientLogger.Log($"Unexpected packet opcode while waiting for HandshakeAck: {receivedOpcode}", ClientLogLevel.Error);
+                        _handshakeCompletionTcs?.TrySetCanceled(); // cancel on unexpected opcode
                         return false;
                     }
 
@@ -900,11 +950,13 @@ namespace chat_client.Net
             catch (OperationCanceledException)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync cancelled by token.", ClientLogLevel.Debug);
+                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on cancellation
                 return false;
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"SendInitialConnectionPacketAsync exception: {ex.Message}", ClientLogLevel.Error);
+                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on unexpected exception
                 return false;
             }
         }

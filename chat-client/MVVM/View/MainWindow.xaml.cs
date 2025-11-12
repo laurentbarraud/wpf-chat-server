@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 10th, 2025</date>
+/// <date>November 12th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -9,6 +9,7 @@ using chat_client.MVVM.ViewModel;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Data;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -277,9 +278,13 @@ namespace chat_client
         /// </summary>
         private void CmdSend_Click(object sender, RoutedEventArgs e)
         {
-            // Prevents sending if the message is empty or the client is disconnected
-            if (string.IsNullOrEmpty(MainViewModel.Message) || ViewModel._server?.IsConnected != true)
+            // Prevents sending if the message is empty, the socket is not connected,
+            // or the handshake/establishment is not yet complete.
+            if (string.IsNullOrEmpty(MainViewModel.Message) ||
+                ViewModel._server?.IsConnected != true ||
+                ViewModel._server?.IsEstablished != true)
             {
+                ClientLogger.Log("Send blocked: connection not yet fully established", ClientLogLevel.Debug);
                 return;
             }
 
