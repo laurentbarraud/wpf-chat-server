@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 12th, 2025</date>
+/// <date>November 14th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -72,6 +72,11 @@ namespace chat_client.Net
         public byte[] LocalPublicKey { get; private set; }
 
         /// <summary>
+        /// CancellationTokenSource dedicated to the active connection lifecycle, 
+        /// used to control and terminate the background packet reader.
+        private CancellationTokenSource? _connectionCts;
+
+        /// <summary>
         /// Counts consecutive unknown opcodes seen in ReadPackets; resets when a valid opcode is processed.
         /// Used to close the connection if too many unexpected opcodes arrive in a row.
         /// </summary>
@@ -114,41 +119,42 @@ namespace chat_client.Net
         /// <summary>
         /// Cleanly resets the connection state:
         /// • cancels and disposes any pending handshake TaskCompletionSource to wake awaiters,
-        /// • closes and disposes the TcpClient (which also closes the NetworkStream),
-        /// • clears the PacketReader backing field (do not dispose it, PacketReader is not IDisposable),
-        /// • disposes and recreates the reader lock to ensure a fresh semaphore after cleanup.
-        /// </summary>d
+        /// • cancels and disposes the connection CTS to stop the background reader,
+        /// • disposes the TcpClient (which also closes the NetworkStream),
+        /// • clears the PacketReader backing field (not IDisposable),
+        /// • disposes and recreates the reader lock to ensure a fresh semaphore.
+        /// </summary>
         private void CleanConnection()
         {
-            // Cancels and releases handshake TCS so any waiters are released and TCS won't be reused.
+            // Cancels handshake TCS
             _handshakeCompletionTcs?.TrySetCanceled();
             _handshakeCompletionTcs = null;
 
-            try
-            {
-                _tcpClient?.Close();
-            }
-            catch { }
+            // Cancels connection CTS
+            _connectionCts?.Cancel();
+            _connectionCts?.Dispose();
+            _connectionCts = null;
 
-            try
-            {
-                _tcpClient?.Dispose();
-            }
+            // Disposes TcpClient
+            try 
+            { 
+                _tcpClient?.Dispose(); 
+            } 
             catch { }
-
+            
             _tcpClient = new TcpClient();
 
-            // PacketReader is not IDisposable; clears the reference so callers will reinitialize it.
+            // Resets PacketReader
             _packetReader = null!;
 
-            // Disposes and recreates reader lock to ensure a fresh semaphore after cleanup.
-            try
+            // Disposes and recreates reader lock
+            try 
             {
-                _readerLock?.Dispose();
-            }
-            catch
+                _readerLock?.Dispose(); 
+            } 
+            catch 
             { }
-
+            
             _readerLock = new SemaphoreSlim(1, 1);
         }
 
@@ -240,9 +246,9 @@ namespace chat_client.Net
                 // Notify higher-level listeners that connection and handshake are complete.
                 ConnectionEstablished?.Invoke();
 
-                // Starts the background reader which will own subsequent reads from _packetReader.
-                _ = Task.Run(() => ReadPacketsAsync(cancellationToken), cancellationToken);
-
+                // Launches the dedicated background packet reader controlled by its own connection lifetime token.
+                _connectionCts = new CancellationTokenSource();
+                _ = Task.Run(() => ReadPacketsAsync(_connectionCts.Token));
                 return (uid, publicKeyDer);
             }
             catch (OperationCanceledException)
@@ -444,6 +450,10 @@ namespace chat_client.Net
                 return;
             }
 
+            // Ensures we don't start reading from the shared PacketReader until any handshake reader
+            // that holds _readerLock has finished consuming its frame.
+            await _readerLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            
             try
             {
                 // Continuous read loop. This method must be the only continuous reader of frames.
@@ -609,19 +619,27 @@ namespace chat_client.Net
             }
             finally
             {
-                // Notifies UI then perform centralized cleanup to reset connection state.
+                // Releases the shared reader lock so other readers can proceed if needed.
                 try 
-                { 
-                    Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer()); 
+                {
+                    _readerLock.Release(); 
                 } 
                 catch { }
 
-                try 
-                { 
-                    CleanConnection();
-                } 
+                // Notifies UI then performs centralized cleanup to reset connection state.
+                try
+                {
+                    Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer());
+                }
                 catch { }
-                
+
+                try
+                {
+                    CleanConnection();
+                }
+                catch { }
+
+                // Resets the consecutive unexpected opcode counter to zero after successfully processing a valid packet.
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
             }
         }
@@ -809,40 +827,74 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends a raw payload (not pre-framed). 
-        /// This helper frames the payload and writes atomically.
+        /// Beginner-friendly overview of what this method does:
+        /// • Frames (wraps) the raw payload with a length header so the receiver knows how many bytes to read.
+        /// • Serializes all writes with a shared lock to prevent interleaving data when multiple tasks send at once.
+        /// • Captures the NetworkStream and checks it is writable before sending.
+        /// • Writes the framed bytes asynchronously and awaits completion for proper back-pressure.
+        /// • Handles cancellation and common I/O/disposal errors cleanly, then releases the lock.
         /// </summary>
-        /// <param name="payload"></param>
-        /// <param name="cancellationToken"></param>
         private async Task SendFramedAsync(byte[] payload, CancellationToken cancellationToken)
         {
-            if (payload == null) payload = Array.Empty<byte>();
+            // If payload is null, uses an empty array to avoid null-reference issues.
+            if (payload == null)
+            {
+                payload = Array.Empty<byte>();
+            }
+
+            /// <summary>
+            /// Framing.Frame adds a fixed-size length prefix (4 bytes) before the payload, so the receiver
+            /// can read "length" first, then exactly "length" bytes of the payload — preventing misaligned reads.
+            ///</summary >
             var framed = Framing.Frame(payload);
 
+            /// <summary>
+            /// _writeLock ensures that only one sender writes to the NetworkStream at a time.
+            /// Without this, concurrent writes can interleave bytes and corrupt the framing protocol.
+            /// </summary>
             await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
             try
             {
-                // Capture stream once to avoid races if TcpClient is disposed concurrently
+                /// <summary>
+                /// Gets the stream once to avoid races if _tcpClient changes or is disposed by another thread.
+                /// </summary >
                 var stream = _tcpClient.GetStream();
 
-                // Write and flush using the captured stream
+                // If the stream cannot write, fails fast with a clear message.
+                if (stream is null || !stream.CanWrite)
+                {
+                    throw new InvalidOperationException("NetworkStream is not writable.");
+                }
+
+                // WriteAsync sends the framed bytes to the network without blocking the calling thread.
+                // We await it to apply back-pressure: if the OS buffer is full, we pause until it can accept more data.
                 await stream.WriteAsync(framed, 0, framed.Length, cancellationToken).ConfigureAwait(false);
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+                // Note: FlushAsync on NetworkStream is useless in this context (no-op) for TCP; writes are pushed as they happen.
             }
             catch (OperationCanceledException)
             {
+                // If the cancellationToken was triggered, propagate the cancellation to the caller.
                 throw;
+            }
+            catch (ObjectDisposedException ex)
+            {
+                // The stream (or client) was disposed during write: surface a clear, high-level error.
+                throw new InvalidOperationException("Connection stream disposed during write.", ex);
             }
             catch (IOException ex)
             {
-                // Indicates a connection-level write failure
-                throw new InvalidOperationException("Connection write failed", ex);
+                // I/O failure (e.g., remote closed connection): wrap with a descriptive message.
+                throw new InvalidOperationException("Connection write failed.", ex);
             }
             finally
             {
+                // Always release the write lock so other sends can proceed, even if an error occurred.
                 _writeLock.Release();
             }
         }
+
 
         /// <summary>
         /// Build and send the framed handshake packet, then consume 

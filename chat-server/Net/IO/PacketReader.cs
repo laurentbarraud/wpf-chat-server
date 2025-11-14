@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 12th, 2025</date>
+/// <date>November 14th, 2025</date>
 
 using chat_server.Helpers;
 using System;
@@ -71,62 +71,56 @@ namespace chat_server.Net.IO
         }
 
         /// <summary>
-        /// Reads exactly 'count' bytes from the provided stream asynchronously.
-        /// Throws IOException if the remote peer closes the stream during the read.
+        /// Reads exactly 'byteCount' bytes from the provided stream asynchronously.
+        /// Throws IOException if the remote peer closes the stream before all bytes are read.
         /// </summary>
-        public static async Task<byte[]> ReadExactAsync(Stream stream, int count, CancellationToken cancellationToken = default)
+        public static async Task<byte[]> ReadExactAsync(Stream sourceStream, int byteCount, CancellationToken cancellationToken = default)
         {
-            if (stream == null)
-            {
-                throw new ArgumentNullException(nameof(stream));
-            }
-            
-            if (count <= 0)
-            {
+            if (sourceStream == null)
+                throw new ArgumentNullException(nameof(sourceStream));
+
+            if (byteCount <= 0)
                 return Array.Empty<byte>();
-            } 
 
-            var buffer = new byte[count];
-            int offset = 0;
+            var resultBuffer = new byte[byteCount];
+            int bytesReadTotal = 0;
 
-            while (offset < count)
+            while (bytesReadTotal < byteCount)
             {
-                int read;
-                try
-                {
-                    read = await stream.ReadAsync(buffer, offset, count - offset, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception)
-                {
-                    throw;
-                }
+                // Attempt to read the remaining bytes
+                int bytesRead = await sourceStream
+                    .ReadAsync(resultBuffer, bytesReadTotal, byteCount - bytesReadTotal, cancellationToken)
+                    .ConfigureAwait(false);
 
-                if (read == 0)
-                    throw new IOException("Remote socket closed during ReadExactAsync.");
+                if (bytesRead == 0)
+                    throw new IOException("Remote socket closed before completing ReadExactAsync.");
 
-                offset += read;
+                bytesReadTotal += bytesRead;
             }
 
-            return buffer;
+            return resultBuffer;
         }
 
         /// <summary>
-        /// Reads a framed packet body: a 4-byte network-order length followed by that many bytes.
-        /// Validates the frame length against an absolute maximum to avoid resource exhaustion.
+        /// Reads a framed packet body: a 4-byte network-order (big-endian) length prefix 
+        /// followed by that many bytes. Validates the frame length against an absolute maximum 
+        /// to avoid resource exhaustion.
         /// </summary>
         public async Task<byte[]> ReadFramedBodyAsync(CancellationToken cancellationToken = default)
         {
-            int lengthHost = await ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
+            // Read the 4-byte length prefix in big-endian order and convert to host integer.
+            int packetLength = await ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
 
-            if (lengthHost <= 0 || lengthHost > AbsoluteMaxFrameSize)
-                throw new InvalidDataException($"Framed body length invalid: {lengthHost}");
+            // Validate the length to prevent invalid or maliciously large frames.
+            if (packetLength <= 0 || packetLength > AbsoluteMaxFrameSize)
+                throw new InvalidDataException($"Framed body length invalid: {packetLength}");
 
-            return await ReadExactAsync(BaseStream, lengthHost, cancellationToken).ConfigureAwait(false);
+            // Read exactly 'packetLength' bytes from the stream to get the full packet body.
+            byte[] packetBody = await ReadExactAsync(BaseStream, packetLength, cancellationToken).ConfigureAwait(false);
+
+            return packetBody;
         }
+
 
         /// <summary>
         /// Reads a 4-byte big-endian integer from the stream and returns it in host byte order.
@@ -134,13 +128,20 @@ namespace chat_server.Net.IO
         /// </summary>
         public async Task<int> ReadInt32NetworkOrderAsync(CancellationToken cancellationToken = default)
         {
-            var netBytes = await ReadExactAsync(BaseStream, 4, cancellationToken).ConfigureAwait(false);
+            // Reads exactly 4 bytes from the stream to form the packet length header.
+            byte[] headerBytes = await ReadExactAsync(BaseStream, 4, cancellationToken).ConfigureAwait(false);
 
-            // Diagnostic log: exact 4 bytes read (temporary; remove when debugging complete)
-            ServerLogger.Log($"READ_HEADER={BitConverter.ToString(netBytes)}", ServerLogLevel.Debug);
+            // Diagnostic log: shows the raw header bytes for debugging purposes.
+            ServerLogger.Log($"READ_HEADER={BitConverter.ToString(headerBytes)}", ServerLogLevel.Debug);
 
-            int netValue = BitConverter.ToInt32(netBytes, 0);
-            return IPAddress.NetworkToHostOrder(netValue);
+            // Composes the integer value directly in big-endian order.
+            int packetLength =
+                (headerBytes[0] << 24) |
+                (headerBytes[1] << 16) |
+                (headerBytes[2] << 8) |
+                (headerBytes[3]);
+
+            return packetLength;
         }
 
         /// <summary>
