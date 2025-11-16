@@ -143,7 +143,13 @@ namespace chat_server
                                 byte[] headerBytes = await PacketReader.ReadExactAsync(ns, 4, token).ConfigureAwait(false);
                                 ServerLogger.Log($"READ_HEADER={BitConverter.ToString(headerBytes)}", ServerLogLevel.Debug);
 
-                                int payloadLength = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(headerBytes, 0));
+                                // Interprets the 4-byte header explicitly as big-endian
+                                int payloadLength =
+                                    (headerBytes[0] << 24) |
+                                    (headerBytes[1] << 16) |
+                                    (headerBytes[2] << 8) |
+                                    headerBytes[3];
+
                                 const int MaxHandshakePayload = 65_536;
                                 if (payloadLength <= 0 || payloadLength > MaxHandshakePayload)
                                 {
@@ -415,7 +421,9 @@ namespace chat_server
             // Builds the roster payload
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.RosterBroadcast);
-            builder.WriteString(snapshot.Count.ToString());
+
+            // Writes roster count as 4-byte big-endian Int32
+            builder.WriteInt32NetworkOrder(snapshot.Count);
 
             foreach (var target in snapshot)
             {

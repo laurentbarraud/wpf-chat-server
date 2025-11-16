@@ -64,8 +64,10 @@ namespace chat_server.Net.IO
             int max = maxAllowed ?? DefaultMaxLengthPrefixedBytes;
             int lengthHost = await ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
 
-            if (lengthHost <= 0 || lengthHost > max)
+            if (lengthHost < 0 || lengthHost > max)
                 throw new InvalidDataException($"Length-prefixed payload invalid: {lengthHost}");
+
+            if (lengthHost == 0) return Array.Empty<byte>();
 
             return await ReadExactAsync(BaseStream, lengthHost, cancellationToken).ConfigureAwait(false);
         }

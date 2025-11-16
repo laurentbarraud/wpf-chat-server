@@ -65,7 +65,7 @@ namespace chat_server.Net
         {
             if (value == null) throw new ArgumentNullException(nameof(value));
             var encoded = Encoding.UTF8.GetBytes(value);
-            WriteBytesWithLength(encoded);
+            WriteBytesWithLength(encoded); 
         }
 
         /// <summary>
@@ -123,6 +123,17 @@ namespace chat_server.Net
             await destination.WriteAsync(framed, 0, framed.Length, cancellationToken).ConfigureAwait(false);
             await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
+
+        public void WriteInt32NetworkOrder(int value)
+        {
+            byte[] intBytes = new byte[4];
+            intBytes[0] = (byte)(value >> 24);
+            intBytes[1] = (byte)(value >> 16);
+            intBytes[2] = (byte)(value >> 8);
+            intBytes[3] = (byte)value;
+            _buffer.Write(intBytes, 0, 4);
+        }
+
     }
 }
 

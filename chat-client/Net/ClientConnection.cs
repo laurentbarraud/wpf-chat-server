@@ -952,10 +952,14 @@ namespace chat_client.Net
                 builder.WriteUid(uid);
                 builder.WriteBytesWithLength(publicKeyDer);
                 byte[] payload = builder.GetPacketBytes();
-
-                // Frames header: 4-byte big-endian length.
-                int lenNetwork = IPAddress.HostToNetworkOrder(payload.Length);
-                byte[] header = BitConverter.GetBytes(lenNetwork);
+                
+                // Frames header: 4-byte big-endian length
+                int len = payload.Length;
+                byte[] header = new byte[4];
+                header[0] = (byte)(len >> 24);
+                header[1] = (byte)(len >> 16);
+                header[2] = (byte)(len >> 8);
+                header[3] = (byte)len;
 
                 NetworkStream stream = _tcpClient.GetStream();
 
