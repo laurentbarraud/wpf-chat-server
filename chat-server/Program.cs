@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 14th, 2025</date>
+/// <date>November 16th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -550,30 +550,6 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Frames a raw payload with a 4-byte network-order (big-endian) length prefix
-        /// and returns the combined buffer ready to be sent on the wire.
-        /// </summary>
-        /// <param name="payload">Raw packet payload bytes.</param>
-        /// <returns>Framed packet: 4-byte big-endian length prefix followed by payload.</returns>
-        static byte[] Frame(byte[] payload)
-        {
-            // Allocates single buffer for header + payload to avoid extra allocations/copies
-            var framed = new byte[4 + payload.Length];
-
-            // Writes length in big-endian (network) order explicitly
-            int len = payload.Length;
-            framed[0] = (byte)(len >> 24);
-            framed[1] = (byte)(len >> 16);
-            framed[2] = (byte)(len >> 8);
-            framed[3] = (byte)len;
-
-            // Copies payload immediately after the 4-byte header
-            Buffer.BlockCopy(payload, 0, framed, 4, payload.Length);
-
-            return framed;
-        }
-
-        /// <summary>
         /// Prompts the user to enter a valid TCP port or fallback to default.
         /// </summary>
         /// <returns>Valid port number to use</returns>
@@ -829,9 +805,14 @@ namespace chat_server
                 if (stream == null || tcp?.Connected != true)
                     throw new IOException("Recipient NetworkStream is unavailable or socket not connected.");
 
-                // Builds network-order header
-                int payloadLenNetwork = IPAddress.HostToNetworkOrder(payload.Length);
-                byte[] header = BitConverter.GetBytes(payloadLenNetwork);
+                // Builds the 4-byte length prefix explicitly in big-endian (network order).
+                // This avoids BitConverter endianness issues and guarantees consistent framing.
+                int length = payload.Length;
+                byte[] header = new byte[4];
+                header[0] = (byte)(length >> 24);
+                header[1] = (byte)(length >> 16);
+                header[2] = (byte)(length >> 8);
+                header[3] = (byte)length;
 
                 // Temporary diagnostic logs
                 ServerLogger.Log($"OUTGOING_FRAME_HEADER={BitConverter.ToString(header)} LEN={payload.Length}", ServerLogLevel.Debug);

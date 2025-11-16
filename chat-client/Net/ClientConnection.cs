@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 14th, 2025</date>
+/// <date>November 16th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -827,7 +827,6 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Beginner-friendly overview of what this method does:
         /// • Frames (wraps) the raw payload with a length header so the receiver knows how many bytes to read.
         /// • Serializes all writes with a shared lock to prevent interleaving data when multiple tasks send at once.
         /// • Captures the NetworkStream and checks it is writable before sending.
@@ -894,7 +893,6 @@ namespace chat_client.Net
                 _writeLock.Release();
             }
         }
-
 
         /// <summary>
         /// Build and send the framed handshake packet, then consume 

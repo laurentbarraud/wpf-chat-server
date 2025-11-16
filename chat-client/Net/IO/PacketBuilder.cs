@@ -1,7 +1,7 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 14th, 2025</date>
+/// <date>November 16th, 2025</date>
 
 using System;
 using System.IO;
@@ -77,8 +77,15 @@ namespace chat_client.Net
         public void WriteBytesWithLength(byte[]? data)
         {
             int len = data?.Length ?? 0;
-            var lenPrefix = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(len));
-            _buffer.Write(lenPrefix, 0, lenPrefix.Length);
+
+            // Writes length prefix explicitly in big-endian
+            byte[] lenPrefix = new byte[4];
+            lenPrefix[0] = (byte)(len >> 24);
+            lenPrefix[1] = (byte)(len >> 16);
+            lenPrefix[2] = (byte)(len >> 8);
+            lenPrefix[3] = (byte)len;
+            _buffer.Write(lenPrefix, 0, 4);
+
             if (len > 0)
                 _buffer.Write(data!, 0, len);
         }
@@ -98,8 +105,12 @@ namespace chat_client.Net
             byte[] payload = GetPacketBytes();
             int payloadLength = payload.Length;
 
-            int netOrder = IPAddress.HostToNetworkOrder(payloadLength);
-            var header = BitConverter.GetBytes(netOrder);
+            // Builds header explicitly in big-endian
+            byte[] header = new byte[4];
+            header[0] = (byte)(payloadLength >> 24);
+            header[1] = (byte)(payloadLength >> 16);
+            header[2] = (byte)(payloadLength >> 8);
+            header[3] = (byte)payloadLength;
 
             // Combines header + payload into a single buffer to perform a single WriteAsync if desired.
             // Allocates only once: header (4 bytes) + payload
