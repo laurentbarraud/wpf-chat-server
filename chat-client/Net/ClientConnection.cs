@@ -417,33 +417,27 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Runs on a background thread to read all incoming framed packets
-        /// until the connection closes.
-        /// • Reads full framed payloads (length-prefixed) and parses each field using the
-        ///   async PacketReader.
-        /// • Applies roster snapshots on the UI thread to avoid transient inconsistencies.
-        /// • Completes the handshake TaskCompletionSource when a HandshakeAck is received.
-        /// • Detects repeated unexpected opcodes and triggers a graceful disconnect when a
-        ///   threshold is reached.
-        /// • Uses ConfigureAwait(false) for I/O awaits and explicitly dispatches UI updates
-        ///   via the application dispatcher.
-        /// • Stops on stream close, protocol error, or cancellation.
+        /// Background task that continuously reads framed packets until the connection closes.
+        /// • Reads length‑prefixed payloads with PacketReader.
+        /// • Dispatches roster and message updates to the UI thread.
+        /// • Completes handshake when HandshakeAck is received.
+        /// • Stops gracefully on cancellation, stream close, or protocol error.
         /// 
         /// Notes:
-        /// - This method is the continuous single-reader for framed packets; all frame-level
-        ///   reads must come through the shared _packetReader to preserve framing alignment.
-        /// - Each frame is parsed in-memory (PacketReader over MemoryStream) so parsing code
-        ///   cannot interfere with the underlying network read position.
+        /// - Single reader invariant: all frame reads go through _packetReader.
+        /// - Each frame is parsed in-memory to keep the network stream position aligned.
         /// </summary>
         private async Task ReadPacketsAsync(CancellationToken cancellationToken)
         {
-            // Captures ViewModel reference on the UI thread for later dispatching to UI.
+            // Captures ViewModel reference on the UI thread
             MainViewModel viewModel = null!;
-            Application.Current.Dispatcher.Invoke(() =>
+
+            // Capture ViewModel without blocking the network read thread
+            await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mw)
                     viewModel = mw.ViewModel;
-            });
+            }).Task.ConfigureAwait(false);
 
             if (viewModel == null)
             {
@@ -459,6 +453,12 @@ namespace chat_client.Net
                 // Continuous read loop. This method must be the only continuous reader of frames.
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    if (_tcpClient == null || !_tcpClient.Connected)
+                    {
+                        ClientLogger.Log("ReadPackets: socket not connected, exiting.", ClientLogLevel.Info);
+                        break;
+                    }
+
                     byte[] framedBody;
                     
                     try
@@ -508,11 +508,11 @@ namespace chat_client.Net
                                     rosterEntries.Add((userId, username, publicKeyDer));
                                 }
 
-                                // Dispatches roster update to UI thread.
-                                Application.Current.Dispatcher.Invoke(() =>
+                                // Posts UI update without blocking the background read loop
+                                _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                 {
                                     viewModel.DisplayRosterSnapshot(rosterEntries);
-                                });
+                                }));
                                 break;
 
                             case ClientPacketOpCode.HandshakeAck:
@@ -533,8 +533,13 @@ namespace chat_client.Net
                                 string message = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 
                                 string senderName = viewModel.Users.FirstOrDefault(u => u.UID == senderUid)?.Username ?? senderUid.ToString();
-                                
-                                Application.Current.Dispatcher.Invoke(() => viewModel.OnPlainMessageReceived(senderName, message));
+
+                                // Posts UI update without blocking network read loop
+                                _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                                {
+                                    viewModel.OnPlainMessageReceived(senderName, message);
+                                }));
+
                                 break;
 
                             case ClientPacketOpCode.EncryptedMessage:
@@ -619,31 +624,34 @@ namespace chat_client.Net
             }
             finally
             {
-                // Releases the shared reader lock so other readers can proceed if needed.
-                try 
-                {
-                    _readerLock.Release(); 
-                } 
-                catch { }
-
-                // Notifies UI then performs centralized cleanup to reset connection state.
+                // Always release the reader lock to avoid blocking other consumers on errors
                 try
                 {
-                    Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer());
+                    _readerLock.Release();
                 }
                 catch { }
 
+                // Notifies UI asynchronously to avoid blocking the network read loop
+                try
+                {
+                    _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        viewModel.OnDisconnectedByServer();
+                    }));
+                }
+                catch { }
+
+                // Performs centralized cleanup to reset connection state
                 try
                 {
                     CleanConnection();
                 }
                 catch { }
 
-                // Resets the consecutive unexpected opcode counter to zero after successfully processing a valid packet.
+                // Resets opcode counter on disconnect/cleanup
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
             }
         }
-
 
         /// <summary>
         /// Sends a PublicKeyRequest packet to the server asynchronously to retrieve known public keys.
