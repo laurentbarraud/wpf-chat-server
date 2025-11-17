@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 16th, 2025</date>
+/// <date>November 17th, 2025</date>
 
 
 // The System.ComponentModel namespace enables WPF to track property changes
@@ -14,6 +14,7 @@ using chat_client.MVVM.Model;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 
 namespace chat_client.MVVM.ViewModel
 {
@@ -36,25 +37,6 @@ namespace chat_client.MVVM.ViewModel
             };
 
         public event PropertyChangedEventHandler? PropertyChanged;
-       
-        // Backing fields
-        private int _customPortNumber;
-        private bool _useCustomPort;
-        private bool _reduceToTray;
-        private bool _useEncryption;
-        private string _appLanguage = Properties.Settings.Default.AppLanguage;
-        
-        /// <summary>
-        /// Initializes all properties from saved settings.
-        /// </summary>
-        public SettingsViewModel()
-        {
-            _customPortNumber = Properties.Settings.Default.CustomPortNumber;
-            _useCustomPort = Properties.Settings.Default.UseCustomPort;
-            _reduceToTray = Properties.Settings.Default.ReduceToTray;
-            _useEncryption = Properties.Settings.Default.UseEncryption;
-            _appLanguage = Properties.Settings.Default.AppLanguage;
-        }
 
         /// <summary>
         /// Application UI language code.
@@ -98,17 +80,6 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-        // In a WinForms app you'd typically update controls directly (e.g. myTextBox.Text = value).
-        // In WPF, you expose properties on a ViewModel and rely on data binding to push changes to the UI.
-        // Implementing INotifyPropertyChanged and calling OnPropertyChanged tells the WPF binding engine
-        // “hey, this property’s value just changed—refresh any bound controls.”  
-        // The [CallerMemberName] attribute means you don’t have to hard-code the property name string;
-        // the compiler automatically fills in the name of the property or method that called OnPropertyChanged.
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
         /// <summary>
         /// Minimizes the app to system tray when true.
         /// </summary>
@@ -142,7 +113,8 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Enables or disables encryption pipeline.
+        /// Enables or disables encryption preference.
+        /// Persists immediately and notifies bindings.
         /// </summary>
         public bool UseEncryption
         {
@@ -151,12 +123,52 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_useEncryption == value) return;
                 _useEncryption = value;
-                OnPropertyChanged();                                     // Notifies UI of toggle change
-                Properties.Settings.Default.UseEncryption = value;        // Persists toggle
+
+                // Persist to settings
+                Properties.Settings.Default.UseEncryption = value;
                 Properties.Settings.Default.Save();
+
+                // Notifies UI
+                OnPropertyChanged(nameof(UseEncryption));
+
+                // Logs state change
+                ClientLogger.Log(value ? "Encryption enabled" : "Encryption disabled", ClientLogLevel.Info);
+
+                // Synchronizes with MainViewModel if available
+                if (Application.Current.MainWindow is MainWindow mainWindow &&
+                    mainWindow.DataContext is MainViewModel mainVm)
+                {
+                    mainVm.UseEncryptionSetting = value;
+                }
             }
         }
 
+        // Backing private fields
+        private int _customPortNumber = Properties.Settings.Default.CustomPortNumber;
+        private bool _useCustomPort = Properties.Settings.Default.UseCustomPort;
+        private bool _reduceToTray = Properties.Settings.Default.ReduceToTray;
+        private bool _useEncryption = Properties.Settings.Default.UseEncryption;
+        private string _appLanguage = Properties.Settings.Default.AppLanguage;
+
+        /// <summary>
+        /// Initializes a new instance of SettingsViewModel.
+        /// Properties are initialized directly from saved settings at field declaration.
+        /// </summary>
+        public SettingsViewModel()
+        {
+            
+        }
+
+        // In a WinForms app you'd typically update controls directly (e.g. myTextBox.Text = value).
+        // In WPF, you expose properties on a ViewModel and rely on data binding to push changes to the UI.
+        // Implementing INotifyPropertyChanged and calling OnPropertyChanged tells the WPF binding engine
+        // “hey, this property’s value just changed—refresh any bound controls.”  
+        // The [CallerMemberName] attribute means you don’t have to hard-code the property name string;
+        // the compiler automatically fills in the name of the property or method that called OnPropertyChanged.
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }
 

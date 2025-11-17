@@ -1,26 +1,22 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 16th, 2025</date>
+/// <date>November 17th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.Net;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
-using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows;
-using System.Windows.Documents;
 using System.Windows.Input;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+
 
 namespace chat_client.MVVM.ViewModel
 {
@@ -33,13 +29,17 @@ namespace chat_client.MVVM.ViewModel
     /// </summary>
     public class MainViewModel : INotifyPropertyChanged
     {
-        // PUBLIC PROPERTIES
+        /// <summary>
+        /// Gets whether the chat panels (SpnDown, SpnEmojiPanel) are visible.
+        /// They’re visible only when connected.
+        /// </summary>
+        public bool AreChatControlsVisible => IsConnected;
 
-        private static readonly Dictionary<Guid, byte[]> dictionary = new();
-
-        /// <summary>Stores public keys of other connected users, indexed by their UID.</summary>
-        /// <remarks>Used for encrypting messages to specific recipients; values are DER-encoded public key bytes.</remarks>
-        public Dictionary<Guid, byte[]> KnownPublicKeys { get; } = dictionary;
+        /// <summary>
+        /// Gets whether the username/IP textboxes are editable.
+        /// They’re editable only when not connected.
+        /// </summary>
+        public bool AreCredentialsEditable => !IsConnected;
 
         /// <summary>
         /// Connects or disconnects the client depending on the current connection state.
@@ -197,6 +197,10 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(IsSyncingKeys));
             }
         }
+
+        /// <summary>Stores public keys of other connected users, indexed by their UID.</summary>
+        /// <remarks>Used for encrypting messages to specific recipients; values are DER-encoded public key bytes.</remarks>
+        public Dictionary<Guid, byte[]> KnownPublicKeys { get; } = new Dictionary<Guid, byte[]>();
 
         /// <summary>
         /// Represents the currently authenticated user.
@@ -599,18 +603,6 @@ namespace chat_client.MVVM.ViewModel
             ClientLogger.Log("Encryption is fully activated and ready.", ClientLogLevel.Info);
             return true;
         }
-
-        /// <summary>
-        /// Gets whether the chat panels (SpnDown, SpnEmojiPanel) are visible.
-        /// They’re visible only when connected.
-        /// </summary>
-        public bool AreChatControlsVisible => IsConnected;
-
-        /// <summary>
-        /// Gets whether the username/IP textboxes are editable.
-        /// They’re editable only when not connected.
-        /// </summary>
-        public bool AreCredentialsEditable => !IsConnected;
 
         /// <summary>
         /// Determines whether a message can be encrypted for the specified recipient.

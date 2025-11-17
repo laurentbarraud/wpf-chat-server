@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 16th, 2025</date>
+/// <date>November 17th, 2025</date>
 
 using System;
 using System.Windows.Controls;
@@ -25,11 +25,14 @@ namespace chat_client.MVVM.View
     /// </summary>
     public partial class SettingsWindow : Window
     {
-        public MainViewModel? ViewModel { get; set; }
-
         // Holds the SettingsViewModel instance for data binding
         private readonly SettingsViewModel _settingsViewModel;
 
+        /// <summary>
+        /// Initializes the SettingsWindow.
+        /// Sets up the SettingsViewModel as DataContext, subscribes to property changes,
+        /// and prepares the UI for user preferences such as encryption, custom port, and tray behavior.
+        /// </summary>
         public SettingsWindow()
         {
             InitializeComponent();
@@ -37,31 +40,38 @@ namespace chat_client.MVVM.View
             // Instantiates SettingsViewModel
             _settingsViewModel = new SettingsViewModel();
 
-            // Assigns SettingsViewModel as DataContext
+            // Assigns SettingsViewModel as DataContext, so that all the properties become accessible in XAML via {Binding ...}
             DataContext = _settingsViewModel;
 
-            // Subscribes to view-model property changes
+            // Subscribes once to PropertyChanged; handler reacts to multiple changes
             _settingsViewModel.PropertyChanged += SettingsViewModel_PropertyChanged;
         }
 
-        // Handles ReduceToTray property change to update tray icon
+        /// <summary>
+        /// Handles property change notifications from SettingsViewModel.
+        /// Updates UI elements in SettingsWindow when specific properties change.
+        /// </summary>
+        /// <param name="sender">The SettingsViewModel instance raising the event.</param>
+        /// <param name="e">Provides the name of the property that changed.</param>
         private void SettingsViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
             {
                 case nameof(SettingsViewModel.CustomPortNumber):
-                    ValidatePortInput();                                       // Validates port and updates image
+                    // Validates port and updates image
+                    ValidatePortInput();                                       
                     break;
 
                 case nameof(SettingsViewModel.UseCustomPort):
-                    ImgPortStatus.Visibility =                                 // Shows/hides status icon
-                        _settingsViewModel.UseCustomPort
+                    // Shows/hides status icon
+                    ImgPortStatus.Visibility = _settingsViewModel.UseCustomPort
                         ? Visibility.Visible
                         : Visibility.Collapsed;
                     break;
 
                 case nameof(SettingsViewModel.ReduceToTray):
-                    HandleTrayIcon();                                          // Manages tray icon visibility
+                    // Manages tray icon visibility
+                    HandleTrayIcon();
                     break;
             }
         }
@@ -138,22 +148,6 @@ namespace chat_client.MVVM.View
             }
         }
   
-        private void UseEncryptionToggle_Checked(object sender, RoutedEventArgs e)
-        {
-            // Delegate to MainViewModel
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                Properties.Settings.Default.UseEncryption = true;
-            }
-        }
-
-        private void UseEncryptionToggle_Unchecked(object sender, RoutedEventArgs e)
-        {
-            // Delegate to MainViewModel
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-                Properties.Settings.Default.UseEncryption = false;
-        }
-
         private void ValidatePortInput()
         {
             if (!int.TryParse(TxtCustomPort.Text, out int port)) return;

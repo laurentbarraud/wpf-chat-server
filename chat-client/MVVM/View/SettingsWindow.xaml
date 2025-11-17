@@ -12,51 +12,6 @@
 
     <Window.Resources>
 
-        <!-- Toggles buttons style -->
-        <Style x:Key="CustomToggleStyle" TargetType="ToggleButton">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <Grid>
-                            <!-- Background of the switch -->
-                            <Border x:Name="SwitchBackground"
-                            CornerRadius="16"
-                            Background="{DynamicResource BackgroundBrush}"
-                            BorderBrush="{DynamicResource AccentBrush}"
-                            BorderThickness="1" />
-
-                            <!-- Thumb container with icon -->
-                            <Grid x:Name="ThumbContainer"
-                          Width="30" Height="30"
-                          VerticalAlignment="Center"
-                          Margin="2,2,28,2">
-                                <Ellipse Fill="{DynamicResource PrimaryBrush}" />
-                                <Image x:Name="SwitchIcon"
-                               Width="16" Height="16"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Source="/Resources/syncing-keys.png" />
-                            </Grid>
-                        </Grid>
-
-                        <!-- Triggers to update icon and layout based on toggle state -->
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/encrypted.png" />
-                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
-                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="False">
-                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/syncing-keys.png" />
-                                <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,28,2" />
-                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- 
         Custom style for the "Use Custom TCP Port" toggle.
         Displays a port icon when enabled, and a grayed-out version when disabled.
@@ -367,14 +322,14 @@
 
                 <ToggleButton x:Name="UseEncryptionToggle"
                               Grid.Column="1"
-                              Style="{StaticResource EncryptionToggleStyle}"
-                              IsChecked="{Binding UseEncryption, Mode=TwoWay}"
+                              Style="{StaticResource EncryptionToggleStyle}"   
+                              IsChecked="{Binding UseEncryption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                               Width="60" Height="30"
                               Margin="10,0,0,0"
-                              Checked="UseEncryptionToggle_Checked"
-                              Unchecked="UseEncryptionToggle_Unchecked"
                               TabIndex="7"
                               IsEnabled="True" />
+                <!-- UpdateSourceTrigger=PropertyChanged: immediately pushes toggle state changes
+                to the ViewModel as soon as the toggle state changes, not only when focus is lost.-->
             </Grid>
 
             <!-- Row 4: App Language -->
@@ -440,14 +395,14 @@
         <!-- Validate button -->
         <Button Grid.Row="1"
                 x:Name="CmdValidate"
-                Width="30" Height="30"
+                Width="51" Height="30"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
                 Background="{DynamicResource PrimaryBrush}"
                 Margin="0,12,0,0"
                 ToolTip="Done"
                 Click="CmdValidate_Click"
-                IsDefault="True" TabIndex="10">
+                IsDefault="True" TabIndex="10" Grid.RowSpan="2">
             <Image Source="/Resources/validate.png" Stretch="Uniform"/>
         </Button>
 
