@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 17th, 2025</date>
+/// <date>November 18th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -543,20 +543,28 @@ namespace chat_client.Net
                                 break;
 
                             case ClientPacketOpCode.EncryptedMessage:
-                                
-                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+                                {
+                                    // Resets unexpected opcode counter.
+                                    Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                Guid encSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discard recipient placeholder
-                                byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
+                                    // Reads sender UID and discard recipient UID (not needed on client side).
+                                    Guid encryptedSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                string encSenderName = viewModel.Users.FirstOrDefault(u => u.UID == encSenderUid)?.Username ?? encSenderUid.ToString();
-                                
-                                // Synchronous decryption kept local to avoid async overhead in crypto path.
-                                string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
-                                
-                                Application.Current.Dispatcher.Invoke(() => viewModel.OnPlainMessageReceived(encSenderName, plainText));
-                                break;
+                                    // Reads ciphertext payload.
+                                    byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
+
+                                    // Resolves sender name for display.
+                                    string encryptedSenderName = viewModel.Users.FirstOrDefault(u => u.UID == encryptedSenderUid)?.Username
+                                                                 ?? encryptedSenderUid.ToString();
+
+                                    // Decrypts synchronously to avoid async overhead in crypto path.
+                                    string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+
+                                    // Dispatches decrypted message to UI thread.
+                                    Application.Current.Dispatcher.Invoke(() => viewModel.OnPlainMessageReceived(encryptedSenderName, plainText));
+                                    break;
+                                }
 
                             case ClientPacketOpCode.PublicKeyResponse:
                                 

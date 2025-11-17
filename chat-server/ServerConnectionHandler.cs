@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 17th, 2025</date>
+/// <date>November 18th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -350,10 +350,13 @@ namespace chat_server
 
                             case ServerPacketOpCode.EncryptedMessage:
                                 {
-                                    var encSenderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    var encRecipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    var ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
-                                    await Program.RelayEncryptedMessageToAUser(ciphertext, encSenderUid, encRecipientUid, cancellationToken).ConfigureAwait(false);
+                                    // Reads sender UID, recipient UID, and ciphertext payload from the stream.
+                                    Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
+
+                                    // Relay the encrypted payload to the intended recipient without decryption.
+                                    await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
 

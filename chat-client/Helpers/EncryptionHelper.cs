@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 17th, 2025</date>
+/// <date>November 18th, 2025</date>
 
 ///<summary>
 ///Technical note : 
@@ -131,11 +131,9 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Decrypts raw RSA-OAEP-SHA256 ciphertext bytes using the local private key and returns the UTF-8 plaintext.
-        /// This method checks the global encryption flag, validates the input payload, performs a single-step RSA
-        /// private-key import and decryption (DER private key expected), and returns a localized error string on any failure.
+        /// Decrypts RSA-OAEP-SHA256 ciphertext using the local private key.
+        /// Returns UTF-8 plaintext or a localized error string on failure.
         /// </summary>
-        /// <param name="cipherBytes">Ciphertext as raw byte array.</param>
         public static string DecryptMessageFromBytes(byte[] cipherBytes)
         {
             if (!IsEncryptionActive)
@@ -154,14 +152,10 @@ namespace chat_client.Helpers
             {
                 using var rsa = RSA.Create();
 
-                /// <summary>
-                /// Imports the private key from DER-encoded bytes into the RSA object.
-                /// This call expects a PKCS#1 DER-encoded private key.
-                /// ImportRSAPrivateKey performs a direct, memory-only import and initializes the RSA key material
-                /// used immediately for decryption.
-                /// </summary >
+                // Imports private key from DER-encoded bytes into RSA object.
                 rsa.ImportRSAPrivateKey(PrivateKeyDer, out _);
 
+                // Performs RSA decryption with OAEP-SHA256 padding.
                 byte[] plainBytes = rsa.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
                 return Encoding.UTF8.GetString(plainBytes);
             }

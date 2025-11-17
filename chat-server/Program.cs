@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 17th, 2025</date>
+/// <date>November 18th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -618,7 +618,7 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Relays an encrypted payload from sender to recipient:
+        /// Relays an encrypted payload from sender to recipient.
         /// • Validates recipient connection and ciphertext presence.
         /// • Builds packet: opcode, sender UID, recipient UID, length-prefixed ciphertext.
         /// • Frames packet for wire transport (4-byte length prefix + payload).
@@ -626,12 +626,11 @@ namespace chat_server
         /// </summary>
         public static async Task RelayEncryptedMessageToAUser(byte[] ciphertext, Guid senderUid, Guid recipientUid, CancellationToken cancellationToken)
         {
-            // Snapshots current users
-            var snapshot = Users.ToList();
+            // Snapshots current users to avoid collection modification issues.
+            var recipient = Users.FirstOrDefault(u => u.UID == recipientUid);
 
-            // Finds recipient and ensures socket is connected.
-            var recipient = snapshot.FirstOrDefault(u => u.UID == recipientUid);
-            if (recipient == null || recipient.ClientSocket == null || recipient.ClientSocket.Connected != true)
+            // Ensures recipient exists and is connected.
+            if (recipient?.ClientSocket == null || recipient.ClientSocket.Connected != true)
             {
                 ServerLogger.LogLocalized("EncryptedMessageRelayFailed", ServerLogLevel.Warn, recipientUid.ToString(), "Recipient not connected");
                 return;
@@ -651,15 +650,11 @@ namespace chat_server
             builder.WriteUid(recipientUid);
             builder.WriteBytesWithLength(ciphertext);
 
-            // Frames payload for on-the-wire transport
             byte[] payload = builder.GetPacketBytes();
 
-            // Shows what the builder returned before sending
-            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
-
-            // Sends framed packet via SendFramedAsync and logs outcome.
             try
             {
+                // Sends framed packet to recipient.
                 await SendFramedAsync(recipient, payload, cancellationToken).ConfigureAwait(false);
                 ServerLogger.LogLocalized("EncryptedMessageRelaySuccess", ServerLogLevel.Debug, recipient.Username);
             }
