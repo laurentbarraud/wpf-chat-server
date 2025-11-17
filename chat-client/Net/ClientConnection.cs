@@ -716,125 +716,6 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Encrypts and sends a plaintext message to all peers via the server.
-        /// 
-        /// 
-        /// Allows cancellation.
-        /// Returns true if at least one encrypted message was sent.
-        /// </summary>
-        public async Task<bool> SendEncryptedMessageToServerAsync(string plainText, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrWhiteSpace(plainText))
-                return false;
-
-            if (Application.Current.MainWindow is not MainWindow mainWindow ||
-                mainWindow.ViewModel is not MainViewModel viewModel ||
-                viewModel.LocalUser == null)
-            {
-                return false;
-            }
-
-            /// <summary>
-            /// Runs on the thread-pool: a shared, reusable platform thread for background work.
-            /// Moves CPU-bound or potentially blocking work off the UI thread to avoid freezes,
-            /// while still allowing awaited asynchronous network calls inside the task.
-            /// </summary>
-            return await Task.Run(async () =>
-            {
-                Guid senderUid = viewModel.LocalUser.UID;
-                var recipients = viewModel.Users.Where(u => u.UID != senderUid).ToList();
-                if (recipients.Count == 0)
-                    recipients.Add(viewModel.LocalUser);
-
-                bool messageSent = false;
-
-                foreach (var recipient in recipients)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    Guid recipientUid = recipient.UID;
-                    byte[] publicKeyDer;
-
-                    // Obtains public key with minimal locking
-                    lock (viewModel.KnownPublicKeys)
-                    {
-                        if (recipientUid == senderUid)
-                        {
-                            publicKeyDer = viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>();
-                        }
-                        else
-                        {
-                            viewModel.KnownPublicKeys.TryGetValue(recipientUid, out byte[]? key);
-                            publicKeyDer = key ?? Array.Empty<byte>();
-                        }
-                    }
-
-                    if (recipientUid == senderUid)
-                    {
-                        if (publicKeyDer.Length == 0)
-                        {
-                            ClientLogger.Log($"Cannot encrypt to self: missing local public key for UID {senderUid}", ClientLogLevel.Error);
-                            continue;
-                        }
-                    }
-                    else
-                    {
-                        // Awaits the request and allow cancellation; keeps UI responsive while ensuring send is observed
-                        await SendRequestToPeerForPublicKeyAsync(recipientUid, cancellationToken).ConfigureAwait(false);
-
-                        // Ensures server has our public key
-                        var localKey = viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>();
-                        if (localKey.Length == 0)
-                        {
-                            ClientLogger.Log("Cannot send public key: LocalUser.PublicKeyDer is uninitialized.", ClientLogLevel.Warn);
-                        }
-                        else
-                        {
-                            // Awaits so forwarding can occur before encryption attempt
-                            await viewModel._server.SendPublicKeyToServerAsync(viewModel.LocalUser.UID, localKey, cancellationToken).ConfigureAwait(false);
-                        }
-
-                        viewModel.MarkKeyAsSentTo(recipientUid);
-                    }
-
-                    try
-                    {
-                        // Encryption is CPU-bound; still runs on thread-pool because we're inside Task.Run
-                        byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
-                        if (cipherArray == null || cipherArray.Length == 0)
-                        {
-                            ClientLogger.Log($"Encryption produced empty ciphertext for recipient {recipientUid}.", ClientLogLevel.Warn);
-                            continue;
-                        }
-
-                        var encryptedMessagePacket = new PacketBuilder();
-                        encryptedMessagePacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
-                        encryptedMessagePacket.WriteUid(senderUid);
-                        encryptedMessagePacket.WriteUid(recipientUid);
-                        encryptedMessagePacket.WriteBytesWithLength(cipherArray);
-
-                        // Uses the centralized SendFramedAsync helper (frames + single-writer) for robustness
-                        await SendFramedAsync(encryptedMessagePacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
-
-                        ClientLogger.Log($"Encrypted message sent to {recipientUid}.", ClientLogLevel.Debug);
-                        messageSent = true;
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Propagates cancellation to caller
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        ClientLogger.Log($"Failed to encrypt or send to {recipientUid}: {ex.Message}", ClientLogLevel.Error);
-                    }
-                }
-
-                return messageSent;
-            }, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
         /// • Frames (wraps) the raw payload with a length header so the receiver knows how many bytes to read.
         /// • Serializes all writes with a shared lock to prevent interleaving data when multiple tasks send at once.
         /// • Captures the NetworkStream and checks it is writable before sending.
@@ -1024,91 +905,95 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Builds and sends a framed plain-text chat packet to the server asynchronously.
-        /// Packet structure:
-        ///   [4-byte big-endian length]
-        ///   [1-byte opcode: PlainMessage]
-        ///   [16-byte sender UID]
-        ///   [4-byte message length][UTF-8 message bytes]
-        /// Sends the framed packet atomically.
+        /// Sends a chat message to the server, either plain or encrypted depending on settings.
+        /// Validates session and key material before attempting encryption.
+        /// Returns true if the message was successfully sent.
         /// </summary>
-        /// <param name="message">The chat message to broadcast.</param>
-        /// <param name="cancellationToken">Optional token to cancel the send operation.</param>
-        /// <returns>True if the packet was sent; false on error or invalid state.</returns>
-        public async Task<bool> SendPlainMessageToServerAsync(string message, CancellationToken cancellationToken = default)
+        public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
-            // Validates input message early to avoid unnecessary allocations or network activity.
-            if (string.IsNullOrWhiteSpace(message))
+            if (string.IsNullOrWhiteSpace(plainText))
             {
                 return false;
             }
 
-            // Ensures the TCP client and underlying socket are valid and connected.
-            if (_tcpClient?.Connected != true)
-            {
-                ClientLogger.Log("SendPlainMessageToServer failed: socket not connected.", ClientLogLevel.Error);
-                return false;
-            }
-
-            // Retrieves application UI model and verifies that the local user is initialized.
             if (Application.Current.MainWindow is not MainWindow mainWindow ||
                 mainWindow.ViewModel is not MainViewModel viewModel ||
                 viewModel.LocalUser == null)
             {
-                ClientLogger.Log("SendPlainMessageToServer failed: Local user is not initialized.", ClientLogLevel.Error);
                 return false;
             }
 
-            // Validates that the local user's GUID is set.
             Guid senderUid = viewModel.LocalUser.UID;
-            if (senderUid == Guid.Empty)
+            var recipients = viewModel.Users.Where(u => u.UID != senderUid).ToList();
+
+            // When no other user is present, local user is added to keep the sending logic coherent.
+            if (recipients.Count == 0)
             {
-                ClientLogger.Log("SendPlainMessageToServer failed: LocalUser.UID is empty.", ClientLogLevel.Error);
-                return false;
+                recipients.Add(viewModel.LocalUser);
             }
 
-            // Trims and normalizes the message to avoid sending leading/trailing whitespace.
-            string trimmedMessage = message.Trim();
-            if (trimmedMessage.Length == 0)
+            bool messageSent = false;
+
+            foreach (var recipient in recipients)
             {
-                return false;
+                cancellationToken.ThrowIfCancellationRequested();
+                Guid recipientUid = recipient.UID;
+
+                var packet = new PacketBuilder();
+                packet.WriteUid(senderUid);
+                packet.WriteUid(recipientUid);
+
+                // Plain message path
+                if (!Properties.Settings.Default.UseEncryption)
+                {
+                    packet.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                    packet.WriteString(plainText);
+                }
+                // Encrypted message path
+                else
+                {
+                    byte[] publicKeyDer;
+
+                    lock (viewModel.KnownPublicKeys)
+                    {
+                        // Attempts to retrieve the recipient's public key from the dictionary;
+                        // returns true if found, otherwise keyFound will be null.
+                        viewModel.KnownPublicKeys.TryGetValue(recipientUid, out byte[]? keyFound);
+                        publicKeyDer = keyFound ?? Array.Empty<byte>();
+                    }
+
+                    if (publicKeyDer.Length == 0)
+                    {
+                        ClientLogger.Log($"Missing public key for recipient {recipientUid}.", ClientLogLevel.Warn);
+                        continue;
+                    }
+
+                    // Encrypts the plaintext message using the recipient's public key,
+                    // producing a byte array containing the ciphertext.
+                    byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
+
+                    if (cipherArray == null || cipherArray.Length == 0)
+                    {
+                        ClientLogger.Log($"Encryption failed for recipient {recipientUid}.", ClientLogLevel.Error);
+                        continue;
+                    }
+
+                    packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                    packet.WriteBytesWithLength(cipherArray);
+                }
+
+                try
+                {
+                    await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                    messageSent = true;
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"Failed to send message to {recipientUid}: {ex.Message}", ClientLogLevel.Error);
+                }
             }
 
-            try
-            {
-                // Builds the packet payload using PacketBuilder.
-                // The payload contains: opcode, sender UID, and the UTF-8 length-prefixed message.
-                var packetBuilder = new PacketBuilder();
-                packetBuilder.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
-                packetBuilder.WriteUid(senderUid);
-                packetBuilder.WriteString(trimmedMessage);
-
-                // Acquires the NetworkStream from the TcpClient used for this connection.
-                NetworkStream networkStream = _tcpClient.GetStream();
-
-                // Sends the framed packet atomically via the network stream.
-                // Use the token-aware overload if available; otherwise the existing overload will be called.
-                await packetBuilder.WriteFramedPacketAsync(networkStream, cancellationToken).ConfigureAwait(false);
-
-                // Creates a short preview for logging to avoid leaking long messages into logs.
-                string logPreview = trimmedMessage.Length > 64
-                    ? trimmedMessage.Substring(0, 64) + "…"
-                    : trimmedMessage;
-
-                ClientLogger.Log($"Sending plain message: \"{logPreview}\"", ClientLogLevel.Debug);
-                return true;
-            }
-            catch (OperationCanceledException)
-            {
-                ClientLogger.Log("SendPlainMessageToServer canceled", ClientLogLevel.Debug);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                // Logs and returns false on any network or builder error.
-                ClientLogger.Log($"SendPlainMessageToServer exception: {ex.Message}", ClientLogLevel.Error);
-                return false;
-            }
+            return messageSent;
         }
 
         /// <summary>

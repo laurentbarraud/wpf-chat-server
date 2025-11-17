@@ -272,11 +272,12 @@ namespace chat_client
 
         /// <summary>
         /// Executes when the user clicks the Send button.
-        /// Determines whether to encrypt or send as plain text based on UseEncryption app setting.
-        /// Each packet is passed through the Frame method, which prefixes the payload with a
-        /// 4-byte big-endian length header, so the server can correctly parse the incoming data.
+        /// Validates connection state and message content, then awaits SendMessageAsync
+        /// (which handles plain or encrypted messages transparently).
+        /// Each packet is framed with a 4-byte big-endian length header so the server
+        /// can correctly parse the incoming data.
         /// </summary>
-        private void CmdSend_Click(object sender, RoutedEventArgs e)
+        private async void CmdSend_Click(object sender, RoutedEventArgs e)
         {
             // Prevents sending if the message is empty, the socket is not connected,
             // or the handshake/establishment is not yet complete.
@@ -290,64 +291,12 @@ namespace chat_client
 
             try
             {
-                bool sendingMessageSucceeded;
+                string messageToSend = MainViewModel.Message;
 
-                // Chooses the appropriate send method based on the user’s encryption preference
-                if (Properties.Settings.Default.UseEncryption)
-                {
-                    // Fire-and-forget: launch async send with CancellationToken.None
-                    // and observes result to avoid unobserved exceptions
-                    // ContinueWith is useful when we can't make the calling method async.
-                    _ = ViewModel._server.SendEncryptedMessageToServerAsync(MainViewModel.Message, CancellationToken.None)
-                        .ContinueWith(taskSend =>
-                        {
-                            if (taskSend.IsCanceled)
-                            {
-                                ClientLogger.Log("SendEncryptedMessageToServerAsync cancelled.", ClientLogLevel.Debug);
-                            }
-                            else if (taskSend.IsFaulted)
-                            {
-                                ClientLogger.Log($"SendEncryptedMessageToServerAsync failed: {taskSend.Exception?.GetBaseException().Message}", ClientLogLevel.Error);
-                            }
-                        }, TaskScheduler.Default);
+                // Awaits the unified send method; handles encryption internally if enabled.
+                bool success = await ViewModel._server.SendMessageAsync(messageToSend, CancellationToken.None);
 
-                    sendingMessageSucceeded = true; // optimistic: UI doesn't block waiting for network
-                }
-                else
-                {
-                    // Fire-and-forget plain send: optimistic UI update, observe result to avoid unobserved exceptions.
-                    _ = ViewModel._server.SendPlainMessageToServerAsync(MainViewModel.Message, CancellationToken.None)
-                        .ContinueWith(taskSend =>
-                        {
-                            if (taskSend.IsCanceled)
-                            {
-                                ClientLogger.Log("SendPlainMessageToServerAsync cancelled.", ClientLogLevel.Debug);
-                            }
-                            else if (taskSend.IsFaulted)
-                            {
-                                var errorMessage = taskSend.Exception?.GetBaseException().Message ?? "unknown";
-                                ClientLogger.Log($"SendPlainMessageToServerAsync failed: {errorMessage}", ClientLogLevel.Error);
-
-                                // Marshal UI update to UI thread to show failure notice
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
-                                });
-                            }
-                            else if (taskSend.IsCompleted && taskSend.Result == false)
-                            {
-                                // The send method returned false (logical failure) — notify UI
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
-                                });
-                            }
-                        }, TaskScheduler.Default);
-
-                    sendingMessageSucceeded = true; // optimistic: UI doesn't block waiting for network
-                }
-
-                if (sendingMessageSucceeded)
+                if (success)
                 {
                     // Clears the input box and refocuses it on success
                     TxtMessageToSend.Text = "";
@@ -355,9 +304,7 @@ namespace chat_client
                 }
                 else
                 {
-                    // Logs the failure and adds a localized error notice to the chat history
-                    string mode = Properties.Settings.Default.UseEncryption ? "encrypted" : "plain";
-                    ClientLogger.Log($"Failed to send {mode} message: {MainViewModel.Message}", ClientLogLevel.Error);
+                    // Notifies user of logical failure (e.g., missing keys or encryption error)
                     ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
                 }
             }
