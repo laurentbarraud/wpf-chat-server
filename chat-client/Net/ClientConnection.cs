@@ -93,6 +93,13 @@ namespace chat_client.Net
         private TaskCompletionSource<bool>? _handshakeCompletionTcs;
 
         /// <summary>
+        /// Ensures that encryption initialization runs only once per session.
+        /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
+        /// Reset to 0 during disconnect cleanup to allow fresh initialization.
+        /// </summary>
+        private int _encryptionInitOnce = 0;
+
+        /// <summary>
         /// Indicates whether the local public key has already been sent to the server.
         /// • Ensures idempotence: the key is transmitted only once after HandshakeAck.
         /// • Prevents repeated key-send loops during reconnection or multiple ACK events.
@@ -361,7 +368,11 @@ namespace chat_client.Net
             }
             finally
             {
+                // Resets disconnect flag so future disconnect calls are allowed
                 Volatile.Write(ref _disconnectFromServerCalled, 0);
+
+                // Resets the init flag on disconnect so a new session can initialize cleanly.
+                Volatile.Write(ref _encryptionInitOnce, 0);
             }
         }
 
@@ -982,80 +993,164 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends a chat message to the server, either plain or encrypted depending on settings.
-        /// Validates session and key material before attempting encryption.
+        /// Sends a chat message to the server.
+        /// Chooses plain or encrypted mode depending on user settings and runtime readiness.
+        /// Validates session, recipients, and public key availability before attempting encryption.
         /// Returns true if the message was successfully sent.
         /// </summary>
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
+            // Avoids sending empty messages
             if (string.IsNullOrWhiteSpace(plainText))
-            {
                 return false;
-            }
 
+            // Ensures main window, view model, and local user are available
             if (Application.Current.MainWindow is not MainWindow mainWindow ||
                 mainWindow.ViewModel is not MainViewModel viewModel ||
                 viewModel.LocalUser == null)
-            {
                 return false;
-            }
 
             Guid senderUid = viewModel.LocalUser.UID;
+
+            // Builds recipient list (normal path if peers exist)
             var recipients = viewModel.Users.Where(u => u.UID != senderUid).ToList();
-
-            // When no other user is present, local user is added to keep the sending logic coherent.
-            if (recipients.Count == 0)
-            {
-                recipients.Add(viewModel.LocalUser);
-            }
-
             bool messageSent = false;
 
-            foreach (var recipient in recipients)
+            /// <summary>
+            /// --- Normal path: send to each peer ---
+            /// </ summary >
+            if (recipients.Count >= 1)
+            {
+                foreach (var recipient in recipients)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Guid recipientUid = recipient.UID;
+
+                    var packet = new PacketBuilder();
+
+                    /// <summary >
+                    /// Decides encryption mode:
+                    /// toggle ON + runtime ready → encrypted,
+                    /// else plain
+                    /// </ summary >
+                    bool useEncryptionNow = Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady;
+
+                    /// <summary>
+                    /// --- Send Plain message ---
+                    /// </ summary >
+                    if (!useEncryptionNow)
+                    {
+                        // [opcode][senderUid][string]
+                        packet.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                        packet.WriteUid(senderUid);
+                        packet.WriteString(plainText);
+                    }
+                    /// <summary>
+                    /// --- Send encrypted message ---
+                    /// </ summary >
+                    else
+                    {
+                        // Lookup recipient public key
+                        byte[] publicKeyDer;
+                        lock (viewModel.KnownPublicKeys)
+                        {
+                            /// <summary>
+                            /// Attempts to retrieve the recipient's RSA public key (DER format) from the dictionary.
+                            /// If found, it is returned in 'keyFound'; if not, 'keyFound' remains null and encryption cannot proceed.
+                            /// </ summary >
+                            viewModel.KnownPublicKeys.TryGetValue(recipientUid, out byte[]? keyFound);
+
+                            publicKeyDer = keyFound ?? Array.Empty<byte>();
+                        }
+
+                        if (publicKeyDer.Length == 0)
+                        {
+                            ClientLogger.Log($"Missing public key for recipient {recipientUid}.", ClientLogLevel.Warn);
+                            continue;
+                        }
+
+                        /// <summary>
+                        /// Encrypt plaintext with recipient's RSA public key (DER format)
+                        /// </summary>
+                        byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
+                        if (cipherArray == null || cipherArray.Length == 0)
+                        {
+                            ClientLogger.Log($"Encryption failed for recipient {recipientUid}.", ClientLogLevel.Error);
+                            continue;
+                        }
+
+                        // [opcode][senderUid][recipientUid][bytes-with-length]
+                        packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                        packet.WriteUid(senderUid);
+                        packet.WriteUid(recipientUid);
+                        packet.WriteBytesWithLength(cipherArray);
+                    }
+
+                    try
+                    {
+                        await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                        messageSent = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        ClientLogger.Log($"Failed to send message to {recipientUid}: {ex.Message}", ClientLogLevel.Error);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// --- Solo mode: recipient is the sender ---
+            /// </summary>
+            else
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Guid recipientUid = recipient.UID;
+                Guid recipientUid = senderUid;
 
                 var packet = new PacketBuilder();
-                packet.WriteUid(senderUid);
-                packet.WriteUid(recipientUid);
+                bool useEncryptionNow = Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady;
 
-                // Plain message path
-                if (!Properties.Settings.Default.UseEncryption)
+                /// <summary<>
+                /// --- Send Plain self-message ---
+                /// </summary>
+                if (!useEncryptionNow)
                 {
+                    // [opcode][senderUid][string]
                     packet.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                    packet.WriteUid(senderUid);
                     packet.WriteString(plainText);
                 }
-                // Encrypted message path
+
+                /// <summary>
+                /// --- Encrypted self-message ---
+                /// </ summary >
                 else
                 {
+                    // Looks-up local public key
                     byte[] publicKeyDer;
-
                     lock (viewModel.KnownPublicKeys)
                     {
-                        // Attempts to retrieve the recipient's public key from the dictionary;
-                        // returns true if found, otherwise keyFound will be null.
-                        viewModel.KnownPublicKeys.TryGetValue(recipientUid, out byte[]? keyFound);
+                        viewModel.KnownPublicKeys.TryGetValue(senderUid, out byte[]? keyFound);
                         publicKeyDer = keyFound ?? Array.Empty<byte>();
                     }
 
                     if (publicKeyDer.Length == 0)
                     {
-                        ClientLogger.Log($"Missing public key for recipient {recipientUid}.", ClientLogLevel.Warn);
-                        continue;
+                        ClientLogger.Log($"Missing local public key for self-message.", ClientLogLevel.Warn);
+                        return false;
                     }
 
-                    // Encrypts the plaintext message using the recipient's public key,
-                    // producing a byte array containing the ciphertext.
+                    // Encrypts plaintext with local RSA public key (DER format)
                     byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
-
                     if (cipherArray == null || cipherArray.Length == 0)
                     {
-                        ClientLogger.Log($"Encryption failed for recipient {recipientUid}.", ClientLogLevel.Error);
-                        continue;
+                        ClientLogger.Log("Encryption failed for self-message.", ClientLogLevel.Error);
+                        return false;
                     }
 
+                    // [opcode][senderUid][recipientUid][bytes-with-length]
                     packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                    packet.WriteUid(senderUid);
+                    packet.WriteUid(recipientUid);
                     packet.WriteBytesWithLength(cipherArray);
                 }
 
@@ -1066,7 +1161,7 @@ namespace chat_client.Net
                 }
                 catch (Exception ex)
                 {
-                    ClientLogger.Log($"Failed to send message to {recipientUid}: {ex.Message}", ClientLogLevel.Error);
+                    ClientLogger.Log($"Failed to send self-message: {ex.Message}", ClientLogLevel.Error);
                 }
             }
 

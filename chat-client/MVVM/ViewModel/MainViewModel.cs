@@ -354,6 +354,13 @@ namespace chat_client.MVVM.ViewModel
         private CancellationTokenSource? _encryptionCts;
 
         /// <summary>
+        /// Ensures that encryption initialization runs only once per session.
+        /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
+        /// Reset to 0 during disconnect cleanup to allow fresh initialization.
+        /// </summary>
+        private int _encryptionInitOnce = 0;
+
+        /// <summary>
         /// Stores the current theme selection state.
         /// Initialized from the saved AppTheme ("Dark" = true, otherwise false).
         /// </summary>
@@ -821,6 +828,9 @@ namespace chat_client.MVVM.ViewModel
 
                 // Updates the connection state to false, re-enabling login controls
                 IsConnected = false;
+
+                // Resets the init flag so a new session can initialize encryption cleanly
+                Volatile.Write(ref _encryptionInitOnce, 0);
             }
             catch (Exception ex)
             {
@@ -992,10 +1002,17 @@ namespace chat_client.MVVM.ViewModel
 
         public async Task<bool> InitializeEncryptionAsync(CancellationToken cancellationToken)
         {
-            if (LocalUser == null || EncryptionHelper.IsEncryptionActive)
+            // Prevents double initialization when encryption toggle is already on before connecting.
+            // Ensures key generation and public key publishing run exactly once per session.
+            if (LocalUser == null)
             {
-                ClientLogger.Log("Skips encryption initialization — LocalUser is null or encryption already active.",
-                    ClientLogLevel.Debug);
+                ClientLogger.Log("Skips encryption initialization — LocalUser is null.", ClientLogLevel.Debug);
+                return false;
+            }
+
+            if (Interlocked.CompareExchange(ref _encryptionInitOnce, 1, 0) != 0)
+            {
+                ClientLogger.Log("Skips encryption initialization — already active for this session.", ClientLogLevel.Debug);
                 return false;
             }
 
