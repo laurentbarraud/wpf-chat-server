@@ -877,103 +877,51 @@ namespace chat_server
         }
 
         /// <summary>
-        /// • Gracefully stops the listener and cancels background accept/dispatch work.
-        /// • Broadcasts a framed ForceDisconnectClient packet to all clients.
-        /// • Closes all client sockets and clears Users.
+        /// Gracefully shuts down the server:
+        /// • Stops listener and cancels accept loop
+        /// • Broadcasts ForceDisconnect to all clients
+        /// • Closes sockets and clears Users
+        /// • Resets accept CTS for restart
         /// </summary>
         public static async Task ShutdownAsync(CancellationToken cancellationToken)
         {
             Console.WriteLine(LocalizationManager.GetString("ServerShutdown"));
 
-            // Stops accepting new clients
-            try
-            { 
-                Listener?.Stop(); 
-            } 
-            catch 
-            { 
-            }
+            // Stops listener and cancels accept loop
+            Listener?.Stop();
+            _acceptCts?.Cancel();
 
-            // Cancels accept loop and any background tasks
-            try 
-            { 
-                _acceptCts?.Cancel(); 
-            } 
-            catch 
-            { 
-            }
-
-            // Broadcasts a ForceDisconnect to all clients (uses provided token)
+            // Broadcasts a force disconnect packet
             try
             {
                 await BroadcastForceDisconnect(cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
-            {
+            catch (OperationCanceledException) 
+            { 
+            
             }
+
             catch (Exception ex)
             {
                 ServerLogger.LogLocalized("BroadcastForceDisconnectFailed", ServerLogLevel.Warn, ex.Message);
             }
 
-            // Allow in-flight packets to traverse briefly (100 ms)
-            try
+            // Briefs delay to flush packets
+            await Task.Delay(100, cancellationToken).ContinueWith(_ => { });
+
+            // Closes sockets and clears roster
+            lock (Users)
             {
-                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
+                foreach (var usr in Users.ToList())
+                    usr.ClientSocket?.Dispose();
+                Users.Clear();
             }
 
-            // Closes all client sockets and clears the roster
-            try
-            {
-                lock (Users)
-                {
-                    foreach (var usr in Users.ToList())
-                    {
-                        try { usr.ClientSocket?.Close(); } catch { }
-                    }
-                    Users.Clear();
-                }
-            }
-            catch { }
+            // Resets accept CTS
+            _acceptCts?.Dispose();
+            _acceptCts = new CancellationTokenSource();
 
-            // Disposes and recreates the accept CancellationTokenSource for possible restart
-            try
-            {
-                _acceptCts?.Dispose();
-                _acceptCts = new CancellationTokenSource();
-            }
-            catch { }
-
-            try { Console.WriteLine(LocalizationManager.GetString("ServerShutdownComplete")); } catch { }
-        }
-
-        /// <summary>
-        /// Attempts to construct a ServerConnectionHandler from a raw TcpClient.
-        /// On failure this method closes the raw socket and returns null
-        /// </summary>
-        private static ServerConnectionHandler? TryCreateHandler(TcpClient tcp)
-        {
-            try
-            {
-                // Constructor performs handshake synchronously and may throw on invalid data
-                return new ServerConnectionHandler(tcp);
-            }
-            catch (Exception ex)
-            {
-                // Initialization failed: logs and ensures raw socket is closed
-                ServerLogger.LogLocalized("ErrorInitializeClient", ServerLogLevel.Warn, ex.Message);
-                try
-                {
-                    tcp?.Close();
-                }
-                catch
-                {
-                }
-                return null;
-            }
+            Console.WriteLine(LocalizationManager.GetString("ServerShutdownComplete"));
         }
     }
 }

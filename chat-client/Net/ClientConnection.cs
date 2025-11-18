@@ -125,45 +125,58 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Cleanly resets the connection state:
-        /// • cancels and disposes any pending handshake TaskCompletionSource to wake awaiters,
-        /// • cancels and disposes the connection CTS to stop the background reader,
-        /// • disposes the TcpClient (which also closes the NetworkStream),
-        /// • clears the PacketReader backing field (not IDisposable),
-        /// • disposes and recreates the reader lock to ensure a fresh semaphore.
+        /// Cleanly resets the client connection state:
+        /// • Cancels and disposes any pending handshake TaskCompletionSource to wake awaiters
+        /// • Cancels and disposes the connection CancellationTokenSource to stop the background reader
+        /// • Disposes the TcpClient (which also closes the NetworkStream) and reinitializes a fresh instance
+        /// • Clears the PacketReader backing field (not IDisposable)
+        /// • Disposes and recreates the reader lock to ensure a fresh semaphore
+        /// • Resets local flags; UI update is delegated to the caller
         /// </summary>
         private void CleanConnection()
         {
-            // Cancels handshake TCS
+            // Resets local flags (no direct write to EncryptionHelper: setter is not accessible)
+            _hasSentPublicKey = false;
+            Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+
+            // Cancels handshake TCS to wake any awaiters
             _handshakeCompletionTcs?.TrySetCanceled();
             _handshakeCompletionTcs = null;
 
-            // Cancels connection CTS
+            // Cancels and disposes connection CTS to stop read loop
             _connectionCts?.Cancel();
             _connectionCts?.Dispose();
             _connectionCts = null;
 
-            // Disposes TcpClient
-            try 
-            { 
-                _tcpClient?.Dispose(); 
-            } 
-            catch { }
-            
+            // Disposes TcpClient (closes stream) and reinitializes a fresh socket
+            try
+            {
+                _tcpClient?.Dispose();
+            }
+            catch
+            {
+                // Swallows disposal exceptions to keep shutdown resilient
+            }
             _tcpClient = new TcpClient();
 
-            // Resets PacketReader
+            // Clears PacketReader reference (not IDisposable)
             _packetReader = null!;
 
-            // Disposes and recreates reader lock
-            try 
+            // Disposes and recreates the reader lock semaphore
+            try
             {
-                _readerLock?.Dispose(); 
-            } 
-            catch 
-            { }
-            
+                _readerLock?.Dispose();
+            }
+            catch
+            {
+                // Swallows disposal exceptions to keep shutdown resilient
+            }
             _readerLock = new SemaphoreSlim(1, 1);
+
+            // Delegates UI update to the caller (no direct access to a ViewModel here)
+            // e.g., the caller can invoke: viewModel.UpdateEncryptionStatus(false);
+
+            ClientLogger.Log("Client connection cleaned up.", ClientLogLevel.Debug);
         }
 
         /// <summary>
