@@ -636,6 +636,13 @@ namespace chat_server
                 return;
             }
 
+            // Ensures recipient session is established before relaying encrypted payload
+            if (!(recipient.IsEstablished))
+            {
+                ServerLogger.LogLocalized("EncryptedMessageRelayFailed", ServerLogLevel.Warn, recipientUid.ToString(), "Recipient not established");
+                return;
+            }
+
             // Validates ciphertext presence.
             if (ciphertext == null || ciphertext.Length == 0)
             {
@@ -686,6 +693,14 @@ namespace chat_server
             if (target?.ClientSocket?.Connected != true)
                 return;
 
+            // Ensures target session is established before forwarding a key request
+            if (!(target.IsEstablished))
+            {
+                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
+                    ServerLogLevel.Warn, target?.Username ?? targetUid.ToString(), "Target not established");
+                return;
+            }
+
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
             builder.WriteUid(requesterUid);
@@ -733,6 +748,14 @@ namespace chat_server
             var target = snapshot.FirstOrDefault(usr => usr.UID == requesterUid);
             if (target?.ClientSocket?.Connected != true)
                 return;
+
+            // Ensures requester session is established before relaying a key response
+            if (!(target.IsEstablished))
+            {
+                ServerLogger.LogLocalized("PublicKeyResponseRelayFailed",
+                    ServerLogLevel.Warn, target?.Username ?? requesterUid.ToString(), "Requester not established");
+                return;
+            }
 
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);

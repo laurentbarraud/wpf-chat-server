@@ -36,6 +36,18 @@ namespace chat_server
         public TcpClient ClientSocket { get; private set; } = null!;
 
         /// <summary>
+        /// Computed property that indicates whether the connection is established on the server side.
+        /// Returns true if the TCP socket is connected and handshake has been fully processed.
+        /// </summary>
+        public bool IsEstablished
+        {
+            get
+            {
+                return ClientSocket?.Connected == true && _handshakeProcessed;
+            }
+        }
+
+        /// <summary>
         /// Client's public key in DER format.
         /// </summary>
         public byte[] PublicKeyDer { get; private set; } = Array.Empty<byte>();
@@ -50,6 +62,9 @@ namespace chat_server
         /// </summary>
         private int _cleanupState = 0;
 
+        // One-time close guard used by TryCloseConnectionSafely
+        private int _closed = 0;
+
         /// <summary>
         /// Per-connection CancellationTokenSource used to cancel the read loop or shutdown this connection.
         /// </summary>
@@ -61,12 +76,6 @@ namespace chat_server
         /// </summary>
         private int _disconnectNotifySent = 0;
 
-        ///<summary>
-        /// Atomic flag used to ensure the per-client packet reader is started once.
-        /// 0 = not started, 1 = started
-        /// </summary>
-        private int _readerStarted = 0;
-
         /// <summary>
         /// True when this client's handshake has been fully processed on the server side.
         /// Placed with other instance fields in Client.cs.
@@ -75,8 +84,11 @@ namespace chat_server
         /// </summary>
         private volatile bool _handshakeProcessed = false;
 
-        // One-time close guard used by TryCloseConnectionSafely
-        private int _closed = 0;
+        ///<summary>
+        /// Atomic flag used to ensure the per-client packet reader is started once.
+        /// 0 = not started, 1 = started
+        /// </summary>
+        private int _readerStarted = 0;
 
         /// <summary>
         /// • Accepts a connected TcpClient and assigns it to the connection object.
