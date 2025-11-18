@@ -131,11 +131,12 @@ namespace chat_client.Net
         /// • Disposes the TcpClient (which also closes the NetworkStream) and reinitializes a fresh instance
         /// • Clears the PacketReader backing field (not IDisposable)
         /// • Disposes and recreates the reader lock to ensure a fresh semaphore
-        /// • Resets local flags; UI update is delegated to the caller
+        /// • Resets handshake/encryption flags to ensure fresh state
+        /// • UI update is delegated to the caller
         /// </summary>
         private void CleanConnection()
         {
-            // Resets local flags (no direct write to EncryptionHelper: setter is not accessible)
+            // Resets handshake/encryption flags
             _hasSentPublicKey = false;
             Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
@@ -155,7 +156,7 @@ namespace chat_client.Net
             }
             catch
             {
-                // Swallows disposal exceptions to keep shutdown resilient
+                
             }
             _tcpClient = new TcpClient();
 
@@ -173,8 +174,7 @@ namespace chat_client.Net
             }
             _readerLock = new SemaphoreSlim(1, 1);
 
-            // Delegates UI update to the caller (no direct access to a ViewModel here)
-            // e.g., the caller can invoke: viewModel.UpdateEncryptionStatus(false);
+            // Delegates UI update to the caller
 
             ClientLogger.Log("Client connection cleaned up.", ClientLogLevel.Debug);
         }

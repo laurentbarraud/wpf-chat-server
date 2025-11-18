@@ -367,7 +367,14 @@ namespace chat_server
                                     Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
 
-                                    // Relays the encrypted payload to the intended recipient without decryption.
+                                    // Validates payload presence
+                                    if (ciphertext == null || ciphertext.Length == 0)
+                                    {
+                                        ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username);
+                                        break;
+                                    }
+
+                                    // Relays the encrypted payload to the intended recipient (server does not decrypt)
                                     await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
