@@ -10,6 +10,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Policy;
+using System.Text;
 using System.Windows;
 
 namespace chat_client.Net
@@ -575,26 +576,42 @@ namespace chat_client.Net
                                     string encryptedSenderName = viewModel.Users.FirstOrDefault(u => u.UID == encryptedSenderUid)?.Username
                                                                  ?? encryptedSenderUid.ToString();
 
+                                    // Validates payload presence.
                                     if (cipherBytes == null || cipherBytes.Length == 0)
                                     {
                                         ClientLogger.Log("Encrypted payload empty; dropping.", ClientLogLevel.Warn);
                                         break;
                                     }
 
-                                    // Synchronous decryption
                                     string plainText;
-                                    try
+
+                                    // Decrypts only when encryption is active.
+                                    if (EncryptionHelper.IsEncryptionActive)
                                     {
-                                        plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+                                        try
+                                        {
+                                            // Performs synchronous RSA-OAEP-SHA256 decryption.
+                                            plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            ClientLogger.Log($"Decrypt failed: {ex.Message}", ClientLogLevel.Error);
+                                            break;
+                                        }
                                     }
-                                    catch (Exception ex)
+                                    else
                                     {
-                                        ClientLogger.Log($"Decrypt failed: {ex.Message}", ClientLogLevel.Error);
-                                        break;
+                                        // Falls back to raw display when encryption is inactive.
+                                        plainText = Encoding.UTF8.GetString(cipherBytes);
+                                        ClientLogger.Log("EncryptedMessage received while encryption inactive; showing raw text.", ClientLogLevel.Warn);
                                     }
 
-                                    // Dispatches to UI
-                                    Application.Current.Dispatcher.Invoke(() => viewModel.OnPlainMessageReceived(encryptedSenderName, plainText));
+                                    // Dispatches plaintext to UI thread for rendering.
+                                    Application.Current.Dispatcher.Invoke(() =>
+                                    {
+                                        viewModel.OnPlainMessageReceived(encryptedSenderName, plainText);
+                                    });
+
                                     break;
                                 }
 

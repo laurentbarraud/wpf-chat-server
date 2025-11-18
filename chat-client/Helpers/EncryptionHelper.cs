@@ -43,7 +43,7 @@ namespace chat_client.Helpers
     public static class EncryptionHelper
     {
         /// <summary>Indicates whether decryption is currently enabled.</summary>
-        public static bool IsEncryptionActive { get; private set; }
+        public static bool IsEncryptionActive { get; private set; } = false;
 
         /// <summary>Holds the public key as a DER-encoded byte array for key exchange.</summary>
         public static byte[] PublicKeyDer { get; private set; }
@@ -70,9 +70,6 @@ namespace chat_client.Helpers
 
             // Exports the private key as DER PKCS#1 for later import
             PrivateKeyDer = RsaInstance.ExportRSAPrivateKey();
-
-            // Activates decryption by default
-            IsEncryptionActive = true;
 
             Debug.WriteLine("[INFO] EncryptionHelper initialized with RSA 2048 key pair.");
         }
