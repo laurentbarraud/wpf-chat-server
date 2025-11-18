@@ -21,10 +21,8 @@
 
 using System;
 using System.Diagnostics;
-using System.Runtime.ConstrainedExecution;
 using System.Security.Cryptography;
 using System.Text;
-using System.Windows.Input;
 
 namespace chat_client.Helpers
 {

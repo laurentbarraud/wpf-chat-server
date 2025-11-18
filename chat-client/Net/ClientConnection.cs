@@ -91,6 +91,13 @@ namespace chat_client.Net
         // Represents the handshake lifecycle; completed with true on success, false on failure/exception.
         private TaskCompletionSource<bool>? _handshakeCompletionTcs;
 
+        /// <summary>
+        /// Indicates whether the local public key has already been sent to the server.
+        /// • Ensures idempotence: the key is transmitted only once after HandshakeAck.
+        /// • Prevents repeated key-send loops during reconnection or multiple ACK events.
+        /// </summary>
+        private bool _hasSentPublicKey = false;
+
         // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
         private PacketReader? _packetReader;
 
@@ -432,7 +439,7 @@ namespace chat_client.Net
             // Captures ViewModel reference on the UI thread
             MainViewModel viewModel = null!;
 
-            // Capture ViewModel without blocking the network read thread
+            // Captures ViewModel without blocking the network read thread
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mw)
@@ -516,12 +523,22 @@ namespace chat_client.Net
                                 break;
 
                             case ClientPacketOpCode.HandshakeAck:
+                                {
+                                    // Signals handshake completion
+                                    _handshakeCompletionTcs?.TrySetResult(true);
+                                    Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                // Signals handshake completion once and resets error counter.
-                                _handshakeCompletionTcs?.TrySetResult(true);
-                                
-                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-                                break;
+                                    // Sends public key only once if encryption is active
+                                    if (EncryptionHelper.IsEncryptionActive && !_hasSentPublicKey)
+                                    {
+                                        await SendPublicKeyToServerAsync(LocalUid, EncryptionHelper.PublicKeyDer, cancellationToken).ConfigureAwait(false);
+
+                                        _hasSentPublicKey = true; // local flag to prevent multiple sends
+                                        ClientLogger.Log("Public key sent once after ACK.", ClientLogLevel.Debug);
+                                    }
+
+                                    break;
+                                }
 
                             case ClientPacketOpCode.PlainMessage:
                                 
@@ -547,7 +564,7 @@ namespace chat_client.Net
                                     // Resets unexpected opcode counter.
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                    // Reads sender UID and discard recipient UID (not needed on client side).
+                                    // Reads sender UID and discards recipient UID (not needed on client side).
                                     Guid encryptedSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
@@ -558,10 +575,25 @@ namespace chat_client.Net
                                     string encryptedSenderName = viewModel.Users.FirstOrDefault(u => u.UID == encryptedSenderUid)?.Username
                                                                  ?? encryptedSenderUid.ToString();
 
-                                    // Decrypts synchronously to avoid async overhead in crypto path.
-                                    string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+                                    if (cipherBytes == null || cipherBytes.Length == 0)
+                                    {
+                                        ClientLogger.Log("Encrypted payload empty; dropping.", ClientLogLevel.Warn);
+                                        break;
+                                    }
 
-                                    // Dispatches decrypted message to UI thread.
+                                    // Synchronous decryption
+                                    string plainText;
+                                    try
+                                    {
+                                        plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        ClientLogger.Log($"Decrypt failed: {ex.Message}", ClientLogLevel.Error);
+                                        break;
+                                    }
+
+                                    // Dispatches to UI
                                     Application.Current.Dispatcher.Invoke(() => viewModel.OnPlainMessageReceived(encryptedSenderName, plainText));
                                     break;
                                 }
@@ -573,9 +605,16 @@ namespace chat_client.Net
                                 Guid originUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                 byte[] keyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
                                 _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discards requester UID
-                                
-                                Application.Current.Dispatcher.Invoke(() => viewModel.OnPublicKeyReceived(originUid, keyDer));
+
+                                Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    viewModel.OnPublicKeyReceived(originUid, keyDer);
+                                    // Directly evaluates encryption state after updating keys
+                                    bool ready = viewModel.EvaluateEncryptionState();
+                                    ClientLogger.Log($"Encryption state evaluated — Ready: {ready}", ClientLogLevel.Debug);
+                                });
                                 break;
+
 
                             case ClientPacketOpCode.DisconnectNotify:
                                 

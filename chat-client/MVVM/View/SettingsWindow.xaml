@@ -1,7 +1,8 @@
-﻿<Window x:Class="chat_client.MVVM.View.SettingsWindow"
+﻿<Window
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" 
         xmlns:vm="clr-namespace:chat_client.MVVM.ViewModel"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="chat_client.MVVM.View.SettingsWindow"
         Title="Settings"
         Height="325" Width="426"
         ShowInTaskbar="False"
@@ -17,10 +18,10 @@
         Displays a port icon when enabled, and a grayed-out version when disabled.
         Also shifts the thumb position and changes background color on toggle.
         -->
-        <Style x:Key="CustomPortToggleStyle" TargetType="ToggleButton">
+        <Style x:Key="CustomPortToggleStyle" TargetType="{x:Type ToggleButton}">
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
                         <Grid>
                             <Border x:Name="SwitchBackground"
                             CornerRadius="16"
@@ -58,10 +59,10 @@
         Shows a calculator icon when enabled, and a disabled version when off.
         Thumb slides and background updates accordingly.
         -->
-        <Style x:Key="ReduceTrayToggleStyle" TargetType="ToggleButton">
+        <Style x:Key="ReduceTrayToggleStyle" TargetType="{x:Type ToggleButton}">
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
                         <Grid>
                             <Border x:Name="SwitchBackground"
                             CornerRadius="16"
@@ -99,10 +100,10 @@
         Displays a padlock icon when enabled, and a grayed-out padlock when disabled.
         Thumb slides and background changes to indicate encryption status.
         -->
-        <Style x:Key="EncryptionToggleStyle" TargetType="ToggleButton">
+        <Style x:Key="EncryptionToggleStyle" TargetType="{x:Type ToggleButton}">
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
                         <Grid>
                             <Border x:Name="SwitchBackground"
                                     CornerRadius="16"
@@ -136,7 +137,7 @@
         </Style>
 
         <!-- Combobox style -->
-        <Style TargetType="ComboBox">
+        <Style TargetType="{x:Type ComboBox}">
             <Setter Property="SnapsToDevicePixels" Value="True" />
             <Setter Property="OverridesDefaultStyle" Value="True" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
@@ -147,14 +148,14 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
+                    <ControlTemplate TargetType="{x:Type ComboBox}">
                         <Grid>
-                            <ToggleButton Name="ToggleButton"
+                            <ToggleButton x:Name="ToggleButton"
                                           Background="{TemplateBinding Background}"
                                           Foreground="{TemplateBinding Foreground}"
                                           BorderBrush="{TemplateBinding BorderBrush}"
                                           BorderThickness="{TemplateBinding BorderThickness}"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource Mode=TemplatedParent}}"
                                           ClickMode="Press">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -165,7 +166,7 @@
                                     <!-- Displayed field -->
                                     <Border Grid.Column="0" Background="{TemplateBinding Background}" Padding="4,2">
                                         <ContentPresenter
-                                                            Name="ContentSite"
+                                                            x:Name="ContentSite"
                                                             IsHitTestVisible="False"
                                                             Content="{TemplateBinding SelectionBoxItem}"
                                                             ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
@@ -184,13 +185,13 @@
                                 </Grid>
                             </ToggleButton>
 
-                            <Popup Name="Popup"
+                            <Popup x:Name="Popup"
                                    Placement="Bottom"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
                                    AllowsTransparency="True"
                                    Focusable="False"
                                    PopupAnimation="Slide">
-                                <Grid Name="DropDown"
+                                <Grid x:Name="DropDown"
                                       SnapsToDevicePixels="True"
                                       MinWidth="{TemplateBinding ActualWidth}"
                                       MaxHeight="{TemplateBinding MaxDropDownHeight}">
@@ -210,7 +211,7 @@
         </Style>
 
         <!-- Override the default theme’s RelativeSource binding for these properties -->
-        <Style TargetType="ComboBoxItem">
+        <Style TargetType="{x:Type ComboBoxItem}">
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="VerticalContentAlignment"   Value="Center" />
         </Style>
@@ -357,7 +358,7 @@
 
                     <!-- Local style for ComboBoxItem: brushes, padding & fixed alignment -->
                     <ComboBox.ItemContainerStyle>
-                        <Style TargetType="ComboBoxItem">
+                        <Style TargetType="{x:Type ComboBoxItem}">
                             <Setter Property="Background"                 Value="{DynamicResource BackgroundBrush}" />
                             <Setter Property="Foreground"                 Value="{DynamicResource ForegroundBrush}" />
                             <Setter Property="Padding"                    Value="4,2" />
@@ -409,11 +410,11 @@
         <TextBlock x:Name="AboutTextBlock"
            Grid.Row="2"
            HorizontalAlignment="Center"
-           Margin="0,28,0,-16"
+           Margin="0,0,0,-50"
            Foreground="{DynamicResource ForegroundBrush}"
            Background="{DynamicResource BackgroundBrush}"
            Cursor="Hand"
            MouseDown="AboutLabel_MouseDown"
-           TextWrapping="Wrap"/>
+           TextWrapping="Wrap" VerticalAlignment="Bottom"/>
     </Grid>
 </Window>
