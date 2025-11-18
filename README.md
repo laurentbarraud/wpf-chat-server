@@ -1,6 +1,6 @@
-### WPF chat app in C# 
+## WPF chat app in C# 
 
-A WPF client and console server with custom packet builder/reader and easy localhost testing.
+A real-time WPF chat client in C# with a custom packet builder/reader for network streams, using TcpClient to connect to a console server.
 
 [![Release](https://img.shields.io/badge/release-stable-1B4636)](https://github.com/laurentbarraud/wpf-chat-server/releases)
 [![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/v0.9/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases/tag/v0.9)
@@ -16,9 +16,9 @@ A WPF client and console server with custom packet builder/reader and easy local
 - Configurable TCP port — the client can choose the TCP port before connecting; the server accepts a custom bind port at startup.  
 - Local mode — the client will run locally if no IP address is provided.
 - Last‑IP memory — the client remembers the last successful IP for faster reconnection.  
-- UTF‑8 message encoding — an emoji toolbar is available during text entry.  
-- Theme support — light and dark themes switchable at any time via a toggle.  
 - Tray and Escape behavior — the client can minimize to the system tray on close, reduce or when pressing Escape.  
+- UTF‑8 message encoding — an emoji toolbar is available during text entry.
+- Theme support — light and dark themes switchable at any time via a toggle.
 - Localization — French and English available.
 
 ### How to Run
