@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 18th, 2025</date>
+/// <date>November 19th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -533,7 +533,6 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
         /// <summary>
         /// Determines whether encryption can proceed by checking:
         ///  - if encryption is enabled in settings  
@@ -590,11 +589,13 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"Peer UIDs to verify: {string.Join(", ", peerUids.Select(g => g.ToString()))}",
                     ClientLogLevel.Debug);
 
-                // Compute which GUIDs are missing from the KnownPublicKeys dictionary
+                // Computes which GUIDs are missing from the KnownPublicKeys dictionary
                 missingKeys = peerUids.Except(KnownPublicKeys.Keys).ToList();
 
                 ClientLogger.Log($"Number of missing keys detected: {missingKeys.Count}",
                     ClientLogLevel.Debug);
+                // Logs peer key dictionary size for diagnostics
+                ClientLogger.Log($"KnownPublicKeys count={KnownPublicKeys.Count}, Users count={Users.Count}", ClientLogLevel.Debug);
             }
 
             // Logs and aborts if any peer keys are missing
@@ -939,6 +940,8 @@ namespace chat_client.MVVM.ViewModel
         {
             bool ready = Settings.Default.UseEncryption && AreAllKeysReceived();
             ClientLogger.Log($"EvaluateEncryptionState called — Ready: {ready}", ClientLogLevel.Debug);
+            // Logs encryption readiness with settings snapshot
+            ClientLogger.Log($"EvaluateEncryptionState: UseEncryption={Settings.Default.UseEncryption}, Ready={ready}", ClientLogLevel.Info);
             return ready;
         }
 
@@ -1016,6 +1019,9 @@ namespace chat_client.MVVM.ViewModel
                 return false;
             }
 
+            // Log start for diagnostics: shows who triggered init and current session flag
+            ClientLogger.Log($"InitializeEncryptionAsync started for UID {LocalUser.UID}. _encryptionInitOnce set to 1.", ClientLogLevel.Debug);
+
             IsSyncingKeys = true;
 
             try
@@ -1087,6 +1093,11 @@ namespace chat_client.MVVM.ViewModel
 
                 // Evaluates readiness
                 IsEncryptionReady = EvaluateEncryptionState();
+
+                // Reports final readiness and known peer key count for debugging
+                int peerKeys;
+                lock (KnownPublicKeys) { peerKeys = KnownPublicKeys.Count; }
+                ClientLogger.Log($"InitializeEncryptionAsync completed: IsEncryptionReady={IsEncryptionReady}, KnownPublicKeys={peerKeys}, UseEncryptionSetting={Settings.Default.UseEncryption}.", ClientLogLevel.Debug);
 
                 if (IsEncryptionReady)
                     ClientLogger.Log("Encryption ready — coloured lock icon displayed.", ClientLogLevel.Info);
@@ -1551,6 +1562,9 @@ namespace chat_client.MVVM.ViewModel
                         .ToList();
                 }
 
+                // Log snapshot of peer sync state
+                ClientLogger.Log($"SyncKeysAsync: peers={lstPeerIds.Count}, missingKeys={missingKeys.Count}", ClientLogLevel.Debug);
+
                 // Requests each missing peer key sequentially (awaits each send)
                 foreach (var uid in missingKeys)
                 {
@@ -1579,7 +1593,6 @@ namespace chat_client.MVVM.ViewModel
                 IsSyncingKeys = false;
             }
         }
-
 
         /// <summary>
         /// This UI method enables or disables encryption safely: 

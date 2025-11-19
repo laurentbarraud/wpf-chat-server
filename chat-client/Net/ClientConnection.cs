@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 18th, 2025</date>
+/// <date>November 19th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -1035,6 +1035,9 @@ namespace chat_client.Net
                     /// </ summary >
                     bool useEncryptionNow = Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady;
 
+                    // Logs decision path for message encryption
+                    ClientLogger.Log($"SendMessageAsync: recipient={recipientUid}, useEncryptionNow={useEncryptionNow}", ClientLogLevel.Debug);
+
                     /// <summary>
                     /// --- Send Plain message ---
                     /// </ summary >
@@ -1090,6 +1093,9 @@ namespace chat_client.Net
                     {
                         await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                         messageSent = true;
+
+                        // Logs successful send
+                        ClientLogger.Log($"Message successfully sent to {recipientUid}. Encrypted={useEncryptionNow}", ClientLogLevel.Info);
                     }
                     catch (Exception ex)
                     {
@@ -1108,6 +1114,9 @@ namespace chat_client.Net
 
                 var packet = new PacketBuilder();
                 bool useEncryptionNow = Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady;
+
+                // Logs decision path for self-message
+                ClientLogger.Log($"SendMessageAsync (solo): useEncryptionNow={useEncryptionNow}", ClientLogLevel.Debug);
 
                 /// <summary<>
                 /// --- Send Plain self-message ---
@@ -1158,6 +1167,9 @@ namespace chat_client.Net
                 {
                     await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                     messageSent = true;
+
+                    // Logs successful self-message send
+                    ClientLogger.Log($"Self-message successfully sent. Encrypted={useEncryptionNow}", ClientLogLevel.Info);
                 }
                 catch (Exception ex)
                 {

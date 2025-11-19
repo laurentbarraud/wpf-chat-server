@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 18th, 2025</date>
+/// <date>November 19th, 2025</date>
 
 using chat_server.Helpers;
 using System;
