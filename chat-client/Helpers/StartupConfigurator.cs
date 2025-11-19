@@ -273,43 +273,58 @@ namespace chat_client.Helpers
             if (Application.Current.MainWindow is MainWindow mainWindow &&
                 mainWindow.ViewModel is MainViewModel viewModel)
             {
-                if (enableEncryption)
-                {
-                    Properties.Settings.Default.UseEncryption = true;
-                    
-                    // Starts the safe background pipeline on the ViewModel (non-blocking, observed)
-                    viewModel.StartEncryptionPipelineBackground();
-                }
+                // Persist the preference first
+                Properties.Settings.Default.UseEncryption = enableEncryption;
+                Properties.Settings.Default.Save();
 
+                // Update the source on the view model;
+                // the ViewModel decides when/how to start or stop the pipeline.
+                viewModel.UseEncryption = enableEncryption;
+
+                // If a username was chosen
                 if (!string.IsNullOrEmpty(usernameChosen))
                 {
+                    // Sets the chosen username on the VM
                     viewModel.Username = usernameChosen;
 
-                    // We assign the name onLoaded before the lambda
-                    // to be able to use it inside the same lambda.
+                    // We assign the name onLoaded before the lambda to be able to use it inside the same lambda.
                     RoutedEventHandler onLoaded = null!;
                     onLoaded = (s, e) =>
                     {
                         // Unsubscribes immediately to avoid being called back several times
                         mainWindow.Loaded -= onLoaded;
 
-                        // Executes the command if it is available and executable
+                        // If the command is available and executable
                         if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
                         {
+                            // Executes the command
                             viewModel.ConnectDisconnectCommand.Execute(null);
                         }
                     };
 
-                    mainWindow.Loaded += onLoaded;
-                }
+                    // If the window is already loaded
+                    if (mainWindow.IsLoaded)
+                    {
+                        // Direct invocation uses the same logic as the handler
+                        if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
+                        {
+                            viewModel.ConnectDisconnectCommand.Execute(null);
+                        }
+                    }
 
+                    else
+                    {
+                        // Attaches the handler
+                        mainWindow.Loaded += onLoaded;
+                    }
+                }
             }
             else
             {
                 ClientLogger.Log("MainWindow or MainViewModel not found during startup configuration.", ClientLogLevel.Warn);
             }
 
-            // Theme
+            // Theme selection
             if (!string.IsNullOrEmpty(themeChosen))
             {
                 bool isDarkThemeChosen = themeChosen.Equals("dark", StringComparison.OrdinalIgnoreCase);
@@ -317,11 +332,13 @@ namespace chat_client.Helpers
                 Properties.Settings.Default.AppTheme = isDarkThemeChosen ? "Dark" : "Light";
             }
 
-            // Reduce to tray
+            // Reduce app to tray setting
             if (reduceInTray)
+            {
                 Properties.Settings.Default.ReduceToTray = true;
+            }
 
-            // Debug console
+            // Shows debug console
             if (debugMode)
             {
                 ClientLogger.IsDebugEnabled = true;
@@ -330,7 +347,6 @@ namespace chat_client.Helpers
 
             // Persists settings last
             Properties.Settings.Default.Save();
-
         }
     }
 }

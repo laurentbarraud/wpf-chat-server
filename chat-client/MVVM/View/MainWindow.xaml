@@ -88,7 +88,7 @@
 
             <!-- Default grey syncing icon, invisible when encryption off -->
             <Setter Property="Visibility"
-                    Value="{Binding UseEncryptionSetting, Converter={StaticResource BoolToVis}}"/>
+                    Value="{Binding UseEncryption, Converter={StaticResource BoolToVis}}"/>
             <Setter Property="Source" Value="/Resources/syncing-keys.png"/>
             <!-- Use markup extension to pull localized tooltip text -->
             <Setter Property="ToolTip"

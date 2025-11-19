@@ -112,42 +112,10 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-        /// <summary>
-        /// Enables or disables encryption preference.
-        /// Persists immediately and notifies bindings.
-        /// </summary>
-        public bool UseEncryption
-        {
-            get => _useEncryption;
-            set
-            {
-                if (_useEncryption == value) return;
-                _useEncryption = value;
-
-                // Persist to settings
-                Properties.Settings.Default.UseEncryption = value;
-                Properties.Settings.Default.Save();
-
-                // Notifies UI
-                OnPropertyChanged(nameof(UseEncryption));
-
-                // Logs state change
-                ClientLogger.Log(value ? "Encryption enabled" : "Encryption disabled", ClientLogLevel.Info);
-
-                // Synchronizes with MainViewModel if available
-                if (Application.Current.MainWindow is MainWindow mainWindow &&
-                    mainWindow.DataContext is MainViewModel mainVm)
-                {
-                    mainVm.UseEncryptionSetting = value;
-                }
-            }
-        }
-
         // Backing private fields
         private int _customPortNumber = Properties.Settings.Default.CustomPortNumber;
         private bool _useCustomPort = Properties.Settings.Default.UseCustomPort;
         private bool _reduceToTray = Properties.Settings.Default.ReduceToTray;
-        private bool _useEncryption = Properties.Settings.Default.UseEncryption;
         private string _appLanguage = Properties.Settings.Default.AppLanguage;
 
         /// <summary>
