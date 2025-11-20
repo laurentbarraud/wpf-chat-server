@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 19th, 2025</date>
+/// <date>November 20th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -640,7 +640,6 @@ namespace chat_client.Net
                                 }
 
                             case ClientPacketOpCode.PublicKeyResponse:
-                                
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
                                 Guid originUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
@@ -650,12 +649,8 @@ namespace chat_client.Net
                                 Application.Current.Dispatcher.Invoke(() =>
                                 {
                                     viewModel.OnPublicKeyReceived(originUid, keyDer);
-                                    // Directly evaluates encryption state after updating keys
-                                    bool ready = viewModel.EvaluateEncryptionState();
-                                    ClientLogger.Log($"Encryption state evaluated — Ready: {ready}", ClientLogLevel.Debug);
                                 });
                                 break;
-
 
                             case ClientPacketOpCode.DisconnectNotify:
                                 
