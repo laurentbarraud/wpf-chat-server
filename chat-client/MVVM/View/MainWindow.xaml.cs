@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 20th, 2025</date>
+/// <date>November 21th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -318,33 +318,36 @@ namespace chat_client
                 ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
             }
         }
-
+        
         /// <summary>
         /// Toggles the SettingsWindow visibility:
         /// - If an instance is already open, it closes it.
-        /// - If no instance is open, it creates and shows a new one.
+        /// - If no instance is open, it creates and shows a new one bound to the current MainViewModel.
         /// This prevents multiple SettingsWindow instances from being opened simultaneously.
+        /// </summary>
         private void CmdSettings_Click(object sender, RoutedEventArgs e)
         {
-            // Looks for an already open SettingsWindow instance
             var existingSettingsWindow = Application.Current.Windows
-                                       .OfType<SettingsWindow>()
-                                       .FirstOrDefault();
+                .OfType<SettingsWindow>()
+                .FirstOrDefault();
 
             if (existingSettingsWindow != null)
             {
-                // If a SettingsWindow is already open, closes it
                 existingSettingsWindow.Close();
+                return;
             }
-            else
+
+            /// <summary>Creates and shows a new SettingsWindow, passing the current MainViewModel via the ViewModel property</summary>
+            var settings = new SettingsWindow(ViewModel)
             {
-                // Creates and shows a new SettingsWindow
-                var settings = new SettingsWindow
-                {
-                    Owner = this // ensures SettingsWindow stays on top of the main window
-                };
-                settings.Show();
-            }
+                /// <summary>
+                /// Sets the owner of the SettingsWindow to the MainWindow instance.
+                /// This ensures the SettingsWindow stays on top of the main window,
+                /// and allows modal behavior such as centering and minimizing together.
+                /// </summary>
+                Owner = this
+            };
+            settings.Show();
         }
 
         /// <summary>

@@ -248,7 +248,7 @@ Options :
 
   -e, --encrypted       Active le chiffrement de bout en bout
 
-  -r, -m, --reduce      Démarrer réduit dans la zone de notification
+  -r, -t, -m --reduce     Active la réduction dans la zone de notification
   --tray, --min
 
   -c, -d, --debug       Ouvrir la fenêtre console

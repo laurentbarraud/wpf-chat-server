@@ -110,7 +110,7 @@ namespace chat_client.Resources {
         ///
         ///  -e, --encrypted       Enable end-to-end encryption
         ///
-        ///  -r, -t, -m, --reduce  Start minimized to system tray
+        ///  -r, -t, -m, --reduce  Enable minimize to system tray
         ///  --tray, --min
         ///
         ///  -c, -d, --debug       Open console window

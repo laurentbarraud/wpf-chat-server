@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 20th, 2025</date>
+/// <date>November 21th, 2025</date>
 
 
 // The System.ComponentModel namespace enables WPF to track property changes
@@ -106,25 +106,50 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_useCustomPort == value) return;
                 _useCustomPort = value;
-                OnPropertyChanged();                                     // Notifies UI of toggle change
-                Properties.Settings.Default.UseCustomPort = value;        // Persists toggle
+                /// <summary>Notifies UI of toggle change</summary>
+                OnPropertyChanged();                                    
+                Properties.Settings.Default.UseCustomPort = value;       
                 Properties.Settings.Default.Save();
             }
         }
 
+        /// <summary>
+        /// Proxy property that exposes the encryption toggle state
+        /// from the MainViewModel. This allows the SettingsWindow
+        /// to bind directly to UseEncryption while delegating the
+        /// actual logic and state management to the MainViewModel.
+        /// </summary>
+        public bool UseEncryption
+        {
+            get => _mainViewModel.UseEncryption;
+            set
+            {
+                if (_mainViewModel.UseEncryption != value)
+                {
+                    _mainViewModel.UseEncryption = value;
+                    OnPropertyChanged(nameof(UseEncryption));
+                }
+            }
+        }
+
         // Backing private fields
-        private int _customPortNumber = Properties.Settings.Default.CustomPortNumber;
-        private bool _useCustomPort = Properties.Settings.Default.UseCustomPort;
-        private bool _reduceToTray = Properties.Settings.Default.ReduceToTray;
         private string _appLanguage = Properties.Settings.Default.AppLanguage;
+        private int _customPortNumber = Properties.Settings.Default.CustomPortNumber;
+        
+        // Reference to the MainViewModel instance
+        private readonly MainViewModel _mainViewModel;
+        
+        private bool _reduceToTray = Properties.Settings.Default.ReduceToTray;
+        private bool _useCustomPort = Properties.Settings.Default.UseCustomPort;
 
         /// <summary>
-        /// Initializes a new instance of SettingsViewModel.
-        /// Properties are initialized directly from saved settings at field declaration.
+        /// Initializes a new instance of the SettingsViewModel class.
+        /// Requires a reference to the MainViewModel so that global states
+        /// such as encryption can be proxied and controlled from the SettingsWindow.
         /// </summary>
-        public SettingsViewModel()
+        public SettingsViewModel(MainViewModel mainViewModel)
         {
-            
+            _mainViewModel = mainViewModel;
         }
 
         // In a WinForms app you'd typically update controls directly (e.g. myTextBox.Text = value).
