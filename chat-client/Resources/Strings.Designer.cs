@@ -349,7 +349,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à This software is provided &quot;as is&quot;, without any kind of warranty..
+        ///   Recherche une chaîne localisée semblable à Open‑source software, no warranty..
         /// </summary>
         public static string LicenceInfo {
             get {
