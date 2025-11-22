@@ -221,10 +221,6 @@
 
     </Window.Resources>
 
-    <Window.DataContext>
-        <vm:SettingsViewModel/>
-    </Window.DataContext>
-
     <Grid Margin="0,20,0,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

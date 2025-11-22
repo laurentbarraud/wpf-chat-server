@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 21th, 2025</date>
+/// <date>November 22th, 2025</date>
 
 using System;
 using System.Windows.Controls;
@@ -29,23 +29,17 @@ namespace chat_client.MVVM.View
         private readonly SettingsViewModel _settingsViewModel;
 
         /// <summary>
-        /// Initializes the SettingsWindow.
-        /// Creates a SettingsViewModel instance bound to the provided MainViewModel,
-        /// assigns it as the DataContext for XAML bindings,
-        /// and subscribes to property changes to react to user preferences
-        /// such as encryption, custom port, and tray behavior.
+        /// Initializes the SettingsWindow with the provided MainViewModel.
         /// </summary>
         public SettingsWindow(MainViewModel mainViewModel)
         {
             InitializeComponent();
 
-            // Instantiates SettingsViewModel with a reference to MainViewModel
+            // Creates and assigns DataContext
             _settingsViewModel = new SettingsViewModel(mainViewModel);
-
-            // Assigns SettingsViewModel as DataContext, so that all the properties become accessible in XAML via {Binding ...}
             DataContext = _settingsViewModel;
 
-            // Subscribes once to PropertyChanged; handler reacts to multiple changes
+            // Subscribes to property changes
             _settingsViewModel.PropertyChanged += SettingsViewModel_PropertyChanged;
         }
 
