@@ -30,6 +30,83 @@ namespace chat_client.MVVM.ViewModel
     /// </summary>
     public class MainViewModel : INotifyPropertyChanged
     {
+        // PRIVATE FIELDS
+
+        /// <summary>
+        /// Tracks which users have already received our public RSA key.
+        /// A HashSet is fast, especially for the Contains and Add operations.
+        /// A UID can only be added once. This prevents redundant key transmissions.
+        /// </summary>
+        private readonly HashSet<Guid> _uidsKeySentTo = new();
+
+        /// <summary>
+        /// Atomic guard to ensure the client-side disconnect sequence runs only once.
+        /// 0 = not running, 1 = already invoked.
+        /// </summary>
+        private int _clientDisconnecting = 0;
+
+        // Cancellation source for the running encryption pipeline;
+        // cancelled when connection or setting changes
+        private CancellationTokenSource? _encryptionCts;
+
+        /// <summary>
+        /// Ensures that encryption initialization runs only once per session.
+        /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
+        /// Reset to 0 during disconnect cleanup to allow fresh initialization.
+        /// </summary>
+        private int _encryptionInitOnce = 0;
+
+        /// <summary>
+        /// Stores the current theme selection state.
+        /// Initialized from the saved AppTheme ("Dark" = true, otherwise false).
+        /// </summary>
+        private bool _isDarkTheme = Settings.Default.AppTheme == "Dark";
+
+        /// <summary>
+        /// Holds the current encryption ready state
+        /// </summary>
+        private bool _isEncryptionReady;
+
+        /// <summary>
+        /// Holds the current key synchronization state
+        /// </summary>
+        private bool _isSyncingKeys;
+
+        /// <summary>
+        /// Backs the IsConnected property.
+        /// </summary>
+        private bool _isConnected;
+
+        /// <summary>
+        /// Indicates whether the next roster snapshot is the very first update
+        /// received after connecting. Suppresses join/leave notifications on first load.
+        /// </summary>
+        private bool _isFirstRosterSnapshot = true;
+
+        /// <summary>
+        /// Provides access to the encryption pipeline instance,
+        /// which manages key generation, publication, synchronization,
+        /// and readiness evaluation for secure communication.
+        /// </summary>
+        private readonly EncryptionPipeline _pipeline;
+
+        /// <summary>
+        /// Holds the previous roster’s user IDs and usernames for diffing.
+        /// </summary>
+        private List<(Guid UserId, string Username)> _previousRosterSnapshot
+            = new List<(Guid, string)>();
+
+        /// <summary>
+        /// Backs the UseEncryption property and is initialized from persisted settings.
+        /// </summary>
+        private bool _useEncryption = Settings.Default.UseEncryption;
+
+        /// <summary>
+        /// Holds what the user types in the first textbox on top left of the MainWindow
+        private string _username = string.Empty;
+
+        // PUBLIC PROPERTIES
+
         /// <summary>
         /// Gets whether the chat panels (SpnDown, SpnEmojiPanel) are visible.
         /// They’re visible only when connected.
@@ -191,7 +268,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public ClientConnection _server = new ClientConnection();
+        public ClientConnection _server;
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -263,81 +340,6 @@ namespace chat_client.MVVM.ViewModel
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        // PRIVATE FIELDS
-
-        /// <summary>
-        /// Tracks which users have already received our public RSA key.
-        /// A HashSet is fast, especially for the Contains and Add operations.
-        /// A UID can only be added once. This prevents redundant key transmissions.
-        /// </summary>
-        private readonly HashSet<Guid> _uidsKeySentTo = new();
-
-        /// <summary>
-        /// Atomic guard to ensure the client-side disconnect sequence runs only once.
-        /// 0 = not running, 1 = already invoked.
-        /// </summary>
-        private int _clientDisconnecting = 0;
-
-        // Cancellation source for the running encryption pipeline;
-        // cancelled when connection or setting changes
-        private CancellationTokenSource? _encryptionCts;
-
-        /// <summary>
-        /// Ensures that encryption initialization runs only once per session.
-        /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
-        /// Reset to 0 during disconnect cleanup to allow fresh initialization.
-        /// </summary>
-        private int _encryptionInitOnce = 0;
-
-        /// <summary>
-        /// Stores the current theme selection state.
-        /// Initialized from the saved AppTheme ("Dark" = true, otherwise false).
-        /// </summary>
-        private bool _isDarkTheme = Settings.Default.AppTheme == "Dark";
-
-        /// <summary>
-        /// Holds the current encryption ready state
-        /// </summary>
-        private bool _isEncryptionReady;
-
-        /// <summary>
-        /// Holds the current key synchronization state
-        /// </summary>
-        private bool _isSyncingKeys;
-
-        /// <summary>
-        /// Backs the IsConnected property.
-        /// </summary>
-        private bool _isConnected;
-
-        /// <summary>
-        /// Indicates whether the next roster snapshot is the very first update
-        /// received after connecting. Suppresses join/leave notifications on first load.
-        /// </summary>
-        private bool _isFirstRosterSnapshot = true;
-
-        /// <summary>
-        /// Provides access to the encryption pipeline instance,
-        /// which manages key generation, publication, synchronization,
-        /// and readiness evaluation for secure communication.
-        /// </summary>
-        private readonly EncryptionPipeline _pipeline;
-
-        /// <summary>
-        /// Holds the previous roster’s user IDs and usernames for diffing.
-        /// </summary>
-        private List<(Guid UserId, string Username)> _previousRosterSnapshot
-            = new List<(Guid, string)>();
-
-        /// <summary>
-        /// Backs the UseEncryption property and is initialized from persisted settings.
-        /// </summary>
-        private bool _useEncryption = Settings.Default.UseEncryption;
-
-        /// <summary>
-        /// Holds what the user types in the first textbox on top left of the MainWindow
-        private string _username = string.Empty;
-
         /// <summary>
         /// Initializes the MainViewModel instance.
         /// Sets up user and message collections, creates the server client,
@@ -352,7 +354,13 @@ namespace chat_client.MVVM.ViewModel
             Messages = new ObservableCollection<string>();
 
             // Instantiates the server client and subscribes to its events
-            _server = new ClientConnection();
+            var pipeline = new EncryptionPipeline(a => Application.Current.Dispatcher.Invoke(a));
+            _server = new ClientConnection(
+                pipeline,
+                a => Application.Current.Dispatcher.Invoke(a)
+            );
+
+            // Now you can safely subscribe
             _server.UserConnectedEvent += OnUserConnected;
             _server.PlainMessageReceivedEvent += OnPlainMessageReceived;
             _server.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
@@ -393,6 +401,7 @@ namespace chat_client.MVVM.ViewModel
                     ConnectDisconnectCommand.RaiseCanExecuteChanged();
             };
         }
+       
         /// <summary>
         /// Connects to the chat server:
         /// • validates the username
@@ -459,32 +468,37 @@ namespace chat_client.MVVM.ViewModel
                 {
                     try
                     {
+                        // Assigns in-memory RSA public key for this session
                         LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
                         ClientLogger.Log("Assigns in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
-                        /// <summary>Publishes the local public key to the server.</summary>
+                        // Publishes local key to the server
                         await _server.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken)
                             .ConfigureAwait(false);
                         ClientLogger.Log("Publishes local public key to server.", ClientLogLevel.Debug);
 
-                        /// <summary>Requests all known public keys from the server.</summary>
+                        // Requests all known public keys (server snapshot)
                         await _server.SendRequestAllPublicKeysFromServerAsync(cancellationToken).ConfigureAwait(false);
 
-                        // Initializes pipeline (readonly, instantiated in constructor)
-                        /// <summary>Initializes the encryption context for this session.</summary>
-                        bool initOk = await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
-                        if (initOk)
-                            ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
+                        // Single initialization entry point (publishes once, synchronizes peers, validates readiness)
+                        if (_pipeline != null)
+                        {
+                            bool initOk = await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
+                            if (initOk)
+                                ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
+                            else
+                                ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
+                        }
                         else
-                            ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
-
-                        /// <summary>Synchronizes missing keys with the server.</summary>
-                        await _pipeline.SyncKeysAsync(cancellationToken).ConfigureAwait(false);
+                        {
+                            // Pipeline not available in this context; defer encryption init to higher-level orchestration
+                            ClientLogger.Log("Encryption pipeline is null in ConnectAsync — deferring initialization.", ClientLogLevel.Warn);
+                        }
                     }
                     catch (Exception ex)
                     {
+                        // Logs any exception during encryption setup but continues without crashing
                         ClientLogger.Log($"Encryption setup failed: {ex.Message}", ClientLogLevel.Error);
-                        // Continue without encryption, but do not crash
                     }
                 }
 
@@ -856,11 +870,15 @@ namespace chat_client.MVVM.ViewModel
 
             if (isNewOrUpdatedKey && IsEncryptionReady)
             {
-                ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid.ToString()}.",
+                ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.",
+                    ClientLogLevel.Debug);
+            }
+            else if (isNewOrUpdatedKey && !IsEncryptionReady)
+            {
+                ClientLogger.Log("Key registered/updated, but encryption not ready yet — waiting for remaining peers.",
                     ClientLogLevel.Debug);
             }
         }
-
 
         /// Handles changes to the AppLanguage setting:
         /// - Switches the localization culture in LocalizationManager.

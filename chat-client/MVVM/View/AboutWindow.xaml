@@ -1,28 +1,78 @@
 ﻿<Window x:Class="chat_client.View.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" 
+        xmlns:vm="clr-namespace:chat_client.MVVM.ViewModel"
         Title="About"
         Width="544" Height="350"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="Transparent" WindowStartupLocation="CenterScreen" Loaded="Window_Loaded">
+        Background="Transparent" 
+        WindowStartupLocation="CenterScreen" 
+        Loaded="Window_Loaded">
 
-    <Grid>
-        <!-- Diagonal gradient background -->
-        <Grid.Background>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <!-- Very light off-white at top-left -->
-                <GradientStop Color="#F9F9FF" Offset="0.0"/>
-                <!-- Soft periwinkle at mid-point -->
-                <GradientStop Color="#001F44" Offset="0.5"/>
-                <!-- Deep navy at bottom-right -->
-                <GradientStop Color="Black" Offset="1.0"/>
-            </LinearGradientBrush>
-        </Grid.Background>
+    <!-- Window-wide resources -->
+    <Window.Resources>
+        <vm:AboutViewModel x:Key="AboutViewModel"/>
+
+        <!-- Opening storyboard: name slides in and illuminates -->
+        <Storyboard x:Key="storyBoardLicenceTrimmed_Open" FillBehavior="HoldEnd">
+            <!-- Name appears -->
+            <DoubleAnimation Storyboard.TargetName="LicenceNameBlock"
+                         Storyboard.TargetProperty="Opacity"
+                         To="1" Duration="0:0:0.3"/>
+
+            <!-- Name slides from X=95 to X=25 -->
+            <DoubleAnimation Storyboard.TargetName="LicenceNameBlock"
+                         Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
+                         From="95" To="74"
+                         Duration="0:0:1.2">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <!-- Name illuminates to white at the end -->
+            <ColorAnimation Storyboard.TargetName="LicenceNameBlock"
+                        Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                        To="White"
+                        BeginTime="0:0:1.2"
+                        Duration="0:0:0.3"/>
+        </Storyboard>
+
+        <!-- Closing storyboard: fades out name -->
+        <Storyboard x:Key="storyBoardLicenceTrimmed_Close" FillBehavior="Stop">
+            <DoubleAnimation Storyboard.TargetName="LicenceNameBlock"
+                             Storyboard.TargetProperty="Opacity"
+                             To="0"
+                             BeginTime="0:0:0"
+                             Duration="0:0:0.8"/>
+            <ColorAnimation Storyboard.TargetName="LicenceNameBlock"
+                    Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                    To="WhiteSmoke"
+                    BeginTime="0:0:0"
+                    Duration="0:0:2.5"/>
+        </Storyboard>
+    </Window.Resources>
+
+    <!-- Root grid with two rows -->
+    <Grid DataContext="{StaticResource AboutViewModel}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="42" />
+        </Grid.RowDefinitions>
 
         <!-- Top content area -->
-        <Grid Margin="0,0,0,42">
-            <!-- Wireframe overlay docked to bottom -->
+        <Grid Grid.Row="0">
+            <!-- Diagonal gradient background -->
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#F9F9FF" Offset="0.0"/>
+                    <GradientStop Color="#001F44" Offset="0.5"/>
+                    <GradientStop Color="Black" Offset="1.0"/>
+                </LinearGradientBrush>
+            </Grid.Background>
+
+            <!-- Wireframe overlay -->
             <Image Source="/Resources/AboutWireframeOverlay.png"
                    Width="396" Height="259"
                    Opacity="0.6"
@@ -33,21 +83,21 @@
 
             <!-- Title -->
             <TextBlock x:Name="AppTitle" Text="WPF Chat Client"
-                   FontSize="34"                
-                   FontWeight="Normal"
-                   Foreground="Black"
-                   Margin="24,20,0,0"
-                   HorizontalAlignment="Left"
-                   VerticalAlignment="Top"/>
+                       FontSize="34"                
+                       FontWeight="Normal"
+                       Foreground="Black"
+                       Margin="24,20,0,0"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"/>
 
             <!-- Licence info block -->
             <TextBlock x:Name="LicenceInfoText"
                        FontSize="10"
                        Foreground="WhiteSmoke"
-                       Margin="34,76,0,0"
+                       Margin="30,94,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       TextWrapping="Wrap" Width="231" Height="15" LineHeight="1" TextAlignment="Right"/>
+                       TextWrapping="Wrap" Width="231" Height="28" LineHeight="1" TextAlignment="Right"/>
 
             <TextBlock x:Name="LicenceInfoResourcesText"
                        FontSize="10"
@@ -59,54 +109,83 @@
         </Grid>
 
         <!-- Bottom panel -->
-        <DockPanel VerticalAlignment="Bottom"
-           Height="42"
-           Background="Black"
-           LastChildFill="False">
+        <DockPanel Grid.Row="1"
+                   Background="Black"
+                   LastChildFill="False"
+                   VerticalAlignment="Stretch">
 
-            <!-- Horizontal container for CLI link, spacer, licence text, and OK button -->
             <StackPanel Orientation="Horizontal"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Left"
-                Margin="20,0,0,0"
-                DockPanel.Dock="Left">
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Left"
+                        Margin="20,0,0,0"
+                        DockPanel.Dock="Left">
 
-                <!-- Localized command-line link -->
                 <TextBlock x:Name="CliTextBlock"
-                   FontSize="14"
-                   Foreground="WhiteSmoke"
-                   Background="Transparent"
-                   Style="{StaticResource InteractiveTextBlockStyle}"
-                   Cursor="Hand"
-                   MouseDown="CliTextBlock_MouseDown"
-                   TextWrapping="Wrap"
-                   VerticalAlignment="Center" />
+                           FontSize="12"
+                           Foreground="WhiteSmoke"
+                           Background="Transparent"
+                           Style="{StaticResource InteractiveTextBlockStyle}"
+                           Cursor="Hand"
+                           Text="{Binding CliText}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           MouseDown="CliTextBlock_MouseDown"/>
 
-                <!-- Spacer between CLI link and licence text -->
-                <Rectangle Width="14" Fill="Transparent" />
+                <Rectangle Width="40" Fill="Transparent" />
 
-                <!-- Licence and version text -->
-                <TextBlock x:Name="LicenceFinalText"
-                   Foreground="WhiteSmoke"
-                   VerticalAlignment="Center"
-                   TextWrapping="NoWrap" />
+                <Grid x:Name="LicenceContainer"
+                      VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="LicenceTrimmedBlock"
+                               Text="{Binding LicenceTrimmed}"
+                               Grid.Column="0"
+                               TextWrapping="NoWrap"
+                               TextAlignment="Right"
+                               VerticalAlignment="Center"
+                               MouseEnter="LicenceTrimmedBlock_MouseEnter"
+                               MouseLeave="LicenceTrimmedBlock_MouseLeave" Margin="-14,0,14,0">
+                        <TextBlock.Foreground>
+                            <SolidColorBrush Color="WhiteSmoke"/>
+                        </TextBlock.Foreground>
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform X="0"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+
+                    <TextBlock x:Name="LicenceNameBlock"
+                               Text="{Binding LicenceName}"
+                               Grid.Column="0"
+                               VerticalAlignment="Center"
+                               Opacity="0"
+                               Margin="6,0,0,0">
+                        <TextBlock.Foreground>
+                            <SolidColorBrush Color="WhiteSmoke"/>
+                        </TextBlock.Foreground>
+                        <TextBlock.RenderTransform>
+                            <!-- Starts off-screen to the right -->
+                            <TranslateTransform X="95"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </Grid>
             </StackPanel>
 
-            <!-- OK button aligned to the right -->
             <Button x:Name="CmdOk"
-            Content="OK"
-            Width="90"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Center"
-            Margin="0,0,20,0"
-            HorizontalContentAlignment="Center"
-            VerticalContentAlignment="Center"
-            Click="CmdOk_Click"
-            DockPanel.Dock="Right"
-            IsDefault="True"
-            IsCancel="True" />
+                    Content="OK"
+                    Width="90"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="0,0,20,0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Padding="0"
+                    Click="CmdOk_Click"
+                    DockPanel.Dock="Right"
+                    IsDefault="True"
+                    IsCancel="True" />
         </DockPanel>
     </Grid>
+
 </Window>
-
-

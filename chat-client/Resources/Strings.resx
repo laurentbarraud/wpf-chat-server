@@ -178,10 +178,10 @@
     <value>The IP address is incorrect. Leave it blank to connect locally.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.0 - nov. 2025 - Laurent Barraud </value>
+    <value> v1.0 - nov. 2025 Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
-    <value>Open‑source software, no warranty.</value>
+    <value>This open-source software is distributed in the hope that it will be useful, but without any warranty.</value>
   </data>
   <data name="LicenceInfoResources" xml:space="preserve">
     <value>Button images and icons inspired by resources available on Flaticon.com.</value>

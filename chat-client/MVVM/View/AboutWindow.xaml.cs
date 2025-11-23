@@ -3,15 +3,19 @@
 /// <version>1.0</version>
 /// <date>November 22th, 2025</date>
 
+using chat_client.Helpers;
 using System;
 using System.Windows;
 using System.Windows.Input;
-using chat_client.Helpers;
+using System.Windows.Media.Animation;
 
 namespace chat_client.View
 {
     public partial class AboutWindow : Window
     {
+        // Prevents re-triggering while mouse stays over
+        private bool VersionTextAnimated = false;
+ 
         public AboutWindow()
         {
             InitializeComponent();
@@ -23,7 +27,7 @@ namespace chat_client.View
             LicenceInfoText.Text = LocalizationManager.GetFormattedString("LicenceInfo");
             LicenceInfoResourcesText.Text = LocalizationManager.GetFormattedString("LicenceInfoResources");
             CliTextBlock.Text = LocalizationManager.GetFormattedString("CommandLineArguments");
-            LicenceFinalText.Text = LocalizationManager.GetFormattedString("LicenceFinal");
+           
         }
 
         /// <summary>
@@ -41,6 +45,30 @@ namespace chat_client.View
         private void CmdOk_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        /// <summary>
+        /// On hover over the entire trimmed text (version + date): shows and slides the name once,
+        /// stops with 5px spacing, illuminates.
+        /// </summary>
+        private void LicenceTrimmedBlock_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (!VersionTextAnimated)
+            {
+                VersionTextAnimated = true;
+                Storyboard open = (Storyboard)FindResource("storyBoardLicenceTrimmed_Open");
+                open.Begin(this);
+            }
+        }
+
+        /// <summary>
+        /// On mouse leave: waits 2s, then fades the name out slowly and resets the flag.
+        /// </summary>
+        private void LicenceTrimmedBlock_MouseLeave(object sender, MouseEventArgs e)
+        {
+            Storyboard close = (Storyboard)FindResource("storyBoardLicenceTrimmed_Close");
+            close.Begin(this);
+            VersionTextAnimated = false;
         }
 
         /// <summary>

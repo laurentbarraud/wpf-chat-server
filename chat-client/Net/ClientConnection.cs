@@ -21,6 +21,66 @@ namespace chat_client.Net
     /// </summary>
     public class ClientConnection
     {
+        /// <summary>
+        /// CancellationTokenSource dedicated to the active connection lifecycle, 
+        /// used to control and terminate the background packet reader.
+        private CancellationTokenSource? _connectionCts;
+
+        /// <summary>
+        /// Counts consecutive unknown opcodes seen in ReadPackets; resets when a valid opcode is processed.
+        /// Used to close the connection if too many unexpected opcodes arrive in a row.
+        /// </summary>
+        private int _consecutiveUnexpectedOpcodes = 0;
+
+        /// <summary>
+        /// Atomic guard to ensure DisconnectFromServer logic runs once.
+        /// 0 = not called, 1 = called.
+        /// </summary>
+        private int _disconnectFromServerCalled = 0;
+
+        // Represents the handshake lifecycle; completed with true on success, false on failure/exception.
+        private TaskCompletionSource<bool>? _handshakeCompletionTcs;
+
+        /// <summary>
+        /// Ensures that encryption initialization runs only once per session.
+        /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
+        /// Reset to 0 during disconnect cleanup to allow fresh initialization.
+        /// </summary>
+        private int _encryptionInitOnce = 0;
+
+        /// <summary>
+        /// Indicates whether the local public key has already been sent to the server.
+        /// • Ensures idempotence: the key is transmitted only once after HandshakeAck.
+        /// • Prevents repeated key-send loops during reconnection or multiple ACK events.
+        /// </summary>
+        private bool _hasSentPublicKey = false;
+
+        // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
+        private PacketReader? _packetReader;
+
+        /// <summary>
+        /// Provides the encryption pipeline used to publish keys, synchronize peers, and evaluate readiness.
+        /// Must be injected at construction to avoid null references.
+        /// </summary>
+        private readonly EncryptionPipeline _pipeline;
+
+        // Reader lock to serialize critical reads and avoid concurrent consumption of the NetworkStream.
+        // This field may be reset by CleanConnection to guarantee a fresh, uncontended semaphore.
+        private SemaphoreSlim _readerLock = new SemaphoreSlim(1, 1);
+
+        // Single-writer guard for this connection instance; kept readonly for the connection lifetime.
+        private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
+
+        private TcpClient _tcpClient;
+
+        /// <summary>
+        /// Delegate used to marshal actions back onto the UI thread.
+        /// Typically wraps Application.Current.Dispatcher.Invoke in WPF.
+        /// </summary>
+        private readonly System.Action<System.Action> _uiDispatcherInvoke;
+
+        // PUBLIC PROPERTIES
+
         /// <summary>Used to build outgoing packets. Never null.</summary>
         public PacketBuilder packetBuilder { get; } = new PacketBuilder();
 
@@ -73,60 +133,19 @@ namespace chat_client.Net
         public byte[] LocalPublicKey { get; private set; }
 
         /// <summary>
-        /// CancellationTokenSource dedicated to the active connection lifecycle, 
-        /// used to control and terminate the background packet reader.
-        private CancellationTokenSource? _connectionCts;
-
-        /// <summary>
-        /// Counts consecutive unknown opcodes seen in ReadPackets; resets when a valid opcode is processed.
-        /// Used to close the connection if too many unexpected opcodes arrive in a row.
+        /// Instantiates a new client connection.
+        /// • Creates a fresh TcpClient for network operations.
+        /// • Resets the local UID to Guid.Empty.
+        /// • Initializes the local public key to an empty byte array.
+        /// • Injects the encryption pipeline to handle key publication and readiness checks.
+        /// • Injects the UI dispatcher to safely update UI state from background tasks.
         /// </summary>
-        private int _consecutiveUnexpectedOpcodes = 0;
-
-        /// <summary>
-        /// Atomic guard to ensure DisconnectFromServer logic runs once.
-        /// 0 = not called, 1 = called.
-        /// </summary>
-        private int _disconnectFromServerCalled = 0;
-
-        // Represents the handshake lifecycle; completed with true on success, false on failure/exception.
-        private TaskCompletionSource<bool>? _handshakeCompletionTcs;
-
-        /// <summary>
-        /// Ensures that encryption initialization runs only once per session.
-        /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
-        /// Reset to 0 during disconnect cleanup to allow fresh initialization.
-        /// </summary>
-        private int _encryptionInitOnce = 0;
-
-        /// <summary>
-        /// Indicates whether the local public key has already been sent to the server.
-        /// • Ensures idempotence: the key is transmitted only once after HandshakeAck.
-        /// • Prevents repeated key-send loops during reconnection or multiple ACK events.
-        /// </summary>
-        private bool _hasSentPublicKey = false;
-
-        // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
-        private PacketReader? _packetReader;
-
-        // Reader lock to serialize critical reads and avoid concurrent consumption of the NetworkStream.
-        // This field may be reset by CleanConnection to guarantee a fresh, uncontended semaphore.
-        private SemaphoreSlim _readerLock = new SemaphoreSlim(1, 1);
-
-        // Single-writer guard for this connection instance; kept readonly for the connection lifetime.
-        private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
-
-        private TcpClient _tcpClient;
-
-        /// <summary>
-        /// Instantiates a new Server.
-        /// Creates a fresh TcpClient, resets the local UID to Guid.Empty,
-        /// and initializes the local public key to an empty byte array.
-        /// </summary>
-        public ClientConnection()
+        public ClientConnection(EncryptionPipeline pipeline, Action<Action> uiDispatcherInvoke)
         {
-            _tcpClient = new TcpClient();
+            _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
+            _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
 
+            _tcpClient = new TcpClient();
             LocalUid = Guid.Empty;
             LocalPublicKey = Array.Empty<byte>();
         }
@@ -207,7 +226,7 @@ namespace chat_client.Net
         {
             try
             {
-                // Defensive teardown of any previous socket to ensure a fresh start.
+                /// <summary> Defensive teardown of any previous socket to ensure a fresh start.</summary> 
                 try
                 {
                     _tcpClient?.Close();
@@ -222,40 +241,45 @@ namespace chat_client.Net
 
                 _tcpClient = new TcpClient();
 
-                // Chooses target IP, default to loopback.
+                /// <summary> Chooses target IP, default to loopback.</summary> 
                 string ipToConnect = string.IsNullOrWhiteSpace(ipAddressOfServer) ? "127.0.0.1" : ipAddressOfServer;
 
-                // Validates IP when not default.
+                /// <summary> Validates IP when not default.</summary> 
                 if (ipToConnect != "127.0.0.1" && !System.Net.IPAddress.TryParse(ipToConnect, out _))
                     throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
 
-                // Selects port from settings or fallback default.
+                /// <summary> Selects port from settings or fallback default.</summary> 
                 int port = Properties.Settings.Default.UseCustomPort ? Properties.Settings.Default.CustomPortNumber : 7123;
 
-                // Establishes TCP connection asynchronously.
+                /// <summary> Establishes TCP connection asynchronously.</summary> 
                 await _tcpClient.ConnectAsync(ipToConnect, port).ConfigureAwait(false);
                 ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {port}", ClientLogLevel.Debug);
 
-                // Initializes a fresh PacketReader bound to the active network stream.
-                // We create a new PacketReader per connection to avoid any stream-sharing ambiguity.
+                /// <summary> Initializes a fresh PacketReader bound to the active network stream.
+                /// We create a new PacketReader per connection to avoid any stream-sharing ambiguity.</summary> 
                 _packetReader = new PacketReader(_tcpClient.GetStream());
 
-                // Ensures a reader-lock exists to serialize critical reads if needed elsewhere.
+                /// <summary> Ensures a reader-lock exists to serialize critical reads if needed elsewhere.</summary> 
                 if (_readerLock == null)
                     _readerLock = new SemaphoreSlim(1, 1);
 
-                // Generates session identity and loads local public key bytes.
+                /// <summary> Generates session identity and loads local public key bytes from the pipeline </summary>
                 Guid uid = Guid.NewGuid();
-                byte[] publicKeyDer = EncryptionHelper.PublicKeyDer ?? Array.Empty<byte>();
+                byte[] publicKeyDer = EncryptionHelper.PublicKeyDer;
 
-                // Persists locally for other components.
+                if (publicKeyDer == null || publicKeyDer.Length == 0)
+                {
+                    throw new InvalidOperationException("Public key not initialized");
+                }
+
+                /// <summary> Persists locally for other components.</summary> 
                 LocalUid = uid;
                 LocalPublicKey = publicKeyDer;
 
-                // Ensure the handshake TCS is cancelled on any early exit or exception to wake awaiters.
+                /// <summary > // Ensure the handshake TCS is cancelled on any early exit or exception to wake awaiters.</summary> 
                 _handshakeCompletionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-                // Sends initial handshake packet and waits for an explicit HandshakeAck.
+                /// <summary> Sends initial handshake packet and waits for an explicit HandshakeAck. </summary> 
                 bool handshakeConfirmed = await SendInitialConnectionPacketAsync(username, uid, publicKeyDer, cancellationToken).ConfigureAwait(false);
                 if (!handshakeConfirmed)
                 {
@@ -268,15 +292,18 @@ namespace chat_client.Net
                     return (Guid.Empty, Array.Empty<byte>());
                 }
 
-                // Handshake succeeded and ACK was consumed by SendInitialConnectionPacketAsync.
+                /// <summary> Handshake succeeded and ACK was consumed by SendInitialConnectionPacketAsync.</summary>
                 _handshakeCompletionTcs?.TrySetResult(true);
 
-                // Notify higher-level listeners that connection and handshake are complete.
+                // Notifies higher-level listeners that connection and handshake are complete.
+                // Encryption initialization is handled externally
+                // where the pipeline/context is available.
                 ConnectionEstablished?.Invoke();
 
-                // Launches the dedicated background packet reader controlled by its own connection lifetime token.
+                /// <summary> Launches the background packet reader controlled by its own connection lifetime token. </summary>
                 _connectionCts = new CancellationTokenSource();
                 _ = Task.Run(() => ReadPacketsAsync(_connectionCts.Token));
+
                 return (uid, publicKeyDer);
             }
             catch (OperationCanceledException)

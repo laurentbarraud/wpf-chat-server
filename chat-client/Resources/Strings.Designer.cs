@@ -340,7 +340,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.0 - nov. 2025 - Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.0 - nov. 2025 Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {
@@ -349,7 +349,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Open‑source software, no warranty..
+        ///   Recherche une chaîne localisée semblable à This open-source software is distributed in the hope that it will be useful, but without any warranty..
         /// </summary>
         public static string LicenceInfo {
             get {
