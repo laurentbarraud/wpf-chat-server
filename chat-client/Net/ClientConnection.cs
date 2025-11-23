@@ -6,6 +6,7 @@
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -92,6 +93,12 @@ namespace chat_client.Net
         public bool IsEstablished => IsConnected && _handshakeCompletionTcs != null 
             && _handshakeCompletionTcs.Task.IsCompletedSuccessfully && _handshakeCompletionTcs.Task.Result == true;
 
+        /// <summary> Gets the UID assigned to the local user </summary>
+        public Guid LocalUid { get; private set; }
+
+        /// <summary> Gets the public key assigned to the local user </summary>
+        public byte[] LocalPublicKey { get; private set; }
+
         // PUBLIC EVENTS
 
         // Fired when a new connection is about to start reading packets.
@@ -125,12 +132,6 @@ namespace chat_client.Net
         // Server-initiated disconnect (opcode 12)
         //   No parameters
         public event Action? DisconnectedByServerEvent;
-
-        /// <summary>Gets the UID assigned to the local user.</summary>
-        public Guid LocalUid { get; private set; }
-
-        /// <summary>Gets the public key assigned to the local user.</summary>
-        public byte[] LocalPublicKey { get; private set; }
 
         /// <summary>
         /// Instantiates a new client connection.
@@ -206,18 +207,11 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// • Validates and resolves the target IP address and port.
-        /// • Disposes any previous socket and provides a fresh TcpClient placeholder.
-        /// • Connects the TcpClient to the remote server endpoint.
-        /// • Constructs a PacketReader over the active network stream for framed parsing.
-        /// • Generates a unique session identity (GUID) and retrieves the local public key (DER).
-        /// • Sends a framed handshake packet containing username, UID and public key to the server.
-        /// • On successful handshake, invokes connection-established callbacks and starts the background packet reader.
-        /// • On failure, performs cleanup and returns an empty result.
+        /// Validates IP/port, connects to server, initializes reader, generates UID/public key, performs handshake.
         /// </summary>
         /// <param name="username">Display name to present to the server.</param>
-        /// <param name="ipAddressOfServer">Server IP or hostname. If null/empty defaults to 127.0.0.1.</param>
-        /// <param name="cancellationToken">Cancellation token used for connect/handshake operations.</param>
+        /// <param name="ipAddressOfServer">Server IP or hostname. Defaults to 127.0.0.1 if null/empty.</param>
+        /// <param name="cancellationToken">Cancellation token for connect/handshake operations.</param>
         /// <returns>Tuple of (uid, publicKeyDer) when success; empty values on failure.</returns>
         public async Task<(Guid uid, byte[] publicKeyDer)> ConnectToServerAsync(
             string username,
@@ -226,104 +220,86 @@ namespace chat_client.Net
         {
             try
             {
-                /// <summary> Defensive teardown of any previous socket to ensure a fresh start.</summary> 
-                try
+                /// <summary> Defensive teardown of any previous socket </summary>
+                try 
                 {
-                    _tcpClient?.Close();
-                }
+                    _tcpClient?.Close(); 
+                } 
                 catch { }
-
-                try
-                {
-                    _tcpClient?.Dispose();
-                }
+                
+                try 
+                { 
+                    _tcpClient?.Dispose(); 
+                } 
                 catch { }
 
                 _tcpClient = new TcpClient();
 
-                /// <summary> Chooses target IP, default to loopback.</summary> 
+                /// <summary> Resolves target IP, default to loopback </summary>
                 string ipToConnect = string.IsNullOrWhiteSpace(ipAddressOfServer) ? "127.0.0.1" : ipAddressOfServer;
-
-                /// <summary> Validates IP when not default.</summary> 
                 if (ipToConnect != "127.0.0.1" && !System.Net.IPAddress.TryParse(ipToConnect, out _))
                     throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
 
-                /// <summary> Selects port from settings or fallback default.</summary> 
+                /// <summary> Selects port from settings or fallback default </summary>
                 int port = Properties.Settings.Default.UseCustomPort ? Properties.Settings.Default.CustomPortNumber : 7123;
 
-                /// <summary> Establishes TCP connection asynchronously.</summary> 
+                /// <summary> Establishes TCP connection asynchronously </summary>
                 await _tcpClient.ConnectAsync(ipToConnect, port).ConfigureAwait(false);
                 ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {port}", ClientLogLevel.Debug);
 
-                /// <summary> Initializes a fresh PacketReader bound to the active network stream.
-                /// We create a new PacketReader per connection to avoid any stream-sharing ambiguity.</summary> 
+                /// <summary> Initializes a fresh PacketReader bound to the active stream </summary>
                 _packetReader = new PacketReader(_tcpClient.GetStream());
 
-                /// <summary> Ensures a reader-lock exists to serialize critical reads if needed elsewhere.</summary> 
+                /// <summary> Ensures a reader-lock exists to serialize critical reads </summary>
                 if (_readerLock == null)
                     _readerLock = new SemaphoreSlim(1, 1);
 
-                /// <summary> Generates session identity and loads local public key bytes from the pipeline </summary>
-                Guid uid = Guid.NewGuid();
-                byte[] publicKeyDer = EncryptionHelper.PublicKeyDer;
+                /// <summary> Generates session identity and load public key from pipeline </summary>
+                LocalUid = Guid.NewGuid();
+                LocalPublicKey = _pipeline.PublicKeyDer;
 
-                if (publicKeyDer == null || publicKeyDer.Length == 0)
-                {
+                if (LocalPublicKey == null || LocalPublicKey.Length == 0)
                     throw new InvalidOperationException("Public key not initialized");
-                }
 
-                /// <summary> Persists locally for other components.</summary> 
-                LocalUid = uid;
-                LocalPublicKey = publicKeyDer;
-
-                /// <summary > // Ensure the handshake TCS is cancelled on any early exit or exception to wake awaiters.</summary> 
+                /// <summary> Initializes handshake completion TCS </summary>
                 _handshakeCompletionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-                /// <summary> Sends initial handshake packet and waits for an explicit HandshakeAck. </summary> 
-                bool handshakeConfirmed = await SendInitialConnectionPacketAsync(username, uid, publicKeyDer, cancellationToken).ConfigureAwait(false);
+                /// <summary> Sends initial handshake packet and await ACK </summary>
+                bool handshakeConfirmed = await SendInitialConnectionPacketAsync(username, LocalUid, LocalPublicKey, cancellationToken).ConfigureAwait(false);
                 if (!handshakeConfirmed)
                 {
                     ClientLogger.LogLocalized(LocalizationManager.GetString("ErrorFailedToSendInitialHandshake"), ClientLogLevel.Error);
                     CleanConnection();
-
                     _handshakeCompletionTcs?.TrySetCanceled();
                     _handshakeCompletionTcs = null;
-
                     return (Guid.Empty, Array.Empty<byte>());
                 }
 
-                /// <summary> Handshake succeeded and ACK was consumed by SendInitialConnectionPacketAsync.</summary>
+                /// <summary> Completes handshake TCS and marks pipeline ready </summary>
                 _handshakeCompletionTcs?.TrySetResult(true);
-
-                // Notifies higher-level listeners that connection and handshake are complete.
-                // Encryption initialization is handled externally
-                // where the pipeline/context is available.
+                _pipeline.MarkReadyForSession(LocalUid, LocalPublicKey);
                 ConnectionEstablished?.Invoke();
 
-                /// <summary> Launches the background packet reader controlled by its own connection lifetime token. </summary>
+                /// <summary> Launches background packet reader with its own lifetime token </summary>
                 _connectionCts = new CancellationTokenSource();
                 _ = Task.Run(() => ReadPacketsAsync(_connectionCts.Token));
 
-                return (uid, publicKeyDer);
+                return (LocalUid, LocalPublicKey);
             }
             catch (OperationCanceledException)
             {
                 ClientLogger.Log("ConnectToServerAsync canceled", ClientLogLevel.Debug);
                 CleanConnection();
-
                 _handshakeCompletionTcs?.TrySetCanceled();
                 _handshakeCompletionTcs = null;
-
                 return (Guid.Empty, Array.Empty<byte>());
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"ConnectToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
                 CleanConnection();
-
                 _handshakeCompletionTcs?.TrySetCanceled();
                 _handshakeCompletionTcs = null;
-
                 return (Guid.Empty, Array.Empty<byte>());
             }
         }
@@ -452,27 +428,25 @@ namespace chat_client.Net
             return framed;
         }
 
-
         /// <summary>
-        /// Marks the client-side handshake as complete so the UI/logic can safely proceed.
-        /// Completes the handshake TaskCompletionSource with success (true) in a race-safe manner.
-        /// If the TCS is not initialized, this method creates one already completed to keep behavior stable.
+        /// Marks the client-side handshake as complete, completes the TCS, and initializes the pipeline.
         /// </summary>
-        public void MarkHandshakeComplete()
+        public void MarkHandshakeComplete(Guid uid, byte[] publicKeyDer)
         {
-            // Ensures Task Completion Source exists and use RunContinuationsAsynchronously to avoid running
-            // continuations on the thread that completes the TCS.
+            // Completes the handshake TCS
             var tcs = _handshakeCompletionTcs;
             if (tcs == null)
             {
-                // Creates an already-completed TCS to preserve callers that check Task.IsCompleted.
                 _handshakeCompletionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _handshakeCompletionTcs.TrySetResult(true);
-                return;
+            }
+            else
+            {
+                tcs.TrySetResult(true);
             }
 
-            // Completes successfully if not already completed (TrySetResult is idempotent and race-safe).
-            tcs.TrySetResult(true);
+            // Marks pipeline ready
+            _pipeline.MarkReadyForSession(uid, publicKeyDer);
         }
 
         /// <summary>

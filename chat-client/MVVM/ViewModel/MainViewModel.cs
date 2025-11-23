@@ -440,7 +440,7 @@ namespace chat_client.MVVM.ViewModel
                     return;
                 }
 
-                // Initializes LocalUser
+                /// <summary> Initializes LocalUser </summary>
                 LocalUser = new UserModel
                 {
                     Username = Username.Trim(),
@@ -450,9 +450,10 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}",
                     ClientLogLevel.Debug);
 
-                _server.MarkHandshakeComplete();
+                /// <summary> Completes handshake and marks pipeline ready with UID and public key </summary>
+                _server.MarkHandshakeComplete(uid, publicKeyDer);
 
-                // Notifies UI that connection state changed
+                /// <summary> Notifies UI that connection state changed </summary>
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     OnPropertyChanged(nameof(IsConnected));
@@ -468,19 +469,19 @@ namespace chat_client.MVVM.ViewModel
                 {
                     try
                     {
-                        // Assigns in-memory RSA public key for this session
+                        /// <summary> Assigns in-memory RSA public key for this session </summary>
                         LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
                         ClientLogger.Log("Assigns in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
-                        // Publishes local key to the server
+                        /// <summary> Publishes local key to the server </summary>
                         await _server.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken)
                             .ConfigureAwait(false);
                         ClientLogger.Log("Publishes local public key to server.", ClientLogLevel.Debug);
 
-                        // Requests all known public keys (server snapshot)
+                        /// <summary> Requests all known public keys (server snapshot) </summary>
                         await _server.SendRequestAllPublicKeysFromServerAsync(cancellationToken).ConfigureAwait(false);
 
-                        // Single initialization entry point (publishes once, synchronizes peers, validates readiness)
+                        /// <summary> Single initialization entry point </summary>
                         if (_pipeline != null)
                         {
                             bool initOk = await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
@@ -497,7 +498,6 @@ namespace chat_client.MVVM.ViewModel
                     }
                     catch (Exception ex)
                     {
-                        // Logs any exception during encryption setup but continues without crashing
                         ClientLogger.Log($"Encryption setup failed: {ex.Message}", ClientLogLevel.Error);
                     }
                 }

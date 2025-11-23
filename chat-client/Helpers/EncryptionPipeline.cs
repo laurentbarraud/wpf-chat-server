@@ -8,6 +8,7 @@ using chat_client.Net;
 using chat_client.Properties;
 using Microsoft.VisualBasic.ApplicationServices;
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Windows;
 
@@ -26,6 +27,8 @@ namespace chat_client.Helpers
     /// </summary>
     public class EncryptionPipeline
     {
+        // PRIVATE FIELDS
+
         /// <summary>
         /// Cancellation token source for the current pipeline run
         /// </summary>
@@ -51,6 +54,11 @@ namespace chat_client.Helpers
         /// </summary>
         private readonly MainViewModel _viewModel;
 
+        // PUBLIC PROPERTIES
+
+        /// <summary> Indicates whether the encryption pipeline is ready for use </summary>
+        public bool IsReady { get; private set; }
+
         /// <summary>
         /// Known public keys (peer GUID → DER bytes)
         /// </summary>
@@ -62,6 +70,14 @@ namespace chat_client.Helpers
         public bool IsEncryptionReady { get; private set; }
         public bool IsSyncingKeys { get; private set; }
 
+        public byte[] PublicKeyDer { get; }
+
+        /// <summary> Holds the DER-encoded RSA public key associated with the current session </summary>
+        public byte[] SessionPublicKey { get; private set; }
+
+        /// <summary> Stores the unique session identifier (GUID) assigned to this pipeline </summary>
+        public Guid SessionUid { get; private set; }
+
         /// <summary>
         /// Creates a new EncryptionPipeline.
         /// Takes one callback to run code on the UI thread.
@@ -70,6 +86,7 @@ namespace chat_client.Helpers
         public EncryptionPipeline(Action<Action> uiDispatcherInvoke)
         {
             _uiDispatcherInvoke = uiDispatcherInvoke;
+            PublicKeyDer = EncryptionHelper.PublicKeyDer;
         }
 
         /// <summary>
@@ -297,6 +314,17 @@ namespace chat_client.Helpers
             return syncOk && finaleStateofEncryption;
         }
 
+        /// <summary> Marks the pipeline ready for encryption/decryption after handshake </summary>
+        public void MarkReadyForSession(Guid uid, byte[] publicKeyDer)
+        {
+            if (publicKeyDer == null || publicKeyDer.Length == 0)
+                throw new InvalidOperationException("Public key not initialized");
+
+            SessionUid = uid;
+            SessionPublicKey = publicKeyDer;
+            IsReady = true;
+            Debug.WriteLine("[INFO] EncryptionPipeline marked ready for session.");
+        }
 
         /// <summary>
         /// Starts the encryption pipeline asynchronously.
