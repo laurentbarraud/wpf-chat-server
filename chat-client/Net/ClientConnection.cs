@@ -134,12 +134,10 @@ namespace chat_client.Net
         public event Action? DisconnectedByServerEvent;
 
         /// <summary>
-        /// Instantiates a new client connection.
-        /// • Creates a fresh TcpClient for network operations.
-        /// • Resets the local UID to Guid.Empty.
-        /// • Initializes the local public key to an empty byte array.
-        /// • Injects the encryption pipeline to handle key publication and readiness checks.
-        /// • Injects the UI dispatcher to safely update UI state from background tasks.
+        /// Initializes a new ClientConnection instance.
+        /// Sets up the underlying TCP client, resets local identifiers,
+        /// and stores the encryption pipeline and UI dispatcher dependencies
+        /// provided by MainViewModel.
         /// </summary>
         public ClientConnection(EncryptionPipeline pipeline, Action<Action> uiDispatcherInvoke)
         {
@@ -147,8 +145,11 @@ namespace chat_client.Net
             LocalUid = Guid.Empty;
             LocalPublicKey = Array.Empty<byte>();
 
-            /// <summary> Initializes encryption pipeline with required UI dispatcher dependency </summary>
-            _pipeline = new EncryptionPipeline(uiDispatcherInvoke);
+            /// <summary> Stores the encryption pipeline passed from MainViewModel </summary>
+            _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
+
+            /// <summary> Stores the UI dispatcher dependency </summary>
+            _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
         }
 
         /// <summary>

@@ -80,11 +80,13 @@ namespace chat_client.Helpers
         /// Takes one callback to run code on the UI thread.
         /// This keeps encryption logic separate while still updating the interface.
         /// </summary>
-        public EncryptionPipeline(Action<Action> uiDispatcherInvoke)
+        public EncryptionPipeline(MainViewModel viewModel, Action<Action> uiDispatcherInvoke)
         {
-            _uiDispatcherInvoke = uiDispatcherInvoke;
+            _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+            _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
             PublicKeyDer = EncryptionHelper.PublicKeyDer;
         }
+
 
         /// <summary>
         /// Cancels any running pipeline, 
@@ -230,39 +232,68 @@ namespace chat_client.Helpers
         /// • Synchronize peer keys (handles solo short-circuit internally).
         /// • Validate readiness and update UI state.
         /// </summary>
-        /// <return>Returns true if encryption is enabled and peers are fully ready (or solo is detected).</return>
+        /// <returns>Returns true if encryption is enabled and peers are fully ready (or solo is detected).</returns>
         public async Task<bool> InitializeEncryptionAsync(CancellationToken cancellationToken)
         {
+            // Guards against null ViewModel or LocalUser before proceeding
+            if (_viewModel == null)
+            {
+                ClientLogger.Log("InitializeEncryptionAsync aborted — ViewModel not initialized.", ClientLogLevel.Error);
+                return false;
+            }
+
+            if (_viewModel.LocalUser == null)
+            {
+                ClientLogger.Log("InitializeEncryptionAsync aborted — LocalUser not initialized.", ClientLogLevel.Warn);
+                return false;
+            }
+
+            // Publishes the local public key only once per session
             if (!_localKeyPublished)
             {
-                if (_viewModel.LocalUser?.PublicKeyDer != null && _viewModel.LocalUser.PublicKeyDer.Length > 0)
+                if (_viewModel.LocalUser.PublicKeyDer != null && _viewModel.LocalUser.PublicKeyDer.Length > 0)
                 {
-                    // Publishes the local public key; server redistributes to peers who need it.
-                    await _clientConn.SendPublicKeyToServerAsync(
-                        _viewModel.LocalUser.UID,
-                        _viewModel.LocalUser.PublicKeyDer,
-                        cancellationToken
-                    );
+                    try
+                    {
+                        // Publishes the local public key; server redistributes to peers who need it
+                        await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID, _viewModel.LocalUser.PublicKeyDer,
+                            cancellationToken).ConfigureAwait(false);
 
-                    _localKeyPublished = true;
-                    ClientLogger.Log("InitializeEncryptionAsync: local public key published.", ClientLogLevel.Debug);
+                        _localKeyPublished = true;
+                        ClientLogger.Log("InitializeEncryptionAsync: local public key published.", ClientLogLevel.Debug);
+                    }
+                    catch (Exception ex)
+                    {
+                        ClientLogger.Log($"InitializeEncryptionAsync failed to publish local key: {ex.Message}", ClientLogLevel.Error);
+                        return false;
+                    }
                 }
                 else
                 {
-                    ClientLogger.Log("InitializeEncryptionAsync: local public key not yet available, skipping publish.",
-                        ClientLogLevel.Warn);
+                    ClientLogger.Log("InitializeEncryptionAsync: local public key not yet available, skipping publish.", ClientLogLevel.Warn);
                 }
             }
 
-            // Synchronizes peer keys
-            bool syncOk = await SyncKeysAsync(cancellationToken);
+            // Synchronizes peer keys (handles solo mode internally)
+            bool syncOk = false;
+            try
+            {
+                syncOk = await SyncKeysAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"InitializeEncryptionAsync failed during SyncKeysAsync: {ex.Message}", ClientLogLevel.Error);
+                return false;
+            }
 
             // Evaluates final state for consistency and updates UI flags
-            bool finaleStateofEncryption = EvaluateEncryptionState();
+            bool finalStateOfEncryption = EvaluateEncryptionState();
 
-            ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={syncOk}, Ready={finaleStateofEncryption}", ClientLogLevel.Info);
+            ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={syncOk}, Ready={finalStateOfEncryption}",
+                ClientLogLevel.Info);
 
-            return syncOk && finaleStateofEncryption;
+            // Returns true only if synchronization succeeded and encryption is ready
+            return syncOk && finalStateOfEncryption;
         }
 
         /// <summary> Marks the pipeline ready for encryption/decryption after handshake </summary>

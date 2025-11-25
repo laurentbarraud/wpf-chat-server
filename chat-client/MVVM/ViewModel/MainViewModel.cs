@@ -342,25 +342,20 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Initializes the MainViewModel instance.
-        /// Sets up user and message collections, creates the server client,
-        /// wires server events to handlers, and configures the Connect/Disconnect command.
+        /// Sets up user and message collections, creates the encryption pipeline and server client,
+        /// wires server events to handlers, and configures UI commands.
         /// </summary>
         public MainViewModel()
         {
-            // Initializes the collection of connected users
+            // Initializes collections bound to the UI
             Users = new ObservableCollection<UserModel>();
-
-            // Initializes the collection of chat messages
             Messages = new ObservableCollection<string>();
 
-            // Instantiates the server client and subscribes to its events
-            var pipeline = new EncryptionPipeline(a => Application.Current.Dispatcher.Invoke(a));
-            _clientConn = new ClientConnection(
-                pipeline,
-                a => Application.Current.Dispatcher.Invoke(a)
-            );
+            // Instantiates the encryption pipeline and client connection
+            _pipeline = new EncryptionPipeline(this, action => Application.Current.Dispatcher.Invoke(action));
+            _clientConn = new ClientConnection(_pipeline, action => Application.Current.Dispatcher.Invoke(action));
 
-            // Now you can safely subscribe
+            // Subscribes to client connection events
             _clientConn.UserConnectedEvent += OnUserConnected;
             _clientConn.PlainMessageReceivedEvent += OnPlainMessageReceived;
             _clientConn.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
@@ -368,22 +363,25 @@ namespace chat_client.MVVM.ViewModel
             _clientConn.UserDisconnectedEvent += OnUserDisconnected;
             _clientConn.DisconnectedByServerEvent += OnDisconnectedByServer;
 
-            // Subscribe to AppLanguage changes to refresh ConnectButtonText when the language setting updates
+            // Subscribes to language changes to refresh UI text dynamically
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
-            // Creates the Connect/Disconnect command and binds its Execute and CanExecute logic
+            // Creates the Connect/Disconnect command (always executable by design, non-blocking)
             ConnectDisconnectCommand = new RelayCommand(
                 () => ConnectDisconnect(),
-                () => true
+                () => true // ensures the button is always clickable
             );
 
-            // Creates the ThemeToggleCommand used by the ToggleButton in the UI.
-            // This command receives the toggle state (true for dark, false for light) as a parameter.
+            // Creates ThemeToggleCommand bound to the UI toggle button
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
-                // Converts the command parameter to a boolean and stores whether the dark theme is selected
-                // (true) or not (false).
-                bool isDarkThemeSelected = param is bool toggleState && toggleState;
+                // Explicitly checks if param is a boolean before using it
+                bool isDarkThemeSelected = false;
+                if (param is bool toggleState)
+                {
+                    // Assigns the value of toggleState directly
+                    isDarkThemeSelected = toggleState;
+                }
 
                 // Saves the theme preference
                 Settings.Default.AppTheme = isDarkThemeSelected ? "Dark" : "Light";
@@ -393,8 +391,7 @@ namespace chat_client.MVVM.ViewModel
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
-
-            // Registers to reevaluate the Connect/Disconnect command when connection state changes
+            // Reevaluates Connect/Disconnect command when connection state changes
             PropertyChanged += (sender, args) =>
             {
                 if (args.PropertyName == nameof(IsConnected))
@@ -481,7 +478,7 @@ namespace chat_client.MVVM.ViewModel
                         /// <summary> Ensures pipeline exists before usage </summary> 
                         if (_pipeline == null)
                         {
-                            _pipeline = new EncryptionPipeline(action => Application.Current.Dispatcher.Invoke(action));
+                            _pipeline = new EncryptionPipeline(this, action => Application.Current.Dispatcher.Invoke(action));
                             ClientLogger.Log("EncryptionPipeline is created before usage.", ClientLogLevel.Debug);
                         }
 
