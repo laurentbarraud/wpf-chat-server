@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 22th, 2025</date>
+/// <date>November 26th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -115,89 +115,26 @@ namespace chat_server
         /// This prevents duplicated socket closes, duplicate broadcast notifications,
         /// and reentrancy-related exceptions.
         /// </summary>
+        /// <remarks>
+        /// Syntax of Interlocked.CompareExchange :
+        /// • ref _cleanupState: we pass the variable by reference, so the method can read and modify the value
+        ///   directly.
+        /// • 1: the new value we want to set if the condition is met
+        /// • 0: the currently present expected value; the operation will only replace the value if the variable
+        ///   is exactly 0.
+        /// • method return: the old value that was in _cleanupState at the time of the call.
+        ///   If the returned value is 0, it means that the caller was successful in replacing it with 1.
+        ///   If the returned value is not 0, it means that another thread has already changed the value.
+        ///   The test != 0 in the code therefore means: "if the previous value was not 0, we do nothing and we exit".
+        /// </remarks>
         private void CleanupAfterDisconnect()
         {
-            /// <summary>
-            /// Attempts to set _cleanupState from 0 to 1.
-            /// Syntax of Interlocked.CompareExchange :
-            /// • ref _cleanupState: we pass the variable by reference, so the method can read and modify the value
-            ///   directly.
-            /// • 1: the new value we want to set if the condition is met
-            /// • 0: the currently present expected value; the operation will only replace the value if the variable
-            ///   is exactly 0.
-            /// • method return: the old value that was in _cleanupState at the time of the call.
-            ///   If the returned value is 0, it means that the caller was successful in replacing it with 1.
-            ///   If the returned value is not 0, it means that another thread has already changed the value.
-            ///   The test != 0 in the code therefore means: "if the previous value was not 0, we do nothing and we exit".
-            /// </summary>
+            // Ensures cleanup runs only once
             if (Interlocked.CompareExchange(ref _cleanupState, 1, 0) != 0)
                 return;
 
-            // Requests cooperative cancellation of any running per-connection reader.
-            try
-            {
-                try 
-                { 
-                    _connectionCts?.Cancel(); 
-                } 
-                catch { }
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("ErrorCancelConnectionCts", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
-            }
-
-            // Attempts to close the underlying socket.
-            try
-            {
-                try 
-                { 
-                    ClientSocket?.Close(); 
-                } 
-                catch { }
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("ErrorClientCleanup", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
-            }
-
-            // Notifies remaining users about this disconnect (fire-and-forget).
-            try
-            {
-                _ = Program.BroadcastDisconnectNotify(UID, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("ErrorBroadcastDisconnectNotify", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
-            }
-
-            // Removes and disposes per-connection send semaphore to avoid leaks.
-            try
-            {
-                Program.RemoveAndDisposeSendSemaphore(UID);
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("ErrorClientCleanup", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
-            }
-
-            // Disposes the per-connection CTS after cancellation to release resources.
-            try
-            {
-                try 
-                { 
-                    _connectionCts?.Dispose(); 
-                } 
-                catch { }
-                
-                _connectionCts = null;
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("ErrorDisposeConnectionCts", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
-            }
-
-            ServerLogger.LogLocalized("ClientCleanupComplete", ServerLogLevel.Info, Username ?? UID.ToString());
+            // Final localized log for all disconnect scenarios
+            ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Info, Username ?? UID.ToString());
         }
 
         /// <summary>

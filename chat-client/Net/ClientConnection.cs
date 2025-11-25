@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 22th, 2025</date>
+/// <date>November 26th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -143,12 +143,12 @@ namespace chat_client.Net
         /// </summary>
         public ClientConnection(EncryptionPipeline pipeline, Action<Action> uiDispatcherInvoke)
         {
-            _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
-            _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
-
             _tcpClient = new TcpClient();
             LocalUid = Guid.Empty;
             LocalPublicKey = Array.Empty<byte>();
+
+            /// <summary> Initializes encryption pipeline with required UI dispatcher dependency </summary>
+            _pipeline = new EncryptionPipeline(uiDispatcherInvoke);
         }
 
         /// <summary>
@@ -207,22 +207,21 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Validates IP/port, connects to server, initializes reader, generates UID/public key, performs handshake.
+        /// Validates IP/port, opens TCP, initializes reader/locks, generates UID, performs handshake,
+        /// marks pipeline ready, and starts the background packet reader.
         /// </summary>
         /// <param name="username">Display name to present to the server.</param>
         /// <param name="ipAddressOfServer">Server IP or hostname. Defaults to 127.0.0.1 if null/empty.</param>
         /// <param name="cancellationToken">Cancellation token for connect/handshake operations.</param>
-        /// <returns>Tuple of (uid, publicKeyDer) when success; empty values on failure.</returns>
-        public async Task<(Guid uid, byte[] publicKeyDer)> ConnectToServerAsync(
-            string username,
-            string ipAddressOfServer,
-            CancellationToken cancellationToken = default)
+        /// <returns>Tuple (uid, publicKeyDer) on success; empty values on failure.</returns>
+        public async Task<(Guid uid, byte[] publicKeyDer)> ConnectToServerAsync(string username, 
+            string ipAddressOfServer, CancellationToken cancellationToken = default)
         {
             try
             {
-                /// <summary> Defensive teardown of any previous socket </summary>
+                /// <summary> Closes/disposes any previous socket to ensure a clean start </summary>
                 try 
-                {
+                { 
                     _tcpClient?.Close(); 
                 } 
                 catch { }
@@ -233,78 +232,113 @@ namespace chat_client.Net
                 } 
                 catch { }
 
+                /// <summary> Creates a fresh TCP client instance </summary>
                 _tcpClient = new TcpClient();
 
-                /// <summary> Resolves target IP, default to loopback </summary>
+                /// <summary> Resolves target IP; falls back to loopback if missing </summary>
                 string ipToConnect = string.IsNullOrWhiteSpace(ipAddressOfServer) ? "127.0.0.1" : ipAddressOfServer;
+
+                /// <summary> Validates non-loopback IP format to avoid runtime parse errors </summary>
                 if (ipToConnect != "127.0.0.1" && !System.Net.IPAddress.TryParse(ipToConnect, out _))
+                {
                     throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
+                }
 
-                /// <summary> Selects port from settings or fallback default </summary>
-                int port = Properties.Settings.Default.UseCustomPort ? Properties.Settings.Default.CustomPortNumber : 7123;
+                /// <summary> Selects port from settings or uses the default development port </summary>
+                int port = Properties.Settings.Default.UseCustomPort
+                    ? Properties.Settings.Default.CustomPortNumber
+                    : 7123;
 
-                /// <summary> Establishes TCP connection asynchronously </summary>
+                /// <summary> Opens the TCP connection asynchronously </summary>
                 await _tcpClient.ConnectAsync(ipToConnect, port).ConfigureAwait(false);
                 ClientLogger.Log($"TCP connection established — IP: {ipToConnect}, Port: {port}", ClientLogLevel.Debug);
 
-                /// <summary> Initializes a fresh PacketReader bound to the active stream </summary>
+                /// <summary> Binds a new PacketReader to the active network stream </summary>
                 _packetReader = new PacketReader(_tcpClient.GetStream());
 
-                /// <summary> Ensures a reader-lock exists to serialize critical reads </summary>
+                /// <summary> Ensures a lock to serialize critical read sections </summary>
                 if (_readerLock == null)
                     _readerLock = new SemaphoreSlim(1, 1);
 
-                /// <summary> Generates session identity and load public key from pipeline </summary>
+                /// <summary> Generates a per-session UID and loads the local DER public key from the pipeline </summary>
                 LocalUid = Guid.NewGuid();
                 LocalPublicKey = _pipeline.PublicKeyDer;
 
+                /// <summary> Guards against missing/empty public key prior to handshake </summary>
                 if (LocalPublicKey == null || LocalPublicKey.Length == 0)
                     throw new InvalidOperationException("Public key not initialized");
 
-                /// <summary> Initializes handshake completion TCS </summary>
+                /// <summary> Creates a handshake completion TCS to coordinate readiness </summary>
                 _handshakeCompletionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-                /// <summary> Sends initial handshake packet and await ACK </summary>
-                bool handshakeConfirmed = await SendInitialConnectionPacketAsync(username, LocalUid, LocalPublicKey, cancellationToken).ConfigureAwait(false);
+                /// <summary> Sends initial handshake and awaits server ACK </summary>
+                bool handshakeConfirmed = await SendInitialConnectionPacketAsync(username, LocalUid, LocalPublicKey, cancellationToken)
+                    .ConfigureAwait(false);
                 if (!handshakeConfirmed)
                 {
                     ClientLogger.LogLocalized(LocalizationManager.GetString("ErrorFailedToSendInitialHandshake"), ClientLogLevel.Error);
+
+                    /// <summary> Cleans up connection state on handshake failure </summary>
                     CleanConnection();
+
+                    /// <summary> Cancels and releases handshake TCS to avoid dangling tasks </summary>
                     _handshakeCompletionTcs?.TrySetCanceled();
                     _handshakeCompletionTcs = null;
+
+                    /// <summary> Returns sentinel values to signal failure to caller </summary>
                     return (Guid.Empty, Array.Empty<byte>());
                 }
 
-                /// <summary> Completes handshake TCS and marks pipeline ready </summary>
+                /// <summary> Completes handshake TCS and marks pipeline ready for this session </summary>
                 _handshakeCompletionTcs?.TrySetResult(true);
                 _pipeline.MarkReadyForSession(LocalUid, LocalPublicKey);
+
+                /// <summary> Notifies subscribers that the connection is established </summary>
                 ConnectionEstablished?.Invoke();
 
-                /// <summary> Launches background packet reader with its own lifetime token </summary>
+                /// <summary> Starts background packet reading with a dedicated cancellation token </summary>
                 _connectionCts = new CancellationTokenSource();
                 _ = Task.Run(() => ReadPacketsAsync(_connectionCts.Token));
 
+                /// <summary> Returns the established UID and public key to the caller </summary>
                 return (LocalUid, LocalPublicKey);
             }
             catch (OperationCanceledException)
             {
                 ClientLogger.Log("ConnectToServerAsync canceled", ClientLogLevel.Debug);
+
+                /// <summary> Cleans up connection resources after cancellation </summary>
                 CleanConnection();
+
+                /// <summary> Propagates cancellation to the handshake TCS and clears it </summary>
                 _handshakeCompletionTcs?.TrySetCanceled();
                 _handshakeCompletionTcs = null;
+
+                /// <summary> Returns sentinel values to indicate cancellation to the caller </summary>
                 return (Guid.Empty, Array.Empty<byte>());
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"ConnectToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
+
+                /// <summary> Ensures a clean teardown on unexpected errors </summary>
                 CleanConnection();
+
+                /// <summary> Cancels and releases handshake TCS on failure </summary>
                 _handshakeCompletionTcs?.TrySetCanceled();
                 _handshakeCompletionTcs = null;
+
+                /// <summary> Returns sentinel values to indicate failure to the caller </summary>
                 return (Guid.Empty, Array.Empty<byte>());
             }
         }
 
-        public void DisconnectFromServer()
+        /// <summary>
+        /// Gracefully notifies server (if possible), cancels background readers,
+        /// and tears down network resources asynchronously.
+        /// This keeps network I/O off the UI thread and exposes a Task-based API.
+        /// </summary>
+        public async Task DisconnectFromServerAsync(CancellationToken cancellationToken = default)
         {
             // Ensures single concurrent execution
             if (Interlocked.Exchange(ref _disconnectFromServerCalled, 1) != 0)
@@ -312,69 +346,57 @@ namespace chat_client.Net
 
             try
             {
-                // Closes/Disposes TcpClient and its stream with minimal duplication
+                // Tries to send a disconnect notify before closing sockets
                 try
                 {
-                    if (_tcpClient != null)
-                    {
-                        try 
-                        { 
-                            _tcpClient.GetStream()?.Close();
-                        } 
-                        catch (Exception ex) 
-                        { 
-                            ClientLogger.Log($"NetworkStream close failed: {ex.Message}", ClientLogLevel.Warn); 
-                        }
-                        try 
-                        { 
-                            _tcpClient.Close(); 
-                        } 
-                        catch (Exception ex) 
-                        { 
-                            ClientLogger.Log($"TcpClient close failed: {ex.Message}", ClientLogLevel.Warn); 
-                        }
-                        try 
-                        {
-                            _tcpClient.Dispose(); 
-                        } 
-                        catch (Exception ex) 
-                        { 
-                            ClientLogger.Log($"TcpClient dispose failed: {ex.Message}", ClientLogLevel.Warn); 
-                        }
-                    }
+                    await SendDisconnectNotifyToServerAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"SendDisconnectNotifyToServerAsync failed: {ex.Message}", ClientLogLevel.Warn);
+                }
+
+                // Cancels background readers first so they stop using the stream
+                try
+                {
+                    _connectionCts?.Cancel();
+                    _connectionCts?.Dispose();
+                    _connectionCts = null;
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"Connection cancellation failed: {ex.Message}", ClientLogLevel.Warn);
+                }
+
+                // Closes and disposes the network stream and client
+                try
+                {
+                    _packetReader = null!;
+                    _tcpClient?.GetStream()?.Close();
+                }
+                catch (Exception ex)
+                {
+                    ClientLogger.Log($"NetworkStream close failed: {ex.Message}", ClientLogLevel.Warn);
+                }
+
+                try
+                {
+                    _tcpClient?.Close();
+                    _tcpClient?.Dispose();
                 }
                 catch (Exception ex)
                 {
                     ClientLogger.Log($"TcpClient cleanup failed: {ex.Message}", ClientLogLevel.Warn);
                 }
 
-                // Replaces with safe placeholders
-                try 
-                { 
-                    _tcpClient = new TcpClient(); 
-                } 
-                catch (Exception ex) 
-                { 
-                    ClientLogger.Log($"TcpClient placeholder creation failed: {ex.Message}", ClientLogLevel.Warn); 
-                }
-
-                // Keeps null-forgiving pattern you preferred
-                _packetReader = null!;
-
                 // Resets counters and notify listeners
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
                 ConnectionTerminated?.Invoke();
             }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"Disconnect failed during cleanup: {ex.Message}", ClientLogLevel.Error);
-            }
             finally
             {
-                // Resets disconnect flag so future disconnect calls are allowed
+                // Allows future disconnect calls and reset init flag
                 Volatile.Write(ref _disconnectFromServerCalled, 0);
-
-                // Resets the init flag on disconnect so a new session can initialize cleanly.
                 Volatile.Write(ref _encryptionInitOnce, 0);
             }
         }
@@ -384,8 +406,9 @@ namespace chat_client.Net
         /// Filters out users with empty UID or missing public key bytes 
         /// and returns a Dictionary keyed by Guid with DER byte[] values. 
         /// A Dictionary is a collection of key/value pairs that allows 
-        /// fast lookup of a value by its unique key; here the key is the
-        /// user’s Guid and the value is the user’s public key in DER format.
+        /// fast lookup of a value by its unique key; 
+        /// here the key is the user’s Guid and the value is the user’s 
+        /// public key in DER format.
         /// Using a Dictionary makes it efficient to find a specific user’s
         /// public key when encrypting a message or verifying signatures.
         /// </summary>
@@ -402,30 +425,6 @@ namespace chat_client.Net
                 .Where(usr => usr.UID != Guid.Empty && usr.PublicKeyDer != null && usr.PublicKeyDer.Length > 0)
                 // Project to Guid -> byte[] dictionary
                 .ToDictionary(usr => usr.UID, usr => usr.PublicKeyDer!);
-        }
-
-        /// <summary>
-        /// Frames a raw payload with a 4-byte network-order (big-endian) length prefix
-        /// and returns the combined buffer ready to be sent on the wire.
-        /// </summary>
-        /// <param name="payload">Raw packet payload bytes.</param>
-        /// <returns>Framed packet: 4-byte big-endian length prefix followed by payload.</returns>
-        static byte[] Frame(byte[] payload)
-        {
-            // Allocates single buffer for header + payload to avoid extra allocations/copies
-            var framed = new byte[4 + payload.Length];
-
-            // Writes length in big-endian (network) order explicitly
-            int len = payload.Length;
-            framed[0] = (byte)(len >> 24);
-            framed[1] = (byte)(len >> 16);
-            framed[2] = (byte)(len >> 8);
-            framed[3] = (byte)len;
-
-            // Copies payload immediately after the 4-byte header
-            Buffer.BlockCopy(payload, 0, framed, 4, payload.Length);
-
-            return framed;
         }
 
         /// <summary>

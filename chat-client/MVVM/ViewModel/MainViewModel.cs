@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 22th, 2025</date>
+/// <date>November 26th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -88,7 +88,7 @@ namespace chat_client.MVVM.ViewModel
         /// which manages key generation, publication, synchronization,
         /// and readiness evaluation for secure communication.
         /// </summary>
-        private readonly EncryptionPipeline _pipeline;
+        private EncryptionPipeline _pipeline;
 
         /// <summary>
         /// Holds the previous roster’s user IDs and usernames for diffing.
@@ -160,7 +160,7 @@ namespace chat_client.MVVM.ViewModel
         /// Proxy to the ClientConnection state.
         /// Ensures the UI binds to the actual TCP connection status.
         /// </summary>
-        public bool IsConnected => _server?.IsConnected ?? false;
+        public bool IsConnected => _clientConn?.IsConnected ?? false;
 
         /// <summary>
         /// Gets or sets a value indicating whether the dark theme is active.
@@ -268,7 +268,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public ClientConnection _server;
+        public ClientConnection _clientConn;
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -355,18 +355,18 @@ namespace chat_client.MVVM.ViewModel
 
             // Instantiates the server client and subscribes to its events
             var pipeline = new EncryptionPipeline(a => Application.Current.Dispatcher.Invoke(a));
-            _server = new ClientConnection(
+            _clientConn = new ClientConnection(
                 pipeline,
                 a => Application.Current.Dispatcher.Invoke(a)
             );
 
             // Now you can safely subscribe
-            _server.UserConnectedEvent += OnUserConnected;
-            _server.PlainMessageReceivedEvent += OnPlainMessageReceived;
-            _server.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
-            _server.PublicKeyReceivedEvent += OnPublicKeyReceived;
-            _server.UserDisconnectedEvent += OnUserDisconnected;
-            _server.DisconnectedByServerEvent += OnDisconnectedByServer;
+            _clientConn.UserConnectedEvent += OnUserConnected;
+            _clientConn.PlainMessageReceivedEvent += OnPlainMessageReceived;
+            _clientConn.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
+            _clientConn.PublicKeyReceivedEvent += OnPublicKeyReceived;
+            _clientConn.UserDisconnectedEvent += OnUserDisconnected;
+            _clientConn.DisconnectedByServerEvent += OnDisconnectedByServer;
 
             // Subscribe to AppLanguage changes to refresh ConnectButtonText when the language setting updates
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
@@ -401,21 +401,39 @@ namespace chat_client.MVVM.ViewModel
                     ConnectDisconnectCommand.RaiseCanExecuteChanged();
             };
         }
-       
+
         /// <summary>
-        /// Connects to the chat server:
-        /// • validates the username
-        /// • performs the TCP handshake to obtain the user GUID and server public key
+        /// Orchestrates UI-side connection workflow:
+        /// • validates username
+        /// • delegates handshake to clientConn
         /// • initializes LocalUser
-        /// • marks the connection as established
-        /// • publishes the local public key and requests peers’ keys
-        /// • initializes encryption and synchronizes missing keys
-        /// • updates the UI connection state
-        /// • saves the last used IP address
+        /// • updates UI state and focus
+        /// • initializes encryption if enabled
+        /// • persists last used IP
         /// </summary>
         public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
-            var allowedPattern = @"^[a-zA-Z0-9éèàöüî_-]+$";
+            /// <summary>
+            /// Username rules:
+            /// - first character must be a letter (ASCII or selected accented letters)
+            /// - allowed subsequent characters: letters (ASCII + selected accents), digits,
+            ///   underscore (_), hyphen (-) or a single normal space (U+0020)
+            /// - no leading or trailing space, no consecutive spaces, no tabs or other Unicode space characters
+            /// - at least one character required
+            /// </summary>
+            /// <remarks>
+            /// - `^(?!.*  )` prevents two consecutive normal spaces anywhere in the string.
+            /// - `(?!.* $)` prevents a trailing normal space at the end of the string.
+            /// - The first-character class forces the username to start with a letter (ASCII or accented),
+            ///   so names cannot begin with a digit, underscore, hyphen or space.
+            /// - The subsequent-character class allows ASCII letters, digits and the selected accented letters
+            ///   (both uppercase and lowercase), plus underscore and hyphen; a single normal space (U+0020)
+            ///   is allowed between characters but not consecutively.
+            /// - Tab characters and other Unicode whitespace characters are not permitted because they are
+            ///   not included in the allowed character class; only the normal space U+0020 is accepted.
+            /// </remarks>
+            var allowedPattern = @"^(?!.*  )(?!.* $)[A-Za-zÀÁÂÄÃÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÖÕÙÚÛÜÝŸàáâäãåæçèéêëìíîïñòóôöõùúûüýÿ][A-Za-z0-9ÀÁÂÄÃÅÆÇÈÉÊËÌÍÎÏÑÒÓÔÖÕÙÚÛÜÝŸàáâäãåæçèéêëìíîïñòóôöõùúûüýÿ _-]*(?: (?! ))*$";
+
             if (string.IsNullOrWhiteSpace(Username) || !Regex.IsMatch(Username, allowedPattern))
             {
                 ShowUsernameError();
@@ -424,11 +442,10 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                // Performs the TCP handshake (awaits naturally if firewall/antivirus delays connection)
-                var (uid, publicKeyDer) = await _server
-                    .ConnectToServerAsync(Username.Trim(), IPAddressOfServer, cancellationToken)
-                    .ConfigureAwait(false);
+                /// <summary> Delegates handshake to client connection and retrieves UID and server public key </summary>
+                var (uid, publicKeyDer) = await _clientConn.ConnectToServerAsync(Username.Trim(), IPAddressOfServer, cancellationToken).ConfigureAwait(false);
 
+                /// <summary> Guards against handshake failure (empty UID or key) </summary>
                 if (uid == Guid.Empty || publicKeyDer == null || publicKeyDer.Length == 0)
                 {
                     ClientLogger.LogLocalized("ConnectionFailed", ClientLogLevel.Error);
@@ -440,20 +457,11 @@ namespace chat_client.MVVM.ViewModel
                     return;
                 }
 
-                /// <summary> Initializes LocalUser </summary>
-                LocalUser = new UserModel
-                {
-                    Username = Username.Trim(),
-                    UID = uid,
-                    PublicKeyDer = publicKeyDer
-                };
-                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}",
-                    ClientLogLevel.Debug);
+                /// <summary> Initializes LocalUser with handshake results </summary>
+                LocalUser = new UserModel { Username = Username.Trim(), UID = uid, PublicKeyDer = publicKeyDer };
+                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
 
-                /// <summary> Completes handshake and marks pipeline ready with UID and public key </summary>
-                _server.MarkHandshakeComplete(uid, publicKeyDer);
-
-                /// <summary> Notifies UI that connection state changed </summary>
+                /// <summary> Updates UI bindings to reflect connected state </summary>
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     OnPropertyChanged(nameof(IsConnected));
@@ -465,36 +473,37 @@ namespace chat_client.MVVM.ViewModel
 
                 ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
 
+                /// <summary> Initializes encryption only if requested by settings </summary>
                 if (Settings.Default.UseEncryption)
                 {
                     try
                     {
-                        /// <summary> Assigns in-memory RSA public key for this session </summary>
+                        /// <summary> Ensures pipeline exists before usage </summary> 
+                        if (_pipeline == null)
+                        {
+                            _pipeline = new EncryptionPipeline(action => Application.Current.Dispatcher.Invoke(action));
+                            ClientLogger.Log("EncryptionPipeline is created before usage.", ClientLogLevel.Debug);
+                        }
+
+                        /// <summary> Assigns in-memory RSA public key for this session </summary> 
                         LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
                         ClientLogger.Log("Assigns in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
                         /// <summary> Publishes local key to the server </summary>
-                        await _server.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken)
-                            .ConfigureAwait(false);
+                        await _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
                         ClientLogger.Log("Publishes local public key to server.", ClientLogLevel.Debug);
 
-                        /// <summary> Requests all known public keys (server snapshot) </summary>
-                        await _server.SendRequestAllPublicKeysFromServerAsync(cancellationToken).ConfigureAwait(false);
+                        /// <summary> Requests a snapshot of all known public keys </summary>
+                        await _clientConn.SendRequestAllPublicKeysFromServerAsync(cancellationToken).ConfigureAwait(false);
 
-                        /// <summary> Single initialization entry point </summary>
-                        if (_pipeline != null)
-                        {
-                            bool initOk = await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
-                            if (initOk)
-                                ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
-                            else
-                                ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
-                        }
+                        /// <summary> Initializes local encryption context </summary>
+                        if (await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false))
+                            ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
                         else
-                        {
-                            // Pipeline not available in this context; defer encryption init to higher-level orchestration
-                            ClientLogger.Log("Encryption pipeline is null in ConnectAsync — deferring initialization.", ClientLogLevel.Warn);
-                        }
+                            ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
+
+                        /// <summary> Evaluates encryption readiness (solo or multi-client) </summary>
+                        _pipeline.EvaluateEncryptionState();
                     }
                     catch (Exception ex)
                     {
@@ -502,18 +511,22 @@ namespace chat_client.MVVM.ViewModel
                     }
                 }
 
+                /// <summary> Restores focus to message input for immediate typing </summary>
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                         mainWindow.TxtMessageToSend.Focus();
                 });
 
+                /// <summary> Saves last used IP address for next session </summary>
                 Settings.Default.LastIPAddressUsed = IPAddressOfServer;
                 Settings.Default.Save();
             }
             catch (OperationCanceledException)
             {
                 ClientLogger.Log("Connection attempt canceled by user.", ClientLogLevel.Info);
+
+                /// <summary> Resets UI state after cancellation </summary>
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     ReinitializeUI();
@@ -523,6 +536,8 @@ namespace chat_client.MVVM.ViewModel
             catch (Exception ex)
             {
                 ClientLogger.Log($"Fails to connect or handshake: {ex.Message}", ClientLogLevel.Error);
+
+                /// <summary> Displays error and resets UI to disconnected state </summary>
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
@@ -547,7 +562,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public async void ConnectDisconnect()
         {
-            if (_server.IsConnected)
+            if (_clientConn.IsConnected)
             {
                 Disconnect();
             }
@@ -563,45 +578,44 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// • Sends a framed DisconnectNotify packet if still connected  
-        /// • Closes the underlying TCP connection via the server wrapper  
-        /// • Clears all user and message data from the UI  
-        /// • Notifies UI bindings so login controls re-enable and chat panels hide  
-        /// • Disables encryption pipeline and resets init flag  
+        /// Sends a disconnect notify (if connected), closes the TCP connection via clientConn,
+        /// clears UI state, notifies bindings, disables encryption, and resets init flags.
         /// </summary>
         public void Disconnect()
         {
             try
             {
-                if (_server?.IsConnected == true)
+                /// <summary> Sends a framed DisconnectNotify if the client is still connected </summary>
+                if (_clientConn?.IsConnected == true)
                 {
                     try
                     {
                         // Fire-and-forget disconnect notify
-                        _ = _server.SendDisconnectNotifyToServerAsync(CancellationToken.None);
+                        _ = _clientConn.SendDisconnectNotifyToServerAsync(CancellationToken.None);
                     }
                     catch (Exception ex)
                     {
                         ClientLogger.Log($"SendDisconnectNotifyToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
                     }
 
-                    _server.DisconnectFromServer();
+                    /// <summary> Fire-and-forget : loses the underlying TCP connection via the client connection </summary>
+                    _ = _clientConn.DisconnectFromServerAsync();
                 }
 
-                // Clears all user and message data in the view
+                /// <summary> Clears all user/message data in the view </summary>
                 ReinitializeUI();
 
-                // Notifies UI that connection state changed
+                /// <summary> Notifies UI bindings to reflect disconnected state </summary>
                 OnPropertyChanged(nameof(IsConnected));
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
                 OnPropertyChanged(nameof(AreCredentialsEditable));
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
-                // Disables pipeline safely
+                /// <summary> Disables encryption pipeline safely </summary>
                 _pipeline?.DisableEncryption();
 
-                // Resets the init flag so a new session can initialize encryption cleanly
+                /// <summary> Resets encryption init flag for clean future sessions </summary>
                 Volatile.Write(ref _encryptionInitOnce, 0);
             }
             catch (Exception ex)
@@ -724,37 +738,45 @@ namespace chat_client.MVVM.ViewModel
             {
                 return;
             }
-
-            // Attempts server-side disconnect
+      
             try
             {
-                _server.DisconnectFromServer();
+                /// <summary> 
+                /// Fire-and-forget attempts server-side disconnect
+                /// The .ContinueWith(disconnectTask => { … }, TaskContinuationOptions.OnlyOnFaulted)
+                /// means: “When the disconnect finishes, check if it had an error.
+                /// Only run this extra code if something went wrong.”
+                /// </summary>
+                _ = _clientConn.DisconnectFromServerAsync().ContinueWith(disconnectTask =>
+                {
+                    if (disconnectTask.Exception != null)
+                        ClientLogger.Log($"Async disconnect failed: {disconnectTask.Exception.InnerException?.Message}", ClientLogLevel.Error);
+                }, TaskContinuationOptions.OnlyOnFaulted);
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}", ClientLogLevel.Error);
             }
 
-            // Runs UI-bound updates on the Dispatcher
             Application.Current.Dispatcher.Invoke(() =>
             {
-                // Removes all entries from the UI user list.
+                /// <summary> Removes all entries from the UI user list. </summary>
                 Users.Clear();
 
-                // Appends a localized system message to the chat history
+                /// <summary> Appends a localized system message to the chat history </summary> 
                 Messages.Add($"# {LocalizationManager.GetString("ServerHasClosed")} #");
 
-                // Notifies UI bindings so dependent logic refreshes
+                /// <summary> Notifies UI bindings so dependent logic refreshes </summary> 
                 OnPropertyChanged(nameof(IsConnected));
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
                 OnPropertyChanged(nameof(AreCredentialsEditable));
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
-                // Disables encryption pipeline safely
+                /// <summary> Disables encryption pipeline safely </summary> 
                 _pipeline?.DisableEncryption();
 
-                // Reset init flag for next session
+                /// <summary> Resets init flag for next session </summary>
                 Volatile.Write(ref _encryptionInitOnce, 0);
             });
         }
@@ -952,7 +974,6 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Handles a user disconnect event (opcode: DisconnectNotify).
         /// Removes the specified user from the roster,
-        /// posts a system notice to the chat,
         /// updates the expected client count,
         /// and rechecks encryption readiness if enabled.
         /// </summary>
@@ -970,22 +991,32 @@ namespace chat_client.MVVM.ViewModel
                 // Removes the user from the UI-bound list
                 Users.Remove(user);
 
-                // Updates and logs the expected client count
+                // Updates the expected client count after removal
                 ExpectedClientCount = Users.Count;
-                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
-                    ClientLogLevel.Debug);
+                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", ClientLogLevel.Debug);
 
                 // Rechecks encryption readiness when encryption is active
                 if (Settings.Default.UseEncryption)
-                    _pipeline.EvaluateEncryptionState();
+                {
+                    if (_pipeline != null)
+                    {
+                        // Evaluates encryption state safely
+                        _pipeline.EvaluateEncryptionState();
+                    }
+                    else
+                    {
+                        // Logs that pipeline is missing instead of throwing NullReferenceException
+                        ClientLogger.Log("OnUserDisconnected detects null pipeline — skip EvaluateEncryptionState.", ClientLogLevel.Warn);
+                    }
+                }
 
-                // Logs the disconnect event
-                ClientLogger.Log($"User disconnected — Username: {username}, UID: {uid}",
-                    ClientLogLevel.Debug);
+                // Logs the disconnect event in a localized, simplified way
+                ClientLogger.LogLocalized("ClientRemoved", ClientLogLevel.Info, username);
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"UserDisconnected handler failed: {ex.Message}", ClientLogLevel.Error);
+                // Logs any unexpected failure in the disconnect handler
+                ClientLogger.Log($"OnUserDisconnected handler fails: {ex.Message}", ClientLogLevel.Error);
             }
         }
 

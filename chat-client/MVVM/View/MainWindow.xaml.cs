@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 22th, 2025</date>
+/// <date>November 26th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -35,7 +35,7 @@ namespace chat_client
         /// Indicates whether the client is currently connected to the server.
         /// Uses null-conditional access to safely evaluate connection state. 
         /// </summary>
-        public bool IsConnected => ViewModel?._server != null && ViewModel._server.IsConnected;
+        public bool IsConnected => ViewModel?._clientConn != null && ViewModel._clientConn.IsConnected;
 
         /// <summary>
         /// Height of the emoji panel
@@ -282,8 +282,8 @@ namespace chat_client
             // Prevents sending if the message is empty, the socket is not connected,
             // or the handshake/establishment is not yet complete.
             if (string.IsNullOrEmpty(MainViewModel.Message) ||
-                ViewModel._server?.IsConnected != true ||
-                ViewModel._server?.IsEstablished != true)
+                ViewModel._clientConn?.IsConnected != true ||
+                ViewModel._clientConn?.IsEstablished != true)
             {
                 ClientLogger.Log("Send blocked: connection not yet fully established", ClientLogLevel.Debug);
                 return;
@@ -294,7 +294,7 @@ namespace chat_client
                 string messageToSend = MainViewModel.Message;
 
                 // Awaits the unified send method; handles encryption internally if enabled.
-                bool success = await ViewModel._server.SendMessageAsync(messageToSend, CancellationToken.None);
+                bool success = await ViewModel._clientConn.SendMessageAsync(messageToSend, CancellationToken.None);
 
                 if (success)
                 {
@@ -604,7 +604,7 @@ namespace chat_client
 
         private void TxtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (TxtMessageToSend.Text == "" || ViewModel._server.IsConnected == false)
+            if (TxtMessageToSend.Text == "" || ViewModel._clientConn.IsConnected == false)
             {
                 CmdSend.IsEnabled = false;
             }
