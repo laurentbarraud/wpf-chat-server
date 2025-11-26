@@ -366,17 +366,29 @@ namespace chat_client.MVVM.ViewModel
             // Subscribes to language changes to refresh UI text dynamically
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
-            // Creates the Connect/Disconnect command (always executable by design, non-blocking)
+            /// <summary>
+            /// Creates the Connect/Disconnect RelayCommand.
+            /// Always executable by design, and launches the asynchronous connect/disconnect
+            /// logic without blocking the UI thread.
+            /// </summary>
+            /// <remarks>
+            /// RelayCommand takes an Action, so we cannot directly pass a Task-returning method,
+            /// but start the asynchronous call in a fire-and-forget manner. 
+            /// The "_ =" is a convention to indicate that the returned
+            /// Task is intentionally ignored. 
+            /// CanExecute remains true, so the button is always clickable.
+            /// </remarks>
             ConnectDisconnectCommand = new RelayCommand(
-                () => ConnectDisconnect(),
-                () => true // ensures the button is always clickable
+                () => { _ = ConnectDisconnectAsync(); }, 
+                () => true
             );
 
             // Creates ThemeToggleCommand bound to the UI toggle button
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
-                // Explicitly checks if param is a boolean before using it
                 bool isDarkThemeSelected = false;
+
+                // Checks if param is a boolean before using it
                 if (param is bool toggleState)
                 {
                     // Assigns the value of toggleState directly
@@ -395,7 +407,9 @@ namespace chat_client.MVVM.ViewModel
             PropertyChanged += (sender, args) =>
             {
                 if (args.PropertyName == nameof(IsConnected))
+                {
                     ConnectDisconnectCommand.RaiseCanExecuteChanged();
+                }
             };
         }
 
@@ -553,26 +567,28 @@ namespace chat_client.MVVM.ViewModel
             LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
 
         /// <summary>
-        /// Connects or disconnects the client, depending on the server state.
-        /// ConfigureAwait(true) ensures continuation runs back on the UI
-        /// context so subsequent UI updates are safe.
+        /// Connects or disconnects the client depending on the current connection state.
+        /// Uses an asynchronous pattern so the UI thread is not blocked while the network
+        /// handshake runs. 
+        /// The method resumes on the UI context after awaits so subsequent
+        /// UI updates are safe.
         /// </summary>
-        public async void ConnectDisconnect()
+        public async Task ConnectDisconnectAsync()
         {
             if (_clientConn.IsConnected)
             {
                 Disconnect();
+                return;
             }
-            else
-            {
-                ///<summary> 
-                /// Awaits the asynchronous ConnectAsync to run the handshake without blocking the caller
-                /// and let exceptions propagate; ConfigureAwait(true) ensures continuation runs back on
-                /// the UI context so subsequent UI updates are safe.
-                /// </summary>
-                await ConnectAsync().ConfigureAwait(true);
-            }
+
+            // If not connected, start the asynchronous connect/handshake sequence.
+            // Awaiting ConnectAsync allows exceptions to propagate to the caller for handling.
+            // ConfigureAwait(true) requests that the continuation runs back on the captured
+            // synchronization context (the UI thread) so that any UI updates after the await
+            // are safe to perform directly.
+            await ConnectAsync().ConfigureAwait(true);
         }
+
 
         /// <summary>
         /// Sends a disconnect notify (if connected), closes the TCP connection via clientConn,
