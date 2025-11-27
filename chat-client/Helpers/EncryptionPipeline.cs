@@ -323,8 +323,13 @@ namespace chat_client.Helpers
             // Marks encryption as ready
             IsEncryptionReady = true;
 
-            Debug.WriteLine("[INFO] EncryptionPipeline marked ready for session.");
+            // Detailed log for debugging key presence
+            ClientLogger.Log(
+                $"MarkReadyForSession — UID={uid}, SessionKeyLen={SessionPublicKey?.Length}, PublicKeyLen={PublicKeyDer?.Length}",
+                ClientLogLevel.Debug
+            );
         }
+
 
         /// <summary>
         /// Starts the encryption pipeline asynchronously.

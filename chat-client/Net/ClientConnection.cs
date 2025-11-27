@@ -6,6 +6,7 @@
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Net.IO;
+using chat_client.Properties;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -63,7 +64,7 @@ namespace chat_client.Net
         /// Provides the encryption pipeline used to publish keys, synchronize peers, and evaluate readiness.
         /// Must be injected at construction to avoid null references.
         /// </summary>
-        private readonly EncryptionPipeline _pipeline;
+        private readonly EncryptionPipeline _encryptionPipeline;
 
         // Reader lock to serialize critical reads and avoid concurrent consumption of the NetworkStream.
         // This field may be reset by CleanConnection to guarantee a fresh, uncontended semaphore.
@@ -270,9 +271,9 @@ namespace chat_client.Net
                 LocalUid = Guid.NewGuid();
 
                 /// <summary> Initializes public key for handshake (real if encryption enabled, dummy otherwise) </summary>
-                if (Properties.Settings.Default.UseEncryption && _pipeline != null)
+                if (Properties.Settings.Default.UseEncryption && _encryptionPipeline != null)
                 {
-                    LocalPublicKey = _pipeline.PublicKeyDer;
+                    LocalPublicKey = _encryptionPipeline.PublicKeyDer;
 
                     /// <summary> Guards against missing/empty public key prior to handshake </summary>
                     if (LocalPublicKey == null || LocalPublicKey.Length == 0)
@@ -307,12 +308,8 @@ namespace chat_client.Net
                     return (Guid.Empty, Array.Empty<byte>());
                 }
 
-                /// <summary> Completes handshake TCS and marks pipeline ready if encryption is enabled </summary>
-                _handshakeCompletionTcs?.TrySetResult(true);
-                if (Properties.Settings.Default.UseEncryption && _pipeline != null)
-                {
-                    _pipeline.MarkReadyForSession(LocalUid, LocalPublicKey);
-                }
+                /// <summary> Completes handshake and delegates pipeline readiness </summary>
+                MarkHandshakeComplete(LocalUid, LocalPublicKey);
 
                 /// <summary> Notifies subscribers that the connection is established </summary>
                 ConnectionEstablished?.Invoke();
@@ -449,7 +446,8 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Marks the client-side handshake as complete, completes the TCS, and initializes the pipeline.
+        /// Marks the client-side handshake as complete, completes the TCS,
+        /// and initializes the encryption pipeline only if encryption is enabled.
         /// </summary>
         public void MarkHandshakeComplete(Guid uid, byte[] publicKeyDer)
         {
@@ -465,8 +463,19 @@ namespace chat_client.Net
                 tcs.TrySetResult(true);
             }
 
-            // Marks pipeline ready
-            _pipeline.MarkReadyForSession(uid, publicKeyDer);
+            // Initialize pipeline only if encryption is enabled
+            if (Settings.Default.UseEncryption && _encryptionPipeline != null)
+            {
+                _encryptionPipeline.MarkReadyForSession(uid, publicKeyDer);
+                ClientLogger.Log(
+                    $"MarkHandshakeComplete — UID={uid}, PublicKeyLen={publicKeyDer?.Length}",
+                    ClientLogLevel.Debug
+                );
+            }
+            else
+            {
+                ClientLogger.Log("MarkHandshakeComplete — encryption disabled, pipeline not initialized.", ClientLogLevel.Info);
+            }
         }
 
         /// <summary>

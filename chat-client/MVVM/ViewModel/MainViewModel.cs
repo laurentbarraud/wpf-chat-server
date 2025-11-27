@@ -79,7 +79,7 @@ namespace chat_client.MVVM.ViewModel
         /// which manages key generation, publication, synchronization,
         /// and readiness evaluation for secure communication.
         /// </summary>
-        private EncryptionPipeline _pipeline;
+        private EncryptionPipeline _encryptionPipeline;
 
         /// <summary>
         /// Holds the previous roster’s user IDs and usernames for diffing.
@@ -356,7 +356,7 @@ namespace chat_client.MVVM.ViewModel
             // injecting both the ViewModel and the client connection,
             // so that the encryption logic has access to the active connection
             // and can notify the UI.
-            _pipeline = new EncryptionPipeline(this, _clientConn,
+            _encryptionPipeline = new EncryptionPipeline(this, _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action)
             );
 
@@ -425,7 +425,7 @@ namespace chat_client.MVVM.ViewModel
         /// • delegates handshake to clientConn
         /// • initializes LocalUser
         /// • updates UI state and focus
-        /// • initializes encryption if enabled
+        /// • initializes encryption if enabled (ensures proper key assignment and pipeline readiness)
         /// • persists last used IP
         /// </summary>
         public async Task ConnectAsync(CancellationToken cancellationToken = default)
@@ -496,13 +496,13 @@ namespace chat_client.MVVM.ViewModel
                     try
                     {
                         /// <summary> Ensures pipeline exists before usage </summary> 
-                        if (_pipeline == null)
+                        if (_encryptionPipeline == null)
                         {
                             ///<summary> Ensures client connection exists first </summary>
                             _clientConn ??= new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action));
 
                             /// <summary> Creates encryption pipeline with ViewModel, client connection, and dispatcher </summary>
-                            _pipeline = new EncryptionPipeline(this, _clientConn,
+                            _encryptionPipeline = new EncryptionPipeline(this, _clientConn,
                                 action => Application.Current.Dispatcher.BeginInvoke(action)
                             );
 
@@ -511,28 +511,37 @@ namespace chat_client.MVVM.ViewModel
 
                         /// <summary> Assigns in-memory RSA public key for this session </summary>
                         LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
+                        ClientLogger.Log($"LocalUser.PublicKeyDer assigned — length={LocalUser.PublicKeyDer?.Length}", ClientLogLevel.Debug);
+
+                        /// <summary>
+                        /// Prevents a potential null reference by validating LocalUser.PublicKeyDer before use.
+                        /// </summary>
+                        if (LocalUser.PublicKeyDer == null || LocalUser.PublicKeyDer.Length == 0)
+                        {
+                            throw new InvalidOperationException("Public key not initialized");
+                        }
 
                         /// <summary> Synchronizes the local public key with ClientConnection </summary>
-                        _clientConn.LocalPublicKey = LocalUser.PublicKeyDer;
+                        _clientConn.LocalPublicKey = LocalUser.PublicKeyDer ?? throw new InvalidOperationException("Public key not initialized");
 
-                        /// <summary> Marks pipeline ready for encryption/decryption after handshake </summary>
-                        _pipeline.MarkReadyForSession(LocalUser.UID, LocalUser.PublicKeyDer);
+                        /// <summary> Delegates handshake completion and pipeline readiness </summary>
+                        _clientConn.MarkHandshakeComplete(LocalUser.UID, LocalUser.PublicKeyDer);
 
-                        ClientLogger.Log("Assigned in-memory RSA public key for this session.", ClientLogLevel.Debug);
+                        ClientLogger.Log("Pipeline marked ready for session.", ClientLogLevel.Debug);
 
                         /// <summary> Publishes the local public key to the server </summary>
+                        ClientLogger.Log("Sending public key to server...", ClientLogLevel.Debug);
                         await _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
-                        ClientLogger.Log("Published local public key to server.", ClientLogLevel.Debug);
+                        ClientLogger.Log("SendPublicKeyToServerAsync completed", ClientLogLevel.Debug);
 
                         /// <summary> Initializes local encryption context </summary>
-                        if (await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false))
-                        {
-                            ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
-                        }
-                        else
-                        {
-                            ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
-                        }
+                        ClientLogger.Log("Calling InitializeEncryptionAsync...", ClientLogLevel.Debug);
+                        var initOk = await _encryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
+                        ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={initOk}", ClientLogLevel.Debug);
+
+                        /// <summary> Evaluation of encryption state and UI update </summary>
+                        var ready = _encryptionPipeline.EvaluateEncryptionState();
+                        ClientLogger.Log($"EvaluateEncryptionState result — Ready={ready}", ClientLogLevel.Debug);
                     }
                     catch (Exception ex)
                     {
@@ -644,7 +653,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
                 /// <summary> Disables encryption pipeline safely </summary>
-                _pipeline?.DisableEncryption();
+                _encryptionPipeline?.DisableEncryption();
 
                 /// <summary> Resets encryption init flag for clean future sessions </summary>
                 Volatile.Write(ref _encryptionInitOnce, 0);
@@ -805,7 +814,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
                 /// <summary> Disables encryption pipeline safely </summary> 
-                _pipeline?.DisableEncryption();
+                _encryptionPipeline?.DisableEncryption();
 
                 /// <summary> Resets init flag for next session </summary>
                 Volatile.Write(ref _encryptionInitOnce, 0);
@@ -919,7 +928,7 @@ namespace chat_client.MVVM.ViewModel
             }
 
             // Re-evaluates overall encryption state
-            _pipeline.EvaluateEncryptionState();
+            _encryptionPipeline.EvaluateEncryptionState();
 
             if (isNewOrUpdatedKey && IsEncryptionReady)
             {
@@ -995,7 +1004,7 @@ namespace chat_client.MVVM.ViewModel
                 }
 
                 // Re-evaluates whether encryption features can be enabled
-                _pipeline.EvaluateEncryptionState();
+                _encryptionPipeline.EvaluateEncryptionState();
 
                 // Posts a system notice to the chat window
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
@@ -1029,10 +1038,10 @@ namespace chat_client.MVVM.ViewModel
                 // Rechecks encryption readiness when encryption is active
                 if (Settings.Default.UseEncryption)
                 {
-                    if (_pipeline != null)
+                    if (_encryptionPipeline != null)
                     {
                         // Evaluates encryption state safely
-                        _pipeline.EvaluateEncryptionState();
+                        _encryptionPipeline.EvaluateEncryptionState();
                     }
                     else
                     {
@@ -1176,7 +1185,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(UseEncryption));
 
                 // Fire-and-forget: start pipeline in background without blocking UI
-                _ = _pipeline.StartEncryptionPipelineBackground();
+                _ = _encryptionPipeline.StartEncryptionPipelineBackground();
 
                 // Optimistic success; actual result will be logged by background task
                 pipelineSucceeded = true;
@@ -1184,7 +1193,7 @@ namespace chat_client.MVVM.ViewModel
             else
             {
                 // Centralized disable path
-                _pipeline.DisableEncryption();
+                _encryptionPipeline.DisableEncryption();
                 pipelineSucceeded = true;
             }
 
