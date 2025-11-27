@@ -37,57 +37,39 @@ namespace chat_server
         private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _sendSemaphores = new ConcurrentDictionary<Guid, SemaphoreSlim>();
 
         /// <summary>
-        /// Starts the server, handles graceful shutdown and processes 
-        /// incoming handshakes.
-        /// Uses an async accept loop and cancels cleanly on shutdown
-        /// without blocking the main thread.
+        /// Entry point — server accept loop with simplified handshake.
         /// </summary>
         public static async Task Main(string[] args)
         {
-            // Localization
-            string twoLetterLanguageCode = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-            string uiLang = twoLetterLanguageCode.Equals("fr", StringComparison.OrdinalIgnoreCase) ? "fr" : "en";
+            // <summary> Initializes localization based on system language </summary>
+            string uiLang = CultureInfo.CurrentCulture.TwoLetterISOLanguageName.Equals("fr", StringComparison.OrdinalIgnoreCase) ? "fr" : "en";
             LocalizationManager.Initialize(uiLang);
 
-            // Console encoding
+            // <summary> Ensures console supports UTF-8 output </summary>
             Console.OutputEncoding = Encoding.UTF8;
 
-            // Creates CTS for accept loop and background work
+            // <summary> Cancellation token for accept loop and background tasks </summary>
             _acceptCts = new CancellationTokenSource();
             CancellationToken token = _acceptCts.Token;
 
-            // Graceful Ctrl+C: cancels and stops listener; let Main unwind naturally
-            Console.CancelKeyPress += (sender, e) =>
-            {
-                e.Cancel = true;
-                _exitByCtrlC = true;
-                try 
-                { 
-                    Listener?.Stop(); 
-                } 
-                catch { }
-                
-                _acceptCts.Cancel();
+            // <summary> Graceful Ctrl+C shutdown </summary>
+            Console.CancelKeyPress += (s, e) => 
+            { 
+                e.Cancel = true; _exitByCtrlC = true; 
+                Listener?.Stop(); 
+                _acceptCts.Cancel(); 
             };
 
-            // ProcessExit: if not Ctrl+C, just cancel
-            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
-            {
-                if (_exitByCtrlC)
-                {
-                    return;
-                }
-                
-                try 
+            // <summary> Graceful shutdown on process exit </summary>
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => 
+            { 
+                if (!_exitByCtrlC) 
                 { 
-                    Listener?.Stop();
+                    Listener?.Stop(); _acceptCts.Cancel(); 
                 } 
-                catch { }
-
-                _acceptCts.Cancel();
             };
 
-            // Banner and port
+            // <summary> Display banner and prompt for port </summary>
             DisplayBanner();
             int port = GetPortFromUser();
 
@@ -96,165 +78,98 @@ namespace chat_server
                 Users = new List<ServerConnectionHandler>();
                 Listener = new TcpListener(IPAddress.Parse("127.0.0.1"), port);
                 Listener.Start();
-
                 Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
 
-                // Async accept loop — exits when Listener.Stop() is called or token is cancelled
+                // <summary> Accept loop — exits when Listener.Stop() is called or token is cancelled </summary>
                 while (!token.IsCancellationRequested)
                 {
-                    TcpClient acceptedTcpClient;
-                    try
+                    TcpClient tcpClient;
+                    try 
                     {
-                        acceptedTcpClient = await Listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                        tcpClient = await Listener.AcceptTcpClientAsync().ConfigureAwait(false); 
                     }
-                    catch (ObjectDisposedException)
-                    {
-                        // Listener stopped
-                        break;
+                    catch (ObjectDisposedException) 
+                    { 
+                        break; 
                     }
-
-                    catch (Exception)
-                    {
-                        /// <summary> If something goes wrong while accepting a client, we pause briefly before retrying </summary>
-                        try
-                        {
-                            /// <summary>
-                            /// Waits 100 milliseconds, but will stop immediately if cancellation is requested
-                            /// ConfigureAwait(false) means: continue on any thread, not necessarily the original one
-                            /// </summary >
-                            await Task.Delay(100, token).ConfigureAwait(false);
-                        }
-                        catch
-                        {
-                            // If the delay itself is interrupted (for example by cancellation), just ignore the error
-                        }
-
-                        /// <summary> Skip this failed attempt and go back to the next loop iteration </summary>
-                        continue;
+                    catch 
+                    { 
+                        await Task.Delay(100, token).ConfigureAwait(false); continue; 
                     }
 
-
-                    /// <summary> Handles the accepted client on a background task </summary>
+                    // <summary> Handles accepted client on background task </summary>
                     _ = Task.Run(async () =>
                     {
                         ServerConnectionHandler? client = null;
                         try
                         {
-                            var ns = acceptedTcpClient.GetStream();
+                            var networkStream = tcpClient.GetStream();
 
-                            /// <summary> Reads 4-byte big-endian header </summary>
-                            byte[] headerBytes = await PacketReader.ReadExactAsync(ns, 4, token).ConfigureAwait(false);
+                            // <summary> Read 4-byte big-endian header </summary>
+                            byte[] header = await PacketReader.ReadExactAsync(networkStream, 4, token).ConfigureAwait(false);
+                            int payloadLength = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3];
+                            if (payloadLength <= 0 || payloadLength > 65_536) { tcpClient.Close(); return; }
 
-                            int payloadLength =
-                                (headerBytes[0] << 24) |
-                                (headerBytes[1] << 16) |
-                                (headerBytes[2] << 8) |
-                                headerBytes[3];
-
-                            const int MaxHandshakePayload = 65_536;
-                            if (payloadLength <= 0 || payloadLength > MaxHandshakePayload)
-                            {
-                                try 
-                                { 
-                                    acceptedTcpClient.Close(); 
-                                } 
-                                catch { }
-                                
-                                return;
-                            }
-
-                            /// <summary> Reads payload and parse handshake in memory </summary>
-                            byte[] payload = await PacketReader.ReadExactAsync(ns, payloadLength, token).ConfigureAwait(false);
+                            // <summary> Reads payload and parse handshake </summary>
+                            byte[] payload = await PacketReader.ReadExactAsync(networkStream, payloadLength, token).ConfigureAwait(false);
                             using var memoryStream = new MemoryStream(payload);
-                            var handshakeReader = new PacketReader(memoryStream);
+                            var reader = new PacketReader(memoryStream);
 
-                            var opcode = (ServerPacketOpCode)await handshakeReader.ReadByteAsync(token).ConfigureAwait(false);
-                            if (opcode != ServerPacketOpCode.Handshake)
-                            {
-                                try 
-                                { 
-                                    acceptedTcpClient.Close(); 
-                                } 
-                                catch { }
-                                
-                                return;
+                            if ((ServerPacketOpCode)await reader.ReadByteAsync(token).ConfigureAwait(false) != ServerPacketOpCode.Handshake)
+                            { 
+                                tcpClient.Close(); return; 
                             }
 
-                            string username = await handshakeReader.ReadStringAsync(token).ConfigureAwait(false);
-                            Guid uid = await handshakeReader.ReadUidAsync(token).ConfigureAwait(false);
-                            int publicKeyLength = await handshakeReader.ReadInt32NetworkOrderAsync(token).ConfigureAwait(false);
+                            string username = await reader.ReadStringAsync(token).ConfigureAwait(false);
+                            Guid uid = await reader.ReadUidAsync(token).ConfigureAwait(false);
 
+                            // <summary> Reads and validates the public key from the handshake payload (always present in protocol) </summary>
+                            int publicKeyLength = await reader.ReadInt32NetworkOrderAsync(token).ConfigureAwait(false);
                             const int MaxPublicKeyLength = 65_536;
-                            
-                            if (publicKeyLength <= 0 || publicKeyLength > MaxPublicKeyLength)
-                            {
-                                try 
-                                { 
-                                    acceptedTcpClient.Close(); 
-                                } 
-                                catch { }
-                                
-                                return;
-                            }
+                            if (publicKeyLength < 0 || publicKeyLength > MaxPublicKeyLength) { tcpClient.Close(); return; }
 
                             byte[] publicKeyDer = await PacketReader.ReadExactAsync(memoryStream, publicKeyLength, token).ConfigureAwait(false);
 
-                            // Initializes client and starts its reader
-                            client = new ServerConnectionHandler(acceptedTcpClient);
+                            // <summary> Initializes client after handshake with the raw public key (can be empty) </summary>
+                            client = new ServerConnectionHandler(tcpClient);
                             client.InitializeAfterHandshake(username, uid, publicKeyDer, token);
 
-                            // Adds only after successful init
+                            // <summary> Adds client to roster and log localized connection </summary>
                             lock (Users) { Users.Add(client); }
+                            ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info);
 
-                            // Sends HandshakeAck (framed)
-                            var ackBuilder = new PacketBuilder();
-                            ackBuilder.WriteOpCode((byte)ServerPacketOpCode.HandshakeAck);
-                            byte[] ackPayload = ackBuilder.GetPacketBytes();
+                            // <summary> Sends HandshakeAck (framed) </summary>
+                            var ack = new PacketBuilder();
+                            ack.WriteOpCode((byte)ServerPacketOpCode.HandshakeAck);
+                            await SendFramedAsync(client, ack.GetPacketBytes(), token).ConfigureAwait(false);
 
-                            await SendFramedAsync(client, ackPayload, token).ConfigureAwait(false);
-
-                            // Broadcasts list of connected users (roster) after ack
-                            try 
-                            {
-                                await BroadcastRosterAsync(token).ConfigureAwait(false); 
-                            }
-                            catch (OperationCanceledException) { }
+                            // <summary> Broadcasts roster after ack so all clients get updated keys (empty keys included) </summary>
+                            await BroadcastRosterAsync(token).ConfigureAwait(false);
                         }
-                        catch (OperationCanceledException)
-                        {
-                            try 
-                            { 
-                                acceptedTcpClient.Close(); 
-                            } 
-                            catch { }
+                        catch (OperationCanceledException) 
+                        { 
+                            tcpClient.Close(); 
                         }
                         catch
                         {
-                            try 
-                            { 
-                                acceptedTcpClient.Close(); 
-                            } 
-                            catch { }
-
+                            tcpClient.Close();
                             if (client != null)
                             {
-                                lock (Users) 
-                                { 
-                                    Users.Remove(client); 
+                                lock (Users)
+                                {
+                                    Users.Remove(client);
                                 }
                             }
                         }
                     }, token);
-                
                 }
 
-                // Graceful shutdown once loop exits
+                // <summary> Graceful shutdown once loop exits </summary>
                 await ShutdownAsync(token).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"\nFailed to start server on port {port}: {ex.Message}");
-                Console.WriteLine("Exiting...");
                 Environment.Exit(1);
             }
         }
