@@ -15,7 +15,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\chat-client\chat-client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

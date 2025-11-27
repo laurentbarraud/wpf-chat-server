@@ -1,7 +1,7 @@
 ﻿/// <file>AboutViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 26th, 2025</date>
+/// <date>November 27th, 2025</date>
 
 using chat_client.Helpers;
 using System;
@@ -20,13 +20,13 @@ namespace chat_client.MVVM.ViewModel
     public class AboutViewModel : INotifyPropertyChanged
     {
         // Backing field for the trimmed licence text (without the appended name part)
-        private string _licenceTrimmed;
+        private string _licenceTrimmed = "";
 
         // Backing field for the name portion extracted from the full licence string
-        private string _licenceName;
+        private string _licenceName = "";
 
         // Backing field for the localized CLI link text
-        private string _cliText;
+        private string _cliText = "";
 
         /// <summary>
         /// Exposes the licence text without the trailing name.
@@ -95,13 +95,16 @@ namespace chat_client.MVVM.ViewModel
         /// Event raised when a property value changes.
         /// Required for INotifyPropertyChanged implementation.
         /// </summary>
-        public event PropertyChangedEventHandler PropertyChanged;
+        /// <remarks>delegate { } is an empty subscriber who does «nothing» 
+        /// to avoid nullability warning.</remarks>
+        public event PropertyChangedEventHandler? PropertyChanged = delegate { };
 
         /// <summary>
         /// Helper method to raise PropertyChanged events.
         /// Uses CallerMemberName to avoid hardcoding property names.
         /// </summary>
-        private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
     }
 }

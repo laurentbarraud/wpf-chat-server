@@ -1,7 +1,7 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 26th, 2025</date>
+/// <date>November 27th, 2025</date>
 
 using System;
 using System.Windows;
@@ -56,7 +56,7 @@ namespace chat_client.Helpers
                 // Apply watermark only after fade-in is fully completed
                 fadeIn.Completed += (_, _) =>
                 {
-                    targetWindow.Dispatcher.Invoke(() =>
+                    targetWindow.Dispatcher.BeginInvoke(() =>
                     {
                         if (targetWindow is MainWindow mainWindow)
                         {

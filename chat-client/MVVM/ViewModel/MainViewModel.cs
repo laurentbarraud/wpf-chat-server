@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 26th, 2025</date>
+/// <date>November 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -45,10 +45,6 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private int _clientDisconnecting = 0;
 
-        // Cancellation source for the running encryption pipeline;
-        // cancelled when connection or setting changes
-        private CancellationTokenSource? _encryptionCts;
-
         /// <summary>
         /// Ensures that encryption initialization runs only once per session.
         /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
@@ -71,11 +67,6 @@ namespace chat_client.MVVM.ViewModel
         /// Holds the current key synchronization state
         /// </summary>
         private bool _isSyncingKeys;
-
-        /// <summary>
-        /// Backs the IsConnected property.
-        /// </summary>
-        private bool _isConnected;
 
         /// <summary>
         /// Indicates whether the next roster snapshot is the very first update
@@ -294,12 +285,15 @@ namespace chat_client.MVVM.ViewModel
                 if (Settings.Default.UseEncryption == value)
                     return;
 
-                // Persists new preference immediately
+                /// <summary> Persists new preference immediately </summary>
                 Settings.Default.UseEncryption = value;
                 Settings.Default.Save();
 
-                // Notifies UI bindings
+                /// <summary> Notifies UI bindings </summary>
                 OnPropertyChanged(nameof(UseEncryption));
+
+                /// <summary> Atomically trigger the pipeline toggle via ViewModel </summary>
+                ToggleEncryption(value);
             }
         }
 
@@ -342,7 +336,7 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Initializes the MainViewModel instance.
-        /// Sets up user and message collections, creates the encryption pipeline and server client,
+        /// Sets up user and message collections, creates the encryption pipeline and client connection,
         /// wires server events to handlers, and configures UI commands.
         /// </summary>
         public MainViewModel()
@@ -351,9 +345,20 @@ namespace chat_client.MVVM.ViewModel
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
 
-            // Instantiates the encryption pipeline and client connection
-            _pipeline = new EncryptionPipeline(this, action => Application.Current.Dispatcher.Invoke(action));
-            _clientConn = new ClientConnection(_pipeline, action => Application.Current.Dispatcher.Invoke(action));
+            // Creates the client connection first.
+            // The dispatcher callback ensures that any network events
+            // can safely update the UI thread without blocking.
+            _clientConn = new ClientConnection(
+                action => Application.Current.Dispatcher.BeginInvoke(action)
+            );
+
+            // Creates the encryption pipeline,
+            // injecting both the ViewModel and the client connection,
+            // so that the encryption logic has access to the active connection
+            // and can notify the UI.
+            _pipeline = new EncryptionPipeline(this, _clientConn,
+                action => Application.Current.Dispatcher.BeginInvoke(action)
+            );
 
             // Subscribes to client connection events
             _clientConn.UserConnectedEvent += OnUserConnected;
@@ -367,13 +372,14 @@ namespace chat_client.MVVM.ViewModel
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
             /// <summary>
-            /// Creates the Connect/Disconnect RelayCommand.
-            /// Always executable by design, and launches the asynchronous connect/disconnect
+            /// Creates the Connect/Disconnect RelayCommand,
+            /// which is always executable by design.
+            /// Launches the asynchronous connect/disconnect
             /// logic without blocking the UI thread.
             /// </summary>
             /// <remarks>
             /// RelayCommand takes an Action, so we cannot directly pass a Task-returning method,
-            /// but start the asynchronous call in a fire-and-forget manner. 
+            /// but we can start the asynchronous call in a fire-and-forget manner. 
             /// The "_ =" is a convention to indicate that the returned
             /// Task is intentionally ignored. 
             /// CanExecute remains true, so the button is always clickable.
@@ -460,7 +466,7 @@ namespace chat_client.MVVM.ViewModel
                 if (uid == Guid.Empty || publicKeyDer == null || publicKeyDer.Length == 0)
                 {
                     ClientLogger.LogLocalized("ConnectionFailed", ClientLogLevel.Error);
-                    Application.Current.Dispatcher.Invoke(() =>
+                    _ = Application.Current.Dispatcher.BeginInvoke(() =>
                     {
                         ReinitializeUI();
                         OnPropertyChanged(nameof(IsConnected));
@@ -473,7 +479,7 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
 
                 /// <summary> Updates UI bindings to reflect connected state </summary>
-                Application.Current.Dispatcher.Invoke(() =>
+                _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     OnPropertyChanged(nameof(IsConnected));
                     OnPropertyChanged(nameof(WindowTitle));
@@ -492,29 +498,38 @@ namespace chat_client.MVVM.ViewModel
                         /// <summary> Ensures pipeline exists before usage </summary> 
                         if (_pipeline == null)
                         {
-                            _pipeline = new EncryptionPipeline(this, action => Application.Current.Dispatcher.Invoke(action));
+                            ///<summary> Ensures client connection exists first </summary>
+                            _clientConn ??= new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action));
+
+                            /// <summary> Creates encryption pipeline with ViewModel, client connection, and dispatcher </summary>
+                            _pipeline = new EncryptionPipeline(this, _clientConn,
+                                action => Application.Current.Dispatcher.BeginInvoke(action)
+                            );
+
                             ClientLogger.Log("EncryptionPipeline is created before usage.", ClientLogLevel.Debug);
                         }
 
-                        /// <summary> Assigns in-memory RSA public key for this session </summary> 
+                        /// <summary> Assigns in-memory RSA public key for this session </summary>
                         LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
-                        ClientLogger.Log("Assigns in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
-                        /// <summary> Publishes local key to the server </summary>
+                        /// <summary> Synchronizes the local public key with ClientConnection </summary>
+                        _clientConn.LocalPublicKey = LocalUser.PublicKeyDer;
+
+                        /// <summary> Marks pipeline ready for encryption/decryption after handshake </summary>
+                        _pipeline.MarkReadyForSession(LocalUser.UID, LocalUser.PublicKeyDer);
+
+                        // If solo mode is detected and local public key is valid
+                        if (Users.Count <= 1 && LocalUser.PublicKeyDer?.Length > 0)
+                        {
+                            _pipeline.IsEncryptionReady = true;
+                            ClientLogger.Log("Solo mode detected — encryption marked as ready.", ClientLogLevel.Info);
+                        }
+
+                        ClientLogger.Log("Assigned in-memory RSA public key for this session.", ClientLogLevel.Debug);
+
+                        /// <summary> Publishes the local public key to the server </summary>
                         await _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
-                        ClientLogger.Log("Publishes local public key to server.", ClientLogLevel.Debug);
-
-                        /// <summary> Requests a snapshot of all known public keys </summary>
-                        await _clientConn.SendRequestAllPublicKeysFromServerAsync(cancellationToken).ConfigureAwait(false);
-
-                        /// <summary> Initializes local encryption context </summary>
-                        if (await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false))
-                            ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
-                        else
-                            ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
-
-                        /// <summary> Evaluates encryption readiness (solo or multi-client) </summary>
-                        _pipeline.EvaluateEncryptionState();
+                        ClientLogger.Log("Published local public key to server.", ClientLogLevel.Debug);
                     }
                     catch (Exception ex)
                     {
@@ -522,10 +537,10 @@ namespace chat_client.MVVM.ViewModel
                     }
                 }
 
-                /// <summary> Restores focus to message input for immediate typing </summary>
-                Application.Current.Dispatcher.Invoke(() =>
+                _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
+                        /// <summary> Restores focus to message input for immediate typing </summary>
                         mainWindow.TxtMessageToSend.Focus();
                 });
 
@@ -538,7 +553,7 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log("Connection attempt canceled by user.", ClientLogLevel.Info);
 
                 /// <summary> Resets UI state after cancellation </summary>
-                Application.Current.Dispatcher.Invoke(() =>
+                _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     ReinitializeUI();
                     OnPropertyChanged(nameof(IsConnected));
@@ -549,7 +564,7 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"Fails to connect or handshake: {ex.Message}", ClientLogLevel.Error);
 
                 /// <summary> Displays error and resets UI to disconnected state </summary>
-                Application.Current.Dispatcher.Invoke(() =>
+                _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
                         LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
@@ -771,7 +786,7 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}", ClientLogLevel.Error);
             }
 
-            Application.Current.Dispatcher.Invoke(() =>
+            Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 /// <summary> Removes all entries from the UI user list. </summary>
                 Users.Clear();
@@ -819,7 +834,7 @@ namespace chat_client.MVVM.ViewModel
                 ?? senderUid.ToString();
 
             // Posts the formatted message to the UI thread for insertion into the chat log
-            Application.Current.Dispatcher.Invoke(() =>
+            Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 Messages.Add($"{username}: {plaintext}");
             });
@@ -835,7 +850,7 @@ namespace chat_client.MVVM.ViewModel
         {
             try
             {
-                Application.Current.Dispatcher.Invoke(() =>
+                Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     Messages.Add($"{senderName}: {messageToDisplay}");
                 });
@@ -958,7 +973,7 @@ namespace chat_client.MVVM.ViewModel
             };
 
             // Invokes all UI-bound updates on the main thread
-            Application.Current.Dispatcher.Invoke(() =>
+            Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 // Adds the new user to the observable collection
                 Users.Add(user);
@@ -1104,7 +1119,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private static void ShowUsernameError()
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mainWindow)
                 {

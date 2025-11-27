@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 26th, 2025</date>
+/// <date>November 27th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -154,7 +154,12 @@ namespace chat_server
                             const int MaxHandshakePayload = 65_536;
                             if (payloadLength <= 0 || payloadLength > MaxHandshakePayload)
                             {
-                                try { acceptedTcpClient.Close(); } catch { }
+                                try 
+                                { 
+                                    acceptedTcpClient.Close(); 
+                                } 
+                                catch { }
+                                
                                 return;
                             }
 
@@ -166,7 +171,12 @@ namespace chat_server
                             var opcode = (ServerPacketOpCode)await handshakeReader.ReadByteAsync(token).ConfigureAwait(false);
                             if (opcode != ServerPacketOpCode.Handshake)
                             {
-                                try { acceptedTcpClient.Close(); } catch { }
+                                try 
+                                { 
+                                    acceptedTcpClient.Close(); 
+                                } 
+                                catch { }
+                                
                                 return;
                             }
 

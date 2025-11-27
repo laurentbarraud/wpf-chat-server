@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 26th, 2025</date>
+/// <date>November 27th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
@@ -59,34 +59,40 @@ namespace chat_client.Helpers
         /// <summary>
         /// State flags exposed to the UI
         /// </summary>
-        public bool IsEncryptionReady { get; private set; }
-        public bool IsSyncingKeys { get; private set; }
+        public bool IsEncryptionReady { get; set; }
+        public bool IsSyncingKeys { get; set; }
 
         /// <summary>
         /// Known public keys (peer GUID → DER bytes)
         /// </summary>
         public Dictionary<Guid, byte[]> KnownPublicKeys { get; } = new();
 
-        public byte[] PublicKeyDer { get; }
+        public byte[] PublicKeyDer { get; set; }
 
         /// <summary> Holds the DER-encoded RSA public key associated with the current session </summary>
-        public byte[] SessionPublicKey { get; private set; }
+        public byte[] SessionPublicKey { get; private set; } = Array.Empty<byte>();
 
         /// <summary> Stores the unique session identifier (GUID) assigned to this pipeline </summary>
         public Guid SessionUid { get; private set; }
 
         /// <summary>
         /// Creates a new EncryptionPipeline.
-        /// Takes one callback to run code on the UI thread.
+        /// Requires a MainViewModel, a ClientConnection for network operations,
+        /// and one callback to run code on the UI thread.
         /// This keeps encryption logic separate while still updating the interface.
         /// </summary>
-        public EncryptionPipeline(MainViewModel viewModel, Action<Action> uiDispatcherInvoke)
+        /// <param name="viewModel">The active MainViewModel instance.</param>
+        /// <param name="clientConn">The active client connection used for sending/receiving encryption data.</param>
+        /// <param name="uiDispatcherInvoke">Callback to marshal actions onto the UI thread.</param>
+        public EncryptionPipeline(MainViewModel viewModel, ClientConnection clientConn, Action<Action> uiDispatcherInvoke)
         {
             _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+            _clientConn = clientConn ?? throw new ArgumentNullException(nameof(clientConn));
             _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
+
+            // Initializes local public key material once at construction
             PublicKeyDer = EncryptionHelper.PublicKeyDer;
         }
-
 
         /// <summary>
         /// Cancels any running pipeline, 
@@ -296,15 +302,28 @@ namespace chat_client.Helpers
             return syncOk && finalStateOfEncryption;
         }
 
-        /// <summary> Marks the pipeline ready for encryption/decryption after handshake </summary>
+        /// <summary>
+        /// Marks the pipeline ready for encryption/decryption after handshake.
+        /// Validates the provided public key and updates session state.
+        /// </summary>
+        /// <param name="uid">Unique session identifier (GUID).</param>
+        /// <param name="publicKeyDer">DER-encoded RSA public key for the session.</param>
         public void MarkReadyForSession(Guid uid, byte[] publicKeyDer)
         {
             if (publicKeyDer == null || publicKeyDer.Length == 0)
                 throw new InvalidOperationException("Public key not initialized");
 
+            // Updates session identifiers
             SessionUid = uid;
             SessionPublicKey = publicKeyDer;
+
+            // Synchronizes with local key if not already set
+            if (PublicKeyDer == null || PublicKeyDer.Length == 0)
+                PublicKeyDer = publicKeyDer;
+
+            // Marks encryption as ready
             IsEncryptionReady = true;
+
             Debug.WriteLine("[INFO] EncryptionPipeline marked ready for session.");
         }
 

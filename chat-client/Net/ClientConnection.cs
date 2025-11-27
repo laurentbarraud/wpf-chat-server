@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 26th, 2025</date>
+/// <date>November 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -69,16 +69,15 @@ namespace chat_client.Net
         // This field may be reset by CleanConnection to guarantee a fresh, uncontended semaphore.
         private SemaphoreSlim _readerLock = new SemaphoreSlim(1, 1);
 
+        /// <summary>
+        /// Callback used to run actions on the UI thread, ensuring safe property updates.
+        /// </summary>
+        private readonly Action<Action> _uiDispatcherInvoke;
+
         // Single-writer guard for this connection instance; kept readonly for the connection lifetime.
         private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
 
         private TcpClient _tcpClient;
-
-        /// <summary>
-        /// Delegate used to marshal actions back onto the UI thread.
-        /// Typically wraps Application.Current.Dispatcher.Invoke in WPF.
-        /// </summary>
-        private readonly System.Action<System.Action> _uiDispatcherInvoke;
 
         // PUBLIC PROPERTIES
 
@@ -96,8 +95,10 @@ namespace chat_client.Net
         /// <summary> Gets the UID assigned to the local user </summary>
         public Guid LocalUid { get; private set; }
 
-        /// <summary> Gets the public key assigned to the local user </summary>
-        public byte[] LocalPublicKey { get; private set; }
+        /// <summary>
+        /// Gets or sets the local public key used for encryption.
+        /// </summary>
+        public byte[] LocalPublicKey { get; set; } = Array.Empty<byte>();
 
         // PUBLIC EVENTS
 
@@ -136,21 +137,21 @@ namespace chat_client.Net
         /// <summary>
         /// Initializes a new ClientConnection instance.
         /// Sets up the underlying TCP client, resets local identifiers,
-        /// and stores the encryption pipeline and UI dispatcher dependencies
-        /// provided by MainViewModel.
+        /// and stores the UI dispatcher dependency provided by MainViewModel.
         /// </summary>
-        public ClientConnection(EncryptionPipeline pipeline, Action<Action> uiDispatcherInvoke)
+        public ClientConnection(Action<Action> uiDispatcherInvoke)
         {
+            // Underlying TCP client used for communication
             _tcpClient = new TcpClient();
+
+            // Reset local identifiers for a fresh session
             LocalUid = Guid.Empty;
             LocalPublicKey = Array.Empty<byte>();
 
-            /// <summary> Stores the encryption pipeline passed from MainViewModel </summary>
-            _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
-
-            /// <summary> Stores the UI dispatcher dependency </summary>
+            /// <summary> Stores the UI dispatcher callback passed from MainViewModel </summary>
             _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
         }
+
 
         /// <summary>
         /// Cleanly resets the client connection state:
@@ -215,8 +216,10 @@ namespace chat_client.Net
         /// <param name="ipAddressOfServer">Server IP or hostname. Defaults to 127.0.0.1 if null/empty.</param>
         /// <param name="cancellationToken">Cancellation token for connect/handshake operations.</param>
         /// <returns>Tuple (uid, publicKeyDer) on success; empty values on failure.</returns>
-        public async Task<(Guid uid, byte[] publicKeyDer)> ConnectToServerAsync(string username, 
-            string ipAddressOfServer, CancellationToken cancellationToken = default)
+        public async Task<(Guid uid, byte[] publicKeyDer)> ConnectToServerAsync(
+            string username,
+            string ipAddressOfServer,
+            CancellationToken cancellationToken = default)
         {
             try
             {
@@ -259,15 +262,29 @@ namespace chat_client.Net
 
                 /// <summary> Ensures a lock to serialize critical read sections </summary>
                 if (_readerLock == null)
+                {
                     _readerLock = new SemaphoreSlim(1, 1);
+                }
 
-                /// <summary> Generates a per-session UID and loads the local DER public key from the pipeline </summary>
+                /// <summary> Generates a per-session UID </summary>
                 LocalUid = Guid.NewGuid();
-                LocalPublicKey = _pipeline.PublicKeyDer;
 
-                /// <summary> Guards against missing/empty public key prior to handshake </summary>
-                if (LocalPublicKey == null || LocalPublicKey.Length == 0)
-                    throw new InvalidOperationException("Public key not initialized");
+                /// <summary> Initializes public key for handshake (real if encryption enabled, dummy otherwise) </summary>
+                if (Properties.Settings.Default.UseEncryption && _pipeline != null)
+                {
+                    LocalPublicKey = _pipeline.PublicKeyDer;
+
+                    /// <summary> Guards against missing/empty public key prior to handshake </summary>
+                    if (LocalPublicKey == null || LocalPublicKey.Length == 0)
+                    {
+                        throw new InvalidOperationException("Public key not initialized");
+                    }
+                }
+                else
+                {
+                    /// <summary> Use a dummy but valid DER key to satisfy handshake format </summary>
+                    LocalPublicKey = EncryptionHelper.PublicKeyDer;
+                }
 
                 /// <summary> Creates a handshake completion TCS to coordinate readiness </summary>
                 _handshakeCompletionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -290,9 +307,12 @@ namespace chat_client.Net
                     return (Guid.Empty, Array.Empty<byte>());
                 }
 
-                /// <summary> Completes handshake TCS and marks pipeline ready for this session </summary>
+                /// <summary> Completes handshake TCS and marks pipeline ready if encryption is enabled </summary>
                 _handshakeCompletionTcs?.TrySetResult(true);
-                _pipeline.MarkReadyForSession(LocalUid, LocalPublicKey);
+                if (Properties.Settings.Default.UseEncryption && _pipeline != null)
+                {
+                    _pipeline.MarkReadyForSession(LocalUid, LocalPublicKey);
+                }
 
                 /// <summary> Notifies subscribers that the connection is established </summary>
                 ConnectionEstablished?.Invoke();
@@ -466,7 +486,7 @@ namespace chat_client.Net
             MainViewModel viewModel = null!;
 
             // Captures ViewModel without blocking the network read thread
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            await Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mw)
                     viewModel = mw.ViewModel;
@@ -632,7 +652,7 @@ namespace chat_client.Net
                                     }
 
                                     // Dispatches plaintext to UI thread for rendering.
-                                    Application.Current.Dispatcher.Invoke(() =>
+                                    _ = Application.Current.Dispatcher.BeginInvoke(() =>
                                     {
                                         viewModel.OnPlainMessageReceived(encryptedSenderName, plainText);
                                     });
@@ -647,7 +667,7 @@ namespace chat_client.Net
                                 byte[] keyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
                                 _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discards requester UID
 
-                                Application.Current.Dispatcher.Invoke(() =>
+                                _ = Application.Current.Dispatcher.BeginInvoke(() =>
                                 {
                                     viewModel.OnPublicKeyReceived(originUid, keyDer);
                                 });
@@ -660,13 +680,13 @@ namespace chat_client.Net
                                 Guid discUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                 string discName = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
                                 
-                                Application.Current.Dispatcher.Invoke(() => viewModel.OnUserDisconnected(discUid, discName));
+                                _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnUserDisconnected(discUid, discName));
                                 break;
 
                             case ClientPacketOpCode.ForceDisconnectClient:
                                 
                                 // Server demanded immediate disconnect; informs UI and exits.
-                                Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer());
+                                _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnDisconnectedByServer());
                                 return;
 
                             default:
@@ -677,7 +697,7 @@ namespace chat_client.Net
                                 if (Interlocked.Increment(ref _consecutiveUnexpectedOpcodes) >= 3)
                                 {
                                     ClientLogger.Log("Too many consecutive unexpected opcodes, initiating graceful disconnect.", ClientLogLevel.Warn);
-                                    Application.Current.Dispatcher.Invoke(() => viewModel.OnDisconnectedByServer());
+                                    _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnDisconnectedByServer());
                                     return;
                                 }
                                 break;
