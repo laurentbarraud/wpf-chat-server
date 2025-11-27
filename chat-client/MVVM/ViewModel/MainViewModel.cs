@@ -518,18 +518,21 @@ namespace chat_client.MVVM.ViewModel
                         /// <summary> Marks pipeline ready for encryption/decryption after handshake </summary>
                         _pipeline.MarkReadyForSession(LocalUser.UID, LocalUser.PublicKeyDer);
 
-                        // If solo mode is detected and local public key is valid
-                        if (Users.Count <= 1 && LocalUser.PublicKeyDer?.Length > 0)
-                        {
-                            _pipeline.IsEncryptionReady = true;
-                            ClientLogger.Log("Solo mode detected — encryption marked as ready.", ClientLogLevel.Info);
-                        }
-
                         ClientLogger.Log("Assigned in-memory RSA public key for this session.", ClientLogLevel.Debug);
 
                         /// <summary> Publishes the local public key to the server </summary>
                         await _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
                         ClientLogger.Log("Published local public key to server.", ClientLogLevel.Debug);
+
+                        /// <summary> Initializes local encryption context </summary>
+                        if (await _pipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false))
+                        {
+                            ClientLogger.Log("Initializes encryption context on startup.", ClientLogLevel.Info);
+                        }
+                        else
+                        {
+                            ClientLogger.Log("Fails to initialize encryption context on startup.", ClientLogLevel.Error);
+                        }
                     }
                     catch (Exception ex)
                     {

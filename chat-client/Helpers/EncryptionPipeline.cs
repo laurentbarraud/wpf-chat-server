@@ -156,7 +156,7 @@ namespace chat_client.Helpers
         /// <summary>
         /// Evaluates whether encryption can be considered ready based on current peers and known keys.
         /// • Disabled: always false.
-        /// • Solo mode: ready immediately if encryption is enabled and local key exists.
+        /// • Solo mode: ready immediately if encryption is enabled and session key exists.
         /// • Multi-client: ready only if all peers have a registered public key.
         /// Updates UI flags on the dispatcher to keep visuals consistent.
         /// </summary>
@@ -177,16 +177,16 @@ namespace chat_client.Helpers
                 // Detects solo mode: only local user present
                 if (_viewModel.Users.Count <= 1)
                 {
-                    // Verifies that local public key exists before declaring readiness
-                    bool hasLocalKey = _viewModel.LocalUser.PublicKeyDer != null && _viewModel.LocalUser.PublicKeyDer.Length > 0;
-                    if (hasLocalKey)
+                    // Verifies that session public key exists before declaring readiness
+                    bool hasSessionKey = SessionPublicKey != null && SessionPublicKey.Length > 0;
+                    if (hasSessionKey)
                     {
-                        ClientLogger.Log("EvaluateEncryptionState detects solo mode with local key — encryption is considered ready.", ClientLogLevel.Info);
+                        ClientLogger.Log("EvaluateEncryptionState detects solo mode with session key — encryption is considered ready.", ClientLogLevel.Info);
                         isEncryptionReady = true;
                     }
                     else
                     {
-                        ClientLogger.Log("EvaluateEncryptionState detects solo mode but local key missing — encryption not ready.", ClientLogLevel.Warn);
+                        ClientLogger.Log("EvaluateEncryptionState detects solo mode but session key missing — encryption not ready.", ClientLogLevel.Warn);
                         isEncryptionReady = false;
                     }
                 }
@@ -317,9 +317,8 @@ namespace chat_client.Helpers
             SessionUid = uid;
             SessionPublicKey = publicKeyDer;
 
-            // Synchronizes with local key if not already set
-            if (PublicKeyDer == null || PublicKeyDer.Length == 0)
-                PublicKeyDer = publicKeyDer;
+            // Ensures PublicKeyDer is also set for InitializeEncryptionAsync
+            PublicKeyDer = publicKeyDer;
 
             // Marks encryption as ready
             IsEncryptionReady = true;
