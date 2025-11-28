@@ -259,28 +259,31 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public MainViewModel()
         {
-            // Initializes collections bound to the UI
+            /// <summary> Initializes collections bound to the UI </summary>
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
 
-            // Creates client connection with dispatcher callback for safe UI updates
-            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action));
+            /// <summary> Creates client connection with dispatcher callback and reference to this ViewModel </summary>
+            _clientConn = new ClientConnection(
+                action => Application.Current.Dispatcher.BeginInvoke(action),
+                this
+            );
 
-            // Creates encryption pipeline with ViewModel and client connection
+            /// <summary> Creates encryption pipeline with ViewModel and client connection </summary>
             _encryptionPipeline = new EncryptionPipeline(this, _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action)
             );
 
-            // Binds the connection to the pipeline
+            /// <summary> Binds the connection to the pipeline </summary>
             _clientConn.EncryptionPipeline = _encryptionPipeline;
 
-            // Subscribes to pipeline state changes to notify UI
+            /// <summary> Subscribes to pipeline state changes to notify UI </summary>
             _encryptionPipeline.StateChanged += (_, __) =>
             {
                 OnPropertyChanged(nameof(IsEncryptionReady));
             };
 
-            // Subscribes to client connection events
+            /// <summary> Subscribes to client connection events </summary>
             _clientConn.UserConnectedEvent += OnUserConnected;
             _clientConn.PlainMessageReceivedEvent += OnPlainMessageReceived;
             _clientConn.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
@@ -288,16 +291,16 @@ namespace chat_client.MVVM.ViewModel
             _clientConn.UserDisconnectedEvent += OnUserDisconnected;
             _clientConn.DisconnectedByServerEvent += OnDisconnectedByServer;
 
-            // Subscribes to language changes to refresh UI text
+            /// <summary> Subscribes to language changes to refresh UI text </summary>
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
-            // Creates Connect/Disconnect RelayCommand
+            /// <summary> Creates Connect/Disconnect RelayCommand </summary>
             ConnectDisconnectCommand = new RelayCommand(
                 () => { _ = ConnectDisconnectAsync(); },
                 () => true
             );
 
-            // Creates ThemeToggleCommand bound to UI toggle button
+            /// <summary> Creates ThemeToggleCommand bound to UI toggle button </summary>
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
                 bool isDarkThemeSelected = param is bool toggleState && toggleState;
@@ -308,7 +311,7 @@ namespace chat_client.MVVM.ViewModel
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
-            // Reevaluates Connect/Disconnect command when connection state changes
+            /// <summary> Reevaluates Connect/Disconnect command when connection state changes </summary>
             PropertyChanged += (sender, args) =>
             {
                 if (args.PropertyName == nameof(IsConnected))
@@ -394,11 +397,14 @@ namespace chat_client.MVVM.ViewModel
                 {
                     try
                     {
-                        /// <summary> Ensures pipeline exists before usage </summary> 
+                        /// <summary> Ensures pipeline exists before usage </summary>
                         if (_encryptionPipeline == null)
                         {
-                            ///<summary> Ensures client connection exists first </summary>
-                            _clientConn ??= new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action));
+                            /// <summary> Ensures client connection exists first </summary>
+                            _clientConn ??= new ClientConnection(
+                                action => Application.Current.Dispatcher.BeginInvoke(action),
+                                this
+                            );
 
                             /// <summary> Creates encryption pipeline with ViewModel, client connection, and dispatcher </summary>
                             _encryptionPipeline = new EncryptionPipeline(this, _clientConn,
@@ -412,9 +418,7 @@ namespace chat_client.MVVM.ViewModel
                         LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
                         ClientLogger.Log($"LocalUser.PublicKeyDer assigned — length={LocalUser.PublicKeyDer?.Length}", ClientLogLevel.Debug);
 
-                        /// <summary>
-                        /// Prevents a potential null reference by validating LocalUser.PublicKeyDer before use.
-                        /// </summary>
+                        /// <summary> Validates LocalUser.PublicKeyDer before use </summary>
                         if (LocalUser.PublicKeyDer == null || LocalUser.PublicKeyDer.Length == 0)
                         {
                             throw new InvalidOperationException("Public key not initialized");
@@ -448,10 +452,10 @@ namespace chat_client.MVVM.ViewModel
                     }
                 }
 
+                /// <summary> Restores focus to message input for immediate typing </summary>
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
-                        /// <summary> Restores focus to message input for immediate typing </summary>
                         mainWindow.TxtMessageToSend.Focus();
                 });
 
@@ -722,22 +726,21 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles an incoming encrypted message.
-        /// Attempts decryption from the provided cipher bytes, resolves the sender's display name,
-        /// and marshals the result onto the UI thread for display.
+        /// Attempts decryption using the local RSA private key.
+        /// Updates the UI with the decrypted plaintext or logs an error.
         /// </summary>
+        /// <param name="senderUid">Unique identifier of the message sender.</param>
+        /// <param name="cipherBytes">Ciphertext payload received from the network.</param>
         private void OnEncryptedMessageReceived(Guid senderUid, byte[] cipherBytes)
         {
-            /// <summary> Validates that ciphertext is present before processing </summary>
+            /// <summary> Validates that ciphertext is non-empty </summary>
             if (cipherBytes == null || cipherBytes.Length == 0)
-            {
-                ClientLogger.Log($"Received empty ciphertext from {senderUid}", ClientLogLevel.Warn);
                 return;
-            }
 
             string plaintext;
             try
             {
-                /// <summary> Attempts RSA decryption of the ciphertext bytes </summary>
+                /// <summary> Decrypts ciphertext with local RSA private key </summary>
                 plaintext = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
             }
             catch (Exception ex)
@@ -747,13 +750,11 @@ namespace chat_client.MVVM.ViewModel
                 return;
             }
 
-            /// <summary> Resolves sender username or falls back to UID string </summary>
-            string username = Users?
-                .FirstOrDefault(u => u.UID == senderUid)
-                ?.Username
-                ?? senderUid.ToString();
+            /// <summary> Resolves sender name or falls back to UID string </summary>
+            string username = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
+                              ?? senderUid.ToString();
 
-            /// <summary> Dispatches decrypted message to the UI thread for display </summary>
+            /// <summary> Posts decrypted message to UI thread </summary>
             Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 Messages.Add($"{username}: {plaintext}");

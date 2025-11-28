@@ -74,7 +74,7 @@
 
         <!-- Style for encryption status icon: grey by default, coloured on encryption ready -->
         <Style x:Key="EncryptionStatusIconStyle" TargetType="Image"
-       xmlns:helpers="clr-namespace:chat_client.Helpers">
+               xmlns:helpers="clr-namespace:chat_client.Helpers">
             <!-- Sets up a composite transform: first scale, then translate -->
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
             <Setter Property="RenderTransform">
@@ -86,13 +86,12 @@
                 </Setter.Value>
             </Setter>
 
-            <!-- Default grey syncing icon, invisible when encryption off -->
-            <Setter Property="Visibility"
-                    Value="{Binding UseEncryption, Converter={StaticResource BoolToVis}}"/>
+            <!-- Default grey lock icon, always visible -->
+            <Setter Property="Visibility" Value="Visible"/>
             <Setter Property="Source" Value="/Resources/syncing-keys.png"/>
-            <!-- Use markup extension to pull localized tooltip text -->
+            <!-- Localized tooltip for “waiting keys / not ready” -->
             <Setter Property="ToolTip"
-                    Value="{helpers:LocalizeExtension GettingMissingKeys}"/>
+            Value="{helpers:LocalizeExtension GettingMissingKeys}"/>
 
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsEncryptionReady}" Value="True">
@@ -100,7 +99,7 @@
                     <Setter Property="Source" Value="/Resources/encrypted.png"/>
                     <!-- Localize the “Encrypted” tooltip -->
                     <Setter Property="ToolTip"
-                            Value="{helpers:LocalizeExtension EncryptionEnabled}"/>
+                    Value="{helpers:LocalizeExtension EncryptionEnabled}"/>
                     <DataTrigger.EnterActions>
                         <!-- Starts the drop-and-zoom animation once -->
                         <BeginStoryboard Storyboard="{StaticResource LockDropAnim}"/>

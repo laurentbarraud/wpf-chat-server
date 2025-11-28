@@ -76,17 +76,6 @@ namespace chat_client.Helpers
         public byte[] PublicKeyDer { get; set; }
 
         /// <summary>
-        /// DER-encoded public key associated with the current session.
-        /// Used to evaluate local readiness and decrypt inbound messages.
-        /// </summary>
-        public byte[] SessionPublicKey { get; private set; } = Array.Empty<byte>();
-
-        /// <summary>
-        /// Unique session identifier (GUID) assigned to this pipeline.
-        /// </summary>
-        public Guid SessionUid { get; private set; }
-
-        /// <summary>
         /// Raised whenever IsEncryptionReady or IsSyncingKeys changes.
         /// </summary>
         public event EventHandler? StateChanged;
@@ -157,13 +146,12 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// Evaluates whether encryption can be considered ready based on current peers and known keys.
+        /// Evaluates whether encryption can be considered ready.
         /// • Disabled: always false.
-        /// • Solo mode: ready immediately if encryption is enabled and session key exists.
+        /// • Solo mode: ready if LocalUser.PublicKeyDer exists.
         /// • Multi-client: ready only if all peers have a registered public key.
         /// Updates pipeline flags via dispatcher so the UI stays consistent.
         /// </summary>
-        /// <returns>True if encryption is enabled and all required peer keys are present; otherwise false.</returns>
         public bool EvaluateEncryptionState()
         {
             /// <summary> Initializes readiness flag to false by default </summary>
@@ -173,170 +161,141 @@ namespace chat_client.Helpers
             if (!Settings.Default.UseEncryption || _viewModel.LocalUser == null)
             {
                 ClientLogger.Log("EvaluateEncryptionState: encryption disabled or local user not initialized.", ClientLogLevel.Info);
-                isEncryptionReady = false;
             }
-            else
+            else if (_viewModel.Users.Count <= 1)
             {
-                /// <summary> Detects solo mode: only local user present </summary>
-                if (_viewModel.Users.Count <= 1)
+                /// <summary> Solo mode: ready if LocalUser.PublicKeyDer exists </summary>
+                if (_viewModel.LocalUser.PublicKeyDer != null && _viewModel.LocalUser.PublicKeyDer.Length > 0)
                 {
-                    /// <summary> Verifies that session public key exists before declaring readiness </summary>
-                    bool hasSessionKey = SessionPublicKey != null && SessionPublicKey.Length > 0;
-                    if (hasSessionKey)
-                    {
-                        ClientLogger.Log("EvaluateEncryptionState: solo mode with session key — ready.", ClientLogLevel.Info);
-                        isEncryptionReady = true;
-                    }
-                    else
-                    {
-                        ClientLogger.Log("EvaluateEncryptionState: solo mode but session key missing — not ready.", ClientLogLevel.Warn);
-                        isEncryptionReady = false;
-                    }
+                    ClientLogger.Log("EvaluateEncryptionState: solo mode with local key — ready.", ClientLogLevel.Info);
+                    isEncryptionReady = true;
                 }
                 else
                 {
-                    /// <summary> Collects peer UIDs excluding local user </summary>
-                    List<Guid> peerUids = _viewModel.Users
-                        .Where(u => u.UID != _viewModel.LocalUser.UID)
-                        .Select(u => u.UID)
-                        .ToList();
+                    ClientLogger.Log("EvaluateEncryptionState: solo mode but local key missing — not ready.", ClientLogLevel.Warn);
+                }
+            }
+            else
+            {
+                /// <summary> Collects peer UIDs excluding local user </summary>
+                List<Guid> peerUids = _viewModel.Users
+                    .Where(u => u.UID != _viewModel.LocalUser.UID)
+                    .Select(u => u.UID)
+                    .ToList();
 
-                    /// <summary> Computes missing keys by comparing peer UIDs with known public keys </summary>
-                    List<Guid> missingKeys;
-                    lock (KnownPublicKeys)
-                    {
-                        missingKeys = peerUids.Except(KnownPublicKeys.Keys).ToList();
-                    }
+                /// <summary> Computes missing keys by comparing peer UIDs with known public keys </summary>
+                List<Guid> missingKeys;
+                lock (KnownPublicKeys)
+                {
+                    missingKeys = peerUids.Except(KnownPublicKeys.Keys).ToList();
+                }
 
-                    /// <summary> If missing keys exist, encryption is not ready </summary>
-                    if (missingKeys.Count > 0)
-                    {
-                        ClientLogger.Log($"EvaluateEncryptionState: missing keys for {string.Join(", ", missingKeys)}", ClientLogLevel.Debug);
-                        isEncryptionReady = false;
-                    }
-                    else
-                    {
-                        /// <summary> All peer keys are present → encryption ready </summary>
-                        ClientLogger.Log("EvaluateEncryptionState: all peer keys present — ready.", ClientLogLevel.Info);
-                        isEncryptionReady = true;
-                    }
+                /// <summary> Determines readiness based on presence of all peer keys </summary>
+                if (missingKeys.Count == 0)
+                {
+                    ClientLogger.Log("EvaluateEncryptionState: all peer keys present — ready.", ClientLogLevel.Info);
+                    isEncryptionReady = true;
+                }
+                else
+                {
+                    ClientLogger.Log($"EvaluateEncryptionState: missing keys for {string.Join(", ", missingKeys)}", ClientLogLevel.Debug);
                 }
             }
 
-            /// <summary>
-            /// Update pipeline flags on the dispatcher thread.
-            /// SetEncryptionReady/SetSyncing trigger StateChanged,
-            /// which makes the ViewModel raise OnPropertyChanged,
-            /// so WPF bindings refresh automatically.
-            /// </summary>
+            /// <summary> Updates pipeline flags on the dispatcher thread </summary>
             _uiDispatcherInvoke(() =>
             {
                 SetEncryptionReady(isEncryptionReady);
                 SetSyncing(!isEncryptionReady);
             });
 
-            /// <summary> Log the final evaluation result </summary>
+            /// <summary> Logs the final evaluation result </summary>
             ClientLogger.Log($"EvaluateEncryptionState result — Ready={isEncryptionReady}", ClientLogLevel.Debug);
 
-            /// <summary> Return readiness flag to caller </summary>
+            /// <summary> Returns readiness flag to caller </summary>
             return isEncryptionReady;
         }
-
-
 
         /// <summary>
         /// • Publish the local public key once per session.
         /// • Synchronize peer keys (handles solo short-circuit internally).
         /// • Validate readiness and update UI state.
         /// </summary>
-        /// <returns>Returns true if encryption is enabled and peers are fully ready (or solo is detected).</returns>
         public async Task<bool> InitializeEncryptionAsync(CancellationToken cancellationToken)
         {
-            // Guards against null ViewModel or LocalUser before proceeding
-            if (_viewModel == null)
+            /// <summary> Ensures ViewModel and LocalUser are initialized </summary>
+            if (_viewModel == null || _viewModel.LocalUser == null)
             {
-                ClientLogger.Log("InitializeEncryptionAsync aborted — ViewModel not initialized.", ClientLogLevel.Error);
+                ClientLogger.Log("InitializeEncryptionAsync aborted — ViewModel or LocalUser not initialized.", ClientLogLevel.Error);
                 return false;
             }
 
-            if (_viewModel.LocalUser == null)
+            /// <summary> Materializes local public key from EncryptionHelper if missing </summary>
+            if ((_viewModel.LocalUser.PublicKeyDer == null || _viewModel.LocalUser.PublicKeyDer.Length == 0) &&
+                (EncryptionHelper.PublicKeyDer != null && EncryptionHelper.PublicKeyDer.Length > 0))
             {
-                ClientLogger.Log("InitializeEncryptionAsync aborted — LocalUser not initialized.", ClientLogLevel.Warn);
-                return false;
+                _viewModel.LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
+                ClientLogger.Log("InitializeEncryptionAsync: materialized local public key from EncryptionHelper.", ClientLogLevel.Debug);
             }
 
-            // Publishes the local public key only once per session
-            if (!_localKeyPublished)
+            /// <summary> Publishes local public key once per session </summary>
+            if (!_localKeyPublished && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
             {
-                if (_viewModel.LocalUser.PublicKeyDer != null && _viewModel.LocalUser.PublicKeyDer.Length > 0)
-                {
-                    try
-                    {
-                        // Publishes the local public key; server redistributes to peers who need it
-                        await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID, _viewModel.LocalUser.PublicKeyDer,
-                            cancellationToken).ConfigureAwait(false);
+                await _clientConn.SendPublicKeyToServerAsync(
+                    _viewModel.LocalUser.UID,
+                    _viewModel.LocalUser.PublicKeyDer,
+                    cancellationToken
+                ).ConfigureAwait(false);
 
-                        _localKeyPublished = true;
-                        ClientLogger.Log("InitializeEncryptionAsync: local public key published.", ClientLogLevel.Debug);
-                    }
-                    catch (Exception ex)
-                    {
-                        ClientLogger.Log($"InitializeEncryptionAsync failed to publish local key: {ex.Message}", ClientLogLevel.Error);
-                        return false;
-                    }
-                }
-                else
+                _localKeyPublished = true;
+                ClientLogger.Log("InitializeEncryptionAsync: local public key published.", ClientLogLevel.Debug);
+            }
+
+            /// <summary> Injects local key into KnownPublicKeys in solo mode </summary>
+            if (_viewModel.Users.Count <= 1 && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
+            {
+                lock (KnownPublicKeys)
                 {
-                    ClientLogger.Log("InitializeEncryptionAsync: local public key not yet available, skipping publish.", ClientLogLevel.Warn);
+                    KnownPublicKeys[_viewModel.LocalUser.UID] = _viewModel.LocalUser.PublicKeyDer;
                 }
             }
 
-            // Synchronizes peer keys (handles solo mode internally)
-            bool syncOk = false;
-            try
-            {
-                syncOk = await SyncKeysAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"InitializeEncryptionAsync failed during SyncKeysAsync: {ex.Message}", ClientLogLevel.Error);
-                return false;
-            }
+            /// <summary> Synchronizes peer keys </summary>
+            bool syncOk = await SyncKeysAsync(cancellationToken).ConfigureAwait(false);
 
-            // Evaluates final state for consistency and updates UI flags
+            /// <summary> Evaluates final state and updates UI </summary>
             bool finalStateOfEncryption = EvaluateEncryptionState();
 
-            ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={syncOk}, Ready={finalStateOfEncryption}",
-                ClientLogLevel.Info);
+            ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={syncOk}, Ready={finalStateOfEncryption}", ClientLogLevel.Info);
 
-            // Returns true only if synchronization succeeded and encryption is ready
             return syncOk && finalStateOfEncryption;
         }
 
         /// <summary>
         /// Marks the pipeline ready for encryption/decryption after handshake.
-        /// Validates the provided public key and updates session state.
+        /// Updates LocalUser and KnownPublicKeys with the provided public key.
         /// </summary>
-        /// <param name="uid">Unique session identifier (GUID).</param>
-        /// <param name="publicKeyDer">DER-encoded RSA public key for the session.</param>
         public void MarkReadyForSession(Guid uid, byte[] publicKeyDer)
         {
+            /// <summary> Validates that a non-empty public key is provided </summary>
             if (publicKeyDer == null || publicKeyDer.Length == 0)
                 throw new InvalidOperationException("Public key not initialized");
 
-            // Updates session identifiers
-            SessionUid = uid;
-            SessionPublicKey = publicKeyDer;
+            /// <summary> Updates LocalUser with the handshake key </summary>
+            _viewModel.LocalUser.PublicKeyDer = publicKeyDer;
 
-            // Ensures PublicKeyDer is also set for InitializeEncryptionAsync
-            PublicKeyDer = publicKeyDer;
+            /// <summary> Injects the key into KnownPublicKeys for consistency </summary>
+            lock (KnownPublicKeys)
+            {
+                KnownPublicKeys[uid] = publicKeyDer;
+            }
 
-            // Marks encryption as ready
+            /// <summary> Marks encryption as ready </summary>
             IsEncryptionReady = true;
 
-            // Detailed log for debugging key presence
+            /// <summary> Logs handshake completion with key length </summary>
             ClientLogger.Log(
-                $"MarkReadyForSession — UID={uid}, SessionKeyLen={SessionPublicKey?.Length}, PublicKeyLen={PublicKeyDer?.Length}",
+                $"MarkReadyForSession — UID={uid}, PublicKeyLen={publicKeyDer.Length}",
                 ClientLogLevel.Debug
             );
         }
@@ -473,8 +432,8 @@ namespace chat_client.Helpers
                     .Select(u => u.UID)
                     .ToList();
 
-                /// <summary> Detects solo mode and marks encryption as ready immediately </summary>
-                if (peerIds.Count == 0)
+                /// <summary> Solo mode: marks encryption ready immediately if local key exists </summary>
+                if (peerIds.Count == 0 && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
                 {
                     _uiDispatcherInvoke(() =>
                     {
