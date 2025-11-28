@@ -94,8 +94,11 @@ namespace chat_client.Helpers
             _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             _clientConn = clientConn ?? throw new ArgumentNullException(nameof(clientConn));
             _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
+            
+            /// <summary> Triggers static constructor if not already run </summary>
+            _ = EncryptionHelper.PublicKeyDer;
 
-            // Initializes local public key material once at construction
+            /// <summary> Initializes local public key material </summary>
             PublicKeyDer = EncryptionHelper.PublicKeyDer;
         }
 
@@ -168,6 +171,11 @@ namespace chat_client.Helpers
                 if (_viewModel.LocalUser.PublicKeyDer != null && _viewModel.LocalUser.PublicKeyDer.Length > 0)
                 {
                     ClientLogger.Log("EvaluateEncryptionState: solo mode with local key — ready.", ClientLogLevel.Info);
+                    isEncryptionReady = true;
+                }
+                else if (EncryptionHelper.PublicKeyDer != null && EncryptionHelper.PublicKeyDer.Length > 0)
+                {
+                    ClientLogger.Log("EvaluateEncryptionState: solo mode using EncryptionHelper key — ready.", ClientLogLevel.Info);
                     isEncryptionReady = true;
                 }
                 else
@@ -338,7 +346,7 @@ namespace chat_client.Helpers
         /// <returns>true if initialization succeeds; otherwise false</returns>
         public async Task<bool> StartEncryptionPipelineBackground()
         {
-            /// <summary> Cancels and disposes any previous run </summary>
+            /// <summary> Cancels and disposes any previous run. </summary>
             _cts?.Cancel();
             _cts?.Dispose();
             _cts = new CancellationTokenSource();
@@ -346,28 +354,29 @@ namespace chat_client.Helpers
 
             try
             {
-                /// <summary> Notifies UI that syncing has started </summary>
+                /// <summary> Notifies UI that syncing has started. </summary>
                 _uiDispatcherInvoke(() =>
                 {
                     IsSyncingKeys = true;
                     IsEncryptionReady = false;
                 });
 
-                /// <summary> Runs centralized initialization pipeline </summary>
+                /// <summary> Runs centralized initialization pipeline. </summary>
                 bool result = await InitializeEncryptionAsync(token).ConfigureAwait(false);
 
-                /// <summary> Updates final state after initialization </summary>
+                /// <summary> Updates final state after initialization. </summary>
                 _uiDispatcherInvoke(() =>
                 {
-                    bool ready = EvaluateEncryptionState();
-                    IsEncryptionReady = ready;
-                    IsSyncingKeys = !ready;
+                    bool encryptionReady = EvaluateEncryptionState();
+                    IsEncryptionReady = encryptionReady;
+                    IsSyncingKeys = !encryptionReady;
                 });
 
                 return result;
             }
             catch (OperationCanceledException)
             {
+                /// <summary> Handles cancellation gracefully. </summary>
                 ClientLogger.Log("Encryption pipeline cancelled.", ClientLogLevel.Warn);
 
                 _uiDispatcherInvoke(() =>
@@ -380,9 +389,9 @@ namespace chat_client.Helpers
             }
             catch (Exception ex)
             {
+                /// <summary> Logs fatal error and rolls back settings. </summary>
                 ClientLogger.Log($"Encryption pipeline failed: {ex.GetBaseException().Message}", ClientLogLevel.Error);
 
-                /// <summary> Rolls back settings on fatal error </summary>
                 Settings.Default.UseEncryption = false;
                 try { Settings.Default.Save(); } catch { }
 

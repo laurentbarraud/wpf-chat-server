@@ -1166,9 +1166,9 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Sends the client's public RSA key to the server asynchronously.
-        /// Gets the target UID and DER bytes, ensures packet is framed and sent atomically,
-        /// allows cancellation and returns true on success.
+        /// Sends the client's public RSA key (or empty key for clear mode) to the server asynchronously.
+        /// Builds a framed packet atomically and sends it via SendFramedAsync.
+        /// Tolerates empty keys, handles cancellation, and triggers immediate readiness re-evaluation on success.
         /// </summary>
         public async Task<bool> SendPublicKeyToServerAsync(Guid targetUid, byte[] publicKeyDer, CancellationToken cancellationToken)
         {
@@ -1181,18 +1181,25 @@ namespace chat_client.Net
 
             try
             {
+                // Ensures payload is non-null; empty array means "clear mode"
+                var payloadKey = publicKeyDer ?? Array.Empty<byte>();
+
                 // Builds the packet with required fields
                 var publicKeyPacket = new PacketBuilder();
                 publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
                 publicKeyPacket.WriteUid(targetUid);
-                publicKeyPacket.WriteBytesWithLength(publicKeyDer);
+                publicKeyPacket.WriteBytesWithLength(payloadKey);
 
-                ClientLogger.Log($"Sending public key — UID: {targetUid}, Key length: {publicKeyDer.Length}", ClientLogLevel.Debug);
+                ClientLogger.Log($"Sending public key — UID: {targetUid}, Key length: {payloadKey.Length}", ClientLogLevel.Debug);
 
                 // Sends the raw payload via unified sender
                 await SendFramedAsync(publicKeyPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
 
                 ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
+
+                // Re-evaluates encryption readiness immediately after sending key
+                _viewModel?.ReevaluateEncryptionStateFromConnection();
+
                 return true;
             }
             catch (OperationCanceledException)
@@ -1206,6 +1213,7 @@ namespace chat_client.Net
                 return false;
             }
         }
+
 
         /// <summary>
         /// Builds and sends a PublicKeyRequest packet to the server asynchronously.

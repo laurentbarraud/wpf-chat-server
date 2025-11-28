@@ -11,8 +11,10 @@ using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.Metrics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.ConstrainedExecution;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -439,12 +441,12 @@ namespace chat_client.MVVM.ViewModel
 
                         /// <summary> Initializes local encryption context </summary>
                         ClientLogger.Log("Calling InitializeEncryptionAsync...", ClientLogLevel.Debug);
-                        var initOk = await _encryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
-                        ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={initOk}", ClientLogLevel.Debug);
+                        var encryptionInitOk = await _encryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
+                        ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={encryptionInitOk}", ClientLogLevel.Debug);
 
                         /// <summary> Evaluation of encryption state and UI update </summary>
-                        var ready = _encryptionPipeline.EvaluateEncryptionState();
-                        ClientLogger.Log($"EvaluateEncryptionState result — Ready={ready}", ClientLogLevel.Debug);
+                        var encryptionReady = _encryptionPipeline.EvaluateEncryptionState();
+                        ClientLogger.Log($"EvaluateEncryptionState result — Ready={encryptionReady}", ClientLogLevel.Debug);
                     }
                     catch (Exception ex)
                     {
@@ -787,54 +789,57 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles a received public-key event.
-        /// • Validates input.
+        /// • Accepts null or empty keys (treated as "clear mode").
         /// • Updates the KnownPublicKeys dictionary in a thread-safe manner.
-        /// • Re-evaluates encryption readiness via the pipeline.
+        /// • Calls pipeline re-evaluation via ViewModel helper to refresh readiness/UI.
         /// </summary>
         /// <param name="senderUid">The UID of the peer who provided the public key.</param>
-        /// <param name="publicKeyDer">The RSA public key as a DER-encoded byte array.</param>
+        /// <param name="publicKeyDer">The RSA public key as a DER-encoded byte array (may be empty).</param>
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
         {
-            /// <summary> Discards if the key is missing or empty </summary>
-            if (publicKeyDer == null || publicKeyDer.Length == 0)
-            {
-                ClientLogger.Log($"Discarded public key from {senderUid} — key is null or empty.", ClientLogLevel.Warn);
-                return;
-            }
-
             bool isNewOrUpdatedKey = false;
 
-            /// <summary> Protects dictionary from concurrent writes </summary>
+            /// <summary>
+            /// Normalizes input: if null or empty, returns Array.Empty<byte>()
+            /// to represent clear mode.
+            /// The normalizedKey variable is therefore always a valid byte[] (never null),
+            /// either an empty array (clear mode) or the received key.
+            /// </summary>
+            var normalizedKey = (publicKeyDer == null || publicKeyDer.Length == 0)
+                ? Array.Empty<byte>()
+                : publicKeyDer;
+
+            /// <summary> Protects KnownPublicKeys dictionary from concurrent writes. </summary>
             lock (_encryptionPipeline.KnownPublicKeys)
             {
                 if (_encryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out var existingKey))
                 {
-                    /// <summary> Compares raw DER bytes for equality </summary>
-                    if (existingKey != null && existingKey.Length == publicKeyDer.Length && existingKey.SequenceEqual(publicKeyDer))
+                    /// <summary> Compares existing DER bytes with new key for equality. </summary>
+                    if (existingKey != null && existingKey.Length == normalizedKey.Length && existingKey.SequenceEqual(normalizedKey))
                     {
                         ClientLogger.Log($"Duplicate public key for {senderUid}; no change.", ClientLogLevel.Debug);
                     }
                     else
                     {
-                        /// <summary> Replaces with new DER bytes </summary>
-                        _encryptionPipeline.KnownPublicKeys[senderUid] = publicKeyDer;
+                        /// <summary> Updates dictionary entry with new DER bytes. </summary>
+                        _encryptionPipeline.KnownPublicKeys[senderUid] = normalizedKey;
                         isNewOrUpdatedKey = true;
                         ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
                     }
                 }
                 else
                 {
-                    /// <summary> Registers a newly seen public key </summary>
-                    _encryptionPipeline.KnownPublicKeys.Add(senderUid, publicKeyDer);
+                    /// <summary> Registers a newly seen public key for this sender. </summary>
+                    _encryptionPipeline.KnownPublicKeys.Add(senderUid, normalizedKey);
                     isNewOrUpdatedKey = true;
                     ClientLogger.Log($"Registered new public key for {senderUid}.", ClientLogLevel.Info);
                 }
             }
 
-            /// <summary> Re-evaluates encryption readiness via pipeline </summary>
-            _encryptionPipeline.EvaluateEncryptionState();
+            /// <summary> Triggers pipeline re-evaluation and raises UI property change notifications. </summary>
+            ReevaluateEncryptionStateFromConnection();
 
-            /// <summary> Logs readiness state after update </summary>
+            /// <summary> Logs encryption readiness state after key update. </summary>
             if (isNewOrUpdatedKey && _encryptionPipeline.IsEncryptionReady)
             {
                 ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.", ClientLogLevel.Debug);
@@ -991,7 +996,19 @@ namespace chat_client.MVVM.ViewModel
                 }
             }
         }
-        
+
+        /// <summary>
+        /// Public helper to trigger encryption readiness re-evaluation from connection layer.
+        /// Encapsulates pipeline access and raises property change notifications so the UI updates.
+        /// </summary>
+        public void ReevaluateEncryptionStateFromConnection()
+        {
+            _encryptionPipeline?.EvaluateEncryptionState();
+
+            // Ensures UI bindings refresh for IsEncryptionReady
+            OnPropertyChanged(nameof(IsEncryptionReady));
+        }
+
         /// <summary>
         /// Raises PropertyChanged for all connection-related bindings.
         /// </summary>
@@ -1061,20 +1078,21 @@ namespace chat_client.MVVM.ViewModel
         /// <param name="enableEncryption">True to enable encryption, false to disable.</param>
         public void ToggleEncryption(bool enableEncryption)
         {
+            /// <summary> Stores the previous encryption setting for rollback if needed. </summary>
             bool previousValue = Settings.Default.UseEncryption;
 
-            // Persists new preference immediately
+            /// <summary> Persists the new preference immediately. </summary>
             Settings.Default.UseEncryption = enableEncryption;
             Settings.Default.Save();
 
-            // If not connected or no LocalUser, just persist the setting silently
+            /// <summary> If not connected or no LocalUser, just persist the setting silently. </summary>
             if (LocalUser == null || !IsConnected)
             {
                 OnPropertyChanged(nameof(UseEncryption));
                 return;
             }
 
-            // Clears any existing key material before proceeding
+            /// <summary> Clears any existing key material before proceeding. </summary>
             _encryptionPipeline.KnownPublicKeys.Clear();
             LocalUser.PublicKeyDer = Array.Empty<byte>();
             LocalUser.PrivateKeyDer = Array.Empty<byte>();
@@ -1084,24 +1102,25 @@ namespace chat_client.MVVM.ViewModel
 
             if (enableEncryption)
             {
-                // Notifies UI immediately
+                /// <summary> Notifies UI immediately when enabling encryption. </summary>
                 OnPropertyChanged(nameof(UseEncryption));
 
-                // Fire-and-forget: start pipeline in background without blocking UI
+                /// <summary> Fire-and-forget: start pipeline in background without blocking UI. </summary>
                 _ = _encryptionPipeline.StartEncryptionPipelineBackground();
 
-                // Optimistic success; actual result will be logged by background task
+                /// <summary> Optimistic success; actual result will be logged by background task. </summary>
                 pipelineSucceeded = true;
             }
             else
             {
-                // Centralized disable path
+                /// <summary> Centralized disable path when disabling encryption. </summary>
                 _encryptionPipeline.DisableEncryption();
                 pipelineSucceeded = true;
             }
 
             if (!pipelineSucceeded)
             {
+                /// <summary> Rolls back setting if pipeline failed. </summary>
                 ClientLogger.Log($"Encryption pipeline {(enableEncryption ? "init" : "teardown")} failed – rolling back.", ClientLogLevel.Error);
                 Settings.Default.UseEncryption = previousValue;
                 Settings.Default.Save();
@@ -1109,6 +1128,7 @@ namespace chat_client.MVVM.ViewModel
             }
             else
             {
+                /// <summary> Logs final success message for enable/disable operation. </summary>
                 ClientLogger.Log(enableEncryption ? "Encryption enabled successfully." : "Encryption disabled successfully.", ClientLogLevel.Info);
             }
         }

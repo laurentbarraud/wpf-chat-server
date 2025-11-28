@@ -586,25 +586,20 @@ namespace chat_server
 
         /// <summary>
         /// Relays a public key request from one client to another specific client.
-        /// Constructs a framed packet (4-byte length prefix + payload) containing:
+        /// Constructs a framed packet containing:
         ///   • opcode (PublicKeyRequest)
         ///   • requester UID
         ///   • target UID
-        /// Then sends it via SendFramedAsync and logs success or failure.
+        /// Sends it via SendFramedAsync. If target not connected/established, logs and returns non-fatally.
         /// </summary>
-        /// <param name="requesterUid">Unique identifier of the requesting client.</param>
-        /// <param name="targetUid">Unique identifier of the client whose key is requested.</param>
         public static async Task RelayPublicKeyRequest(Guid requesterUid, Guid targetUid, CancellationToken cancellationToken)
         {
-            // Snapshots current users
             var snapshot = Users.ToList();
-
             var target = snapshot.FirstOrDefault(u => u.UID == targetUid);
             if (target?.ClientSocket?.Connected != true)
                 return;
 
-            // Ensures target session is established before forwarding a key request
-            if (!(target.IsEstablished))
+            if (!target.IsEstablished)
             {
                 ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
                     ServerLogLevel.Warn, target?.Username ?? targetUid.ToString(), "Target not established");
@@ -616,51 +611,43 @@ namespace chat_server
             builder.WriteUid(requesterUid);
             builder.WriteUid(targetUid);
 
-            // Frames payload for on-the-wire transport
             byte[] payload = builder.GetPacketBytes();
-
-            // Shows what the builder returned before sending
             ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             try
             {
                 await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
-                ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess",
-                    ServerLogLevel.Debug, target.Username);
+                ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess", ServerLogLevel.Debug, target.Username);
             }
-            catch (OperationCanceledException)
-            {
-            }
+            
+            catch (OperationCanceledException) 
+            { }
+            
             catch (Exception ex)
             {
-                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
-                    ServerLogLevel.Warn, target.Username, ex.Message);
+                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
             }
         }
 
         /// <summary>
-        /// Sends a PublicKeyResponse packet back to the original requester.
+        /// Relays a public key response back to the original requester.
         /// Packet structure:
-        ///   [4-byte length prefix]
-        ///   [1-byte opcode: PublicKeyResponse]
-        ///   [16-byte origin UID]
-        ///   [4-byte byte-array length][DER-encoded RSA public key bytes]
-        ///   [16-byte requester UID]
+        ///   [opcode: PublicKeyResponse]
+        ///   [origin UID]
+        ///   [DER-encoded RSA public key bytes, length-prefixed; may be empty for clear mode]
+        ///   [requester UID]
+        /// Sends via SendFramedAsync. Empty keys are valid and tolerated.
         /// </summary>
-        /// <param name="originUid">UID of the client providing its public key.</param>
-        /// <param name="publicKeyDer">The RSA public key in DER-encoded byte array format.</param>
-        /// <param name="requesterUid">UID of the client that requested the key.</param>
         public static async Task RelayPublicKeyToUser(Guid originUid, byte[] publicKeyDer, Guid requesterUid, CancellationToken cancellationToken)
         {
-            // Snapshots current users
             var snapshot = Users.ToList();
-
             var target = snapshot.FirstOrDefault(usr => usr.UID == requesterUid);
             if (target?.ClientSocket?.Connected != true)
+            {
                 return;
+            }
 
-            // Ensures requester session is established before relaying a key response
-            if (!(target.IsEstablished))
+            if (!target.IsEstablished)
             {
                 ServerLogger.LogLocalized("PublicKeyResponseRelayFailed",
                     ServerLogLevel.Warn, target?.Username ?? requesterUid.ToString(), "Requester not established");
@@ -670,30 +657,27 @@ namespace chat_server
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
             builder.WriteUid(originUid);
-            builder.WriteBytesWithLength(publicKeyDer);
+            builder.WriteBytesWithLength(publicKeyDer ?? Array.Empty<byte>()); // tolerate empty key
             builder.WriteUid(requesterUid);
 
-            // Frames payload for on-the-wire transport
             byte[] payload = builder.GetPacketBytes();
-
-            // Shows what the builder returned before sending
             ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             try
             {
                 await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
-                ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess",
-                    ServerLogLevel.Debug, target.Username);
+                ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess", ServerLogLevel.Debug, target.Username);
             }
-            catch (OperationCanceledException)
-            {
-            }
+            
+            catch (OperationCanceledException) 
+            { }
+
             catch (Exception ex)
             {
-                ServerLogger.LogLocalized("PublicKeyResponseRelayFailed",
-                    ServerLogLevel.Warn, target.Username, ex.Message);
+                ServerLogger.LogLocalized("PublicKeyResponseRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
             }
         }
+
 
         // Removes and disposes the per-connection semaphore for the given UID if present.
         // Safe to call from other classes.

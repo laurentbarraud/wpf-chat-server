@@ -55,9 +55,9 @@ namespace chat_client.Helpers
         private static readonly RSA RsaInstance;
 
         /// <summary>
-        /// Initializes a new 2048-bit RSA key pair, 
+        /// Initializes a new 2048-bit RSA key pair,
         /// exports the public key as DER bytes and the private key as DER bytes,
-        /// enables the encryption/decryption pipeline by default
+        /// enables the encryption/decryption pipeline by default,
         /// and logs initialization.
         /// </summary>
         static EncryptionHelper()
@@ -71,7 +71,8 @@ namespace chat_client.Helpers
             // Exports the private key as DER PKCS#1 for later import
             PrivateKeyDer = RsaInstance.ExportRSAPrivateKey();
 
-            Debug.WriteLine("[INFO] EncryptionHelper initialized with RSA 2048 key pair.");
+            // Proper logging via ClientLogger instead of Debug.WriteLine
+            ClientLogger.Log("EncryptionHelper initialized with RSA 2048 key pair.", ClientLogLevel.Info);
         }
 
         /// <summary>

@@ -183,12 +183,12 @@ namespace chat_server
         {
             try
             {
-                // Wait briefly for the accept loop to mark the handshake as processed.
+                // Waits briefly for the accept loop to mark the handshake as processed.
                 const int handshakeWaitTimeoutMs = 2000;
                 var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 while (!_handshakeProcessed && stopwatch.ElapsedMilliseconds < handshakeWaitTimeoutMs)
                 {
-                    // Yield to avoid busy-waiting and let cancellation be observed.
+                    // Produces to avoid busy-waiting and let cancellation be observed.
                     await Task.Yield();
 
                     if (cancellationToken.IsCancellationRequested)
@@ -273,20 +273,35 @@ namespace chat_server
 
                             case ServerPacketOpCode.PublicKeyRequest:
                                 {
+                                    /// <summary>
+                                    /// Handles a public-key request packet.
+                                    /// Reads requester and target UIDs, then relays the request to the target client.
+                                    /// This path is tolerant: if target not connected/established, logs and returns without fatal error.
+                                    /// </summary>
                                     var requestSender = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     var requestTarget = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+
                                     await Program.RelayPublicKeyRequest(requestSender, requestTarget, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
 
                             case ServerPacketOpCode.PublicKeyResponse:
                                 {
+                                    /// <summary>
+                                    /// Handles a public-key response packet.
+                                    /// Reads origin UID, DER-encoded key (may be empty for clear mode), and recipient UID.
+                                    /// Relays the key to the intended recipient; empty keys are valid and tolerated.
+                                    /// </summary>
                                     var responseSender = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     var publicKeyDer = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
                                     var responseRecipient = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    await Program.RelayPublicKeyToUser(responseSender, publicKeyDer, responseRecipient, cancellationToken).ConfigureAwait(false);
+
+                                    await Program.RelayPublicKeyToUser(responseSender,
+                                        publicKeyDer ?? Array.Empty<byte>(), responseRecipient,
+                                        cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
+
 
                             case ServerPacketOpCode.PlainMessage:
                                 {
@@ -347,7 +362,12 @@ namespace chat_server
                                 }
 
                             default:
+                                /// <summary>
+                                /// Unknown opcode is tolerated; logs warning and continues without killing the session.
+                                /// This ensures dynamic public-key updates or future opcodes do not crash the pipeline.
+                                /// </summary>
                                 ServerLogger.LogLocalized("UnknownOpcode", ServerLogLevel.Warn, Username, $"{(byte)opcode}");
+                                // Do not close connection; simply continue loop
                                 break;
                         }
                     }
