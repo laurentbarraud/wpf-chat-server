@@ -74,30 +74,38 @@
 
         <!-- Style for encryption status icon: grey by default, coloured on encryption ready -->
         <Style x:Key="EncryptionStatusIconStyle" TargetType="Image"
-               xmlns:helpers="clr-namespace:chat_client.Helpers">
-            <!-- Sets up a composite transform: first scale, then translate -->
+       xmlns:helpers="clr-namespace:chat_client.Helpers">
+
+            <!-- Defines the transform origin at the center of the image -->
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
             <Setter Property="RenderTransform">
                 <Setter.Value>
                     <TransformGroup>
+                        <!-- Allows scaling animation -->
                         <ScaleTransform/>
+                        <!-- Allows translation animation -->
                         <TranslateTransform/>
                     </TransformGroup>
                 </Setter.Value>
             </Setter>
 
-            <!-- Default grey lock icon, always visible -->
-            <Setter Property="Visibility" Value="Visible"/>
+            <!-- Visibility bound to UseEncryption: hidden when encryption disabled, visible when enabled -->
+            <Setter Property="Visibility"
+            Value="{Binding UseEncryption, Converter={StaticResource BoolToVis}}"/>
+
+            <!-- Default icon: grey lock / syncing keys when encryption is enabled but not ready -->
             <Setter Property="Source" Value="/Resources/syncing-keys.png"/>
-            <!-- Localized tooltip for “waiting keys / not ready” -->
+
+            <!-- Tooltip shown when encryption is enabled but not yet ready -->
             <Setter Property="ToolTip"
             Value="{helpers:LocalizeExtension GettingMissingKeys}"/>
 
             <Style.Triggers>
+                <!-- Trigger when encryption becomes ready -->
                 <DataTrigger Binding="{Binding IsEncryptionReady}" Value="True">
-                    <!-- Swap to coloured lock icon when encryption is ready -->
+                    <!-- Swap to coloured lock icon -->
                     <Setter Property="Source" Value="/Resources/encrypted.png"/>
-                    <!-- Localize the “Encrypted” tooltip -->
+                    <!-- Tooltip updated to localized “Encryption enabled” -->
                     <Setter Property="ToolTip"
                     Value="{helpers:LocalizeExtension EncryptionEnabled}"/>
                     <DataTrigger.EnterActions>

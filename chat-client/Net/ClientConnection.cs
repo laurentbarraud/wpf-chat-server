@@ -92,11 +92,9 @@ namespace chat_client.Net
         // PUBLIC PROPERTIES
 
         /// <summary>
-        /// Provides access to the encryption pipeline instance,
-        /// injected by MainViewModel after construction.
-        /// This proxy property ensures compatibility with existing code.
+        /// Reference to the encryption pipeline, may be null when encryption is disabled.
         /// </summary>
-        public EncryptionPipeline EncryptionPipeline { get; set; } = default!;
+        public EncryptionPipeline? EncryptionPipeline { get; set; }
 
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _tcpClient?.Connected ?? false;
@@ -483,12 +481,16 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Marks the client-side handshake as complete, completes the TCS,
+        /// Marks the client-side handshake as complete.
+        /// Completes the handshake TaskCompletionSource,
+        /// assigns local identifiers and key material,
         /// and initializes the encryption pipeline only if encryption is enabled.
         /// </summary>
+        /// <param name="uid">Unique identifier assigned to the local user.</param>
+        /// <param name="publicKeyDer">Public key in DER format for the local user.</param>
         public void MarkHandshakeComplete(Guid uid, byte[] publicKeyDer)
         {
-            // Completes the handshake TCS
+            /// <summary> Completes the handshake TaskCompletionSource safely </summary>
             var tcs = _handshakeCompletionTcs;
             if (tcs == null)
             {
@@ -500,17 +502,20 @@ namespace chat_client.Net
                 tcs.TrySetResult(true);
             }
 
-            // Initializes pipeline only if encryption is enabled
+            /// <summary> Stores local UID and public key material </summary>
+            LocalUid = uid;
+            LocalPublicKey = publicKeyDer;
+
+            /// <summary> Initializes pipeline only if encryption is enabled before handshake </summary>
             if (Settings.Default.UseEncryption && EncryptionPipeline != null)
             {
                 EncryptionPipeline.MarkReadyForSession(uid, publicKeyDer);
-                ClientLogger.Log(
-                    $"MarkHandshakeComplete — UID={uid}, PublicKeyLen={publicKeyDer?.Length}",
-                    ClientLogLevel.Debug
-                );
+                ClientLogger.Log($"MarkHandshakeComplete — encryption enabled, UID={uid}, PublicKeyLen={publicKeyDer?.Length}", ClientLogLevel.Debug);
             }
             else
             {
+                /// <summary> Skips pipeline initialization when encryption is disabled </summary>
+                EncryptionPipeline = null;
                 ClientLogger.Log("MarkHandshakeComplete — encryption disabled, pipeline not initialized.", ClientLogLevel.Info);
             }
         }

@@ -1067,11 +1067,9 @@ namespace chat_client.MVVM.ViewModel
             Settings.Default.UseEncryption = enableEncryption;
             Settings.Default.Save();
 
-            // Validates presence of local user and active connection
+            // If not connected or no LocalUser, just persist the setting silently
             if (LocalUser == null || !IsConnected)
             {
-                ClientLogger.Log("Encryption toggle failed – missing LocalUser or not connected.", ClientLogLevel.Warn);
-                Settings.Default.UseEncryption = previousValue;
                 OnPropertyChanged(nameof(UseEncryption));
                 return;
             }
