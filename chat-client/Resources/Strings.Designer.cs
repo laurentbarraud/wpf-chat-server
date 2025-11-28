@@ -70,6 +70,15 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Please activate encryption in settings to keep reading incoming messages #.
+        /// </summary>
+        public static string ActivateEncryptionToRead {
+            get {
+                return ResourceManager.GetString("ActivateEncryptionToRead", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à App language.
         /// </summary>
         public static string AppLanguageLabel {
@@ -340,7 +349,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.0 - nov. 2025 Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.0 - nov. 2025 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {
@@ -462,6 +471,15 @@ namespace chat_client.Resources {
         public static string ServerHasClosed {
             get {
                 return ResourceManager.GetString("ServerHasClosed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à # - Server:.
+        /// </summary>
+        public static string ServerPrefix {
+            get {
+                return ResourceManager.GetString("ServerPrefix", resourceCulture);
             }
         }
         

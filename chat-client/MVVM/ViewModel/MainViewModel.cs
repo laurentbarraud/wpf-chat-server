@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 27th, 2025</date>
+/// <date>November 28th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -59,27 +59,10 @@ namespace chat_client.MVVM.ViewModel
         private bool _isDarkTheme = Settings.Default.AppTheme == "Dark";
 
         /// <summary>
-        /// Holds the current encryption ready state
-        /// </summary>
-        private bool _isEncryptionReady;
-
-        /// <summary>
-        /// Holds the current key synchronization state
-        /// </summary>
-        private bool _isSyncingKeys;
-
-        /// <summary>
         /// Indicates whether the next roster snapshot is the very first update
         /// received after connecting. Suppresses join/leave notifications on first load.
         /// </summary>
         private bool _isFirstRosterSnapshot = true;
-
-        /// <summary>
-        /// Provides access to the encryption pipeline instance,
-        /// which manages key generation, publication, synchronization,
-        /// and readiness evaluation for secure communication.
-        /// </summary>
-        private EncryptionPipeline _encryptionPipeline;
 
         /// <summary>
         /// Holds the previous roster’s user IDs and usernames for diffing.
@@ -88,15 +71,17 @@ namespace chat_client.MVVM.ViewModel
             = new List<(Guid, string)>();
 
         /// <summary>
-        /// Backs the UseEncryption property and is initialized from persisted settings.
-        /// </summary>
-        private bool _useEncryption = Settings.Default.UseEncryption;
-
-        /// <summary>
         /// Holds what the user types in the first textbox on top left of the MainWindow
         private string _username = string.Empty;
 
         // PUBLIC PROPERTIES
+
+        /// <summary>
+        /// Provides access to the encryption pipeline instance,
+        /// which manages key generation, publication, synchronization,
+        /// and readiness evaluation for secure communication.
+        /// </summary>
+        public EncryptionPipeline _encryptionPipeline;
 
         /// <summary>
         /// Gets whether the chat panels (SpnDown, SpnEmojiPanel) are visible.
@@ -135,14 +120,6 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public int ExpectedClientCount { get; set; } = 1; // Starts at 1 (self)
 
-        /// <summary>
-        /// Checks whether the local user has already sent their public key to the specified UID.
-        /// </summary>
-        /// <param name="uid">Unique identifier of the remote user.</param>
-        /// <returns>True if the key has already been sent; otherwise, false.</returns>
-        public bool HasSentKeyTo(Guid uid) => _uidsKeySentTo.Contains(uid);
-
-
         // What the user types in the second textbox on top left of
         // the MainWindow in View gets stored in this property (bound in XAML).
         public static string IPAddressOfServer { get; set; } = string.Empty;
@@ -175,73 +152,14 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-        /// <summary>
-        /// Gets a value indicating whether end-to-end encryption is fully ready.
-        /// Encryption is ready when UseEncryption is on and either there are no other peers
-        /// or all peer public keys have been received.
-        /// </summary>
-        public bool IsEncryptionReady
-        {
-            get => _isEncryptionReady;
-            private set
-            {
-                // Exits if the state did not change
-                if (_isEncryptionReady == value)
-                    return;
-
-                // Updates the encryption ready flag
-                _isEncryptionReady = value;
-                OnPropertyChanged(nameof(IsEncryptionReady));
-
-                // Notifies that the icon source and visibility have changed
-                OnPropertyChanged(nameof(IsEncryptionIconVisible));
-            }
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether the encryption icon should be visible.
-        /// Returns true when client is connected and encryption is enabled in settings.
-        /// </summary>
-        public bool IsEncryptionIconVisible
-        {
-            get => IsConnected && Settings.Default.UseEncryption;
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether a key‐exchange handshake is in progress.
-        /// While true, the syncing icon is shown instead of the lock icon.
-        /// </summary>
-        public bool IsSyncingKeys
-        {
-            get => _isSyncingKeys;
-            private set
-            {
-                // Exit if the state did not change
-                if (_isSyncingKeys == value)
-                    return;
-
-                // Update the syncing flag
-                _isSyncingKeys = value;
-                OnPropertyChanged(nameof(IsSyncingKeys));
-            }
-        }
-
-        /// <summary>Stores public keys of other connected users, indexed by their UID.</summary>
-        /// <remarks>Used for encrypting messages to specific recipients; values are DER-encoded public key bytes.</remarks>
-        public Dictionary<Guid, byte[]> KnownPublicKeys { get; } = new Dictionary<Guid, byte[]>();
+        /// <summary> UI proxy of pipeline readiness </summary>
+        public bool IsEncryptionReady => _encryptionPipeline.IsEncryptionReady;
 
         /// <summary>
         /// Represents the currently authenticated user.
         /// Is initialized to an empty User instance to satisfy non-nullable requirements.
         /// </summary>
         public UserModel LocalUser { get; private set; } = new UserModel();
-
-        /// <summary>
-        /// Marks the specified UID as having received our public RSA key.
-        /// Prevents duplicate transmissions during key exchange.
-        /// </summary>
-        /// <param name="uid">Unique identifier of the remote user.</param>
-        public void MarkKeyAsSentTo(Guid uid) => _uidsKeySentTo.Add(uid);
 
         // What the user types in the textbox on bottom right
         // of the MainWindow in View gets stored in this property (bound in XAML).
@@ -335,9 +253,9 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Initializes the MainViewModel instance.
-        /// Sets up user and message collections, creates the encryption pipeline and client connection,
-        /// wires server events to handlers, and configures UI commands.
+        /// Initializes the MainViewModel.
+        /// Sets up collections, creates pipeline and connection,
+        /// wires events, and configures UI commands.
         /// </summary>
         public MainViewModel()
         {
@@ -345,20 +263,22 @@ namespace chat_client.MVVM.ViewModel
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
 
-            // Creates the client connection first.
-            // The dispatcher callback ensures that any network events
-            // can safely update the UI thread without blocking.
-            _clientConn = new ClientConnection(
-                action => Application.Current.Dispatcher.BeginInvoke(action)
-            );
+            // Creates client connection with dispatcher callback for safe UI updates
+            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action));
 
-            // Creates the encryption pipeline,
-            // injecting both the ViewModel and the client connection,
-            // so that the encryption logic has access to the active connection
-            // and can notify the UI.
+            // Creates encryption pipeline with ViewModel and client connection
             _encryptionPipeline = new EncryptionPipeline(this, _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action)
             );
+
+            // Binds the connection to the pipeline
+            _clientConn.EncryptionPipeline = _encryptionPipeline;
+
+            // Subscribes to pipeline state changes to notify UI
+            _encryptionPipeline.StateChanged += (_, __) =>
+            {
+                OnPropertyChanged(nameof(IsEncryptionReady));
+            };
 
             // Subscribes to client connection events
             _clientConn.UserConnectedEvent += OnUserConnected;
@@ -368,44 +288,23 @@ namespace chat_client.MVVM.ViewModel
             _clientConn.UserDisconnectedEvent += OnUserDisconnected;
             _clientConn.DisconnectedByServerEvent += OnDisconnectedByServer;
 
-            // Subscribes to language changes to refresh UI text dynamically
+            // Subscribes to language changes to refresh UI text
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
-            /// <summary>
-            /// Creates the Connect/Disconnect RelayCommand,
-            /// which is always executable by design.
-            /// Launches the asynchronous connect/disconnect
-            /// logic without blocking the UI thread.
-            /// </summary>
-            /// <remarks>
-            /// RelayCommand takes an Action, so we cannot directly pass a Task-returning method,
-            /// but we can start the asynchronous call in a fire-and-forget manner. 
-            /// The "_ =" is a convention to indicate that the returned
-            /// Task is intentionally ignored. 
-            /// CanExecute remains true, so the button is always clickable.
-            /// </remarks>
+            // Creates Connect/Disconnect RelayCommand
             ConnectDisconnectCommand = new RelayCommand(
-                () => { _ = ConnectDisconnectAsync(); }, 
+                () => { _ = ConnectDisconnectAsync(); },
                 () => true
             );
 
-            // Creates ThemeToggleCommand bound to the UI toggle button
+            // Creates ThemeToggleCommand bound to UI toggle button
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
-                bool isDarkThemeSelected = false;
+                bool isDarkThemeSelected = param is bool toggleState && toggleState;
 
-                // Checks if param is a boolean before using it
-                if (param is bool toggleState)
-                {
-                    // Assigns the value of toggleState directly
-                    isDarkThemeSelected = toggleState;
-                }
-
-                // Saves the theme preference
                 Settings.Default.AppTheme = isDarkThemeSelected ? "Dark" : "Light";
                 Settings.Default.Save();
 
-                // Applies the theme with fade animation
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
@@ -826,26 +725,35 @@ namespace chat_client.MVVM.ViewModel
         /// Attempts decryption from the provided cipher bytes, resolves the sender's display name,
         /// and marshals the result onto the UI thread for display.
         /// </summary>
-        /// <param name="senderUid">UID of the user who sent the message.</param>
-        /// <param name="cipherBytes">Encrypted payload as a byte array.</param>
         private void OnEncryptedMessageReceived(Guid senderUid, byte[] cipherBytes)
         {
+            /// <summary> Validates that ciphertext is present before processing </summary>
             if (cipherBytes == null || cipherBytes.Length == 0)
             {
                 ClientLogger.Log($"Received empty ciphertext from {senderUid}", ClientLogLevel.Warn);
                 return;
             }
 
-            // Attempts decryption
-            string plaintext = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+            string plaintext;
+            try
+            {
+                /// <summary> Attempts RSA decryption of the ciphertext bytes </summary>
+                plaintext = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+            }
+            catch (Exception ex)
+            {
+                /// <summary> Logs decryption failure with exception details </summary>
+                ClientLogger.Log($"Decrypt failed for {senderUid}: {ex.Message}", ClientLogLevel.Error);
+                return;
+            }
 
-            // Resolves the sender's username using typed Guid comparison
+            /// <summary> Resolves sender username or falls back to UID string </summary>
             string username = Users?
                 .FirstOrDefault(u => u.UID == senderUid)
                 ?.Username
                 ?? senderUid.ToString();
 
-            // Posts the formatted message to the UI thread for insertion into the chat log
+            /// <summary> Dispatches decrypted message to the UI thread for display </summary>
             Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 Messages.Add($"{username}: {plaintext}");
@@ -878,67 +786,61 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles a received public-key event.
-        /// Validates input, updates the KnownPublicKeys dictionary in a thread-safe manner,
-        /// logs whether the key was added, updated, or duplicated,
-        /// re-evaluates encryption readiness,
-        /// and refreshes the UI lock icon if the client becomes ready.
+        /// • Validates input.
+        /// • Updates the KnownPublicKeys dictionary in a thread-safe manner.
+        /// • Re-evaluates encryption readiness via the pipeline.
         /// </summary>
         /// <param name="senderUid">The UID of the peer who provided the public key.</param>
         /// <param name="publicKeyDer">The RSA public key as a DER-encoded byte array.</param>
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
         {
-            // Discard if the key is missing or empty
+            /// <summary> Discards if the key is missing or empty </summary>
             if (publicKeyDer == null || publicKeyDer.Length == 0)
             {
-                ClientLogger.Log($"Discarded public key from {senderUid.ToString()} — key is null or empty.",
-                    ClientLogLevel.Warn);
+                ClientLogger.Log($"Discarded public key from {senderUid} — key is null or empty.", ClientLogLevel.Warn);
                 return;
             }
 
             bool isNewOrUpdatedKey = false;
 
-            // Protects the dictionary from concurrent writes
-            lock (KnownPublicKeys)
+            /// <summary> Protects dictionary from concurrent writes </summary>
+            lock (_encryptionPipeline.KnownPublicKeys)
             {
-                if (KnownPublicKeys.TryGetValue(senderUid, out var existingKey))
+                if (_encryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out var existingKey))
                 {
-                    // Compares raw DER bytes for equality
+                    /// <summary> Compares raw DER bytes for equality </summary>
                     if (existingKey != null && existingKey.Length == publicKeyDer.Length && existingKey.SequenceEqual(publicKeyDer))
                     {
-                        ClientLogger.Log($"Duplicate public key for {senderUid.ToString()}; no change.",
-                            ClientLogLevel.Debug);
+                        ClientLogger.Log($"Duplicate public key for {senderUid}; no change.", ClientLogLevel.Debug);
                     }
                     else
                     {
-                        // Replaces with the new DER bytes
-                        KnownPublicKeys[senderUid] = publicKeyDer;
+                        /// <summary> Replaces with new DER bytes </summary>
+                        _encryptionPipeline.KnownPublicKeys[senderUid] = publicKeyDer;
                         isNewOrUpdatedKey = true;
-                        ClientLogger.Log($"Updated public key for {senderUid.ToString()}.",
-                            ClientLogLevel.Info);
+                        ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
                     }
                 }
                 else
                 {
-                    // Registers a newly seen public key
-                    KnownPublicKeys.Add(senderUid, publicKeyDer);
+                    /// <summary> Registers a newly seen public key </summary>
+                    _encryptionPipeline.KnownPublicKeys.Add(senderUid, publicKeyDer);
                     isNewOrUpdatedKey = true;
-                    ClientLogger.Log($"Registered new public key for {senderUid.ToString()}.",
-                        ClientLogLevel.Info);
+                    ClientLogger.Log($"Registered new public key for {senderUid}.", ClientLogLevel.Info);
                 }
             }
 
-            // Re-evaluates overall encryption state
+            /// <summary> Re-evaluates encryption readiness via pipeline </summary>
             _encryptionPipeline.EvaluateEncryptionState();
 
-            if (isNewOrUpdatedKey && IsEncryptionReady)
+            /// <summary> Logs readiness state after update </summary>
+            if (isNewOrUpdatedKey && _encryptionPipeline.IsEncryptionReady)
             {
-                ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.",
-                    ClientLogLevel.Debug);
+                ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.", ClientLogLevel.Debug);
             }
-            else if (isNewOrUpdatedKey && !IsEncryptionReady)
+            else if (isNewOrUpdatedKey && !_encryptionPipeline.IsEncryptionReady)
             {
-                ClientLogger.Log("Key registered/updated, but encryption not ready yet — waiting for remaining peers.",
-                    ClientLogLevel.Debug);
+                ClientLogger.Log("Key registered/updated, but encryption not ready yet — waiting for remaining peers.", ClientLogLevel.Debug);
             }
         }
 
@@ -961,10 +863,11 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// • Handles a new user join event.
+        /// Handles a new user join event.
         /// • Reads the provided UID, username, and public key DER bytes.
         /// • Adds the user to the Users collection if not already present.
-        /// • Registers the user’s public key and re-evaluates encryption state.
+        /// • Registers the user’s public key in the pipeline.
+        /// • Re-evaluates encryption readiness via the pipeline.
         /// • Posts a system notice to the chat UI on the dispatcher thread.
         /// </summary>
         /// <param name="uid">The joining user’s unique identifier.</param>
@@ -972,11 +875,11 @@ namespace chat_client.MVVM.ViewModel
         /// <param name="publicKey">The joining user’s RSA public key as DER bytes.</param>
         public void OnUserConnected(Guid uid, string username, byte[] publicKey)
         {
-            // Prevents duplicates
+            /// <summary> Prevents duplicates by checking existing UIDs </summary>
             if (Users.Any(u => u.UID == uid))
                 return;
 
-            // Builds the new user model
+            /// <summary> Builds the new user model </summary>
             var user = new UserModel
             {
                 UID = uid,
@@ -984,29 +887,27 @@ namespace chat_client.MVVM.ViewModel
                 PublicKeyDer = publicKey
             };
 
-            // Invokes all UI-bound updates on the main thread
+            /// <summary> Performs all UI-bound updates on the dispatcher thread </summary>
             Application.Current.Dispatcher.BeginInvoke(() =>
             {
-                // Adds the new user to the observable collection
+                /// <summary> Adds the new user to the observable collection </summary>
                 Users.Add(user);
 
-                // Updates the expected client count and logs the change
+                /// <summary> Updates expected client count and log the change </summary>
                 ExpectedClientCount = Users.Count;
-                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}",
-                    ClientLogLevel.Debug);
+                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", ClientLogLevel.Debug);
 
-                // Registers the public key if not already known
-                if (!KnownPublicKeys.ContainsKey(uid))
+                /// <summary> Registers the public key in the pipeline if not already known </summary>
+                if (!_encryptionPipeline.KnownPublicKeys.ContainsKey(uid))
                 {
-                    KnownPublicKeys[uid] = publicKey;
-                    ClientLogger.Log($"Public key registered for {username} — UID: {uid}",
-                        ClientLogLevel.Debug);
+                    _encryptionPipeline.KnownPublicKeys[uid] = publicKey;
+                    ClientLogger.Log($"Public key registered for {username} — UID: {uid}", ClientLogLevel.Debug);
                 }
 
-                // Re-evaluates whether encryption features can be enabled
+                /// <summary> Re-evaluates encryption readiness via pipeline </summary>
                 _encryptionPipeline.EvaluateEncryptionState();
 
-                // Posts a system notice to the chat window
+                /// <summary> Posts a system notice to the chat window </summary>
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
             });
         }
@@ -1116,13 +1017,16 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Resets all encryption-related flags and notifies the UI.
-        /// This method is intended to be called by the EncryptionPipeline
-        /// when encryption is disabled.
+        /// Delegates to the EncryptionPipeline for state mutation.
         /// </summary>
+        /// <remarks>
+        /// Used only by DisableEncryption. 
+        /// Kept for clarity and future reuse to centralize UI reset logic.
+        /// </remarks>
         public void ResetEncryptionFlags()
         {
-            IsEncryptionReady = false;
-            IsSyncingKeys = false;
+            _encryptionPipeline.SetEncryptionReady(false);
+            _encryptionPipeline.SetSyncing(false);
             UseEncryption = false;
         }
 
@@ -1172,7 +1076,7 @@ namespace chat_client.MVVM.ViewModel
             }
 
             // Clears any existing key material before proceeding
-            KnownPublicKeys.Clear();
+            _encryptionPipeline.KnownPublicKeys.Clear();
             LocalUser.PublicKeyDer = Array.Empty<byte>();
             LocalUser.PrivateKeyDer = Array.Empty<byte>();
             EncryptionHelper.ClearPrivateKey();

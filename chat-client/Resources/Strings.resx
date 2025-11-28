@@ -178,7 +178,7 @@
     <value>The IP address is incorrect. Leave it blank to connect locally.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.0 - nov. 2025 Laurent Barraud </value>
+    <value> v1.0 - nov. 2025 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>This open-source software is distributed in the hope that it will be useful, but without any warranty.</value>
@@ -290,5 +290,11 @@ Example:
   </data>
   <data name="ErrorFailedToSendInitialHandshake" xml:space="preserve">
     <value>Failed to send initial handshake to server</value>
+  </data>
+  <data name="ActivateEncryptionToRead" xml:space="preserve">
+    <value>Please activate encryption in settings to keep reading incoming messages #</value>
+  </data>
+  <data name="ServerPrefix" xml:space="preserve">
+    <value># - Server:</value>
   </data>
 </root>

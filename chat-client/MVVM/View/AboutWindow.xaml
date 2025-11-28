@@ -7,55 +7,14 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Background="Transparent" 
-        WindowStartupLocation="CenterScreen" 
-        Loaded="Window_Loaded">
+        WindowStartupLocation="CenterScreen">
 
-    <!-- Window-wide resources -->
-    <Window.Resources>
-        <vm:AboutViewModel x:Key="AboutViewModel"/>
-
-        <!-- Opening storyboard: name slides in and illuminates -->
-        <Storyboard x:Key="storyBoardLicenceTrimmed_Open" FillBehavior="HoldEnd">
-            <!-- Name appears -->
-            <DoubleAnimation Storyboard.TargetName="LicenceNameBlock"
-                         Storyboard.TargetProperty="Opacity"
-                         To="1" Duration="0:0:0.3"/>
-
-            <!-- Name slides from X=95 to X=25 -->
-            <DoubleAnimation Storyboard.TargetName="LicenceNameBlock"
-                         Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
-                         From="95" To="74"
-                         Duration="0:0:1.2">
-                <DoubleAnimation.EasingFunction>
-                    <QuadraticEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-
-            <!-- Name illuminates to white at the end -->
-            <ColorAnimation Storyboard.TargetName="LicenceNameBlock"
-                        Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                        To="White"
-                        BeginTime="0:0:1.2"
-                        Duration="0:0:0.3"/>
-        </Storyboard>
-
-        <!-- Closing storyboard: fades out name -->
-        <Storyboard x:Key="storyBoardLicenceTrimmed_Close" FillBehavior="Stop">
-            <DoubleAnimation Storyboard.TargetName="LicenceNameBlock"
-                             Storyboard.TargetProperty="Opacity"
-                             To="0"
-                             BeginTime="0:0:0"
-                             Duration="0:0:0.8"/>
-            <ColorAnimation Storyboard.TargetName="LicenceNameBlock"
-                    Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                    To="WhiteSmoke"
-                    BeginTime="0:0:0"
-                    Duration="0:0:2.5"/>
-        </Storyboard>
-    </Window.Resources>
+    <Window.DataContext>
+        <vm:AboutViewModel/>
+    </Window.DataContext>
 
     <!-- Root grid with two rows -->
-    <Grid DataContext="{StaticResource AboutViewModel}">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="42" />
@@ -93,6 +52,7 @@
             <!-- Licence info block -->
             <TextBlock x:Name="LicenceInfoText"
                        FontSize="10"
+                       Text="{Binding LicenceInfo}"
                        Foreground="WhiteSmoke"
                        Margin="30,94,0,0"
                        HorizontalAlignment="Left"
@@ -101,6 +61,7 @@
 
             <TextBlock x:Name="LicenceInfoResourcesText"
                        FontSize="10"
+                       Text="{Binding LicenceInfoResources}"
                        Foreground="WhiteSmoke"
                        Margin="42,0,0,2"
                        HorizontalAlignment="Left"
@@ -132,48 +93,24 @@
                            MouseDown="CliTextBlock_MouseDown"/>
 
                 <Rectangle Width="40" Fill="Transparent" />
-
                 <Grid x:Name="LicenceContainer"
                       VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock x:Name="LicenceTrimmedBlock"
-                               Text="{Binding LicenceTrimmed}"
+                    <TextBlock x:Name="LicenceFinalBlock"
+                               Text="{Binding LicenceFinal}"
                                Grid.Column="0"
                                TextWrapping="NoWrap"
                                TextAlignment="Right"
                                VerticalAlignment="Center"
-                               MouseEnter="LicenceTrimmedBlock_MouseEnter"
-                               MouseLeave="LicenceTrimmedBlock_MouseLeave" Margin="-14,0,14,0">
-                        <TextBlock.Foreground>
-                            <SolidColorBrush Color="WhiteSmoke"/>
-                        </TextBlock.Foreground>
-                        <TextBlock.RenderTransform>
-                            <TranslateTransform X="0"/>
-                        </TextBlock.RenderTransform>
-                    </TextBlock>
-
-                    <TextBlock x:Name="LicenceNameBlock"
-                               Text="{Binding LicenceName}"
-                               Grid.Column="0"
-                               VerticalAlignment="Center"
-                               Opacity="0"
-                               Margin="6,0,0,0">
-                        <TextBlock.Foreground>
-                            <SolidColorBrush Color="WhiteSmoke"/>
-                        </TextBlock.Foreground>
-                        <TextBlock.RenderTransform>
-                            <!-- Starts off-screen to the right -->
-                            <TranslateTransform X="95"/>
-                        </TextBlock.RenderTransform>
-                    </TextBlock>
+                               Margin="-14,0,14,0" Foreground="WhiteSmoke"/>
                 </Grid>
             </StackPanel>
 
             <Button x:Name="CmdOk"
-                    Content="OK"
+                    Content="Ok"
                     Width="90"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"

@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 27th, 2025</date>
+/// <date>November 28th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -60,12 +60,6 @@ namespace chat_client.Net
         // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
         private PacketReader? _packetReader;
 
-        /// <summary>
-        /// Provides the encryption pipeline used to publish keys, synchronize peers, and evaluate readiness.
-        /// Must be injected at construction to avoid null references.
-        /// </summary>
-        private readonly EncryptionPipeline _encryptionPipeline;
-
         // Reader lock to serialize critical reads and avoid concurrent consumption of the NetworkStream.
         // This field may be reset by CleanConnection to guarantee a fresh, uncontended semaphore.
         private SemaphoreSlim _readerLock = new SemaphoreSlim(1, 1);
@@ -82,8 +76,12 @@ namespace chat_client.Net
 
         // PUBLIC PROPERTIES
 
-        /// <summary>Used to build outgoing packets. Never null.</summary>
-        public PacketBuilder packetBuilder { get; } = new PacketBuilder();
+        /// <summary>
+        /// Provides access to the encryption pipeline instance,
+        /// injected by MainViewModel after construction.
+        /// This proxy property ensures compatibility with existing code.
+        /// </summary>
+        public EncryptionPipeline EncryptionPipeline { get; set; } = default!;
 
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _tcpClient?.Connected ?? false;
@@ -140,6 +138,7 @@ namespace chat_client.Net
         /// Sets up the underlying TCP client, resets local identifiers,
         /// and stores the UI dispatcher dependency provided by MainViewModel.
         /// </summary>
+        /// <param name="uiDispatcherInvoke">UI dispatcher callback provided by MainViewModel.</param>
         public ClientConnection(Action<Action> uiDispatcherInvoke)
         {
             // Underlying TCP client used for communication
@@ -149,10 +148,9 @@ namespace chat_client.Net
             LocalUid = Guid.Empty;
             LocalPublicKey = Array.Empty<byte>();
 
-            /// <summary> Stores the UI dispatcher callback passed from MainViewModel </summary>
+            // Stores the UI dispatcher callback passed from MainViewModel
             _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
         }
-
 
         /// <summary>
         /// Cleanly resets the client connection state:
@@ -271,11 +269,10 @@ namespace chat_client.Net
                 LocalUid = Guid.NewGuid();
 
                 /// <summary> Initializes public key for handshake (real if encryption enabled, dummy otherwise) </summary>
-                if (Properties.Settings.Default.UseEncryption && _encryptionPipeline != null)
+                if (Properties.Settings.Default.UseEncryption && EncryptionPipeline != null)
                 {
-                    LocalPublicKey = _encryptionPipeline.PublicKeyDer;
+                    LocalPublicKey = EncryptionPipeline.PublicKeyDer;
 
-                    /// <summary> Guards against missing/empty public key prior to handshake </summary>
                     if (LocalPublicKey == null || LocalPublicKey.Length == 0)
                     {
                         throw new InvalidOperationException("Public key not initialized");
@@ -301,7 +298,7 @@ namespace chat_client.Net
                     CleanConnection();
 
                     /// <summary> Cancels and releases handshake TCS to avoid dangling tasks </summary>
-                    _handshakeCompletionTcs?.TrySetCanceled();
+                    _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None);
                     _handshakeCompletionTcs = null;
 
                     /// <summary> Returns sentinel values to signal failure to caller </summary>
@@ -316,7 +313,7 @@ namespace chat_client.Net
 
                 /// <summary> Starts background packet reading with a dedicated cancellation token </summary>
                 _connectionCts = new CancellationTokenSource();
-                _ = Task.Run(() => ReadPacketsAsync(_connectionCts.Token));
+                _ = Task.Run(() => ReadPacketsAsync(_connectionCts.Token), _connectionCts.Token);
 
                 /// <summary> Returns the established UID and public key to the caller </summary>
                 return (LocalUid, LocalPublicKey);
@@ -329,7 +326,7 @@ namespace chat_client.Net
                 CleanConnection();
 
                 /// <summary> Propagates cancellation to the handshake TCS and clears it </summary>
-                _handshakeCompletionTcs?.TrySetCanceled();
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None);
                 _handshakeCompletionTcs = null;
 
                 /// <summary> Returns sentinel values to indicate cancellation to the caller </summary>
@@ -343,7 +340,7 @@ namespace chat_client.Net
                 CleanConnection();
 
                 /// <summary> Cancels and releases handshake TCS on failure </summary>
-                _handshakeCompletionTcs?.TrySetCanceled();
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None);
                 _handshakeCompletionTcs = null;
 
                 /// <summary> Returns sentinel values to indicate failure to the caller </summary>
@@ -463,10 +460,10 @@ namespace chat_client.Net
                 tcs.TrySetResult(true);
             }
 
-            // Initialize pipeline only if encryption is enabled
-            if (Settings.Default.UseEncryption && _encryptionPipeline != null)
+            // Initializes pipeline only if encryption is enabled
+            if (Settings.Default.UseEncryption && EncryptionPipeline != null)
             {
-                _encryptionPipeline.MarkReadyForSession(uid, publicKeyDer);
+                EncryptionPipeline.MarkReadyForSession(uid, publicKeyDer);
                 ClientLogger.Log(
                     $"MarkHandshakeComplete — UID={uid}, PublicKeyLen={publicKeyDer?.Length}",
                     ClientLogLevel.Debug
@@ -484,37 +481,32 @@ namespace chat_client.Net
         /// • Dispatches roster and message updates to the UI thread.
         /// • Completes handshake when HandshakeAck is received.
         /// • Stops gracefully on cancellation, stream close, or protocol error.
-        /// 
-        /// Notes:
-        /// - Single reader invariant: all frame reads go through _packetReader.
-        /// - Each frame is parsed in-memory to keep the network stream position aligned.
         /// </summary>
         private async Task ReadPacketsAsync(CancellationToken cancellationToken)
         {
-            // Captures ViewModel reference on the UI thread
+            /// <summary> Captures ViewModel reference on the UI thread </summary>
             MainViewModel viewModel = null!;
 
-            // Captures ViewModel without blocking the network read thread
+            /// <summary> Captures ViewModel without blocking the network read thread </summary>
             await Application.Current.Dispatcher.BeginInvoke(() =>
             {
                 if (Application.Current.MainWindow is MainWindow mw)
                     viewModel = mw.ViewModel;
             }).Task.ConfigureAwait(false);
 
+            /// <summary> Ensures that ViewModel is available before proceeding </summary>
             if (viewModel == null)
-            {
                 return;
-            }
 
-            // Ensures we don't start reading from the shared PacketReader until any handshake reader
-            // that holds _readerLock has finished consuming its frame.
+            /// <summary> Waits for handshake reader to release lock before starting continuous read </summary>
             await _readerLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            
+
             try
             {
-                // Continuous read loop. This method must be the only continuous reader of frames.
+                /// <summary> Continuous read loop: runs until cancellation or disconnect </summary>
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    /// <summary> Checks that TCP client is connected before reading </summary>
                     if (_tcpClient == null || !_tcpClient.Connected)
                     {
                         ClientLogger.Log("ReadPackets: socket not connected, exiting.", ClientLogLevel.Info);
@@ -522,18 +514,19 @@ namespace chat_client.Net
                     }
 
                     byte[] framedBody;
-                    
+
                     try
                     {
-                        // Reads the next framed body via the shared PacketReader (single-reader invariant).
+                        /// <summary> Reads next framed body via shared PacketReader </summary>
                         framedBody = await _packetReader!.ReadFramedBodyAsync(cancellationToken).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
-                        // Cancellation requested — exits gracefully.
+                        /// <summary> Exits gracefully when cancellation is requested </summary>
                         break;
                     }
 
+                    /// <summary> Validates that framed body is present </summary>
                     if (framedBody == null || framedBody.Length == 0)
                     {
                         ClientLogger.Log("ReadPackets: remote closed stream or empty frame", ClientLogLevel.Info);
@@ -542,11 +535,11 @@ namespace chat_client.Net
 
                     try
                     {
-                        // Parses the frame in-memory to avoid touching the underlying NetworkStream.
+                        /// <summary> Parses frame in-memory to avoid touching NetworkStream directly </summary>
                         using var ms = new MemoryStream(framedBody, writable: false);
                         var reader = new PacketReader(ms);
 
-                        // Opcode is first byte of the framed payload.
+                        /// <summary> Reads opcode byte from framed payload </summary>
                         byte opcodeByte = await reader.ReadByteAsync(cancellationToken).ConfigureAwait(false);
                         var opcode = (ClientPacketOpCode)opcodeByte;
                         ClientLogger.Log($"RECEIVED_PACKET_OPCODE={(byte)opcode}", ClientLogLevel.Debug);
@@ -554,11 +547,11 @@ namespace chat_client.Net
                         switch (opcode)
                         {
                             case ClientPacketOpCode.RosterBroadcast:
-                                // Resets unexpected-opcode counter when a valid packet is processed.
+                                /// <summary> Resets unexpected-opcode counter </summary>
                                 if (_consecutiveUnexpectedOpcodes != 0)
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                // Reads roster count (network-order int) and then entries.
+                                /// <summary> Reads roster count and entries </summary>
                                 int totalUsers = await reader.ReadInt32NetworkOrderAsync(cancellationToken).ConfigureAwait(false);
 
                                 var rosterEntries = new List<(Guid UserId, string Username, byte[] PublicKeyDer)>(totalUsers);
@@ -566,11 +559,11 @@ namespace chat_client.Net
                                 {
                                     Guid userId = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     string username = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
-                                    byte[] publicKeyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: 64 * 1024, cancellationToken).ConfigureAwait(false);
+                                    byte[] publicKeyDer = await reader.ReadBytesWithLengthAsync(64 * 1024, cancellationToken).ConfigureAwait(false);
                                     rosterEntries.Add((userId, username, publicKeyDer));
                                 }
 
-                                // Posts UI update without blocking the background read loop
+                                /// <summary> Posts roster snapshot update to UI thread </summary>
                                 _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                 {
                                     viewModel.DisplayRosterSnapshot(rosterEntries);
@@ -578,104 +571,104 @@ namespace chat_client.Net
                                 break;
 
                             case ClientPacketOpCode.HandshakeAck:
-                                {
-                                    // Signals handshake completion
-                                    _handshakeCompletionTcs?.TrySetResult(true);
-                                    Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-                                    // Sends public key only once if encryption is active
-                                    if (EncryptionHelper.IsEncryptionActive && !_hasSentPublicKey)
-                                    {
-                                        await SendPublicKeyToServerAsync(LocalUid, EncryptionHelper.PublicKeyDer, cancellationToken).ConfigureAwait(false);
-
-                                        _hasSentPublicKey = true; // local flag to prevent multiple sends
-                                        ClientLogger.Log("Public key sent once after ACK.", ClientLogLevel.Debug);
-                                    }
-
-                                    break;
-                                }
-
-                            case ClientPacketOpCode.PlainMessage:
-                                
+                                /// <summary> Signals handshake completion </summary>
+                                _handshakeCompletionTcs?.TrySetResult(true);
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                // Payload: [16-byte sender UID][16-byte recipient UID placeholder][length-prefixed UTF-8 text]
+                                /// <summary> Sends public key once if encryption is active </summary>
+                                if (EncryptionHelper.IsEncryptionActive && !_hasSentPublicKey)
+                                {
+                                    await SendPublicKeyToServerAsync(LocalUid, EncryptionHelper.PublicKeyDer, cancellationToken).ConfigureAwait(false);
+                                    _hasSentPublicKey = true;
+                                    ClientLogger.Log("Public key sent once after ACK.", ClientLogLevel.Debug);
+                                }
+                                break;
+
+                            case ClientPacketOpCode.PlainMessage:
+                                /// <summary> Resets unexpected-opcode counter </summary>
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+
+                                /// <summary> Reads sender UID and discards recipient placeholder </summary>
                                 Guid senderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discard recipient placeholder
+                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                 string message = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 
+                                /// <summary> Resolves sender name or falls back to UID string </summary>
                                 string senderName = viewModel.Users.FirstOrDefault(u => u.UID == senderUid)?.Username ?? senderUid.ToString();
 
-                                // Posts UI update without blocking network read loop
+                                /// <summary> Posts plain message to UI thread </summary>
                                 _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                 {
                                     viewModel.OnPlainMessageReceived(senderName, message);
                                 }));
-
                                 break;
 
                             case ClientPacketOpCode.EncryptedMessage:
+                                /// <summary> Resets unexpected-opcode counter </summary>
+                                Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
+
+                                /// <summary> Reads sender UID and discards recipient UID </summary>
+                                Guid encryptedSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+
+                                /// <summary> Reads ciphertext payload </summary>
+                                byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
+
+                                /// <summary> Resolves sender name or falls back to UID string </summary>
+                                string encryptedSenderName = viewModel.Users.FirstOrDefault(u => u.UID == encryptedSenderUid)?.Username
+                                                             ?? encryptedSenderUid.ToString();
+
+                                /// <summary> Validates ciphertext presence </summary>
+                                if (cipherBytes == null || cipherBytes.Length == 0)
                                 {
-                                    // Resets unexpected opcode counter.
-                                    Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-                                    // Reads sender UID and discards recipient UID (not needed on client side).
-                                    Guid encryptedSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-
-                                    // Reads ciphertext payload.
-                                    byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
-
-                                    // Resolves sender name for display.
-                                    string encryptedSenderName = viewModel.Users.FirstOrDefault(u => u.UID == encryptedSenderUid)?.Username
-                                                                 ?? encryptedSenderUid.ToString();
-
-                                    // Validates payload presence.
-                                    if (cipherBytes == null || cipherBytes.Length == 0)
-                                    {
-                                        ClientLogger.Log("Encrypted payload empty; dropping.", ClientLogLevel.Warn);
-                                        break;
-                                    }
-
-                                    string plainText;
-
-                                    // Decrypts only when encryption is active.
-                                    if (EncryptionHelper.IsEncryptionActive)
-                                    {
-                                        try
-                                        {
-                                            // Performs synchronous RSA-OAEP-SHA256 decryption.
-                                            plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            ClientLogger.Log($"Decrypt failed: {ex.Message}", ClientLogLevel.Error);
-                                            break;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // Falls back to raw display when encryption is inactive.
-                                        plainText = Encoding.UTF8.GetString(cipherBytes);
-                                        ClientLogger.Log("EncryptedMessage received while encryption inactive; showing raw text.", ClientLogLevel.Warn);
-                                    }
-
-                                    // Dispatches plaintext to UI thread for rendering.
-                                    _ = Application.Current.Dispatcher.BeginInvoke(() =>
-                                    {
-                                        viewModel.OnPlainMessageReceived(encryptedSenderName, plainText);
-                                    });
-
+                                    ClientLogger.Log("Encrypted payload empty; dropping.", ClientLogLevel.Warn);
                                     break;
                                 }
 
+                                /// <summary> Attempts decryption if encryption is active </summary>
+                                if (EncryptionHelper.IsEncryptionActive)
+                                {
+                                    try
+                                    {
+                                        string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+
+                                        /// <summary> Posts decrypted message to UI thread </summary>
+                                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                                        {
+                                            viewModel.Messages.Add($"{encryptedSenderName}: {plainText}");
+                                        });
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        /// <summary> Logs decryption failure with exception details </summary>
+                                        ClientLogger.Log($"Decrypt failed: {ex.Message}", ClientLogLevel.Error);
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    /// <summary> Retrieves localized placeholder when encryption is inactive </summary>
+                                    string prefix = LocalizationManager.GetString("ServerPrefix");
+                                    string placeholder = LocalizationManager.GetString("ActivateEncryptionToRead");
+
+                                    /// <summary> Posts placeholder message to UI thread </summary>
+                                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                                    {
+                                        viewModel.Messages.Add($"{prefix} {placeholder}");
+                                    });
+                                }
+                                break;
+
                             case ClientPacketOpCode.PublicKeyResponse:
+                                /// <summary> Resets unexpected-opcode counter </summary>
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
+                                /// <summary> Reads origin UID and public key </summary>
                                 Guid originUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                byte[] keyDer = await reader.ReadBytesWithLengthAsync(maxAllowed: null, cancellationToken).ConfigureAwait(false);
-                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false); // discards requester UID
+                                byte[] keyDer = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
+                                _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
+                                /// <summary> Posts public key reception to UI thread </summary>
                                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                                 {
                                     viewModel.OnPublicKeyReceived(originUid, keyDer);
@@ -683,26 +676,27 @@ namespace chat_client.Net
                                 break;
 
                             case ClientPacketOpCode.DisconnectNotify:
-                                
+                                /// <summary> Resets unexpected-opcode counter </summary>
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
+                                /// <summary> Reads disconnect UID and name </summary>
                                 Guid discUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                 string discName = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
-                                
+
+                                /// <summary> Posts disconnect notification to UI thread </summary>
                                 _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnUserDisconnected(discUid, discName));
                                 break;
 
                             case ClientPacketOpCode.ForceDisconnectClient:
-                                
-                                // Server demanded immediate disconnect; informs UI and exits.
+                                /// <summary> Posts forced disconnect to UI thread and exits loop </summary>
                                 _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnDisconnectedByServer());
                                 return;
 
                             default:
-                                
-                                // Unexpected opcode: increments counter and optionally disconnects if threshold reached.
+                                /// <summary> Logs unexpected opcode and increments counter </summary>
                                 ClientLogger.Log($"Unexpected opcode 0x{opcodeByte:X2} in framed packet", ClientLogLevel.Warn);
 
+                                /// <summary> Disconnects gracefully if threshold of unexpected opcodes is reached </summary>
                                 if (Interlocked.Increment(ref _consecutiveUnexpectedOpcodes) >= 3)
                                 {
                                     ClientLogger.Log("Too many consecutive unexpected opcodes, initiating graceful disconnect.", ClientLogLevel.Warn);
@@ -714,37 +708,33 @@ namespace chat_client.Net
                     }
                     catch (InvalidDataException ide)
                     {
-                        // Protocol-level error detected while parsing a frame; aborts read loop to force reconnect/cleanup.
+                        /// <summary> Logs protocol-level error and exits loop </summary>
                         ClientLogger.Log($"ReadPackets protocol error: {ide.Message}", ClientLogLevel.Warn);
                         break;
                     }
                     catch (OperationCanceledException)
                     {
-                        // Cancellation observed while parsing — exits gracefully.
+                        /// <summary> Exits gracefully on cancellation during parsing </summary>
                         break;
                     }
                     catch (Exception ex)
                     {
-                        // Non-fatal processing error; logs and continue reading next frames.
+                        /// <summary> Logs non-fatal processing error and continues loop </summary>
                         ClientLogger.Log($"ReadPackets processing error: {ex.Message}", ClientLogLevel.Error);
                     }
                 }
             }
             catch (Exception ex)
             {
-                // Fatal error in the reader loop — logs for diagnostics.
+                /// <summary> Logs fatal error in reader loop </summary>
                 ClientLogger.Log($"ReadPackets fatal error: {ex.Message}", ClientLogLevel.Error);
             }
             finally
             {
-                // Always release the reader lock to avoid blocking other consumers on errors
-                try
-                {
-                    _readerLock.Release();
-                }
-                catch { }
+                /// <summary> Releases reader lock to avoid blocking other consumers </summary>
+                try { _readerLock.Release(); } catch { }
 
-                // Notifies UI asynchronously to avoid blocking the network read loop
+                /// <summary> Notifies UI of disconnect asynchronously </summary>
                 try
                 {
                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
@@ -754,14 +744,10 @@ namespace chat_client.Net
                 }
                 catch { }
 
-                // Performs centralized cleanup to reset connection state
-                try
-                {
-                    CleanConnection();
-                }
-                catch { }
+                /// <summary> Performs centralized cleanup of connection state </summary>
+                try { CleanConnection(); } catch { }
 
-                // Resets opcode counter on disconnect/cleanup
+                /// <summary> Resets opcode counter on disconnect </summary>
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
             }
         }
@@ -912,28 +898,28 @@ namespace chat_client.Net
         {
             if (string.IsNullOrWhiteSpace(username))
             {
-                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on invalid input
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on invalid input
                 return false;
             }
 
             if (_tcpClient == null || !_tcpClient.Connected)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync failed: socket not connected.", ClientLogLevel.Error);
-                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on no socket
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on no socket
                 return false;
             }
 
             if (uid == Guid.Empty)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync failed: UID is empty.", ClientLogLevel.Error);
-                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on invalid uid
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on invalid uid
                 return false;
             }
 
             if (publicKeyDer == null)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync failed: publicKeyDer is null.", ClientLogLevel.Error);
-                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on invalid public key
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on invalid public key
                 return false;
             }
 
@@ -980,7 +966,7 @@ namespace chat_client.Net
                     if (frame == null || frame.Length == 0)
                     {
                         ClientLogger.Log("Handshake failed: empty ack frame", ClientLogLevel.Error);
-                        _handshakeCompletionTcs?.TrySetCanceled(); // cancel on empty frame
+                        _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on empty frame
                         return false;
                     }
 
@@ -991,7 +977,7 @@ namespace chat_client.Net
                     if (receivedOpcode != (byte)ClientPacketOpCode.HandshakeAck)
                     {
                         ClientLogger.Log($"Unexpected packet opcode while waiting for HandshakeAck: {receivedOpcode}", ClientLogLevel.Error);
-                        _handshakeCompletionTcs?.TrySetCanceled(); // cancel on unexpected opcode
+                        _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on unexpected opcode
                         return false;
                     }
 
@@ -1006,30 +992,30 @@ namespace chat_client.Net
             catch (OperationCanceledException)
             {
                 ClientLogger.Log("SendInitialConnectionPacketAsync cancelled by token.", ClientLogLevel.Debug);
-                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on cancellation
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on cancellation
                 return false;
             }
             catch (Exception ex)
             {
                 ClientLogger.Log($"SendInitialConnectionPacketAsync exception: {ex.Message}", ClientLogLevel.Error);
-                _handshakeCompletionTcs?.TrySetCanceled(); // cancel on unexpected exception
+                _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on unexpected exception
                 return false;
             }
         }
 
         /// <summary>
         /// Sends a chat message to the server.
-        /// Chooses plain or encrypted mode depending on user settings and runtime readiness.
+        /// Opportunistically chooses plain or encrypted mode depending on user settings and runtime readiness.
         /// Validates session, recipients, and public key availability before attempting encryption.
         /// Returns true if the message was successfully sent.
         /// </summary>
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
-            // Avoids sending empty messages
+            /// <summary> Avoids sending empty messages </summary>
             if (string.IsNullOrWhiteSpace(plainText))
                 return false;
 
-            // Ensures main window, view model, and local user are available
+            /// <summary> Ensures main window, view model, and local user are available </summary>
             if (Application.Current.MainWindow is not MainWindow mainWindow ||
                 mainWindow.ViewModel is not MainViewModel viewModel ||
                 viewModel.LocalUser == null)
@@ -1037,77 +1023,68 @@ namespace chat_client.Net
 
             Guid senderUid = viewModel.LocalUser.UID;
 
-            // Builds recipient list (normal path if peers exist)
+            /// <summary> Builds recipient list excluding self </summary>
             var recipients = viewModel.Users.Where(u => u.UID != senderUid).ToList();
             bool messageSent = false;
 
-            /// <summary>
-            /// --- Normal path: send to each peer ---
-            /// </ summary >
+            /// <summary> --- Normal path: send to each peer --- </summary>
             if (recipients.Count >= 1)
             {
                 foreach (var recipient in recipients)
                 {
+                    /// <summary> Respects cancellation requests </summary>
                     cancellationToken.ThrowIfCancellationRequested();
-                    Guid recipientUid = recipient.UID;
 
+                    Guid recipientUid = recipient.UID;
                     var packet = new PacketBuilder();
 
-                    /// <summary >
-                    /// Decides encryption mode:
-                    /// toggle ON + runtime ready → encrypted,
-                    /// else plain
-                    /// </ summary >
-                    bool useEncryptionNow = Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady;
+                    /// <summary> Decides encryption mode opportunistically </summary>
+                    bool useEncryptionNow = Settings.Default.UseEncryption && EncryptionPipeline?.IsEncryptionReady == true;
 
-                    // Logs decision path for message encryption
+                    /// <summary> Logs decision path for debugging </summary>
                     ClientLogger.Log($"SendMessageAsync: recipient={recipientUid}, useEncryptionNow={useEncryptionNow}", ClientLogLevel.Debug);
 
-                    /// <summary>
-                    /// --- Send Plain message ---
-                    /// </ summary >
+                    /// <summary> --- Plain message path --- </summary>
                     if (!useEncryptionNow)
                     {
-                        // [opcode][senderUid][string]
+                        /// <summary> Builds plain packet: [opcode][senderUid][string] </summary>
                         packet.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
                         packet.WriteUid(senderUid);
                         packet.WriteString(plainText);
                     }
-                    /// <summary>
-                    /// --- Send encrypted message ---
-                    /// </ summary >
+                    /// <summary> --- Encrypted message path --- </summary>
                     else
                     {
-                        // Lookup recipient public key
+                        /// <summary> Looks-up recipient public key in pipeline dictionary </summary>
                         byte[] publicKeyDer;
-                        lock (viewModel.KnownPublicKeys)
+                        if (EncryptionPipeline?.KnownPublicKeys != null)
                         {
-                            /// <summary>
-                            /// Attempts to retrieve the recipient's RSA public key (DER format) from the dictionary.
-                            /// If found, it is returned in 'keyFound'; if not, 'keyFound' remains null and encryption cannot proceed.
-                            /// </ summary >
-                            viewModel.KnownPublicKeys.TryGetValue(recipientUid, out byte[]? keyFound);
-
-                            publicKeyDer = keyFound ?? Array.Empty<byte>();
+                            lock (EncryptionPipeline.KnownPublicKeys)
+                            {
+                                EncryptionPipeline.KnownPublicKeys.TryGetValue(recipientUid, out byte[]? keyFound);
+                                publicKeyDer = keyFound ?? Array.Empty<byte>();
+                            }
                         }
+                        else publicKeyDer = Array.Empty<byte>();
 
+                        /// <summary> Skips if public key missing </summary>
                         if (publicKeyDer.Length == 0)
                         {
                             ClientLogger.Log($"Missing public key for recipient {recipientUid}.", ClientLogLevel.Warn);
                             continue;
                         }
 
-                        /// <summary>
-                        /// Encrypt plaintext with recipient's RSA public key (DER format)
-                        /// </summary>
+                        /// <summary> Encrypts plaintext with recipient's RSA public key (DER format) </summary>
                         byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
+
+                        /// <summary> Skips if encryption failed </summary>
                         if (cipherArray == null || cipherArray.Length == 0)
                         {
                             ClientLogger.Log($"Encryption failed for recipient {recipientUid}.", ClientLogLevel.Error);
                             continue;
                         }
 
-                        // [opcode][senderUid][recipientUid][bytes-with-length]
+                        /// <summary> Builds encrypted packet: [opcode][senderUid][recipientUid][bytes-with-length] </summary>
                         packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
                         packet.WriteUid(senderUid);
                         packet.WriteUid(recipientUid);
@@ -1116,72 +1093,71 @@ namespace chat_client.Net
 
                     try
                     {
+                        /// <summary> Sends packet to server with framing </summary>
                         await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                         messageSent = true;
 
-                        // Logs successful send
+                        /// <summary> Logs success with encryption flag </summary>
                         ClientLogger.Log($"Message successfully sent to {recipientUid}. Encrypted={useEncryptionNow}", ClientLogLevel.Info);
                     }
                     catch (Exception ex)
                     {
+                        /// <summary> Logs failure with exception details </summary>
                         ClientLogger.Log($"Failed to send message to {recipientUid}: {ex.Message}", ClientLogLevel.Error);
                     }
                 }
             }
-
-            /// <summary>
-            /// --- Solo mode: recipient is the sender ---
-            /// </summary>
+            /// <summary> --- Solo mode: recipient is the sender --- </summary>
             else
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Guid recipientUid = senderUid;
-
                 var packet = new PacketBuilder();
-                bool useEncryptionNow = Properties.Settings.Default.UseEncryption && viewModel.IsEncryptionReady;
 
-                // Logs decision path for self-message
+                /// <summary> Decides encryption mode opportunistically for self-message </summary>
+                bool useEncryptionNow = Settings.Default.UseEncryption && EncryptionPipeline?.IsEncryptionReady == true;
+
                 ClientLogger.Log($"SendMessageAsync (solo): useEncryptionNow={useEncryptionNow}", ClientLogLevel.Debug);
 
-                /// <summary<>
-                /// --- Send Plain self-message ---
-                /// </summary>
                 if (!useEncryptionNow)
                 {
-                    // [opcode][senderUid][string]
+                    /// <summary> Builds plain packet: [opcode][senderUid][string] </summary>
                     packet.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
                     packet.WriteUid(senderUid);
                     packet.WriteString(plainText);
                 }
-
-                /// <summary>
-                /// --- Encrypted self-message ---
-                /// </ summary >
                 else
                 {
-                    // Looks-up local public key
+                    /// <summary> Looks-up local public key in pipeline dictionary </summary>
                     byte[] publicKeyDer;
-                    lock (viewModel.KnownPublicKeys)
+                    if (EncryptionPipeline?.KnownPublicKeys != null)
                     {
-                        viewModel.KnownPublicKeys.TryGetValue(senderUid, out byte[]? keyFound);
-                        publicKeyDer = keyFound ?? Array.Empty<byte>();
+                        lock (EncryptionPipeline.KnownPublicKeys)
+                        {
+                            EncryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out byte[]? keyFound);
+                            publicKeyDer = keyFound ?? Array.Empty<byte>();
+                        }
                     }
+                    else publicKeyDer = Array.Empty<byte>();
 
+                    /// <summary> Aborts if local public key missing </summary>
                     if (publicKeyDer.Length == 0)
                     {
-                        ClientLogger.Log($"Missing local public key for self-message.", ClientLogLevel.Warn);
+                        ClientLogger.Log("Missing local public key for self-message.", ClientLogLevel.Warn);
                         return false;
                     }
 
-                    // Encrypts plaintext with local RSA public key (DER format)
+                    /// <summary> Encrypts plaintext with local RSA public key (DER format) </summary>
                     byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
+
+                    /// <summary> Aborts if encryption failed </summary>
                     if (cipherArray == null || cipherArray.Length == 0)
                     {
                         ClientLogger.Log("Encryption failed for self-message.", ClientLogLevel.Error);
                         return false;
                     }
 
-                    // [opcode][senderUid][recipientUid][bytes-with-length]
+                    /// <summary> Builds encrypted packet: [opcode][senderUid][recipientUid][bytes-with-length] </summary>
                     packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
                     packet.WriteUid(senderUid);
                     packet.WriteUid(recipientUid);
@@ -1190,20 +1166,23 @@ namespace chat_client.Net
 
                 try
                 {
+                    /// <summary> Sends packet to server with framing </summary>
                     await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                     messageSent = true;
 
-                    // Logs successful self-message send
+                    /// <summary> Logs success with encryption flag </summary>
                     ClientLogger.Log($"Self-message successfully sent. Encrypted={useEncryptionNow}", ClientLogLevel.Info);
                 }
                 catch (Exception ex)
                 {
+                    /// <summary> Logs failure with exception details </summary>
                     ClientLogger.Log($"Failed to send self-message: {ex.Message}", ClientLogLevel.Error);
                 }
             }
 
             return messageSent;
         }
+
 
         /// <summary>
         /// Sends the client's public RSA key to the server asynchronously.
