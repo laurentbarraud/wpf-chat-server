@@ -97,6 +97,15 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Command-line arguments.
+        /// </summary>
+        public static string CliArgumentsText {
+            get {
+                return ResourceManager.GetString("CliArgumentsText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Client socket is not connected..
         /// </summary>
         public static string ClientSocketNotConnected {
@@ -138,15 +147,6 @@ namespace chat_client.Resources {
         public static string CliOptionsHelpTitle {
             get {
                 return ResourceManager.GetString("CliOptionsHelpTitle", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à Command-line arguments.
-        /// </summary>
-        public static string CommandLineArguments {
-            get {
-                return ResourceManager.GetString("CommandLineArguments", resourceCulture);
             }
         }
         

@@ -40,8 +40,7 @@
                                 <Image x:Name="SwitchIcon"
                                Width="16" Height="16"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Source="/Resources/port-setting-disabled.png" />
+                               VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
 
@@ -81,8 +80,7 @@
                                 <Image x:Name="SwitchIcon"
                                Width="16" Height="16"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Source="/Resources/reduce-to-tray-disabled.png" />
+                               VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
 
@@ -122,8 +120,7 @@
                                 <Image x:Name="SwitchIcon"
                                        Width="16" Height="16"
                                        HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Source="/Resources/encrypted-disabled.png" />
+                                       VerticalAlignment="Center"/>
                             </Grid>
                         </Grid>
 

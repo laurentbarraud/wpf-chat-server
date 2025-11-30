@@ -54,7 +54,7 @@
                        FontSize="10"
                        Text="{Binding LicenceInfo}"
                        Foreground="WhiteSmoke"
-                       Margin="30,94,0,0"
+                       Margin="30,90,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap" Width="231" Height="28" LineHeight="1" TextAlignment="Right"/>
@@ -63,7 +63,7 @@
                        FontSize="10"
                        Text="{Binding LicenceInfoResources}"
                        Foreground="WhiteSmoke"
-                       Margin="42,0,0,2"
+                       Margin="43,0,0,2"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Bottom"
                        TextWrapping="Wrap" Width="388" LineHeight="1" />
@@ -81,32 +81,24 @@
                         Margin="20,0,0,0"
                         DockPanel.Dock="Left">
 
-                <TextBlock x:Name="CliTextBlock"
+                <TextBlock x:Name="CliArgumentsTextBlock"
                            FontSize="12"
                            Foreground="WhiteSmoke"
                            Background="Transparent"
                            Style="{StaticResource InteractiveTextBlockStyle}"
                            Cursor="Hand"
-                           Text="{Binding CliText}"
+                           Text="{Binding CliArgumentsText}"
                            TextWrapping="Wrap"
                            VerticalAlignment="Center"
                            MouseDown="CliTextBlock_MouseDown"/>
 
-                <Rectangle Width="40" Fill="Transparent" />
-                <Grid x:Name="LicenceContainer"
-                      VerticalAlignment="Center">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock x:Name="LicenceFinalBlock"
-                               Text="{Binding LicenceFinal}"
-                               Grid.Column="0"
-                               TextWrapping="NoWrap"
-                               TextAlignment="Right"
-                               VerticalAlignment="Center"
-                               Margin="-14,0,14,0" Foreground="WhiteSmoke"/>
-                </Grid>
+                <TextBlock x:Name="LicenceFinalBlock"
+                           Text="{Binding LicenceFinal}"
+                           FontSize="11"
+                           TextWrapping="NoWrap"
+                           TextAlignment="Right"
+                           VerticalAlignment="Center"
+                           Margin="42,0,14,0" Foreground="WhiteSmoke"/>
             </StackPanel>
 
             <Button x:Name="CmdOk"

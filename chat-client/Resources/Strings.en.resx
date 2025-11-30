@@ -264,7 +264,7 @@ and Unix-style (--option) notation.
 Example:
   chat-client.exe --dark /t /e /u Laurent</value>
   </data>
-  <data name="CommandLineArguments" xml:space="preserve">
+  <data name="CliArgumentsText" xml:space="preserve">
     <value>Command-line arguments</value>
   </data>
   <data name="MessageSendingFailed" xml:space="preserve">

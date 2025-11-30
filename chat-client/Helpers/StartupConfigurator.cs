@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 28th, 2025</date>
+/// <date>November 30th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -273,11 +273,11 @@ namespace chat_client.Helpers
             if (Application.Current.MainWindow is MainWindow mainWindow &&
                 mainWindow.ViewModel is MainViewModel viewModel)
             {
-                // Persist the preference first
+                // Persists the preference first
                 Properties.Settings.Default.UseEncryption = enableEncryption;
                 Properties.Settings.Default.Save();
 
-                // Update the source on the view model;
+                // Updates the source on the view model;
                 // the ViewModel decides when/how to start or stop the pipeline.
                 viewModel.UseEncryption = enableEncryption;
 

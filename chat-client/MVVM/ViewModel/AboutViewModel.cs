@@ -1,7 +1,7 @@
 ﻿/// <file>AboutViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 28th, 2025</date>
+/// <date>November 30th, 2025</date>
 
 using chat_client.Helpers;
 using System.ComponentModel;
@@ -17,7 +17,7 @@ namespace chat_client.MVVM.ViewModel
     public class AboutViewModel : INotifyPropertyChanged
     {
         // Backing fields for localized strings
-        private string _cliText = string.Empty;
+        private string _cliArgumentsText = string.Empty;
         private string _licenceInfo = string.Empty;
         private string _licenceInfoResources = string.Empty;
         private string _licenceFinal = string.Empty;
@@ -26,12 +26,12 @@ namespace chat_client.MVVM.ViewModel
         /// Localized text for the CLI link.
         /// Bound to the TextBlock (CliTextBlock) in the About window.
         /// </summary>
-        public string CliText
+        public string CliArgumentsText
         {
-            get => _cliText;
+            get => _cliArgumentsText;
             set
             {
-                _cliText = value;
+                _cliArgumentsText = value;
                 OnPropertyChanged();
             }
         }
@@ -83,7 +83,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public AboutViewModel()
         {
-            CliText = LocalizationManager.GetString("CommandLineArguments");
+            CliArgumentsText = LocalizationManager.GetString("CliArgumentsText");
             LicenceInfo = LocalizationManager.GetString("LicenceInfo");
             LicenceInfoResources = LocalizationManager.GetString("LicenceInfoResources");
             LicenceFinal = LocalizationManager.GetString("LicenceFinal");

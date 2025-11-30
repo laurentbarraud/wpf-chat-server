@@ -30,11 +30,9 @@
     <None Remove="Resources\greendot.png" />
     <None Remove="Resources\left-arrow.png" />
     <None Remove="Resources\moon.png" />
-    <None Remove="Resources\port-setting-disabled.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
     <None Remove="Resources\reduce-to-tray-calc-icon.png" />
-    <None Remove="Resources\reduce-to-tray-disabled.png" />
     <None Remove="Resources\right-arrow-disabled.png" />
     <None Remove="Resources\right-arrow.png" />
     <None Remove="Resources\send.png" />
@@ -66,11 +64,9 @@
     <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\left-arrow.png" />
     <Resource Include="Resources\moon.png" />
-    <Resource Include="Resources\port-setting-disabled.png" />
     <Resource Include="Resources\port-setting.png" />
     <Resource Include="Resources\reddot.png" />
     <Resource Include="Resources\reduce-to-tray-calc-icon.png" />
-    <Resource Include="Resources\reduce-to-tray-disabled.png" />
     <Resource Include="Resources\right-arrow-disabled.png" />
     <Resource Include="Resources\right-arrow.png" />
     <Resource Include="Resources\send.png">
