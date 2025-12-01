@@ -863,69 +863,63 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// • Frames (wraps) the raw payload with a length header so the receiver knows how many bytes to read.
-        /// • Serializes all writes with a shared lock to prevent interleaving data when multiple tasks send at once.
-        /// • Captures the NetworkStream and checks it is writable before sending.
-        /// • Writes the framed bytes asynchronously and awaits completion for proper back-pressure.
-        /// • Handles cancellation and common I/O/disposal errors cleanly, then releases the lock.
+        /// Sends a framed payload (length-prefixed) asynchronously over the TCP connection.
+        /// Ensures serialized writes with a lock to prevent interleaving.
+        /// Validates the stream before writing and handles cancellation or I/O errors gracefully.
+        /// Returns true on success, false if the connection is invalid or an error occurs.
         /// </summary>
-        private async Task SendFramedAsync(byte[] payload, CancellationToken cancellationToken)
+        private async Task<bool> SendFramedAsync(byte[] payload, CancellationToken cancellationToken)
         {
-            // If payload is null, uses an empty array to avoid null-reference issues.
+            /// <summary> Normalizes null payloads to empty array </summary>
             if (payload == null)
             {
                 payload = Array.Empty<byte>();
             }
 
-            /// <summary>
-            /// Framing.Frame adds a fixed-size length prefix (4 bytes) before the payload, so the receiver
-            /// can read "length" first, then exactly "length" bytes of the payload — preventing misaligned reads.
-            ///</summary >
+            /// <summary> Adds length prefix framing so the receiver can read length then payload </summary>
             var framed = Framing.Frame(payload);
 
-            /// <summary>
-            /// _writeLock ensures that only one sender writes to the NetworkStream at a time.
-            /// Without this, concurrent writes can interleave bytes and corrupt the framing protocol.
-            /// </summary>
+            /// <summary> Acquires write lock to serialize concurrent sends </summary>
             await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
             try
             {
-                /// <summary>
-                /// Gets the stream once to avoid races if _tcpClient changes or is disposed by another thread.
-                /// </summary >
+                /// <summary> Captures the NetworkStream and validates it is writable </summary>
                 var stream = _tcpClient.GetStream();
 
-                // If the stream cannot write, fails fast with a clear message.
                 if (stream is null || !stream.CanWrite)
                 {
-                    throw new InvalidOperationException("NetworkStream is not writable.");
+                    ClientLogger.Log("SendFramedAsync aborted — NetworkStream not writable.", ClientLogLevel.Error);
+                    return false;
                 }
 
-                // WriteAsync sends the framed bytes to the network without blocking the calling thread.
-                // We await it to apply back-pressure: if the OS buffer is full, we pause until it can accept more data.
+                /// <summary> Writes framed bytes asynchronously </summary>
                 await stream.WriteAsync(framed, 0, framed.Length, cancellationToken).ConfigureAwait(false);
 
-                // Note: FlushAsync on NetworkStream is useless in this context (no-op) for TCP; writes are pushed as they happen.
+                ClientLogger.Log($"SendFramedAsync: wrote {framed.Length} bytes.", ClientLogLevel.Debug);
+                return true;
             }
             catch (OperationCanceledException)
             {
-                // If the cancellationToken was triggered, propagate the cancellation to the caller.
+                /// <summary> Propagates cancellation to caller </summary>
+                ClientLogger.Log("SendFramedAsync cancelled.", ClientLogLevel.Debug);
                 throw;
             }
             catch (ObjectDisposedException ex)
             {
-                // The stream (or client) was disposed during write: surface a clear, high-level error.
-                throw new InvalidOperationException("Connection stream disposed during write.", ex);
+                /// <summary> Stream disposed during write — log and return false </summary>
+                ClientLogger.Log($"SendFramedAsync failed — stream disposed: {ex.Message}", ClientLogLevel.Warn);
+                return false;
             }
             catch (IOException ex)
             {
-                // I/O failure (e.g., remote closed connection): wrap with a descriptive message.
-                throw new InvalidOperationException("Connection write failed.", ex);
+                /// <summary> I/O error (happens when remote closed) — logs and return false </summary>
+                ClientLogger.Log($"SendFramedAsync failed — I/O error: {ex.Message}", ClientLogLevel.Warn);
+                return false;
             }
             finally
             {
-                // Always release the write lock so other sends can proceed, even if an error occurred.
+                /// <summary> Always release the write lock </summary>
                 _writeLock.Release();
             }
         }
