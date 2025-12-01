@@ -202,8 +202,10 @@ namespace chat_client.Net
         /// </summary>
         private void CleanConnection()
         {
-            // Resets handshake/encryption flags
+            /// <summary> Resets handshake and encryption flags for a fresh state </summary>
             _hasSentPublicKey = false;
+            _localKeyPublished = false;
+            IsEncryptionReady = false;
             Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
             // Cancels handshake TCS to wake any awaiters
@@ -215,21 +217,27 @@ namespace chat_client.Net
             _connectionCts?.Dispose();
             _connectionCts = null;
 
-            // Disposes TcpClient (closes stream) and reinitializes a fresh socket
+            /// <summary> Disposes TcpClient safely </summary>
             try
             {
+                _tcpClient?.Close();
                 _tcpClient?.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
-                
+                ClientLogger.Log($"CleanConnection: TcpClient dispose error — {ex.Message}", ClientLogLevel.Warn);
             }
-            _tcpClient = new TcpClient();
+         
+            /// <summary> Reinitializes a fresh socket </summary>
+            finally
+            {
+                _tcpClient = new TcpClient();
+            }
 
-            // Clears PacketReader reference (not IDisposable)
+            /// <summary> Clears PacketReader reference (not IDisposable) </summary>
             _packetReader = null!;
 
-            // Disposes and recreates the reader lock semaphore
+            /// <summary> Disposes and recreates the reader lock semaphore </summary>
             try
             {
                 _readerLock?.Dispose();
