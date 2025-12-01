@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 1st, 2025</date>
+/// <date>December 2nd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -1036,18 +1036,26 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Resets all encryption-related flags and notifies the UI.
-        /// Delegates to the EncryptionPipeline for state mutation.
+        /// Resets all encryption-related flags and updates the UI bindings.
+        /// Safe to call even if the pipeline is not yet initialized.
         /// </summary>
-        /// <remarks>
-        /// Used only by DisableEncryption. 
-        /// Kept for clarity and future reuse to centralize UI reset logic.
-        /// </remarks>
-        public void ResetEncryptionFlags()
+        public void ResetEncryptionPipelineAndUI()
         {
+            if (_encryptionPipeline == null)
+            {
+                // Pipeline not yet initialized: just reset UI flags
+                UseEncryption = false;
+                OnPropertyChanged(nameof(IsEncryptionReady));
+                OnPropertyChanged(nameof(UseEncryption));
+                return;
+            }
+
             _encryptionPipeline.SetEncryptionReady(false);
             _encryptionPipeline.SetSyncing(false);
             UseEncryption = false;
+
+            OnPropertyChanged(nameof(IsEncryptionReady));
+            OnPropertyChanged(nameof(UseEncryption));
         }
 
         /// <summary>

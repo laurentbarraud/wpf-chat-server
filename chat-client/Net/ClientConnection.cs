@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 1st, 2025</date>
+/// <date>December 2nd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -99,11 +99,6 @@ namespace chat_client.Net
         /// <summary>Indicates whether the client is currently connected to the server.</summary>
         public bool IsConnected => _tcpClient?.Connected ?? false;
 
-        /// <summary>
-        /// Tracks whether encryption is ready for use (bound to UI)
-        /// </summary>
-        public bool IsEncryptionReady { get; private set; }
-
         /// <summary>Indicates whether the TCP socket is connected and the handshake(HandshakeAck) 
         /// has been successfully confirmed</summary>
         public bool IsEstablished => IsConnected && _handshakeCompletionTcs != null 
@@ -183,7 +178,7 @@ namespace chat_client.Net
             _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
 
             /// <summary> Initializes encryption state flags </summary>
-            IsEncryptionReady = false;
+            _viewModel.ResetEncryptionPipelineAndUI();
             IsSyncingKeys = false;
 
             /// <summary> Ensures local key publish flag starts false </summary>
@@ -205,7 +200,7 @@ namespace chat_client.Net
             /// <summary> Resets handshake and encryption flags for a fresh state </summary>
             _hasSentPublicKey = false;
             _localKeyPublished = false;
-            IsEncryptionReady = false;
+            _viewModel.ResetEncryptionPipelineAndUI();
             Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
             // Cancels handshake TCS to wake any awaiters
@@ -696,7 +691,7 @@ namespace chat_client.Net
                                     }
 
                                     /// <summary> Attempts decryption if encryption is active and ready </summary>
-                                    if (Settings.Default.UseEncryption && IsEncryptionReady)
+                                    if (Settings.Default.UseEncryption && _viewModel.IsEncryptionReady)
                                     {
                                         try
                                         {
@@ -1098,7 +1093,7 @@ namespace chat_client.Net
                     cancellationToken.ThrowIfCancellationRequested();
                     var packet = new PacketBuilder();
 
-                    bool useEncryptionNow = Settings.Default.UseEncryption && IsEncryptionReady;
+                    bool useEncryptionNow = Settings.Default.UseEncryption && _viewModel.IsEncryptionReady;
 
                     if (!useEncryptionNow)
                     {
@@ -1146,7 +1141,7 @@ namespace chat_client.Net
                 /// <summary> Solo mode: recipient is self </summary>
                 cancellationToken.ThrowIfCancellationRequested();
                 var packet = new PacketBuilder();
-                bool useEncryptionNow = Settings.Default.UseEncryption && IsEncryptionReady;
+                bool useEncryptionNow = Settings.Default.UseEncryption && _viewModel.IsEncryptionReady;
 
                 if (!useEncryptionNow)
                 {

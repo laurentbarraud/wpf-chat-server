@@ -1,7 +1,7 @@
 ﻿/// <file>AboutViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 1st, 2025</date>
+/// <date>December 2nd, 2025</date>
 
 using chat_client.Helpers;
 using System.ComponentModel;
