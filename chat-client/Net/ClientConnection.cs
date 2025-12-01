@@ -570,6 +570,18 @@ namespace chat_client.Net
                         /// <summary> Exits gracefully when cancellation is requested </summary>
                         break;
                     }
+                    catch (IOException ioex)
+                    {
+                        /// <summary> Logs I/O error (remote closed, network glitch) and exits gracefully </summary>
+                        ClientLogger.Log($"ReadPackets I/O error: {ioex.Message}", ClientLogLevel.Info);
+                        break;
+                    }
+                    catch (SocketException sex)
+                    {
+                        /// <summary> Logs socket error and exits gracefully </summary>
+                        ClientLogger.Log($"ReadPackets socket error: {sex.Message}", ClientLogLevel.Warn);
+                        break;
+                    }
 
                     /// <summary> Validates that framed body is present </summary>
                     if (framedBody == null || framedBody.Length == 0)
@@ -768,7 +780,8 @@ namespace chat_client.Net
                     catch (Exception ex)
                     {
                         /// <summary> Logs non-fatal processing error and continues loop </summary>
-                        ClientLogger.Log($"ReadPackets processing error: {ex.Message}", ClientLogLevel.Error);
+                        ClientLogger.Log($"ReadPackets processing error: {ex.Message}", ClientLogLevel.Warn);
+                        // Continue loop without crashing; tolerate unexpected payloads
                     }
                 }
             }
