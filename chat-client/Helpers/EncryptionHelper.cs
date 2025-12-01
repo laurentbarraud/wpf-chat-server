@@ -78,7 +78,7 @@ namespace chat_client.Helpers
         /// <summary>
         /// Disables decryption by clearing the local private key reference.
         /// </summary>
-        public static void ClearPrivateKey()
+        public static void ClearLocalPrivateKey()
         {
             IsEncryptionActive = false;
             Debug.WriteLine("[INFO] EncryptionHelper decryption disabled.");

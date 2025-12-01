@@ -129,7 +129,7 @@ namespace chat_client.Helpers
                 _viewModel.LocalUser.PublicKeyDer = Array.Empty<byte>();
                 _viewModel.LocalUser.PrivateKeyDer = Array.Empty<byte>();
             }
-            EncryptionHelper.ClearPrivateKey();
+            EncryptionHelper.ClearLocalPrivateKey();
 
             /// <summary> Persists disabled state in settings </summary>
             Settings.Default.UseEncryption = false;

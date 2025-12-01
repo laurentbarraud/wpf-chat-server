@@ -19,6 +19,8 @@ using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
+using static System.Net.WebRequestMethods;
 
 
 namespace chat_client.MVVM.ViewModel
@@ -1071,10 +1073,6 @@ namespace chat_client.MVVM.ViewModel
         /// • Runs the synchronous disable path when disabling.
         /// If the pipeline fails, rolls back the setting and logs the error.
         /// </summary>
-        /// <remark>
-        /// MVVM Pattern : MainViewModel is the intermediary between the UI and business logic. 
-        /// The pipeline should not be triggered directly by the UI, but via MainViewModel.
-        /// </remark>
         /// <param name="enableEncryption">True to enable encryption, false to disable.</param>
         public void ToggleEncryption(bool enableEncryption)
         {
@@ -1085,7 +1083,7 @@ namespace chat_client.MVVM.ViewModel
             Settings.Default.UseEncryption = enableEncryption;
             Settings.Default.Save();
 
-            /// <summary> If not connected or no LocalUser, just persist the setting silently. </summary>
+            /// <summary> If not connected or no LocalUser, just persists the setting silently. </summary>
             if (LocalUser == null || !IsConnected)
             {
                 OnPropertyChanged(nameof(UseEncryption));
@@ -1096,7 +1094,7 @@ namespace chat_client.MVVM.ViewModel
             _encryptionPipeline.KnownPublicKeys.Clear();
             LocalUser.PublicKeyDer = Array.Empty<byte>();
             LocalUser.PrivateKeyDer = Array.Empty<byte>();
-            EncryptionHelper.ClearPrivateKey();
+            EncryptionHelper.ClearLocalPrivateKey();
 
             bool pipelineSucceeded;
 
@@ -1105,22 +1103,36 @@ namespace chat_client.MVVM.ViewModel
                 /// <summary> Notifies UI immediately when enabling encryption. </summary>
                 OnPropertyChanged(nameof(UseEncryption));
 
-                /// <summary> Fire-and-forget: start pipeline in background without blocking UI. </summary>
-                _ = _encryptionPipeline.StartEncryptionPipelineBackground();
+                /// <summary>
+                /// Fire-and-forget: start pipeline in background without blocking UI.
+                /// Any errors are logged inside the pipeline; session remains alive.
+                /// </summary>
+                _ = Task.Run(async () =>
+                {
+                    bool encryptionInitOk = await _encryptionPipeline.InitializeEncryptionAsync(CancellationToken.None).ConfigureAwait(false);
+                    if (!encryptionInitOk)
+                    {
+                        ClientLogger.Log("Encryption pipeline initialization failed.", ClientLogLevel.Warn);
+                        Settings.Default.UseEncryption = previousValue;
+                        Settings.Default.Save();
+                        OnPropertyChanged(nameof(UseEncryption));
+                    }
+                });
 
-                /// <summary> Optimistic success; actual result will be logged by background task. </summary>
-                pipelineSucceeded = true;
+                pipelineSucceeded = true; // optimistic; background task logs actual result
             }
+            
+            /// <summary> When disabling encryption </summary>
             else
             {
-                /// <summary> Centralized disable path when disabling encryption. </summary>
                 _encryptionPipeline.DisableEncryption();
                 pipelineSucceeded = true;
             }
 
+            /// <summary> if pipeline failed synchronously </summary>
             if (!pipelineSucceeded)
             {
-                /// <summary> Rolls back setting if pipeline failed. </summary>
+                /// <summary> Rolls back setting </summary>
                 ClientLogger.Log($"Encryption pipeline {(enableEncryption ? "init" : "teardown")} failed – rolling back.", ClientLogLevel.Error);
                 Settings.Default.UseEncryption = previousValue;
                 Settings.Default.Save();
@@ -1129,7 +1141,7 @@ namespace chat_client.MVVM.ViewModel
             else
             {
                 /// <summary> Logs final success message for enable/disable operation. </summary>
-                ClientLogger.Log(enableEncryption ? "Encryption enabled successfully." : "Encryption disabled successfully.", ClientLogLevel.Info);
+                ClientLogger.Log(enableEncryption ? "Encryption enable requested." : "Encryption disabled successfully.", ClientLogLevel.Info);
             }
         }
 
