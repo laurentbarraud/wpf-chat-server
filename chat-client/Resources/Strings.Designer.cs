@@ -349,7 +349,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.0 - nov. 2025 - Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.0 - dec. 2025 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {

@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 30th, 2025</date>
+/// <date>December 1st, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -1172,7 +1172,7 @@ namespace chat_client.Net
         /// </summary>
         public async Task<bool> SendPublicKeyToServerAsync(Guid targetUid, byte[] publicKeyDer, CancellationToken cancellationToken)
         {
-            // Validates connection early
+            /// <summary> Validates connection early </summary>
             if (_tcpClient?.Client == null || !_tcpClient.Connected)
             {
                 ClientLogger.Log("Cannot send public key — client is not connected.", ClientLogLevel.Error);
@@ -1181,10 +1181,17 @@ namespace chat_client.Net
 
             try
             {
-                // Ensures payload is non-null; empty array means "clear mode"
+                /// <summary> Ensures payload is non-null; empty array means "clear mode" </summary>
                 var payloadKey = publicKeyDer ?? Array.Empty<byte>();
 
-                // Builds the packet with required fields
+                /// <summary> Skips sending if encryption disabled and payload is non-empty </summary>
+                if (!_viewModel.UseEncryption && payloadKey.Length > 0)
+                {
+                    ClientLogger.Log("Skipped sending public key — encryption disabled.", ClientLogLevel.Debug);
+                    return false;
+                }
+
+                /// <summary> Builds the packet with required fields </summary>
                 var publicKeyPacket = new PacketBuilder();
                 publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
                 publicKeyPacket.WriteUid(targetUid);
@@ -1192,12 +1199,12 @@ namespace chat_client.Net
 
                 ClientLogger.Log($"Sending public key — UID: {targetUid}, Key length: {payloadKey.Length}", ClientLogLevel.Debug);
 
-                // Sends the raw payload via unified sender
+                /// <summary> Sends the raw payload via unified sender </summary>
                 await SendFramedAsync(publicKeyPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
 
                 ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
 
-                // Re-evaluates encryption readiness immediately after sending key
+                /// <summary> Re-evaluates encryption readiness immediately after sending key </summary>
                 _viewModel?.ReevaluateEncryptionStateFromConnection();
 
                 return true;
@@ -1213,6 +1220,7 @@ namespace chat_client.Net
                 return false;
             }
         }
+
 
 
         /// <summary>

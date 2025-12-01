@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>November 30th, 2025</date>
+/// <date>December 1st, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
@@ -225,7 +225,7 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
-        /// • Publish the local public key once per session.
+        /// • Publish the local public key once per session (idempotent).
         /// • Synchronize peer keys (handles solo short-circuit internally).
         /// • Validate readiness and update UI state.
         /// </summary>
@@ -246,37 +246,41 @@ namespace chat_client.Helpers
                 ClientLogger.Log("InitializeEncryptionAsync: materialized local public key from EncryptionHelper.", ClientLogLevel.Debug);
             }
 
-            /// <summary> Publishes local public key once per session </summary>
-            if (!_localKeyPublished && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
+            /// <summary> Publishes local public key once per session (guarded by UseEncryption) </summary>
+            if (_viewModel.UseEncryption && !_localKeyPublished && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
             {
-                await _clientConn.SendPublicKeyToServerAsync(
-                    _viewModel.LocalUser.UID,
-                    _viewModel.LocalUser.PublicKeyDer,
-                    cancellationToken
-                ).ConfigureAwait(false);
+                bool sentPublicKeyToServer = await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID,
+                    _viewModel.LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
 
-                _localKeyPublished = true;
-                ClientLogger.Log("InitializeEncryptionAsync: local public key published.", ClientLogLevel.Debug);
+                if (sentPublicKeyToServer)
+                {
+                    _localKeyPublished = true;
+                    ClientLogger.Log("InitializeEncryptionAsync: local public key published.", ClientLogLevel.Debug);
+                }
+                else
+                {
+                    ClientLogger.Log("InitializeEncryptionAsync: local public key publication failed.", ClientLogLevel.Warn);
+                }
             }
 
-            /// <summary> Injects local key into KnownPublicKeys in solo mode </summary>
+            /// <summary> If solo mode is detected </summary>
             if (_viewModel.Users.Count <= 1 && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
             {
                 lock (KnownPublicKeys)
-                {
+                {   /// <summary> Injects local key into KnownPublicKeys</summary>
                     KnownPublicKeys[_viewModel.LocalUser.UID] = _viewModel.LocalUser.PublicKeyDer;
                 }
             }
 
             /// <summary> Synchronizes peer keys </summary>
-            bool syncOk = await SyncKeysAsync(cancellationToken).ConfigureAwait(false);
+            bool syncPeerKeysOk = await SyncKeysAsync(cancellationToken).ConfigureAwait(false);
 
             /// <summary> Evaluates final state and updates UI </summary>
             bool finalStateOfEncryption = EvaluateEncryptionState();
 
-            ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={syncOk}, Ready={finalStateOfEncryption}", ClientLogLevel.Info);
+            ClientLogger.Log($"InitializeEncryptionAsync completed — SyncPeerKeysOk={syncPeerKeysOk}, EncryptionReady={finalStateOfEncryption}", ClientLogLevel.Info);
 
-            return syncOk && finalStateOfEncryption;
+            return syncPeerKeysOk && finalStateOfEncryption;
         }
 
         /// <summary>
