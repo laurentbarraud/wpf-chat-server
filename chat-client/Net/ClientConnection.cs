@@ -640,13 +640,17 @@ namespace chat_client.Net
                                 _handshakeCompletionTcs?.TrySetResult(true);
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                /// <summary> Sends public key once if encryption is active </summary>
-                                if (EncryptionHelper.IsEncryptionActive && !_hasSentPublicKey)
+                                /// <summary>
+                                /// Sends public key once after ACK only if encryption was enabled at connect
+                                /// and there is at least one peer. Prevents unsolicited publish in solo.
+                                /// </summary>
+                                if (EncryptionHelper.IsEncryptionActive && !_hasSentPublicKey && _viewModel.Users.Count > 1)
                                 {
                                     await SendPublicKeyToServerAsync(LocalUid, EncryptionHelper.PublicKeyDer, cancellationToken).ConfigureAwait(false);
                                     _hasSentPublicKey = true;
-                                    ClientLogger.Log("Public key sent once after ACK.", ClientLogLevel.Debug);
+                                    ClientLogger.Log("Public key sent once after ACK (multi-client).", ClientLogLevel.Debug);
                                 }
+
                                 break;
 
                             case ClientPacketOpCode.PlainMessage:

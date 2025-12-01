@@ -246,8 +246,12 @@ namespace chat_client.Helpers
                 ClientLogger.Log("InitializeEncryptionAsync: materialized local public key from EncryptionHelper.", ClientLogLevel.Debug);
             }
 
-            /// <summary> Publishes local public key once per session (guarded by UseEncryption) </summary>
-            if (_viewModel.UseEncryption && !_localKeyPublished && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
+            /// <summary>
+            /// Publishes local public key once per session only when there is at least one peer.
+            /// Avoids unexpected publish in solo mode to prevent server-side protocol errors.
+            /// </summary>
+            if (_viewModel.UseEncryption && !_localKeyPublished && _viewModel.LocalUser.PublicKeyDer?.Length > 0
+                && _viewModel.Users.Count > 1)
             {
                 bool sentPublicKeyToServer = await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID,
                     _viewModel.LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
@@ -255,7 +259,7 @@ namespace chat_client.Helpers
                 if (sentPublicKeyToServer)
                 {
                     _localKeyPublished = true;
-                    ClientLogger.Log("InitializeEncryptionAsync: local public key published.", ClientLogLevel.Debug);
+                    ClientLogger.Log("InitializeEncryptionAsync: local public key published (multi-client).", ClientLogLevel.Debug);
                 }
                 else
                 {
