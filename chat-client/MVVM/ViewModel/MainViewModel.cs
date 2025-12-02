@@ -735,7 +735,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         /// <param name="senderUid">Unique identifier of the message sender.</param>
         /// <param name="cipherBytes">Ciphertext payload received from the network.</param>
-        private void OnEncryptedMessageReceived(Guid senderUid, byte[] cipherBytes)
+        public void OnEncryptedMessageReceived(Guid senderUid, byte[] cipherBytes)
         {
             /// <summary> Validates that ciphertext is non-empty </summary>
             if (cipherBytes == null || cipherBytes.Length == 0)

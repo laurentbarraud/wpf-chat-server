@@ -669,59 +669,28 @@ namespace chat_client.Net
 
                             case ClientPacketOpCode.EncryptedMessage:
                                 {
-                                    /// <summary> Resets unexpected-opcode counter </summary>
+                                    /// <summary> Resets unexpected-opcode counter. </summary>
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                    /// <summary> Reads sender UID and discards recipient UID </summary>
+                                    /// <summary> Reads sender UID and discards recipient UID. </summary>
                                     Guid encryptedSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    /// <summary> Reads ciphertext payload </summary>
+                                    /// <summary> Reads ciphertext payload. </summary>
                                     byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
 
-                                    /// <summary> Resolves sender name or falls back to UID string </summary>
-                                    string encryptedSenderName = _viewModel.Users.FirstOrDefault(u => u.UID == encryptedSenderUid)?.Username
-                                                                 ?? encryptedSenderUid.ToString();
-
-                                    /// <summary> Validates ciphertext presence </summary>
+                                    /// <summary> Validates ciphertext presence. </summary>
                                     if (cipherBytes == null || cipherBytes.Length == 0)
                                     {
                                         ClientLogger.Log("Encrypted payload empty; dropping.", ClientLogLevel.Warn);
                                         break;
                                     }
 
-                                    /// <summary> Attempts decryption if encryption is active and ready </summary>
-                                    if (Settings.Default.UseEncryption && _viewModel.IsEncryptionReady)
+                                    /// <summary> Posts encrypted message reception to UI thread for centralized handling. </summary>
+                                    _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                     {
-                                        try
-                                        {
-                                            /// <summary> Decrypts ciphertext with local RSA private key </summary>
-                                            string plainText = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
-
-                                            /// <summary> Posts decrypted message to UI thread </summary>
-                                            await Application.Current.Dispatcher.InvokeAsync(() =>
-                                            {
-                                                _viewModel.Messages.Add($"{encryptedSenderName}: {plainText}");
-                                            });
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            /// <summary> Logs decryption failure with exception details </summary>
-                                            ClientLogger.Log($"Decrypt failed: {ex.Message}", ClientLogLevel.Error);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        /// <summary> Retrieves localized placeholder when encryption is inactive </summary>
-                                        string prefix = LocalizationManager.GetString("ServerPrefix");
-                                        string placeholder = LocalizationManager.GetString("ActivateEncryptionToRead");
-
-                                        /// <summary> Posts placeholder message to UI thread </summary>
-                                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                                        {
-                                            _viewModel.Messages.Add($"{prefix} {placeholder}");
-                                        });
-                                    }
+                                        _viewModel.OnEncryptedMessageReceived(encryptedSenderUid, cipherBytes);
+                                    }));
 
                                     break;
                                 }
@@ -1073,11 +1042,11 @@ namespace chat_client.Net
         /// </summary>
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
-            /// <summary> Validates non-empty message </summary>
+            /// <summary> Validates non-empty message. </summary>
             if (string.IsNullOrWhiteSpace(plainText))
                 return false;
 
-            /// <summary> Validates ViewModel and LocalUser </summary>
+            /// <summary> Validates ViewModel and LocalUser presence. </summary>
             if (_viewModel?.LocalUser == null)
                 return false;
 
@@ -1085,7 +1054,7 @@ namespace chat_client.Net
             var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
             bool messageSent = false;
 
-            /// <summary> Handles multi-recipient mode </summary>
+            /// <summary> Handles multi-recipient mode (broadcast to all peers). </summary>
             if (recipients.Count >= 1)
             {
                 foreach (var recipient in recipients)
@@ -1093,18 +1062,19 @@ namespace chat_client.Net
                     cancellationToken.ThrowIfCancellationRequested();
                     var packet = new PacketBuilder();
 
-                    bool useEncryptionNow = Settings.Default.UseEncryption && _viewModel.IsEncryptionReady;
+                    /// <summary> Checks encryption readiness flags before attempting encryption. </summary>
+                    bool useEncryptionNow = _viewModel.UseEncryption && _viewModel.IsEncryptionReady;
 
                     if (!useEncryptionNow)
                     {
-                        /// <summary> Builds plain packet </summary>
+                        /// <summary> Builds plain packet when pipeline not ready. </summary>
                         packet.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
                         packet.WriteUid(senderUid);
                         packet.WriteString(plainText);
                     }
                     else
                     {
-                        /// <summary> Retrieves recipient public key from KnownPublicKeys </summary>
+                        /// <summary> Retrieves recipient public key from KnownPublicKeys. </summary>
                         byte[]? publicKeyDer = null;
                         lock (KnownPublicKeys)
                         {
@@ -1113,69 +1083,77 @@ namespace chat_client.Net
 
                         if (publicKeyDer == null || publicKeyDer.Length == 0)
                         {
-                            ClientLogger.Log($"Missing public key for recipient {recipient.UID}.", ClientLogLevel.Warn);
+                            ClientLogger.Log($"SendMessageAsync: missing public key for recipient {recipient.UID}, sending skipped.", ClientLogLevel.Warn);
                             continue;
                         }
 
-                        /// <summary> Encrypts plaintext with recipient's public key </summary>
+                        /// <summary> Encrypts plaintext with recipient's public key. </summary>
                         byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
                         if (cipherArray == null || cipherArray.Length == 0)
                         {
-                            ClientLogger.Log($"Encryption failed for recipient {recipient.UID}.", ClientLogLevel.Error);
+                            ClientLogger.Log($"SendMessageAsync: encryption failed for recipient {recipient.UID}, sending skipped.", ClientLogLevel.Error);
                             continue;
                         }
 
-                        /// <summary> Builds encrypted packet </summary>
+                        /// <summary> Builds encrypted packet with sender and recipient UIDs. </summary>
                         packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
                         packet.WriteUid(senderUid);
                         packet.WriteUid(recipient.UID);
                         packet.WriteBytesWithLength(cipherArray);
                     }
 
+                    /// <summary> Sends framed packet to server. </summary>
                     await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                     messageSent = true;
                 }
             }
             else
             {
-                /// <summary> Solo mode: recipient is self </summary>
+                /// <summary> Solo mode: recipient is self (loopback). </summary>
                 cancellationToken.ThrowIfCancellationRequested();
                 var packet = new PacketBuilder();
-                bool useEncryptionNow = Settings.Default.UseEncryption && _viewModel.IsEncryptionReady;
+
+                /// <summary> Checks encryption readiness flags before attempting encryption. </summary>
+                bool useEncryptionNow = _viewModel.UseEncryption && _viewModel.IsEncryptionReady;
 
                 if (!useEncryptionNow)
                 {
+                    /// <summary> Builds plain packet for self-message. </summary>
                     packet.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
                     packet.WriteUid(senderUid);
                     packet.WriteString(plainText);
                 }
                 else
                 {
-                    /// <summary> Uses LocalUser.PublicKeyDer for solo encryption </summary>
+                    /// <summary> Uses LocalUser.PublicKeyDer for solo encryption. </summary>
                     byte[] publicKeyDer = _viewModel.LocalUser.PublicKeyDer;
                     if (publicKeyDer == null || publicKeyDer.Length == 0)
                     {
-                        ClientLogger.Log("Missing local public key for self-message.", ClientLogLevel.Warn);
+                        ClientLogger.Log("SendMessageAsync: missing local public key for self-message.", ClientLogLevel.Warn);
                         return false;
                     }
 
+                    /// <summary> Encrypts plaintext with own public key for loopback. </summary>
                     byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
                     if (cipherArray == null || cipherArray.Length == 0)
                     {
-                        ClientLogger.Log("Encryption failed for self-message.", ClientLogLevel.Error);
+                        ClientLogger.Log("SendMessageAsync: encryption failed for self-message.", ClientLogLevel.Error);
                         return false;
                     }
 
+                    /// <summary> Builds encrypted packet with sender UID duplicated. </summary>
                     packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
                     packet.WriteUid(senderUid);
                     packet.WriteUid(senderUid);
                     packet.WriteBytesWithLength(cipherArray);
                 }
 
+                /// <summary> Sends framed packet to server. </summary>
                 await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                 messageSent = true;
             }
 
+            /// <summary> Returns true if at least one packet was sent. </summary>
             return messageSent;
         }
 
