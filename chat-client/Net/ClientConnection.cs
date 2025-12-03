@@ -1063,8 +1063,7 @@ namespace chat_client.Net
                     var packet = new PacketBuilder();
 
                     /// <summary> Checks encryption readiness flags before attempting encryption. </summary>
-                    bool useEncryptionNow = _viewModel.UseEncryption && (EncryptionPipeline?.IsEncryptionReady == true) 
-                        && (_viewModel.LocalUser?.PublicKeyDer?.Length > 0);
+                    bool useEncryptionNow = _viewModel.UseEncryption && (EncryptionPipeline?.IsEncryptionReady == true);
 
                     if (!useEncryptionNow)
                     {
@@ -1084,7 +1083,7 @@ namespace chat_client.Net
 
                         if (publicKeyDer == null || publicKeyDer.Length == 0)
                         {
-                            ClientLogger.Log($"SendMessageAsync: missing public key for recipient {recipient.UID}, sending skipped.", ClientLogLevel.Warn);
+                            ClientLogger.Log($"Missing public key for recipient {recipient.UID}, sending skipped.", ClientLogLevel.Warn);
                             continue;
                         }
 
@@ -1092,7 +1091,7 @@ namespace chat_client.Net
                         byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
                         if (cipherArray == null || cipherArray.Length == 0)
                         {
-                            ClientLogger.Log($"SendMessageAsync: encryption failed for recipient {recipient.UID}, sending skipped.", ClientLogLevel.Error);
+                            ClientLogger.Log($"Encryption failed for recipient {recipient.UID}, sending skipped.", ClientLogLevel.Error);
                             continue;
                         }
 
@@ -1104,7 +1103,15 @@ namespace chat_client.Net
                     }
 
                     /// <summary> Sends framed packet to server. </summary>
-                    await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                    byte[] bytes = packet.GetPacketBytes();
+                    await SendFramedAsync(bytes, cancellationToken).ConfigureAwait(false);
+
+                    /// <summary> Logs payload type for debugging (plain/encrypted). </summary>
+                    ClientLogger.Log(
+                        $"Sent framed packet async: wrote {bytes.Length} bytes ({(useEncryptionNow ? "encrypted payload" : "plain payload")})",
+                        ClientLogLevel.Debug
+                    );
+
                     messageSent = true;
                 }
             }
@@ -1115,7 +1122,7 @@ namespace chat_client.Net
                 var packet = new PacketBuilder();
 
                 /// <summary> Checks encryption readiness flags before attempting encryption. </summary>
-                bool useEncryptionNow = _viewModel.UseEncryption  && (EncryptionPipeline?.IsEncryptionReady == true);
+                bool useEncryptionNow = _viewModel.UseEncryption && (EncryptionPipeline?.IsEncryptionReady == true);
 
                 if (!useEncryptionNow)
                 {
@@ -1130,7 +1137,7 @@ namespace chat_client.Net
                     byte[] publicKeyDer = _viewModel.LocalUser.PublicKeyDer;
                     if (publicKeyDer == null || publicKeyDer.Length == 0)
                     {
-                        ClientLogger.Log("SendMessageAsync: missing local public key for self-message.", ClientLogLevel.Warn);
+                        ClientLogger.Log("Missing local public key for self-message.", ClientLogLevel.Warn);
                         return false;
                     }
 
@@ -1138,7 +1145,7 @@ namespace chat_client.Net
                     byte[] cipherArray = EncryptionHelper.EncryptMessageToBytes(plainText, publicKeyDer);
                     if (cipherArray == null || cipherArray.Length == 0)
                     {
-                        ClientLogger.Log("SendMessageAsync: encryption failed for self-message.", ClientLogLevel.Error);
+                        ClientLogger.Log("Encryption failed for self-message.", ClientLogLevel.Error);
                         return false;
                     }
 
@@ -1150,13 +1157,22 @@ namespace chat_client.Net
                 }
 
                 /// <summary> Sends framed packet to server. </summary>
-                await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                byte[] bytes = packet.GetPacketBytes();
+                await SendFramedAsync(bytes, cancellationToken).ConfigureAwait(false);
+
+                /// <summary> Logs payload type for debugging (plain/encrypted). </summary>
+                ClientLogger.Log(
+                    $"Sent framed packet async: wrote {bytes.Length} bytes ({(useEncryptionNow ? "encrypted payload" : "plain payload")})",
+                    ClientLogLevel.Debug
+                );
+
                 messageSent = true;
             }
 
             /// <summary> Returns true if at least one packet was sent. </summary>
             return messageSent;
         }
+
 
         /// <summary>
         /// Sends the client's public RSA key (or empty key for clear mode) to the server asynchronously.

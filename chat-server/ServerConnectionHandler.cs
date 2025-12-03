@@ -305,38 +305,31 @@ namespace chat_server
 
                             case ServerPacketOpCode.PlainMessage:
                                 {
-                                    // Reads sender UID and plain text payload
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     string text = await bodyReader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 
-                                    ServerLogger.LogLocalized("PlainMessageReceived", ServerLogLevel.Info, Username, $"UID={senderUid}, Text=\"{text}\""                                    );
+                                    // Safe: resource expects a single argument
+                                    ServerLogger.LogLocalized("PlainMessageReceived", ServerLogLevel.Info, Username, text);
 
-                                    // Broadcasts plain message to all connected clients
                                     await Program.BroadcastPlainMessage(text, senderUid, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
 
                             case ServerPacketOpCode.EncryptedMessage:
                                 {
-                                    // Reads sender UID, recipient UID, and ciphertext payload from the stream
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
 
-                                    // Validates payload presence
                                     if (ciphertext == null || ciphertext.Length == 0)
                                     {
-                                        ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username,
-                                            $"UID={senderUid}, Recipient={recipientUid}");
+                                        ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username);
                                         break;
                                     }
 
-                                    // Logs reception of encrypted message (server does not decrypt)
-                                    ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, 
-                                        $"UID={senderUid} → Recipient={recipientUid}, CipherLength={ciphertext.Length}"
-                                    );
+                                    // Safe: resource expects a single argument
+                                    ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, ciphertext.Length.ToString());
 
-                                    // Relays the encrypted payload to the intended recipient
                                     await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
