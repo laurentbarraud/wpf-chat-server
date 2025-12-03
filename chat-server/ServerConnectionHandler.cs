@@ -305,16 +305,20 @@ namespace chat_server
 
                             case ServerPacketOpCode.PlainMessage:
                                 {
-                                    var senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    var text = await bodyReader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
-                                    ServerLogger.LogLocalized("PlainMessageReceived", ServerLogLevel.Info, Username, text);
+                                    // Reads sender UID and plain text payload
+                                    Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    string text = await bodyReader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
+
+                                    ServerLogger.LogLocalized("PlainMessageReceived", ServerLogLevel.Info, Username, $"UID={senderUid}, Text=\"{text}\""                                    );
+
+                                    // Broadcasts plain message to all connected clients
                                     await Program.BroadcastPlainMessage(text, senderUid, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }
 
                             case ServerPacketOpCode.EncryptedMessage:
                                 {
-                                    // Reads sender UID, recipient UID, and ciphertext payload from the stream.
+                                    // Reads sender UID, recipient UID, and ciphertext payload from the stream
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
@@ -322,11 +326,17 @@ namespace chat_server
                                     // Validates payload presence
                                     if (ciphertext == null || ciphertext.Length == 0)
                                     {
-                                        ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username);
+                                        ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username,
+                                            $"UID={senderUid}, Recipient={recipientUid}");
                                         break;
                                     }
 
-                                    // Relays the encrypted payload to the intended recipient (server does not decrypt)
+                                    // Logs reception of encrypted message (server does not decrypt)
+                                    ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, 
+                                        $"UID={senderUid} → Recipient={recipientUid}, CipherLength={ciphertext.Length}"
+                                    );
+
+                                    // Relays the encrypted payload to the intended recipient
                                     await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken).ConfigureAwait(false);
                                     break;
                                 }

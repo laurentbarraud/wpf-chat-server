@@ -192,9 +192,6 @@
   <data name="EncryptedDeliverFailed" xml:space="preserve">
     <value>Échec de la livraison du message chiffré à '{0}' : {1}</value>
   </data>
-  <data name="EncryptedMessageRelay" xml:space="preserve">
-    <value>Message chiffré relayé de '{0}'</value>
-  </data>
   <data name="EncryptedSendError" xml:space="preserve">
     <value>Erreur d’envoi du message chiffré à '{0}' : {1}</value>
   </data>
@@ -295,7 +292,7 @@
     <value>Fermeture de la connexion en raison d'une erreur.</value>
   </data>
   <data name="PlainMessageReceived" xml:space="preserve">
-    <value>Message en clair reçu du client.</value>
+    <value>Message en clair reçu de {0} (UID={1}) : "{2}"</value>
   </data>
   <data name="ForceDisconnectReceived" xml:space="preserve">
     <value>Commande de déconnexion forcée reçue pour ce client.</value>
@@ -317,5 +314,11 @@
   </data>
   <data name="SendFramedIoError" xml:space="preserve">
     <value>Erreur E/S lors de l'envoi du paquet encadré vers l'utilisateur '{0}' : {1}</value>
+  </data>
+  <data name="EncryptedPayloadEmpty" xml:space="preserve">
+    <value>Le message chiffré reçu est vide (UID={0}, Destinataire={1}).</value>
+  </data>
+  <data name="EncryptedMessageReceived" xml:space="preserve">
+    <value>Message chiffré reçu de {0} (UID={1}) → Destinataire={2}, Longueur={3} octets</value>
   </data>
 </root>

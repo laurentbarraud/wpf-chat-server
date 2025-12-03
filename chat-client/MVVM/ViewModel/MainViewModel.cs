@@ -134,6 +134,12 @@ namespace chat_client.MVVM.ViewModel
         public bool IsConnected => _clientConn?.IsConnected ?? false;
 
         /// <summary>
+        /// Proxy for UI binding.
+        /// True when the encryption pipeline is ready.
+        /// </summary>
+        public bool IsEncryptionReady => EncryptionPipeline?.IsEncryptionReady == true;
+
+        /// <summary>
         /// Gets or sets a value indicating whether the dark theme is active.
         /// Persists the choice to settings and applies the theme when changed.
         /// </summary>
@@ -264,21 +270,27 @@ namespace chat_client.MVVM.ViewModel
             Messages = new ObservableCollection<string>();
 
             /// <summary> Creates client connection with dispatcher callback and reference to this ViewModel </summary>
-            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action), this);
+            _clientConn = new ClientConnection(
+                action => Application.Current.Dispatcher.BeginInvoke(action),
+                this
+            );
 
             /// <summary> Creates encryption pipeline with ViewModel and client connection </summary>
-            EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
+            EncryptionPipeline = new EncryptionPipeline(
+                this,
+                _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action)
             );
 
+            /// <summary> Relay pipeline PropertyChanged to proxy property for UI binding </summary>
+            EncryptionPipeline.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(EncryptionPipeline.IsEncryptionReady))
+                    OnPropertyChanged(nameof(IsEncryptionReady)); // Relais pour la UI
+            };
+
             /// <summary> Binds the connection to the pipeline </summary>
             _clientConn.EncryptionPipeline = EncryptionPipeline;
-
-            /// <summary> Subscribes to pipeline state changes to notify UI </summary>
-            EncryptionPipeline.StateChanged += (_, __) =>
-            {
-                OnPropertyChanged(nameof(EncryptionPipeline.IsEncryptionReady));
-            };
 
             /// <summary> Subscribes to client connection events </summary>
             _clientConn.UserConnectedEvent += OnUserConnected;

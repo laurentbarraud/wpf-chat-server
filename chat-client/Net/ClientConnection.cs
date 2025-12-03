@@ -1063,8 +1063,8 @@ namespace chat_client.Net
                     var packet = new PacketBuilder();
 
                     /// <summary> Checks encryption readiness flags before attempting encryption. </summary>
-                    bool useEncryptionNow = _viewModel.UseEncryption && _viewModel.EncryptionPipeline.IsEncryptionReady;
-
+                    bool useEncryptionNow = _viewModel.UseEncryption && (EncryptionPipeline?.IsEncryptionReady == true) 
+                        && (_viewModel.LocalUser?.PublicKeyDer?.Length > 0);
 
                     if (!useEncryptionNow)
                     {
@@ -1161,7 +1161,8 @@ namespace chat_client.Net
         /// <summary>
         /// Sends the client's public RSA key (or empty key for clear mode) to the server asynchronously.
         /// Builds a framed packet atomically and sends it via SendFramedAsync.
-        /// Tolerates empty keys, handles cancellation, and triggers immediate readiness re-evaluation on success.
+        /// Skips sending in solo mode, tolerates empty keys, handles cancellation,
+        /// and triggers immediate readiness re-evaluation on success.
         /// </summary>
         public async Task<bool> SendPublicKeyToServerAsync(Guid targetUid, byte[] publicKeyDer, CancellationToken cancellationToken)
         {
@@ -1182,6 +1183,14 @@ namespace chat_client.Net
                 {
                     ClientLogger.Log("Skipped sending public key — encryption disabled.", ClientLogLevel.Debug);
                     return false;
+                }
+
+                /// <summary> Skips sending in solo mode (recipient is self) </summary>
+                if (targetUid == _viewModel.LocalUser.UID)
+                {
+                    ClientLogger.Log("Solo mode detected — skipping public key publish to server.", ClientLogLevel.Info);
+                    _viewModel?.ReevaluateEncryptionStateFromConnection();
+                    return true; // Considered success: pipeline marked ready locally
                 }
 
                 /// <summary> Builds the packet with required fields </summary>
@@ -1213,8 +1222,6 @@ namespace chat_client.Net
                 return false;
             }
         }
-
-
 
         /// <summary>
         /// Builds and sends a PublicKeyRequest packet to the server asynchronously.

@@ -192,9 +192,6 @@
   <data name="EncryptedDeliverFailed" xml:space="preserve">
     <value>Failed to deliver encrypted message to '{0}': {1}</value>
   </data>
-  <data name="EncryptedMessageRelay" xml:space="preserve">
-    <value>Relayed encrypted message from '{0}'</value>
-  </data>
   <data name="EncryptedSendError" xml:space="preserve">
     <value>Error sending encrypted message to '{0}': {1}</value>
   </data>
@@ -295,7 +292,7 @@
     <value>Closing connection due to an error.</value>
   </data>
   <data name="PlainMessageReceived" xml:space="preserve">
-    <value>Plain message received from client.</value>
+    <value>Plain message received from {0} (UID={1}): "{2}</value>
   </data>
   <data name="ForceDisconnectReceived" xml:space="preserve">
     <value>Force-disconnect command received for this client.</value>
@@ -317,5 +314,11 @@
   </data>
   <data name="SendFramedIoError" xml:space="preserve">
     <value>I/O error while sending framed packet to user '{0}': {1}</value>
+  </data>
+  <data name="EncryptedPayloadEmpty" xml:space="preserve">
+    <value>The encrypted message payload is empty (UID={0}, Recipient={1}).</value>
+  </data>
+  <data name="EncryptedMessageReceived" xml:space="preserve">
+    <value>Encrypted message received from {0} (UID={1}) → Recipient={2}, Cipher length={3} bytes</value>
   </data>
 </root>
