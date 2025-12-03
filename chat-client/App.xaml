@@ -18,16 +18,45 @@
                             TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick"
                             Visibility="Collapsed" />
 
-            <!-- Interactive textblock style -->
-            <Style x:Key="InteractiveTextBlockStyle" TargetType="TextBlock">
+            <!-- Interactive label style -->
+            <Style x:Key="InteractiveTextBlockStyle" TargetType="Label">
+                <!-- Make Label focusable and part of tab navigation -->
+                <Setter Property="Focusable" Value="True" />
+                <Setter Property="IsTabStop" Value="True" />
+
+                <!-- Default appearance -->
+                <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Cursor" Value="Arrow" />
-                <Style.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                        <Setter Property="Cursor" Value="Hand" />
-                    </Trigger>
-                </Style.Triggers>
+                <Setter Property="Foreground" Value="WhiteSmoke" />
+
+                <!-- Template: render content inside a TextBlock -->
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Label">
+                            <Border Background="{TemplateBinding Background}">
+                                <TextBlock x:Name="PART_Text"
+                               Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}"
+                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <!-- Mouse hover -->
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="PART_Text" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    <Setter Property="Cursor" Value="Hand" />
+                                </Trigger>
+                                <!-- Keyboard focus (Tab navigation) -->
+                                <Trigger Property="IsFocused" Value="True">
+                                    <Setter TargetName="PART_Text" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 2nd, 2025</date>
+/// <date>December 3rd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -361,7 +361,7 @@ namespace chat_client.Net
             }
             catch (OperationCanceledException)
             {
-                ClientLogger.Log("ConnectToServerAsync canceled", ClientLogLevel.Debug);
+                ClientLogger.Log("Connection to server canceled", ClientLogLevel.Debug);
 
                 /// <summary> Cleans up connection resources after cancellation </summary>
                 CleanConnection();
@@ -375,7 +375,7 @@ namespace chat_client.Net
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"ConnectToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.Log($"Connection to server failed: {ex.Message}", ClientLogLevel.Error);
 
                 /// <summary> Ensures a clean teardown on unexpected errors </summary>
                 CleanConnection();
@@ -1063,7 +1063,8 @@ namespace chat_client.Net
                     var packet = new PacketBuilder();
 
                     /// <summary> Checks encryption readiness flags before attempting encryption. </summary>
-                    bool useEncryptionNow = _viewModel.UseEncryption && _viewModel.IsEncryptionReady;
+                    bool useEncryptionNow = _viewModel.UseEncryption && _viewModel.EncryptionPipeline.IsEncryptionReady;
+
 
                     if (!useEncryptionNow)
                     {
@@ -1114,7 +1115,7 @@ namespace chat_client.Net
                 var packet = new PacketBuilder();
 
                 /// <summary> Checks encryption readiness flags before attempting encryption. </summary>
-                bool useEncryptionNow = _viewModel.UseEncryption && _viewModel.IsEncryptionReady;
+                bool useEncryptionNow = _viewModel.UseEncryption  && (EncryptionPipeline?.IsEncryptionReady == true);
 
                 if (!useEncryptionNow)
                 {

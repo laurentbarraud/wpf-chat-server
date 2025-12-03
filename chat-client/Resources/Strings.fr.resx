@@ -130,7 +130,7 @@
     <value>Le socket du client n’est pas connecté.</value>
   </data>
   <data name="Connect" xml:space="preserve">
-    <value>Connecter</value>
+    <value>_Connecter</value>
   </data>
   <data name="Connected" xml:space="preserve">
     <value>Connecté</value>
@@ -142,7 +142,7 @@
     <value>[Le déchiffrage a échoué]</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
-    <value>Déconnecter</value>
+    <value>_Déconnecter</value>
   </data>
   <data name="DisconnectError" xml:space="preserve">
     <value>Erreur de déconnexion</value>
@@ -238,24 +238,24 @@
     <value>Utilisation : chat-client.exe [options]
 
 Options :
-  -u, --username        Définit votre nom d'utilisateur et se connecte automatiquement
-  -p, --port                Définit le port du serveur
+  -u, --username        Définir votre nom d'utilisateur et se connecter automatiquement
+  -p, --port                Définir le port du serveur
 
-  --dark, --light        Basculer sur le thème
+  --dark, --light         Basculer sur le thème
 
-  --en, --english       Basculer en anglais
-  --fr, --french          Basculer en français
+  --en, --english        Basculer en anglais
+  --fr, --french           Basculer en français
 
-  -e, --encrypted       Active le chiffrement de bout en bout
+  -e, --encrypted       Activer le chiffrement de bout en bout
 
-  -r, -t, -m --reduce     Active la réduction dans la zone de notification
+  -r, -t, -m --reduce   Activer la réduction dans la zone de notification
   --tray, --min
 
   -c, -d, --debug       Ouvrir la fenêtre console
 
    -h, -? , --help        Afficher ce message d'aide
  
-  -v, --about,           Ouvre la fenêtre A propos
+  -v, --about,           Ouvrir la fenêtre A propos
   --version
 
 Toutes les options acceptent la notation Windows (/option)  

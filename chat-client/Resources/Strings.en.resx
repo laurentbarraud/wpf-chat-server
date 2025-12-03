@@ -130,7 +130,7 @@
     <value>Client socket is not connected.</value>
   </data>
   <data name="Connect" xml:space="preserve">
-    <value>Connect</value>
+    <value>_Connect</value>
   </data>
   <data name="Connected" xml:space="preserve">
     <value>Connected</value>
@@ -142,7 +142,7 @@
     <value>[Decryption failed]</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
-    <value>Disconnect</value>
+    <value>_Disconnect</value>
   </data>
   <data name="DisconnectError" xml:space="preserve">
     <value>Disconnect error</value>
@@ -243,19 +243,19 @@ Options:
 
    --dark, --light        Switch to theme
 
-  --en, --english       Switch to English
-  --fr, --french          Switch to French
+  --en, --english        Switch to English
+  --fr, --french           Switch to French
 
   -e, --encrypted       Enable end-to-end encryption
 
   -r, -t, -m, --reduce  Enable minimize to system tray
   --tray, --min
 
-  -c, -d, --debug       Open console window
+  -c, -d, --debug        Open console window
                    
-  -h, -? , --help         Display this help message
+  -h, -? , --help          Display this help message
   
-  -v, --about,            Opens the About window
+  -v, --about,             Open the About window
   --version
 
 All arguments support Windows-style (/option)

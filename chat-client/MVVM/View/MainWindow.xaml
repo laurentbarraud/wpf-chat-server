@@ -261,7 +261,7 @@
                                   Margin="0,0,10,0"
                                   Command="{Binding ThemeToggleCommand}"
                                   CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Self}}"
-                                  IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" TabIndex="6">
+                                  IsChecked="{Binding IsDarkTheme, Mode=TwoWay}" TabIndex="3">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Grid>
@@ -323,7 +323,7 @@
                               Background="Transparent"
                               BorderThickness="0"
                               VerticalAlignment="Center"
-                              TabIndex="7" Click="CmdSettings_Click">
+                              TabIndex="4" Click="CmdSettings_Click">
                         <Image x:Name="imgSettings" 
                                Source="/Resources/settings.png"
                                Stretch="Uniform"
@@ -392,7 +392,7 @@
                         BorderThickness="0"
                         VerticalAlignment="Center"
                         ToolTip="Emoji bar"
-                        TabIndex="5"
+                        TabIndex="6"
                         Click="CmdEmojiPanel_Click"
                         Margin="4,0,4,0">
                     <Button.Style>
@@ -573,14 +573,14 @@
                          Background="{DynamicResource BackgroundBrush}"
                          Foreground="{DynamicResource ForegroundBrush}"
                          VerticalContentAlignment="Center"
-                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="TxtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500" PreviewKeyDown="TxtMessageToSend_PreviewKeyDown" TabIndex="3" FontFamily="Segoe UI Emoji"/>
+                         Text="{Binding Message, UpdateSourceTrigger=PropertyChanged}" TextChanged="TxtMessageToSend_TextChanged" MaxLines="5" TextWrapping="Wrap" MaxLength="500" PreviewKeyDown="TxtMessageToSend_PreviewKeyDown" TabIndex="5" FontFamily="Segoe UI Emoji"/>
                 <Button x:Name="CmdSend"
                         Height="32"
                         Width="48"
                         Click="CmdSend_Click"
                         IsEnabled="False"
                         Background="{DynamicResource PrimaryBrush}"
-                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="4">
+                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="7">
                     <Button.Style>
                         <Style TargetType="{x:Type Button}">
                             <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />

@@ -123,17 +123,17 @@ namespace chat_client.Resources {
         ///
         ///   --dark, --light        Switch to theme
         ///
-        ///  --en, --english       Switch to English
-        ///  --fr, --french          Switch to French
+        ///  --en, --english        Switch to English
+        ///  --fr, --french           Switch to French
         ///
         ///  -e, --encrypted       Enable end-to-end encryption
         ///
         ///  -r, -t, -m, --reduce  Enable minimize to system tray
         ///  --tray, --min
         ///
-        ///  -c, -d, --debug       Open console window
+        ///  -c, -d, --debug        Open console window
         ///                   
-        ///  -h, -? , --help        [le reste de la chaîne a été tronqué]&quot;;.
+        ///  -h, -? , --help     [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {
@@ -151,7 +151,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Connect.
+        ///   Recherche une chaîne localisée semblable à _Connect.
         /// </summary>
         public static string Connect {
             get {
@@ -178,7 +178,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Disconnect.
+        ///   Recherche une chaîne localisée semblable à _Disconnect.
         /// </summary>
         public static string Disconnect {
             get {

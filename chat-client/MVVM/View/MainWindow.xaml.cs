@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 2nd, 2025</date>
+/// <date>December 3rd, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -73,7 +73,7 @@ namespace chat_client
         private int scrollDirection = 0; // -1 = left, 1 = right
 
         /// <summary>
-        /// Initializes the main window for the encrypted chat client:
+        /// Initializes the main window :
         ///   • Loads XAML components and resources.
         ///   • Instantiates and binds the MainViewModel.
         ///   • Wires up chat auto‐scroll and dynamic UI updates (connect button & lock icon).

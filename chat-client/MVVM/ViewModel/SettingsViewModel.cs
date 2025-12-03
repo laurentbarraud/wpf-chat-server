@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 2nd, 2025</date>
+/// <date>December 3rd, 2025</date>
 
 
 // The System.ComponentModel namespace enables WPF to track property changes
@@ -49,17 +49,17 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_appLanguage == value) return;
                 _appLanguage = value;
-                OnPropertyChanged();  // Notify UI of AppLanguage change
+                OnPropertyChanged(nameof(AppLanguage));  // Notify UI of AppLanguage change
 
-                // Persist the new language choice
+                // Persists the new language choice
                 Properties.Settings.Default.AppLanguage = value;
                 Properties.Settings.Default.Save();
 
-                // Reload localization resources and refresh all UI labels
+                // Reloads localization resources and refresh all UI labels
                 LocalizationManager.Initialize(value);
                 LocalizationManager.UpdateLocalizedUI();
 
-                // Refresh ComboBox items so each DisplayName re‐localizes
+                // Refreshes ComboBox items so each DisplayName re‐localizes
                 OnPropertyChanged(nameof(SupportedLanguages));
             }
         }
@@ -74,8 +74,8 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_customPortNumber == value) return;
                 _customPortNumber = value;
-                OnPropertyChanged();                                     // Notifies UI of port change
-                Properties.Settings.Default.CustomPortNumber = value;           // Persists new port
+                OnPropertyChanged(nameof(CustomPortNumber));   // Notifies UI of port change
+                Properties.Settings.Default.CustomPortNumber = value;
                 Properties.Settings.Default.Save();
             }
         }
@@ -90,8 +90,8 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_reduceToTray == value) return;
                 _reduceToTray = value;
-                OnPropertyChanged();                                     // Notifies UI of toggle change
-                Properties.Settings.Default.ReduceToTray = value;         // Persists toggle
+                OnPropertyChanged(nameof(ReduceToTray));       // Notifies UI of toggle change
+                Properties.Settings.Default.ReduceToTray = value;
                 Properties.Settings.Default.Save();
             }
         }
@@ -106,9 +106,8 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_useCustomPort == value) return;
                 _useCustomPort = value;
-                /// <summary>Notifies UI of toggle change</summary>
-                OnPropertyChanged();                                    
-                Properties.Settings.Default.UseCustomPort = value;       
+                OnPropertyChanged(nameof(UseCustomPort));      // Notifies UI of toggle change
+                Properties.Settings.Default.UseCustomPort = value;
                 Properties.Settings.Default.Save();
             }
         }

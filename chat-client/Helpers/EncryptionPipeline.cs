@@ -1,13 +1,14 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 2nd, 2025</date>
+/// <date>December 3rd, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
 using chat_client.Properties;
 using Microsoft.VisualBasic.ApplicationServices;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
 using System.Windows;
@@ -25,7 +26,7 @@ namespace chat_client.Helpers
     /// This class is called from MainViewModel and ClientConnection
     /// to keep UI and network code separate from encryption logic.
     /// </summary>
-    public class EncryptionPipeline
+    public class EncryptionPipeline : INotifyPropertyChanged
     {
         // PRIVATE FIELDS
 
@@ -33,6 +34,16 @@ namespace chat_client.Helpers
         /// Cancellation token source for the current pipeline run
         /// </summary>
         private CancellationTokenSource? _cts;
+
+        /// <summary>
+        /// Flag indicating if the pipeline is ready for encryption
+        /// </summary>
+        private bool _isEncryptionReady;
+
+        /// <summary>
+        /// Flag indicating if the pipeline is currently syncing keys
+        /// </summary>
+        private bool _isSyncingKeys;
 
         /// <summary>
         /// Flag to ensure we publish the local key only once
@@ -57,17 +68,51 @@ namespace chat_client.Helpers
         // PUBLIC PROPERTIES
 
         /// <summary>
-        /// State flags (single source of truth for encryption UI state).
-        /// ViewModel subscribes to StateChanged to mirror these flags.
+        /// Indicates whether the encryption pipeline is fully initialized
+        /// and ready to encrypt/decrypt messages.
         /// </summary>
-        public bool IsEncryptionReady { get; private set; }
-        public bool IsSyncingKeys { get; private set; }
+        public bool IsEncryptionReady
+        {
+            get => _isEncryptionReady;
+            set
+            {
+                if (_isEncryptionReady != value)
+                {
+                    _isEncryptionReady = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEncryptionReady)));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Indicates whether the pipeline is currently synchronizing
+        /// public/private keys with peers or the server.
+        /// </summary>
+        public bool IsSyncingKeys
+        {
+            get => _isSyncingKeys;
+            set
+            {
+                if (_isSyncingKeys != value)
+                {
+                    _isSyncingKeys = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSyncingKeys)));
+                }
+            }
+        }
 
         /// <summary>
         /// Known public keys of peers (UID → DER bytes).
         /// Empty arrays are ignored and do not affect readiness.
         /// </summary>
         public Dictionary<Guid, byte[]> KnownPublicKeys { get; } = new();
+
+        /// <summary>
+        /// Occurs when a property value changes.
+        /// Used by WPF data binding to update the UI when
+        /// properties such as IsEncryptionReady or IsSyncingKeys change.
+        /// </summary>
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>
         /// Local user’s own RSA public key (DER-encoded).
@@ -299,8 +344,7 @@ namespace chat_client.Helpers
                 SetEncryptionReady(finalStateOfEncryption);
                 SetSyncing(!finalStateOfEncryption);
 
-                /// <summary> We simply assign the property; its setter will raise OnPropertyChanged internally </summary>
-                _viewModel.UseEncryption = finalStateOfEncryption || _viewModel.UseEncryption;
+                _viewModel.UseEncryption = finalStateOfEncryption;
             });
 
             ClientLogger.Log($"InitializeEncryptionAsync completed — SyncPeerKeysOk={syncPeerKeysOk}, EncryptionReady={finalStateOfEncryption}", ClientLogLevel.Info);

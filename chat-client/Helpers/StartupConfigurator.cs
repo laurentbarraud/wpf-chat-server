@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 2nd, 2025</date>
+/// <date>December 3rd, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -40,7 +40,7 @@ namespace chat_client.Helpers
             // Variables to hold parsed values
             string usernameChosen = "";
             string themeChosen = "";
-            string languageChosen = "";
+            string languageChosen = "en";
             int customPortChosen;
             bool enableEncryption = false;
             bool reduceInTray = false;
@@ -90,18 +90,7 @@ namespace chat_client.Helpers
                         case "--fr":
                         case "--french":
                             languageChosen = "fr";
-                            break;
-                        case "--lang":
-                        case "--language":
-                            if (i + 1 < args.Length)
-                            {
-                                var raw = args[++i].ToLowerInvariant();
-                                if (raw == "french" || raw == "français" || raw == "francais" || raw == "fr")
-                                    languageChosen = "fr";
-                                else
-                                    languageChosen = "en";
-                            }
-                            break;
+                            break;                      
                         case "--encrypted":
                             enableEncryption = true;
                             break;

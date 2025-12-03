@@ -253,7 +253,7 @@
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}"
                        Margin="0,0,10,0"
-                       TabIndex="4" />
+                       TabIndex="6" />
 
                 <ToggleButton x:Name="UseCustomPortToggle"
                               Grid.Column="1"
@@ -292,7 +292,7 @@
                        Content="Reduce in system tray"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}"
-                       TabIndex="5" />
+                       TabIndex="7" />
 
                 <ToggleButton x:Name="ReduceToTrayToggle"
                               Grid.Column="1"
@@ -315,7 +315,7 @@
                        Content="Use encryption for messages"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}"
-                       TabIndex="6" />
+                       TabIndex="8" />
 
                 <ToggleButton x:Name="UseEncryptionToggle"
                               Grid.Column="1"
@@ -323,7 +323,7 @@
                               IsChecked="{Binding UseEncryption, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                               Width="60" Height="30"
                               Margin="10,0,0,0"
-                              TabIndex="7"
+                              TabIndex="3"
                               IsEnabled="True" />
                 <!-- UpdateSourceTrigger=PropertyChanged: immediately pushes toggle state changes
                 to the ViewModel as soon as the toggle state changes, not only when focus is lost.-->
@@ -341,7 +341,7 @@
            VerticalAlignment="Center"
            Foreground="{DynamicResource ForegroundBrush}"
            Content="App language"
-           TabIndex="8" />
+           TabIndex="9" />
 
                 <ComboBox x:Name="LanguageComboBox"
               Grid.Column="1"
@@ -350,7 +350,7 @@
               ItemsSource="{Binding SupportedLanguages}"
               SelectedValuePath="LanguageCode"
               SelectedValue="{Binding AppLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-              TabIndex="9">
+              TabIndex="4">
 
                     <!-- Local style for ComboBoxItem: brushes, padding & fixed alignment -->
                     <ComboBox.ItemContainerStyle>
@@ -395,13 +395,13 @@
                 Width="51" Height="30"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
-                Background="{DynamicResource PrimaryBrush}"
+                Background="{DynamicResource AccentBrush}"
                 Margin="0,12,0,0"
                 ToolTip="Done"
                 IsDefault="True"
                 IsCancel="True"
                 Click="CmdValidate_Click"
-                TabIndex="10" 
+                TabIndex="5" 
                 Grid.RowSpan="2">
             <Image Source="/Resources/validate.png" Stretch="Uniform"/>
         </Button>
