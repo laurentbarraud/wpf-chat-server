@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 3rd, 2025</date>
+/// <date>December 4th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -585,6 +585,59 @@ namespace chat_server
         }
 
         /// <summary>
+        /// Relays a public key request from one client to another specific client.
+        /// Constructs a framed packet containing:
+        ///   • opcode (PublicKeyRequest)
+        ///   • requester UID
+        ///   • target UID
+        /// Sends it via SendFramedAsync. 
+        /// If target is not connected/established, logs and returns non-fatally.
+        /// </summary>
+        public static async Task RelayPublicKeyRequest(Guid requesterUid, Guid targetUid, CancellationToken cancellationToken)
+        {
+            /// <summary> Takes a snapshot of connected users and locates the target by UID. </summary>
+            var snapshot = Users.ToList();
+            var target = snapshot.FirstOrDefault(u => u.UID == targetUid);
+
+            /// <summary> Aborts if target socket is not connected. </summary>
+            if (target?.ClientSocket?.Connected != true)
+                return;
+
+            /// <summary> Aborts if target user session is not yet established. </summary>
+            if (!target.IsEstablished)
+            {
+                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
+                    ServerLogLevel.Warn, target?.Username ?? targetUid.ToString(), "Target not established");
+                return;
+            }
+
+            /// <summary> Builds the packet with opcode, requester UID, and target UID. </summary>
+            var builder = new PacketBuilder();
+            builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
+            builder.WriteUid(requesterUid);
+            builder.WriteUid(targetUid);
+
+            /// <summary> Serializes packet to bytes and logs debug prefix. </summary>
+            byte[] payload = builder.GetPacketBytes();
+            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
+
+            try
+            {
+                /// <summary> Sends the framed packet to the target client. </summary>
+                await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
+                ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess", ServerLogLevel.Debug, target.Username);
+            }
+            catch (OperationCanceledException)
+            {
+
+            }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
+            }
+        }
+
+        /// <summary>
         /// Relays a public key response back to the original requester.
         /// Packet structure:
         ///   [opcode: PublicKeyResponse]
@@ -722,59 +775,6 @@ namespace chat_server
             finally
             {
                 sem.Release();
-            }
-        }
-
-        /// <summary>
-        /// Relays a public key request from one client to another specific client.
-        /// Constructs a framed packet containing:
-        ///   • opcode (PublicKeyRequest)
-        ///   • requester UID
-        ///   • target UID
-        /// Sends it via SendFramedAsync. 
-        /// If target is not connected/established, logs and returns non-fatally.
-        /// </summary>
-        public static async Task SendRequestForPublicKey(Guid requesterUid, Guid targetUid, CancellationToken cancellationToken)
-        {
-            /// <summary> Takes a snapshot of connected users and locates the target by UID. </summary>
-            var snapshot = Users.ToList();
-            var target = snapshot.FirstOrDefault(u => u.UID == targetUid);
-
-            /// <summary> Aborts if target socket is not connected. </summary>
-            if (target?.ClientSocket?.Connected != true)
-                return;
-
-            /// <summary> Aborts if target user session is not yet established. </summary>
-            if (!target.IsEstablished)
-            {
-                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
-                    ServerLogLevel.Warn, target?.Username ?? targetUid.ToString(), "Target not established");
-                return;
-            }
-
-            /// <summary> Builds the packet with opcode, requester UID, and target UID. </summary>
-            var builder = new PacketBuilder();
-            builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
-            builder.WriteUid(requesterUid);
-            builder.WriteUid(targetUid);
-
-            /// <summary> Serializes packet to bytes and logs debug prefix. </summary>
-            byte[] payload = builder.GetPacketBytes();
-            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
-
-            try
-            {
-                /// <summary> Sends the framed packet to the target client. </summary>
-                await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
-                ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess", ServerLogLevel.Debug, target.Username);
-            }
-            catch (OperationCanceledException)
-            {
-             
-            }
-            catch (Exception ex)
-            {
-                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
             }
         }
 
