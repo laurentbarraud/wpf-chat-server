@@ -287,17 +287,41 @@ namespace chat_server
 
                             case ServerPacketOpCode.PublicKeyResponse:
                                 {
-                                    /// <summary>
-                                    /// Handles a public-key response packet.
-                                    /// Reads origin UID, DER-encoded key (may be empty for clear mode), and recipient UID.
-                                    /// Relays the key to the intended recipient; empty keys are valid and tolerated.
-                                    /// </summary>
-                                    var responseSender = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    /// <summary> Reads origin UID, DER key, and requester UID from the packet. </summary>
+                                    var originUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     var publicKeyDer = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
-                                    var responseRecipient = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    var requesterUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    await Program.RelayPublicKeyToUser(responseSender, publicKeyDer ?? Array.Empty<byte>(), responseRecipient,
-                                        cancellationToken).ConfigureAwait(false);
+                                    /// <summary> Updates the origin user's public key in the in-memory roster (if present). </summary>
+                                    var origin = Program.Users.FirstOrDefault(u => u.UID == originUid);
+                                    if (origin != null)
+                                    {
+                                        origin.PublicKeyDer = publicKeyDer ?? Array.Empty<byte>();
+                                        ServerLogger.Log($"Registered/updated public key for {originUid}", ServerLogLevel.Info);
+                                    }
+                                    else
+                                    {
+                                        ServerLogger.Log($"Origin user {originUid} not found in roster; proceeding to relay.", ServerLogLevel.Warn);
+                                    }
+
+                                    /// <summary> Relays the origin's public key to the requester client. </summary>
+                                    var requester = Program.Users.FirstOrDefault(u => u.UID == requesterUid);
+                                    if (requester?.ClientSocket?.Connected == true && requester.IsEstablished)
+                                    {
+                                        var builder = new PacketBuilder();
+                                        builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
+                                        builder.WriteUid(originUid);
+                                        builder.WriteBytesWithLength(publicKeyDer ?? Array.Empty<byte>());
+                                        builder.WriteUid(requesterUid);
+
+                                        var payload = builder.GetPacketBytes();
+                                        await Program.SendFramedAsync(requester, payload, cancellationToken).ConfigureAwait(false);
+                                        ServerLogger.LogLocalized("PublicKeyRelaySuccess", ServerLogLevel.Debug, requester.Username);
+                                    }
+                                    else
+                                    {
+                                        ServerLogger.LogLocalized("PublicKeyRelayFailed", ServerLogLevel.Warn, requester?.Username ?? requesterUid.ToString(), "Requester not connected/established");
+                                    }
 
                                     break;
                                 }

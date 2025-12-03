@@ -709,7 +709,7 @@ namespace chat_server
         /// and serializes all writes to the recipient's NetworkStream using a per-UID SemaphoreSlim.
         /// Diagnostic logs show the outgoing header and a short payload prefix (temporary).
         /// </summary>
-        private static async Task SendFramedAsync(ServerConnectionHandler recipient, byte[] payload, CancellationToken cancellationToken = default)
+        public static async Task SendFramedAsync(ServerConnectionHandler recipient, byte[] payload, CancellationToken cancellationToken = default)
         {
             if (recipient == null)
             {

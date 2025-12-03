@@ -695,6 +695,27 @@ namespace chat_client.Net
                                     break;
                                 }
 
+                            case ClientPacketOpCode.PublicKeyRequest:
+                                {
+                                    /// <summary> Reads requester and target UIDs. </summary>
+                                    var requesterUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    var targetUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+
+                                    /// <summary> Responds only if the request targets the local user and a public key is available. </summary>
+                                    var localKey = viewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
+                                    if (targetUid == viewModel.LocalUser.UID && localKey?.Length > 0)
+                                    {
+                                        /// <summary> Sends our public key back to the server for relay. </summary>
+                                        await SendPublicKeyToServerAsync(LocalUid, localKey, cancellationToken).ConfigureAwait(false);
+                                        ClientLogger.Log($"Responded to public key request from {requesterUid}", ClientLogLevel.Debug);
+                                    }
+                                    else
+                                    {
+                                        ClientLogger.Log("PublicKeyRequest ignored (not target or no local key).", ClientLogLevel.Debug);
+                                    }
+                                    break;
+                                }
+
                             case ClientPacketOpCode.PublicKeyResponse:
                                 /// <summary> Resets unexpected-opcode counter </summary>
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
