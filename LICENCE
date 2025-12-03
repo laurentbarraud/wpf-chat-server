@@ -45,16 +45,11 @@ by opening a pull request on GitHub or by email to laurent(dot)barraud(at)bluewi
 - All Contributions must be submitted by pull request on GitHub or by the same email. 
 The Author is not obliged to accept any Contribution; acceptance is at the Author’s 
 sole discretion.
-- Translations are warmly welcomed and usually simple to implement, when at least one 
-additional language is already present in the app; please feel free to notify the Author
-to coordinate.
 
 7. Notice, attribution and distribution of this License
 - You must not claim authorship of the original Code or falsely state affiliation with 
 the Author.
 - Every distribution (source or binary) must include an unmodified copy of this License.
-- Any user interface, README, or documentation that accompanies a copy or Derivative 
-Project must display the notice: “Based on WPF Chat Server by Laurent Barraud”.
 
 8. Disclaimer of warranty and limitation of liability
 - The Code is provided “as is”, without warranty of any kind, express or implied.
@@ -72,11 +67,7 @@ This License is governed by the laws of Switzerland.
 The courts of the Canton of Vaud (Lausanne) shall have exclusive jurisdiction over 
 disputes arising under this License.
 
-12. Author rights and moral rights
-Notwithstanding any termination or other provision, the Author retains all copyrights
-and moral rights in the Code as protected by CopA and applicable international law.
-
 END OF TERMS AND CONDITIONS
 
 Created by Laurent Barraud.
-November 2025
+December 2025
