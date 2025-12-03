@@ -1173,16 +1173,14 @@ namespace chat_client.Net
             return messageSent;
         }
 
-
         /// <summary>
-        /// Sends the client's public RSA key (or empty key for clear mode) to the server asynchronously.
-        /// Builds a framed packet atomically and sends it via SendFramedAsync.
-        /// Skips sending in solo mode, tolerates empty keys, handles cancellation,
-        /// and triggers immediate readiness re-evaluation on success.
+        /// Sends the local client's public RSA key to the server for distribution.
+        /// Builds a framed packet with opcode, origin UID, DER key, and requester UID (origin as requester in solo).
+        /// Ensures payload is never null and triggers readiness re-evaluation.
         /// </summary>
-        public async Task<bool> SendPublicKeyToServerAsync(Guid targetUid, byte[] publicKeyDer, CancellationToken cancellationToken)
+        public async Task<bool> SendPublicKeyToServerAsync(Guid senderUid, byte[] publicKeyDer, CancellationToken cancellationToken)
         {
-            /// <summary> Validates connection early </summary>
+            /// <summary> Validates connection early. </summary>
             if (_tcpClient?.Client == null || !_tcpClient.Connected)
             {
                 ClientLogger.Log("Cannot send public key — client is not connected.", ClientLogLevel.Error);
@@ -1191,47 +1189,32 @@ namespace chat_client.Net
 
             try
             {
-                /// <summary> Ensures payload is non-null; empty array means "clear mode" </summary>
+                /// <summary> Ensures payload is non-null; empty array means "clear mode". </summary>
                 var payloadKey = publicKeyDer ?? Array.Empty<byte>();
 
-                /// <summary> Skips sending if encryption disabled and payload is non-empty </summary>
-                if (!_viewModel.UseEncryption && payloadKey.Length > 0)
-                {
-                    ClientLogger.Log("Skipped sending public key — encryption disabled.", ClientLogLevel.Debug);
-                    return false;
-                }
-
-                /// <summary> Skips sending in solo mode (recipient is self) </summary>
-                if (targetUid == _viewModel.LocalUser.UID)
-                {
-                    ClientLogger.Log("Solo mode detected — skipping public key publish to server.", ClientLogLevel.Info);
-                    _viewModel?.ReevaluateEncryptionStateFromConnection();
-                    return true; // Considered success: pipeline marked ready locally
-                }
-
-                /// <summary> Builds the packet with required fields </summary>
+                /// <summary> Builds the packet with required fields: opcode, origin UID, DER key, requester UID. </summary>
                 var publicKeyPacket = new PacketBuilder();
                 publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
-                publicKeyPacket.WriteUid(targetUid);
-                publicKeyPacket.WriteBytesWithLength(payloadKey);
+                publicKeyPacket.WriteUid(senderUid);                  // origin UID
+                publicKeyPacket.WriteBytesWithLength(payloadKey);     // DER-encoded key
+                publicKeyPacket.WriteUid(senderUid);                  // requester UID (self in solo, valid in multi publish)
 
-                ClientLogger.Log($"Sending public key — UID: {targetUid}, Key length: {payloadKey.Length}", ClientLogLevel.Debug);
+                ClientLogger.Log($"Sending public key — UID: {senderUid}, Key length: {payloadKey.Length}", ClientLogLevel.Debug);
 
-                /// <summary> Sends the raw payload via unified sender </summary>
+                /// <summary> Sends the raw payload via unified sender. </summary>
                 await SendFramedAsync(publicKeyPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
 
                 ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
 
-                /// <summary> Re-evaluates encryption readiness immediately after sending key </summary>
+                /// <summary> Re-evaluates encryption readiness immediately after sending key. </summary>
                 _viewModel?.ReevaluateEncryptionStateFromConnection();
-
                 return true;
             }
-            catch (OperationCanceledException)
-            {
-                ClientLogger.Log("SendPublicKeyToServer cancelled.", ClientLogLevel.Debug);
-                throw;
+            catch (OperationCanceledException) 
+            { 
+                throw; 
             }
+
             catch (Exception ex)
             {
                 ClientLogger.Log($"Public key send failed: {ex.Message}", ClientLogLevel.Error);

@@ -296,9 +296,9 @@ namespace chat_server
                                     var publicKeyDer = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
                                     var responseRecipient = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    await Program.RelayPublicKeyToUser(responseSender,
-                                        publicKeyDer ?? Array.Empty<byte>(), responseRecipient,
+                                    await Program.RelayPublicKeyToUser(responseSender, publicKeyDer ?? Array.Empty<byte>(), responseRecipient,
                                         cancellationToken).ConfigureAwait(false);
+
                                     break;
                                 }
 

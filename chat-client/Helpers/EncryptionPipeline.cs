@@ -288,7 +288,7 @@ namespace chat_client.Helpers
             /// <summary> Validates that ViewModel and LocalUser are available. </summary>
             if (_viewModel == null || _viewModel.LocalUser == null)
             {
-                ClientLogger.Log("InitializeEncryptionAsync aborted — ViewModel or LocalUser not initialized.", ClientLogLevel.Error);
+                ClientLogger.Log("Initializing of encryption aborted — ViewModel or LocalUser not initialized.", ClientLogLevel.Error);
                 return false;
             }
 
@@ -297,21 +297,21 @@ namespace chat_client.Helpers
                 (EncryptionHelper.PublicKeyDer != null && EncryptionHelper.PublicKeyDer.Length > 0))
             {
                 _viewModel.LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
-                ClientLogger.Log("InitializeEncryptionAsync: materialized local public key from EncryptionHelper.", ClientLogLevel.Debug);
+                ClientLogger.Log("Materialized local public key from EncryptionHelper.", ClientLogLevel.Debug);
             }
             if ((_viewModel.LocalUser.PrivateKeyDer == null || _viewModel.LocalUser.PrivateKeyDer.Length == 0) &&
                 (EncryptionHelper.PrivateKeyDer != null && EncryptionHelper.PrivateKeyDer.Length > 0))
             {
                 _viewModel.LocalUser.PrivateKeyDer = EncryptionHelper.PrivateKeyDer;
-                ClientLogger.Log("InitializeEncryptionAsync: materialized local private key from EncryptionHelper.", ClientLogLevel.Debug);
+                ClientLogger.Log("Materialized local private key from EncryptionHelper.", ClientLogLevel.Debug);
             }
 
             /// <summary> Publishes the local public key once per session in multi-client mode. </summary>
             if (_viewModel.UseEncryption && !_localKeyPublished && _viewModel.LocalUser.PublicKeyDer?.Length > 0
                 && _viewModel.Users.Count > 1)
             {
-                bool sentPublicKeyToServer = await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID, 
-                    _viewModel.LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
+                bool sentPublicKeyToServer = await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID,
+                    _viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>(), cancellationToken).ConfigureAwait(false);
 
                 if (sentPublicKeyToServer)
                 {
@@ -347,7 +347,7 @@ namespace chat_client.Helpers
                 _viewModel.UseEncryption = finalStateOfEncryption;
             });
 
-            ClientLogger.Log($"InitializeEncryptionAsync completed — SyncPeerKeysOk={syncPeerKeysOk}, EncryptionReady={finalStateOfEncryption}", ClientLogLevel.Info);
+            ClientLogger.Log($"Initializing of encryption completed — SyncPeerKeysOk={syncPeerKeysOk}, EncryptionReady={finalStateOfEncryption}", ClientLogLevel.Info);
             return syncPeerKeysOk && finalStateOfEncryption;
         }
 
@@ -476,16 +476,14 @@ namespace chat_client.Helpers
                 return false;
             }
         }
-        /// <summary>
-        /// Synchronizes public keys across connected peers by requesting and collecting
-        /// missing key material, 
-        /// handling solo mode short-circuit when no peers are present,
-        /// and updating encryption readiness flags once all required keys are available.
-        /// Ensures that the local client can both encrypt outgoing messages 
-        /// and decrypt incoming ones by maintaining a consistent dictionary 
-        /// of peer public keys.
-        /// </summary>
 
+        /// <summary>
+        /// Synchronizes public keys across connected peers.
+        /// Publishes the local public key to the server,
+        /// requests missing peer keys, and waits until all are received or timeout occurs.
+        /// Handles solo mode short-circuit when no peers are present.
+        /// Updates encryption readiness flags once synchronization completes.
+        /// </summary>
         public async Task<bool> SyncKeysAsync(CancellationToken cancellationToken)
         {
             /// <summary> Validates that encryption is enabled in the ViewModel before proceeding. </summary>
@@ -514,7 +512,7 @@ namespace chat_client.Helpers
                     .Select(u => u.UID)
                     .ToList();
 
-                /// <summary> Marks encryption ready immediately in solo mode if local key exists. </summary>
+                /// <summary> Solo mode short-circuit: ready immediately if local key exists. </summary>
                 if (peerIds.Count == 0 && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
                 {
                     _uiDispatcherInvoke(() =>
@@ -522,18 +520,28 @@ namespace chat_client.Helpers
                         IsEncryptionReady = true;
                         IsSyncingKeys = false;
                     });
-
                     ClientLogger.Log("SyncKeysAsync: solo mode detected — encryption ready immediately.", ClientLogLevel.Info);
                     return true;
                 }
+
+                /// <summary>
+                /// Publishes the local public key to the server for distribution in multi-client mode.
+                /// Ensures that the payload is never null by substituting an empty array if needed.
+                /// </summary>
+                var localKey = _viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>();
+
+                if (localKey.Length == 0)
+                {
+                    ClientLogger.Log("Local public key not initialized — sending empty payload (clear mode).", ClientLogLevel.Warn);
+                }
+
+                await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID, localKey, cancellationToken);
 
                 /// <summary> Identifies peers whose public keys are missing. </summary>
                 List<Guid> missingKeys;
                 lock (KnownPublicKeys)
                 {
-                    missingKeys = peerIds
-                        .Where(uid => !KnownPublicKeys.ContainsKey(uid))
-                        .ToList();
+                    missingKeys = peerIds.Where(uid => !KnownPublicKeys.ContainsKey(uid)).ToList();
                 }
 
                 ClientLogger.Log($"SyncKeysAsync: peers={peerIds.Count}, missing={missingKeys.Count}", ClientLogLevel.Debug);
@@ -553,10 +561,7 @@ namespace chat_client.Helpers
                 {
                     lock (KnownPublicKeys)
                     {
-                        var stillMissing = peerIds
-                            .Where(uid => !KnownPublicKeys.ContainsKey(uid))
-                            .ToList();
-
+                        var stillMissing = peerIds.Where(uid => !KnownPublicKeys.ContainsKey(uid)).ToList();
                         if (stillMissing.Count == 0)
                         {
                             _uiDispatcherInvoke(() =>
@@ -575,7 +580,6 @@ namespace chat_client.Helpers
                             IsEncryptionReady = false;
                             IsSyncingKeys = false;
                         });
-
                         ClientLogger.Log("SyncKeysAsync: timeout waiting for peer keys", ClientLogLevel.Warn);
                         break;
                     }
@@ -585,10 +589,7 @@ namespace chat_client.Helpers
 
                 return IsEncryptionReady;
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 ClientLogger.Log($"SyncKeysAsync failed: {ex.Message}", ClientLogLevel.Error);
