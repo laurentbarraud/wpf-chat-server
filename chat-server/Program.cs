@@ -614,8 +614,12 @@ namespace chat_server
             /// <summary> Builds the packet with opcode, requester UID, and target UID. </summary>
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
-            builder.WriteUid(requesterUid);
+
+            /// <summary> First the UID of the target (the one who owns the key) </summary>
             builder.WriteUid(targetUid);
+
+            /// <summary> Then the UID of the requester (the one who requests the key) </summary>
+            builder.WriteUid(requesterUid);
 
             /// <summary> Serializes packet to bytes and logs debug prefix. </summary>
             byte[] payload = builder.GetPacketBytes();
