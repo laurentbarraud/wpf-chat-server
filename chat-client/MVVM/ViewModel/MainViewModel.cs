@@ -796,39 +796,51 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles a received public-key event.
-        /// • Accepts null or empty keys (treated as "clear mode").
-        /// • Updates the KnownPublicKeys dictionary in a thread-safe manner.
-        /// • Calls pipeline re-evaluation via ViewModel helper to refresh readiness/UI.
         /// </summary>
-        /// <param name="senderUid">The UID of the peer who provided the public key.</param>
-        /// <param name="publicKeyDer">The RSA public key as a DER-encoded byte array (may be empty).</param>
+        /// <param name="senderUid">
+        /// The UID of the peer who provided the public key.
+        /// </param>
+        /// <param name="publicKeyDer">
+        /// The RSA public key as a DER-encoded byte array (may be empty).
+        /// </param>
+        /// <remarks>
+        /// • Accepts null or empty keys (treated as clear mode).  
+        /// • Updates the KnownPublicKeys dictionary in a thread-safe manner.  
+        /// • Calls pipeline re-evaluation via ViewModel helper to refresh readiness/UI.  
+        /// </remarks>
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
         {
             bool isNewOrUpdatedKey = false;
 
             /// <summary>
-            /// Normalizes input: if null or empty, returns Array.Empty<byte>()
-            /// to represent clear mode.
-            /// The normalizedKey variable is therefore always a valid byte[] (never null),
-            /// either an empty array (clear mode) or the received key.
+            /// Normalizes input: if null or empty, returns Array.Empty<byte>() to represent clear mode.
+            /// Ensures normalizedKey is always a valid byte[] (never null).
             /// </summary>
             var normalizedKey = (publicKeyDer == null || publicKeyDer.Length == 0)
                 ? Array.Empty<byte>()
                 : publicKeyDer;
 
-            /// <summary> Protects KnownPublicKeys dictionary from concurrent writes. </summary>
+            /// <summary>
+            /// Protects KnownPublicKeys dictionary from concurrent writes.
+            /// Updates or registers the key for the given sender UID.
+            /// </summary>
             lock (EncryptionPipeline.KnownPublicKeys)
             {
                 if (EncryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out var existingKey))
                 {
-                    /// <summary> Compares existing DER bytes with new key for equality. </summary>
+                    /// <summary>
+                    /// Compares existing DER bytes with new key for equality.
+                    /// If identical, no update is performed.
+                    /// </summary>
                     if (existingKey != null && existingKey.Length == normalizedKey.Length && existingKey.SequenceEqual(normalizedKey))
                     {
                         ClientLogger.Log($"Duplicate public key for {senderUid}; no change.", ClientLogLevel.Debug);
                     }
                     else
                     {
-                        /// <summary> Updates dictionary entry with new DER bytes. </summary>
+                        /// <summary>
+                        /// Updates dictionary entry with new DER bytes.
+                        /// </summary>
                         EncryptionPipeline.KnownPublicKeys[senderUid] = normalizedKey;
                         isNewOrUpdatedKey = true;
                         ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
@@ -836,17 +848,24 @@ namespace chat_client.MVVM.ViewModel
                 }
                 else
                 {
-                    /// <summary> Registers a newly seen public key for this sender. </summary>
+                    /// <summary>
+                    /// Registers a newly seen public key for this sender.
+                    /// </summary>
                     EncryptionPipeline.KnownPublicKeys.Add(senderUid, normalizedKey);
                     isNewOrUpdatedKey = true;
                     ClientLogger.Log($"Registered new public key for {senderUid}.", ClientLogLevel.Info);
                 }
             }
 
-            /// <summary> Triggers pipeline re-evaluation and raises UI property change notifications. </summary>
+            /// <summary>
+            /// Triggers pipeline re-evaluation and raises UI property change notifications.
+            /// Ensures encryption readiness state is recalculated after key update.
+            /// </summary>
             ReevaluateEncryptionStateFromConnection();
 
-            /// <summary> Logs encryption readiness state after key update. </summary>
+            /// <summary>
+            /// Logs encryption readiness state after key update.
+            /// </summary>
             if (isNewOrUpdatedKey && EncryptionPipeline.IsEncryptionReady)
             {
                 ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.", ClientLogLevel.Debug);
