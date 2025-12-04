@@ -529,15 +529,19 @@ namespace chat_client.MVVM.ViewModel
             await ConnectAsync().ConfigureAwait(true);
         }
 
-
         /// <summary>
-        /// Sends a disconnect notify (if connected), closes the TCP connection via clientConn,
+        /// Disconnects the client from the server.
+        /// Sends a disconnect notification if still connected, closes the TCP connection,
         /// clears UI state, notifies bindings, disables encryption, and resets init flags.
+        /// Marks the disconnection as user-initiated to suppress "Server has closed" messages.
         /// </summary>
         public void Disconnect()
         {
             try
             {
+                /// <summary> Marks this disconnect as explicitly requested by the user (flag set in ClientConnection) </summary>
+                _clientConn?.MarkUserInitiatedDisconnect();
+
                 /// <summary> Sends a framed DisconnectNotify if the client is still connected </summary>
                 if (_clientConn?.IsConnected == true)
                 {
@@ -551,7 +555,7 @@ namespace chat_client.MVVM.ViewModel
                         ClientLogger.Log($"SendDisconnectNotifyToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
                     }
 
-                    /// <summary> Fire-and-forget : loses the underlying TCP connection via the client connection </summary>
+                    /// <summary> Fire-and-forget: closes the underlying TCP connection via the client connection </summary>
                     _ = _clientConn.DisconnectFromServerAsync();
                 }
 
@@ -573,12 +577,8 @@ namespace chat_client.MVVM.ViewModel
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
-                    LocalizationManager.GetString("Error"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
+                MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
+                    LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

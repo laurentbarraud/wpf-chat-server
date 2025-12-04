@@ -74,6 +74,13 @@ namespace chat_client.Net
         private TcpClient _tcpClient;
 
         /// <summary>
+        /// Indicates whether the current disconnection was explicitly requested by the user.
+        /// Used to suppress automatic "server closed" messages when the disconnect
+        /// originates from the UI (e.g. clicking the Disconnect button).
+        /// </summary>
+        private bool _userInitiatedDisconnect = false;
+
+        /// <summary>
         /// Reference to the main ViewModel (set at connection init)
         /// </summary>
         private readonly MainViewModel _viewModel;
@@ -192,7 +199,7 @@ namespace chat_client.Net
         /// • Disposes the TcpClient (which also closes the NetworkStream) and reinitializes a fresh instance
         /// • Clears the PacketReader backing field (not IDisposable)
         /// • Disposes and recreates the reader lock to ensure a fresh semaphore
-        /// • Resets handshake/encryption flags to ensure fresh state
+        /// • Resets handshake/encryption flags and user disconnect flag to ensure fresh state
         /// • UI update is delegated to the caller
         /// </summary>
         private void CleanConnection()
@@ -203,11 +210,14 @@ namespace chat_client.Net
             _viewModel.ResetEncryptionPipelineAndUI();
             Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-            // Cancels handshake TCS to wake any awaiters
+            /// <summary> Resets user disconnect flag so future sessions start clean </summary>
+            _userInitiatedDisconnect = false;
+
+            /// <summary> Cancels handshake TCS to wake any awaiters </summary>
             _handshakeCompletionTcs?.TrySetCanceled();
             _handshakeCompletionTcs = null;
 
-            // Cancels and disposes connection CTS to stop read loop
+            /// <summary> Cancels and disposes connection CTS to stop read loop </summary>
             _connectionCts?.Cancel();
             _connectionCts?.Dispose();
             _connectionCts = null;
@@ -222,10 +232,9 @@ namespace chat_client.Net
             {
                 ClientLogger.Log($"CleanConnection: TcpClient dispose error — {ex.Message}", ClientLogLevel.Warn);
             }
-         
-            /// <summary> Reinitializes a fresh socket </summary>
             finally
             {
+                /// <summary> Reinitializes a fresh socket </summary>
                 _tcpClient = new TcpClient();
             }
 
@@ -242,8 +251,6 @@ namespace chat_client.Net
                 // Swallows disposal exceptions to keep shutdown resilient
             }
             _readerLock = new SemaphoreSlim(1, 1);
-
-            // Delegates UI update to the caller
 
             ClientLogger.Log("Client connection cleaned up.", ClientLogLevel.Debug);
         }
@@ -524,6 +531,14 @@ namespace chat_client.Net
         }
 
         /// <summary>
+        /// Marks the current connection as user-initiated disconnect.
+        /// </summary>
+        public void MarkUserInitiatedDisconnect()
+        {
+            _userInitiatedDisconnect = true;
+        }
+
+        /// <summary>
         /// Background task that continuously reads framed packets until the connection closes.
         /// • Reads length‑prefixed payloads with PacketReader.
         /// • Dispatches roster and message updates to the UI thread.
@@ -797,20 +812,32 @@ namespace chat_client.Net
             finally
             {
                 /// <summary> Releases reader lock to avoid blocking other consumers </summary>
-                try { _readerLock.Release(); } catch { }
+                try 
+                { 
+                    _readerLock.Release(); 
+                }
+                catch { }
 
                 /// <summary> Notifies UI of disconnect asynchronously </summary>
                 try
                 {
                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        viewModel.OnDisconnectedByServer();
+                        if (!_userInitiatedDisconnect)
+                        {
+                            viewModel.OnDisconnectedByServer();
+                        }
                     }));
                 }
                 catch { }
 
                 /// <summary> Performs centralized cleanup of connection state </summary>
-                try { CleanConnection(); } catch { }
+                try 
+                {
+                    CleanConnection(); 
+                } 
+                catch 
+                { }
 
                 /// <summary> Resets opcode counter on disconnect </summary>
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
