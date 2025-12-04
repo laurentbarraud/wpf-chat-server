@@ -16,6 +16,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
@@ -735,7 +736,8 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles an incoming encrypted message.
-        /// Attempts decryption using the local RSA private key.
+        /// Always attempts decryption using the local RSA private key if available.
+        /// Falls back to showing raw ciphertext only if the private key is missing.
         /// Updates the UI with the decrypted plaintext or logs an error.
         /// </summary>
         /// <param name="senderUid">Unique identifier of the message sender.</param>
@@ -746,28 +748,47 @@ namespace chat_client.MVVM.ViewModel
             if (cipherBytes == null || cipherBytes.Length == 0)
                 return;
 
-            string plaintext;
-            try
-            {
-                /// <summary> Decrypts ciphertext with local RSA private key </summary>
-                plaintext = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
-            }
-            catch (Exception ex)
-            {
-                /// <summary> Logs decryption failure with exception details </summary>
-                ClientLogger.Log($"Decrypt failed for {senderUid}: {ex.Message}", ClientLogLevel.Error);
-                return;
-            }
-
             /// <summary> Resolves sender name or falls back to UID string </summary>
             string username = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
                               ?? senderUid.ToString();
 
-            /// <summary> Posts decrypted message to UI thread </summary>
-            Application.Current.Dispatcher.BeginInvoke(() =>
+            /// <summary> Checks if local private key material is available </summary>
+            if (LocalUser?.PrivateKeyDer?.Length > 0)
             {
-                Messages.Add($"{username}: {plaintext}");
-            });
+                try
+                {
+                    /// <summary> Decrypts ciphertext with local RSA private key </summary>
+                    string plaintext = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+
+                    /// <summary> Posts decrypted message to UI thread </summary>
+                    Application.Current.Dispatcher.BeginInvoke(() =>
+                    {
+                        Messages.Add($"{username}: {plaintext}");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    /// <summary> Logs decryption failure with exception details </summary>
+                    ClientLogger.Log($"Decrypt failed for {senderUid}: {ex.Message}", ClientLogLevel.Error);
+
+                    /// <summary> Posts failure placeholder to UI thread </summary>
+                    Application.Current.Dispatcher.BeginInvoke(() =>
+                    {
+                        Messages.Add($"{username}: [decryption failed — {cipherBytes.Length} bytes]");
+                    });
+                }
+            }
+            else
+            {
+                /// <summary> Logs missing private key and shows raw ciphertext </summary>
+                ClientLogger.Log("Private key missing; showing raw ciphertext.", ClientLogLevel.Warn);
+
+                /// <summary> Posts raw ciphertext to UI thread as fallback </summary>
+                Application.Current.Dispatcher.BeginInvoke(() =>
+                {
+                    Messages.Add($"{username}: {Encoding.UTF8.GetString(cipherBytes)}");
+                });
+            }
         }
 
         /// <summary>
