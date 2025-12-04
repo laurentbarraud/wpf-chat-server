@@ -78,7 +78,7 @@ namespace chat_client.Net
         /// Used to suppress automatic "server closed" messages when the disconnect
         /// originates from the UI (e.g. clicking the Disconnect button).
         /// </summary>
-        private bool _userInitiatedDisconnect = false;
+        private volatile bool _userInitiatedDisconnect;
 
         /// <summary>
         /// Reference to the main ViewModel (set at connection init)
@@ -397,29 +397,29 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Gracefully notifies server (if possible), cancels background readers,
-        /// and tears down network resources asynchronously.
-        /// This keeps network I/O off the UI thread and exposes a Task-based API.
+        /// Gracefully disconnects from the server.
+        /// • Cancels background readers and disposes their cancellation token.  
+        /// • Closes and disposes the TcpClient and its NetworkStream (only if still connected).  
+        /// • Clears the PacketReader reference.  
+        /// • Resets counters and notifies listeners of termination.  
         /// </summary>
-        public async Task DisconnectFromServerAsync(CancellationToken cancellationToken = default)
+        public Task DisconnectFromServerAsync(CancellationToken cancellationToken = default)
         {
-            // Ensures single concurrent execution
+            /// <summary>
+            /// Ensures single concurrent execution by using Interlocked.Exchange
+            /// to set the sentinel _disconnectFromServerCalled to 1.
+            /// If the previous value was non-zero, another disconnect is already in progress,
+            /// so the method returns immediately with a completed Task.
+            /// </summary>
             if (Interlocked.Exchange(ref _disconnectFromServerCalled, 1) != 0)
-                return;
+                return Task.CompletedTask;
 
             try
             {
-                // Tries to send a disconnect notify before closing sockets
-                try
-                {
-                    await SendDisconnectNotifyToServerAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    ClientLogger.Log($"SendDisconnectNotifyToServerAsync failed: {ex.Message}", ClientLogLevel.Warn);
-                }
-
-                // Cancels background readers first so they stop using the stream
+                /// <summary>
+                /// Cancels background readers so they stop consuming the stream.
+                /// Disposes the CancellationTokenSource to release unmanaged resources.
+                /// </summary>
                 try
                 {
                     _connectionCts?.Cancel();
@@ -431,37 +431,65 @@ namespace chat_client.Net
                     ClientLogger.Log($"Connection cancellation failed: {ex.Message}", ClientLogLevel.Warn);
                 }
 
-                // Closes and disposes the network stream and client
+                /// <summary>
+                /// Clears the PacketReader reference and closes the network stream
+                /// only if the TcpClient is still connected.
+                /// This avoids redundant close attempts on already-disconnected sockets.
+                /// </summary>
                 try
                 {
                     _packetReader = null!;
-                    _tcpClient?.GetStream()?.Close();
+                    if (_tcpClient?.Connected == true)
+                    {
+                        _tcpClient.GetStream().Close();
+                    }
                 }
                 catch (Exception ex)
                 {
                     ClientLogger.Log($"NetworkStream close failed: {ex.Message}", ClientLogLevel.Warn);
                 }
 
+                /// <summary>
+                /// Closes and disposes the TcpClient safely,
+                /// but only if it was instantiated.
+                /// </summary>
                 try
                 {
-                    _tcpClient?.Close();
-                    _tcpClient?.Dispose();
+                    if (_tcpClient != null)
+                    {
+                        if (_tcpClient.Connected)
+                        {
+                            _tcpClient.Close();
+                        }
+                        _tcpClient.Dispose();
+                    }
                 }
                 catch (Exception ex)
                 {
                     ClientLogger.Log($"TcpClient cleanup failed: {ex.Message}", ClientLogLevel.Warn);
                 }
 
-                // Resets counters and notify listeners
+                /// <summary>
+                /// Resets the unexpected-opcode counter and notifies listeners
+                /// that the connection has been terminated.
+                /// </summary>
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
                 ConnectionTerminated?.Invoke();
             }
             finally
             {
-                // Allows future disconnect calls and reset init flag
+                /// <summary>
+                /// Allows future disconnect calls by resetting the sentinel,
+                /// and resets the encryption init flag for clean future sessions.
+                /// </summary>
                 Volatile.Write(ref _disconnectFromServerCalled, 0);
                 Volatile.Write(ref _encryptionInitOnce, 0);
             }
+
+            /// <summary>
+            /// Returns a completed Task to satisfy the Task-based API contract.
+            /// </summary>
+            return Task.CompletedTask;
         }
 
         /// <summary> 
@@ -753,33 +781,53 @@ namespace chat_client.Net
                                     viewModel.OnPublicKeyReceived(originUid, keyDer);
                                 });
                                 break;
-
                             case ClientPacketOpCode.DisconnectNotify:
-                                /// <summary> Resets unexpected-opcode counter </summary>
+                                /// <summary>
+                                /// Resets the unexpected-opcode counter to zero.
+                                /// Ensures that a valid disconnect notification does not count as protocol noise.
+                                /// </summary>
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                /// <summary> Reads disconnect UID and name </summary>
+                                /// <summary>
+                                /// Reads the UID and username of the disconnecting client from the stream.
+                                /// </summary>
                                 Guid discUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                 string discName = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 
-                                /// <summary> Posts disconnect notification to UI thread </summary>
+                                /// <summary>
+                                /// Posts a disconnect notification to the UI thread so that the view model
+                                /// can remove the user from the list and update bindings.
+                                /// </summary>
                                 _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnUserDisconnected(discUid, discName));
                                 break;
 
                             case ClientPacketOpCode.ForceDisconnectClient:
-                                /// <summary> Posts forced disconnect to UI thread and exits loop </summary>
-                                _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnDisconnectedByServer());
+                                /// <summary>
+                                /// Posts a forced disconnect to the UI thread and exits the loop.
+                                /// </summary>
+                                _ = Application.Current.Dispatcher.BeginInvoke(() =>
+                                {
+                                    viewModel.OnDisconnectedByServer();
+                                });
                                 return;
 
                             default:
-                                /// <summary> Logs unexpected opcode and increments counter </summary>
+
                                 ClientLogger.Log($"Unexpected opcode 0x{opcodeByte:X2} in framed packet", ClientLogLevel.Warn);
 
-                                /// <summary> Disconnects gracefully if threshold of unexpected opcodes is reached </summary>
+                                /// <summary>
+                                /// Disconnects gracefully if the threshold of unexpected opcodes is reached.
+                                /// Calls OnDisconnectedByServer only if the disconnect was not user-initiated.
+                                /// </summary>
                                 if (Interlocked.Increment(ref _consecutiveUnexpectedOpcodes) >= 3)
                                 {
                                     ClientLogger.Log("Too many consecutive unexpected opcodes, initiating graceful disconnect.", ClientLogLevel.Warn);
-                                    _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnDisconnectedByServer());
+                                    _ = Application.Current.Dispatcher.BeginInvoke(() =>
+                                    {
+                                      
+                                        viewModel.OnDisconnectedByServer();
+                                      
+                                    });
                                     return;
                                 }
                                 break;
@@ -823,10 +871,9 @@ namespace chat_client.Net
                 {
                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        if (!_userInitiatedDisconnect)
-                        {
-                            viewModel.OnDisconnectedByServer();
-                        }
+                                          
+                        viewModel.OnDisconnectedByServer();
+                        
                     }));
                 }
                 catch { }

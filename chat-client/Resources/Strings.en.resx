@@ -201,8 +201,8 @@
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
     <value>Failed to send the public RSA key to the server. Please check your connection.</value>
   </data>
-  <data name="ServerHasClosed" xml:space="preserve">
-    <value>Server has closed. You will be disconnected shortly...</value>
+  <data name="DisconnectedByServer" xml:space="preserve">
+    <value>You have been disconnected by the server</value>
   </data>
   <data name="ServerUnreachable" xml:space="preserve">
     <value>The server is unreachable or has refused the connection.</value>

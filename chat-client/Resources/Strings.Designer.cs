@@ -187,6 +187,15 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à You have been disconnected by the server.
+        /// </summary>
+        public static string DisconnectedByServer {
+            get {
+                return ResourceManager.GetString("DisconnectedByServer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Disconnect error.
         /// </summary>
         public static string DisconnectError {
@@ -462,15 +471,6 @@ namespace chat_client.Resources {
         public static string SendingPublicKey {
             get {
                 return ResourceManager.GetString("SendingPublicKey", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à Server has closed. You will be disconnected shortly....
-        /// </summary>
-        public static string ServerHasClosed {
-            get {
-                return ResourceManager.GetString("ServerHasClosed", resourceCulture);
             }
         }
         

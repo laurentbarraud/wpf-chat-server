@@ -201,8 +201,8 @@
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
     <value>Échec de l’envoi de la clé RSA publique au serveur. Veuillez vérifier votre connexion.</value>
   </data>
-  <data name="ServerHasClosed" xml:space="preserve">
-    <value>Le serveur a fermé. Vous allez être bientôt déconnecté...</value>
+  <data name="DisconnectedByServer" xml:space="preserve">
+    <value>Vous avez été déconnecté par le serveur</value>
   </data>
   <data name="ServerUnreachable" xml:space="preserve">
     <value>Le serveur est inaccessible ou a refusé la connexion.</value>

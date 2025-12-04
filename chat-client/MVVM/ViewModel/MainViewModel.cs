@@ -531,54 +531,61 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Disconnects the client from the server.
-        /// Sends a disconnect notification if still connected, closes the TCP connection,
-        /// clears UI state, notifies bindings, disables encryption, and resets init flags.
-        /// Marks the disconnection as user-initiated to suppress "Server has closed" messages.
+        /// • Marks the disconnection as user-initiated to suppress "Server has closed" messages.  
+        /// • Closes the TCP connection via clientConn.  
+        /// • Clears UI state and notifies bindings.  
+        /// • Disables encryption and resets init flags.  
         /// </summary>
         public void Disconnect()
         {
             try
             {
-                /// <summary> Marks this disconnect as explicitly requested by the user (flag set in ClientConnection) </summary>
+                /// <summary>
+                /// Marks this disconnect as explicitly requested by the user.
+                /// This flag will be checked later to suppress server-closed messages.
+                /// </summary>
                 _clientConn?.MarkUserInitiatedDisconnect();
 
-                /// <summary> Sends a framed DisconnectNotify if the client is still connected </summary>
+                /// <summary>
+                /// Closes the underlying TCP connection via the client connection.
+                /// </summary>
                 if (_clientConn?.IsConnected == true)
                 {
-                    try
-                    {
-                        // Fire-and-forget disconnect notify
-                        _ = _clientConn.SendDisconnectNotifyToServerAsync(CancellationToken.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        ClientLogger.Log($"SendDisconnectNotifyToServerAsync failed: {ex.Message}", ClientLogLevel.Error);
-                    }
-
-                    /// <summary> Fire-and-forget: closes the underlying TCP connection via the client connection </summary>
                     _ = _clientConn.DisconnectFromServerAsync();
                 }
 
-                /// <summary> Clears all user/message data in the view </summary>
+                /// <summary>
+                /// Clears all user/message data in the view.
+                /// </summary>
                 ReinitializeUI();
 
-                /// <summary> Notifies UI bindings to reflect disconnected state </summary>
+                /// <summary>
+                /// Notifies UI bindings to reflect disconnected state.
+                /// </summary>
                 OnPropertyChanged(nameof(IsConnected));
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
                 OnPropertyChanged(nameof(AreCredentialsEditable));
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
-                /// <summary> Disables encryption pipeline safely </summary>
+                /// <summary>
+                /// Disables encryption pipeline safely.
+                /// </summary>
                 EncryptionPipeline?.DisableEncryption();
 
-                /// <summary> Resets encryption init flag for clean future sessions </summary>
+                /// <summary>
+                /// Resets encryption init flag for clean future sessions.
+                /// </summary>
                 Volatile.Write(ref _encryptionInitOnce, 0);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
-                    LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(
+                    LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
+                    LocalizationManager.GetString("Error"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
         }
 
@@ -672,64 +679,50 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Handles a server-initiated disconnect command.  
         /// • Ensures the handler runs exactly once.  
-        /// • Requests disconnect from the underlying server connection.  
-        /// • Clears the user list and posts a localized system message to chat history.  
+        /// • Suppresses all logic if the disconnect was explicitly requested by the user.  
+        /// • Clears the user list and posts a localized system message to chat history (only if not user-initiated).  
         /// • Notifies UI bindings so dependent logic updates.  
-        /// • Performs cleanup without throwing from error paths.
+        /// • Performs cleanup without throwing from error paths.  
         /// </summary>
         public void OnDisconnectedByServer()
         {
             /// <summary>
             /// Ensures the disconnect cleanup runs only once across threads.
-            /// Uses Interlocked.Exchange to set the sentinel _clientDisconnecting to 1 and
-            /// obtain the previous value in a single atomic operation.
-            /// If the previous value was non-zero it means another thread already started
-            /// the cleanup, so this call returns early to avoid double-closing sockets
-            /// or duplicate UI updates.
+            /// Uses Interlocked.Exchange to set the sentinel _clientDisconnecting to 1.
+            /// If the previous value was non-zero, another thread already started cleanup,
+            /// so this call returns early to avoid duplicate socket closing or UI updates.
             /// </summary>
             if (Interlocked.Exchange(ref _clientDisconnecting, 1) != 0)
             {
                 return;
             }
-      
-            try
-            {
-                /// <summary> 
-                /// Fire-and-forget attempts server-side disconnect
-                /// The .ContinueWith(disconnectTask => { … }, TaskContinuationOptions.OnlyOnFaulted)
-                /// means: “When the disconnect finishes, check if it had an error.
-                /// Only run this extra code if something went wrong.”
-                /// </summary>
-                _ = _clientConn.DisconnectFromServerAsync().ContinueWith(disconnectTask =>
-                {
-                    if (disconnectTask.Exception != null)
-                        ClientLogger.Log($"Async disconnect failed: {disconnectTask.Exception.InnerException?.Message}", ClientLogLevel.Error);
-                }, TaskContinuationOptions.OnlyOnFaulted);
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"Error during server-initiated disconnect: {ex.Message}", ClientLogLevel.Error);
-            }
 
             Application.Current.Dispatcher.BeginInvoke(() =>
             {
-                /// <summary> Removes all entries from the UI user list. </summary>
+                /// <summary>
+                /// Clears all entries from the UI user list.
+                /// </summary>
                 Users.Clear();
 
-                /// <summary> Appends a localized system message to the chat history </summary> 
-                Messages.Add($"# {LocalizationManager.GetString("ServerHasClosed")} #");
+                /// <summary>
+                /// Appends a localized system message to the chat history
+                /// only if the disconnect was not explicitly requested by the user.
+                /// </summary>
+                Messages.Add($"# {LocalizationManager.GetString("DisconnectedByServer")} #");
 
-                /// <summary> Notifies UI bindings so dependent logic refreshes </summary> 
+                /// <summary>
+                /// Notifies UI bindings so dependent logic refreshes.
+                /// </summary>
                 OnPropertyChanged(nameof(IsConnected));
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
                 OnPropertyChanged(nameof(AreCredentialsEditable));
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
-                /// <summary> Disables encryption pipeline safely </summary> 
-                EncryptionPipeline?.DisableEncryption();
-
-                /// <summary> Resets init flag for next session </summary>
+                /// <summary>
+                /// Resets the encryption initialization flag so that the next session
+                /// starts with a clean state.
+                /// </summary>
                 Volatile.Write(ref _encryptionInitOnce, 0);
             });
         }
