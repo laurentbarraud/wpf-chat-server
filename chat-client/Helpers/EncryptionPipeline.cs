@@ -306,9 +306,12 @@ namespace chat_client.Helpers
                 ClientLogger.Log("Materialized local private key from EncryptionHelper.", ClientLogLevel.Debug);
             }
 
-            /// <summary> Publishes the local public key once per session in multi-client mode. </summary>
-            if (_viewModel.UseEncryption && !_localKeyPublished && _viewModel.LocalUser.PublicKeyDer?.Length > 0
-                && _viewModel.Users.Count > 1)
+            /// <summary>
+            /// Publishes the local public key once per session in multi-client mode.
+            /// Triggered only if the pipeline is ready, the key is present, and there are multiple users.
+            /// </summary>
+            if (_viewModel?.EncryptionPipeline?.IsEncryptionReady == true && !_localKeyPublished
+                && _viewModel.LocalUser.PublicKeyDer?.Length > 0  && _viewModel.Users.Count > 1)
             {
                 bool sentPublicKeyToServer = await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID,
                     _viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>(), cancellationToken).ConfigureAwait(false);
@@ -325,7 +328,7 @@ namespace chat_client.Helpers
             }
 
             /// <summary> Injects the local key into KnownPublicKeys in solo mode. </summary>
-            if (_viewModel.Users.Count <= 1 && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
+            if (_viewModel != null && _viewModel.Users.Count <= 1 && _viewModel.LocalUser.PublicKeyDer?.Length > 0)
             {
                 lock (KnownPublicKeys)
                 {
@@ -341,10 +344,13 @@ namespace chat_client.Helpers
 
             _uiDispatcherInvoke(() =>
             {
-                SetEncryptionReady(finalStateOfEncryption);
-                SetSyncing(!finalStateOfEncryption);
+                if (_viewModel != null)
+                {
+                    SetEncryptionReady(finalStateOfEncryption);
+                    SetSyncing(!finalStateOfEncryption);
 
-                _viewModel.UseEncryption = finalStateOfEncryption;
+                    _viewModel.UseEncryption = finalStateOfEncryption;
+                }
             });
 
             ClientLogger.Log($"Initializing of encryption completed — SyncPeerKeysOk={syncPeerKeysOk}, EncryptionReady={finalStateOfEncryption}", ClientLogLevel.Info);
