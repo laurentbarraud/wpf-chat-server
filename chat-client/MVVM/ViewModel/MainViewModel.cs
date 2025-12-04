@@ -758,7 +758,8 @@ namespace chat_client.MVVM.ViewModel
                 try
                 {
                     /// <summary> Decrypts ciphertext with local RSA private key </summary>
-                    string plaintext = EncryptionHelper.DecryptMessageFromBytes(cipherBytes);
+                    string plaintext = EncryptionHelper.DecryptMessageFromBytes(cipherBytes, LocalUser.PrivateKeyDer);
+
 
                     /// <summary> Posts decrypted message to UI thread </summary>
                     Application.Current.Dispatcher.BeginInvoke(() =>

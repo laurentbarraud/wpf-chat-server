@@ -85,6 +85,40 @@ namespace chat_client.Helpers
         }
 
         /// <summary>
+        /// Decrypts RSA-OAEP-SHA256 ciphertext using the provided private key.
+        /// Returns UTF-8 plaintext or a localized error string on failure.
+        /// </summary>
+        public static string DecryptMessageFromBytes(byte[] cipherBytes, byte[] privateKeyDer)
+        {
+            if (cipherBytes == null || cipherBytes.Length == 0)
+            {
+                ClientLogger.Log("DecryptMessageFromBytes: cipherBytes is null or empty.", ClientLogLevel.Warn);
+                return LocalizationManager.GetString("ErrorDecryptionFailed");
+            }
+
+            try
+            {
+                /// <summary> Creates an RSA instance for decryption. </summary>
+                using var rsa = RSA.Create();
+
+                /// <summary> Imports private key from DER-encoded bytes into RSA object. </summary>
+                rsa.ImportRSAPrivateKey(privateKeyDer, out _);
+
+                /// <summary> Performs RSA decryption of cipherBytes using OAEP-SHA256 padding. </summary>
+                byte[] plainBytes = rsa.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
+
+                /// <summary> Converts decrypted byte array to UTF-8 string and returns it. </summary>
+                return Encoding.UTF8.GetString(plainBytes);
+            }
+            catch (Exception ex)
+            {
+                /// <summary> Logs decryption failure and returns a localized error placeholder. </summary>
+                ClientLogger.Log($"RSA decryption failed: {ex.Message}", ClientLogLevel.Error);
+                return LocalizationManager.GetString("ErrorDecryptionFailed");
+            }
+        }
+
+        /// <summary>
         /// Encrypts a UTF-8 plaintext string using the recipient's RSA public key (DER bytes).
         /// • Convert text to UTF-8 bytes. Initializes plaintext for encryption.
         /// • Import public key from DER bytes. Loads recipient RSA key.
@@ -131,46 +165,6 @@ namespace chat_client.Helpers
                 string template = LocalizationManager.GetString("ErrorEncryptionFailed");
                 Console.WriteLine(string.Format(template, ex.Message));
                 return Array.Empty<byte>();
-            }
-        }
-
-        /// <summary>
-        /// Decrypts RSA-OAEP-SHA256 ciphertext using the local private key.
-        /// Returns UTF-8 plaintext or a localized error string on failure.
-        /// </summary>
-        public static string DecryptMessageFromBytes(byte[] cipherBytes)
-        {
-            if (!IsEncryptionActive)
-            {
-                ClientLogger.Log("Decryption requested while disabled; returning raw text.", ClientLogLevel.Warn);
-                return cipherBytes == null ? string.Empty : Encoding.UTF8.GetString(cipherBytes);
-            }
-
-            if (cipherBytes == null || cipherBytes.Length == 0)
-            {
-                ClientLogger.Log("DecryptMessageFromBytes: cipherBytes is null or empty.", ClientLogLevel.Warn);
-                return LocalizationManager.GetString("ErrorDecryptionFailed");
-            }
-
-            try
-            {
-                /// <summary> Creates an RSA instance for decryption. </summary>
-                using var rsa = RSA.Create();
-
-                /// <summary> Imports private key from DER-encoded bytes into RSA object (PrivateKeyDer). </summary>
-                rsa.ImportRSAPrivateKey(PrivateKeyDer, out _);
-
-                /// <summary> Performs RSA decryption of cipherBytes using OAEP-SHA256 padding. </summary>
-                byte[] plainBytes = rsa.Decrypt(cipherBytes, RSAEncryptionPadding.OaepSHA256);
-
-                /// <summary> Converts decrypted byte array to UTF-8 string and returns it. </summary>
-                return Encoding.UTF8.GetString(plainBytes);
-            }
-            catch (Exception ex)
-            {
-                /// <summary> Logs decryption failure and returns a localized error placeholder. </summary>
-                ClientLogger.Log($"RSA decryption failed: {ex.Message}", ClientLogLevel.Error);
-                return LocalizationManager.GetString("ErrorDecryptionFailed");
             }
         }
     }
