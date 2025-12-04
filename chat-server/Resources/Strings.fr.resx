@@ -319,6 +319,7 @@
     <value>Le message chiffré reçu est vide (UID={0}, Destinataire={1}).</value>
   </data>
   <data name="EncryptedMessageReceived" xml:space="preserve">
-    <value>Encrypted message received — Len={0}</value>
+    <value>Message chiffré reçu de {0} — Longueur={1}
+</value>
   </data>
 </root>

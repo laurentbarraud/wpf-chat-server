@@ -319,6 +319,6 @@
     <value>The encrypted message payload is empty (UID={0}, Recipient={1}).</value>
   </data>
   <data name="EncryptedMessageReceived" xml:space="preserve">
-    <value>Encrypted message received — Len={0}</value>
+    <value>Encrypted message received from {0} — Len={1}</value>
   </data>
 </root>

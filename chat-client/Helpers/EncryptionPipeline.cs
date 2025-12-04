@@ -349,9 +349,10 @@ namespace chat_client.Helpers
                     SetEncryptionReady(finalStateOfEncryption);
                     SetSyncing(!finalStateOfEncryption);
 
-                    _viewModel.UseEncryption = finalStateOfEncryption;
+                    // Encryption state is propagated only via IsEncryptionReady
                 }
             });
+
 
             ClientLogger.Log($"Initializing of encryption completed — SyncPeerKeysOk={syncPeerKeysOk}, EncryptionReady={finalStateOfEncryption}", ClientLogLevel.Info);
             return syncPeerKeysOk && finalStateOfEncryption;
@@ -492,8 +493,11 @@ namespace chat_client.Helpers
         /// </summary>
         public async Task<bool> SyncKeysAsync(CancellationToken cancellationToken)
         {
-            /// <summary> Validates that encryption is enabled in the ViewModel before proceeding. </summary>
-            if (!_viewModel.UseEncryption)
+            /// <summary>
+            /// Validates that encryption prerequisites are present before proceeding.
+            /// Falls back to false if local key material is missing.
+            /// </summary>
+            if (_viewModel?.LocalUser?.PublicKeyDer == null || _viewModel.LocalUser.PublicKeyDer.Length == 0)
             {
                 _uiDispatcherInvoke(() =>
                 {

@@ -351,7 +351,6 @@ namespace chat_server
                                         break;
                                     }
 
-                                    // Safe: resource expects a single argument
                                     ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, ciphertext.Length.ToString());
 
                                     await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken).ConfigureAwait(false);

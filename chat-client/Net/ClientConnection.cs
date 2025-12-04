@@ -1237,9 +1237,9 @@ namespace chat_client.Net
                 /// True only if the encryption pipeline is fully ready,
                 /// otherwise falls back to plain message.
                 /// </summary>
-                bool useEncryptionNow = (EncryptionPipeline?.IsEncryptionReady == true);
+                bool isEncryptionReady = (_viewModel?.EncryptionPipeline?.IsEncryptionReady == true);
 
-                if (!(EncryptionPipeline?.IsEncryptionReady == true))
+                if (!isEncryptionReady)
                 {
                     /// <summary>
                     /// Builds plain packet for self-message.
@@ -1255,7 +1255,7 @@ namespace chat_client.Net
                     /// Uses LocalUser.PublicKeyDer for solo encryption.
                     /// Validates presence of key before encrypting.
                     /// </summary>
-                    byte[] publicKeyDer = _viewModel.LocalUser.PublicKeyDer;
+                    byte[] publicKeyDer = _viewModel!.LocalUser.PublicKeyDer;
                     if (publicKeyDer == null || publicKeyDer.Length == 0)
                     {
                         ClientLogger.Log("Missing local public key for self-message.", ClientLogLevel.Warn);
@@ -1276,8 +1276,8 @@ namespace chat_client.Net
                     /// Builds encrypted packet with sender UID duplicated (sender=recipient=self).
                     /// </summary>
                     packet.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
-                    packet.WriteUid(senderUid);
-                    packet.WriteUid(senderUid);
+                    packet.WriteUid(senderUid);   // sender
+                    packet.WriteUid(senderUid);   // recipient = self
                     packet.WriteBytesWithLength(cipherArray);
                 }
 
@@ -1287,7 +1287,7 @@ namespace chat_client.Net
                 byte[] bytes = packet.GetPacketBytes();
                 await SendFramedAsync(bytes, cancellationToken).ConfigureAwait(false);
 
-                ClientLogger.Log($"Sent framed packet async: wrote {bytes.Length} bytes ({(useEncryptionNow ? "encrypted payload" : "plain payload")})",
+                ClientLogger.Log($"Sent framed packet async: wrote {bytes.Length} bytes ({(isEncryptionReady ? "encrypted payload" : "plain payload")})",
                     ClientLogLevel.Debug);
 
                 messageSent = true;
