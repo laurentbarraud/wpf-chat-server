@@ -810,7 +810,7 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a received public-key event.
+        /// Handles a received public-key event from a peer.
         /// </summary>
         /// <param name="senderUid">
         /// The UID of the peer who provided the public key.
@@ -822,18 +822,29 @@ namespace chat_client.MVVM.ViewModel
         /// • Accepts null or empty keys (treated as clear mode).  
         /// • Updates the KnownPublicKeys dictionary in a thread-safe manner.  
         /// • Calls pipeline re-evaluation via ViewModel helper to refresh readiness/UI.  
+        /// • Ignores self-echo packets (originUid == LocalUser.UID).  
         /// </remarks>
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
         {
             bool isNewOrUpdatedKey = false;
 
             /// <summary>
-            /// Normalizes input: if null or empty, returns Array.Empty<byte>() to represent clear mode.
+            /// Normalizes input: if null or empty, returns Array.Empty<byte>() 
+            /// to represent clear mode.
             /// Ensures normalizedKey is always a valid byte[] (never null).
             /// </summary>
             var normalizedKey = (publicKeyDer == null || publicKeyDer.Length == 0)
                 ? Array.Empty<byte>()
                 : publicKeyDer;
+
+            /// <summary>
+            /// Ignores self-echo: do not register our own key again.
+            /// </summary>
+            if (senderUid == LocalUser.UID)
+            {
+                ClientLogger.Log($"Public key echo for {LocalUser.Username}; ignoring.", ClientLogLevel.Debug);
+                return;
+            }
 
             /// <summary>
             /// Protects KnownPublicKeys dictionary from concurrent writes.
@@ -849,13 +860,9 @@ namespace chat_client.MVVM.ViewModel
                     /// </summary>
                     if (existingKey != null && existingKey.Length == normalizedKey.Length && existingKey.SequenceEqual(normalizedKey))
                     {
-                        /// <summary>
-                        /// Resolves the username from the roster using a LINQ query on the given UID.
-                        /// </summary>
                         var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
-                        ?? senderUid.ToString();
+                                          ?? senderUid.ToString();
                         ClientLogger.Log($"Duplicate public key for {displayName}; no change.", ClientLogLevel.Debug);
-
                     }
                     else
                     {
@@ -864,8 +871,9 @@ namespace chat_client.MVVM.ViewModel
                         /// </summary>
                         EncryptionPipeline.KnownPublicKeys[senderUid] = normalizedKey;
                         isNewOrUpdatedKey = true;
+
                         var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
-                        ?? senderUid.ToString();
+                                          ?? senderUid.ToString();
                         ClientLogger.Log($"Updated public key for {displayName}.", ClientLogLevel.Info);
                     }
                 }
@@ -877,25 +885,20 @@ namespace chat_client.MVVM.ViewModel
                     EncryptionPipeline.KnownPublicKeys.Add(senderUid, normalizedKey);
                     isNewOrUpdatedKey = true;
 
-                    /// <summary>
-                    /// Resolves the username inline from the roster using a LINQ query; falls back to the UID string.
-                    /// </summary>
                     var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
                                       ?? senderUid.ToString();
-
                     ClientLogger.Log($"Registered new public key for {displayName}.", ClientLogLevel.Info);
-
                 }
             }
 
             /// <summary>
-            /// Triggers pipeline re-evaluation and raises UI property change notifications.
+            /// Triggers pipeline re-evaluation and raise UI property change notifications.
             /// Ensures encryption readiness state is recalculated after key update.
             /// </summary>
             ReevaluateEncryptionStateFromConnection();
 
             /// <summary>
-            /// Logs encryption readiness state after key update.
+            /// Log encryption readiness state after key update.
             /// </summary>
             if (isNewOrUpdatedKey && EncryptionPipeline.IsEncryptionReady)
             {

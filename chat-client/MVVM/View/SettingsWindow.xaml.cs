@@ -150,7 +150,7 @@ namespace chat_client.MVVM.View
 
             bool isValid = MainViewModel.TrySavePort(port);
             var uri = isValid
-                      ? new Uri("/Resources/greendot.png", UriKind.Relative)
+                      ? new Uri("/Resources/validate.png", UriKind.Relative)
                       : new Uri("/Resources/reddot.png", UriKind.Relative);
 
             ImgPortStatus.Source = new BitmapImage(uri);
