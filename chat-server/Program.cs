@@ -638,68 +638,58 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Relays a public key response back to the original requester.
-        /// Packet structure:
-        ///   [opcode: PublicKeyResponse]
-        ///   [origin UID]
-        ///   [DER-encoded RSA public key bytes, length-prefixed; may be empty for clear mode]
-        ///   [requester UID]
-        /// Sends via SendFramedAsync. Empty keys are valid and tolerated.
+        /// Relays a public key response to the requester only.
         /// </summary>
-        public static async Task RelayPublicKeyToUser(Guid originUid, byte[] publicKeyDer, Guid requesterUid, CancellationToken cancellationToken)
+        public static async Task RelayPublicKeyToUser(Guid originUid, byte[] publicKeyDer, Guid requesterUid,
+            CancellationToken cancellationToken)
         {
+            /// <summary> Snapshots user list to avoid collection-modification issues. </summary>
             var snapshot = Users.ToList();
             var target = snapshot.FirstOrDefault(usr => usr.UID == requesterUid);
-            if (target?.ClientSocket?.Connected != true)
+
+            /// <summary> Validates requester connection. </summary>
+            if (target == null || target.ClientSocket?.Connected != true)
             {
+                ServerLogger.LogLocalized("PublicKeyResponseRelayFailed", ServerLogLevel.Warn,
+                    requesterUid.ToString(), "Requester not connected");
                 return;
             }
 
+            /// <summary> Ensures requester session is established. </summary>
             if (!target.IsEstablished)
             {
                 ServerLogger.LogLocalized("PublicKeyResponseRelayFailed",
-                    ServerLogLevel.Warn, target?.Username ?? requesterUid.ToString(), "Requester not established");
+                    ServerLogLevel.Warn, target.Username, "Requester not established");
                 return;
             }
 
+            /// <summary> Builds packet with origin UID, key, and requester UID. </summary>
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
             builder.WriteUid(originUid);
-            builder.WriteBytesWithLength(publicKeyDer ?? Array.Empty<byte>()); // tolerate empty key
+            builder.WriteBytesWithLength(publicKeyDer ?? Array.Empty<byte>()); 
             builder.WriteUid(requesterUid);
 
+            /// <summary> Serializes packet to byte array. </summary>
             byte[] payload = builder.GetPacketBytes();
-            ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
+            ServerLogger.Log(
+                $"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}",
+                ServerLogLevel.Debug);
 
             try
             {
+                /// <summary> Sends packet asynchronously to requester. </summary>
                 await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
                 ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess", ServerLogLevel.Debug, target.Username);
             }
-            
-            catch (OperationCanceledException) 
-            { }
-
+            catch (OperationCanceledException)
+            {
+                /// <summary> Expected cancellation during shutdown. </summary>
+            }
             catch (Exception ex)
             {
+                /// <summary> Logs any unexpected send failure. </summary>
                 ServerLogger.LogLocalized("PublicKeyResponseRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
-            }
-        }
-
-
-        // Removes and disposes the per-connection semaphore for the given UID if present.
-        // Safe to call from other classes.
-        internal static void RemoveAndDisposeSendSemaphore(Guid uid)
-        {
-            if (_sendSemaphores.TryRemove(uid, out var sem))
-            {
-                try
-                {
-                    sem?.Dispose();
-                }
-                catch
-                {
-                }
             }
         }
 

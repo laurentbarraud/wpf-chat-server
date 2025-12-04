@@ -297,31 +297,19 @@ namespace chat_server
                                     if (origin != null)
                                     {
                                         origin.PublicKeyDer = publicKeyDer ?? Array.Empty<byte>();
-                                        ServerLogger.Log($"Registered/updated public key for {originUid}", ServerLogLevel.Info);
+                                        ServerLogger.Log($"Registered/updated public key for {origin?.Username ?? "<unknown>"}", ServerLogLevel.Info);
+
                                     }
                                     else
                                     {
                                         ServerLogger.Log($"Origin user {originUid} not found in roster; proceeding to relay.", ServerLogLevel.Warn);
                                     }
 
-                                    /// <summary> Relays the origin's public key to the requester client. </summary>
-                                    var requester = Program.Users.FirstOrDefault(u => u.UID == requesterUid);
-                                    if (requester?.ClientSocket?.Connected == true && requester.IsEstablished)
-                                    {
-                                        var builder = new PacketBuilder();
-                                        builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
-                                        builder.WriteUid(originUid);
-                                        builder.WriteBytesWithLength(publicKeyDer ?? Array.Empty<byte>());
-                                        builder.WriteUid(requesterUid);
-
-                                        var payload = builder.GetPacketBytes();
-                                        await Program.SendFramedAsync(requester, payload, cancellationToken).ConfigureAwait(false);
-                                        ServerLogger.LogLocalized("PublicKeyRelaySuccess", ServerLogLevel.Debug, requester.Username);
-                                    }
-                                    else
-                                    {
-                                        ServerLogger.LogLocalized("PublicKeyRelayFailed", ServerLogLevel.Warn, requester?.Username ?? requesterUid.ToString(), "Requester not connected/established");
-                                    }
+                                    /// <summary>
+                                    /// Relays origin's public key to requester using centralized helper.
+                                    /// </summary>
+                                    await Program.RelayPublicKeyToUser(originUid, publicKeyDer ?? Array.Empty<byte>(), 
+                                        requesterUid, cancellationToken).ConfigureAwait(false);
 
                                     break;
                                 }

@@ -844,21 +844,29 @@ namespace chat_client.MVVM.ViewModel
                 if (EncryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out var existingKey))
                 {
                     /// <summary>
-                    /// Compares existing DER bytes with new key for equality.
-                    /// If identical, no update is performed.
+                    /// Compares the existing DER-encoded key bytes with the new key.
+                    /// If they are identical, no update is performed.
                     /// </summary>
                     if (existingKey != null && existingKey.Length == normalizedKey.Length && existingKey.SequenceEqual(normalizedKey))
                     {
-                        ClientLogger.Log($"Duplicate public key for {senderUid}; no change.", ClientLogLevel.Debug);
+                        /// <summary>
+                        /// Resolves the username from the roster using a LINQ query on the given UID.
+                        /// </summary>
+                        var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
+                        ?? senderUid.ToString();
+                        ClientLogger.Log($"Duplicate public key for {displayName}; no change.", ClientLogLevel.Debug);
+
                     }
                     else
                     {
                         /// <summary>
-                        /// Updates dictionary entry with new DER bytes.
+                        /// Updates the dictionary entry with the new DER-encoded key bytes.
                         /// </summary>
                         EncryptionPipeline.KnownPublicKeys[senderUid] = normalizedKey;
                         isNewOrUpdatedKey = true;
-                        ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
+                        var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
+                        ?? senderUid.ToString();
+                        ClientLogger.Log($"Updated public key for {displayName}.", ClientLogLevel.Info);
                     }
                 }
                 else
@@ -868,7 +876,15 @@ namespace chat_client.MVVM.ViewModel
                     /// </summary>
                     EncryptionPipeline.KnownPublicKeys.Add(senderUid, normalizedKey);
                     isNewOrUpdatedKey = true;
-                    ClientLogger.Log($"Registered new public key for {senderUid}.", ClientLogLevel.Info);
+
+                    /// <summary>
+                    /// Resolves the username inline from the roster using a LINQ query; falls back to the UID string.
+                    /// </summary>
+                    var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
+                                      ?? senderUid.ToString();
+
+                    ClientLogger.Log($"Registered new public key for {displayName}.", ClientLogLevel.Info);
+
                 }
             }
 
