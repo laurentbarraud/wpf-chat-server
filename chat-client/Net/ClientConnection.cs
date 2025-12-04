@@ -1115,7 +1115,7 @@ namespace chat_client.Net
                     /// </summary>
                     bool useEncryptionNow = (EncryptionPipeline?.IsEncryptionReady == true);
 
-                    if (!useEncryptionNow)
+                    if (!(EncryptionPipeline?.IsEncryptionReady == true))
                     {
                         /// <summary>
                         /// Builds a plain packet when the pipeline is not ready.
@@ -1216,13 +1216,9 @@ namespace chat_client.Net
                     byte[] bytes = packet.GetPacketBytes();
                     await SendFramedAsync(bytes, cancellationToken).ConfigureAwait(false);
 
-                    /// <summary>
-                    /// Logs payload type for debugging (plain/encrypted).
-                    /// </summary>
-                    ClientLogger.Log(
-                        $"Sent framed packet async: wrote {bytes.Length} bytes ({(useEncryptionNow ? "encrypted payload" : "plain payload")})",
-                        ClientLogLevel.Debug
-                    );
+                    ClientLogger.Log($"Sent framed packet async: wrote {bytes.Length} " +
+                        $"bytes ({((EncryptionPipeline?.IsEncryptionReady == true) ? "encrypted payload" :
+                        "plain payload")})", ClientLogLevel.Debug);
 
                     messageSent = true;
                 }
@@ -1237,11 +1233,13 @@ namespace chat_client.Net
                 var packet = new PacketBuilder();
 
                 /// <summary>
-                /// Checks encryption readiness flags before attempting encryption.
+                /// Determines whether to send encrypted or plain.
+                /// True only if the encryption pipeline is fully ready,
+                /// otherwise falls back to plain message.
                 /// </summary>
-                bool useEncryptionNow = _viewModel.UseEncryption && (EncryptionPipeline?.IsEncryptionReady == true);
+                bool useEncryptionNow = (EncryptionPipeline?.IsEncryptionReady == true);
 
-                if (!useEncryptionNow)
+                if (!(EncryptionPipeline?.IsEncryptionReady == true))
                 {
                     /// <summary>
                     /// Builds plain packet for self-message.
