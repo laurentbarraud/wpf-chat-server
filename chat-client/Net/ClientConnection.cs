@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 4th, 2025</date>
+/// <date>December 6th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -684,7 +684,9 @@ namespace chat_client.Net
                                 /// </summary>
                                 if (EncryptionHelper.IsEncryptionActive && !_hasSentPublicKey && _viewModel.Users.Count > 1)
                                 {
-                                    await SendPublicKeyToServerAsync(LocalUid, EncryptionHelper.PublicKeyDer, cancellationToken).ConfigureAwait(false);
+                                    await SendPublicKeyToServerAsync(LocalUid, EncryptionHelper.PublicKeyDer, 
+                                        LocalUid, cancellationToken).ConfigureAwait(false);
+
                                     _hasSentPublicKey = true;
                                     ClientLogger.Log("Public key sent once after ACK (multi-client).", ClientLogLevel.Debug);
                                 }
@@ -740,22 +742,42 @@ namespace chat_client.Net
 
                             case ClientPacketOpCode.PublicKeyRequest:
                                 {
-                                    /// <summary> Reads requester and target UIDs. </summary>
-                                    var requesterUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    var targetUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    /// <summary>
+                                    /// Handles an incoming PublicKeyRequest packet.
+                                    /// Reads two GUIDs: target UID and requester UID.
+                                    /// Server relays [targetUid][requesterUid].
+                                    /// </summary>
+                                    Guid first = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    Guid second = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    /// <summary> Responds only if the request targets the local user and a public key is available. </summary>
+                                    /// <summary>
+                                    /// Determines requester UID based on packet order.
+                                    /// If the first GUID equals LocalUser.UID, then the second GUID is the requester.
+                                    /// </summary>
+                                    Guid requesterUid = (first == viewModel.LocalUser.UID) ? second : first;
+
+                                    /// <summary>
+                                    /// Materializes the local public key (DER format).
+                                    /// Always responds, even if local encryption toggle is disabled.
+                                    /// </summary>
                                     var localKey = viewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
-                                    if (targetUid == viewModel.LocalUser.UID && localKey?.Length > 0)
+
+                                    /// <summary>
+                                    /// Sends our public key back to the server for relay to the requester.
+                                    /// </summary>
+                                    if (localKey?.Length > 0)
                                     {
-                                        /// <summary> Sends our public key back to the server for relay. </summary>
-                                        await SendPublicKeyToServerAsync(LocalUid, localKey, cancellationToken).ConfigureAwait(false);
+                                        await SendPublicKeyToServerAsync(viewModel.LocalUser.UID, localKey,
+                                            requesterUid, cancellationToken).ConfigureAwait(false);
+
                                         ClientLogger.Log($"Responded to public key request from {requesterUid}", ClientLogLevel.Debug);
                                     }
+
                                     else
                                     {
-                                        ClientLogger.Log("PublicKeyRequest ignored (not target or no local key).", ClientLogLevel.Debug);
+                                        ClientLogger.Log("PublicKeyRequest ignored (no local key available).", ClientLogLevel.Debug);
                                     }
+
                                     break;
                                 }
 
@@ -1370,13 +1392,18 @@ namespace chat_client.Net
             return messageSent;
         }
 
-
         /// <summary>
         /// Sends the local client's public RSA key to the server for distribution.
-        /// Builds a framed packet with opcode, origin UID, DER key, and requester UID (origin as requester in solo).
+        /// Builds a framed packet with opcode, origin UID, DER key, and requester UID.
+        /// • In normal publish: requesterUid == senderUid (self).
+        /// • In response to a PublicKeyRequest: requesterUid == the peer who requested the key.
         /// Ensures payload is never null and triggers readiness re-evaluation.
         /// </summary>
-        public async Task<bool> SendPublicKeyToServerAsync(Guid senderUid, byte[] publicKeyDer, CancellationToken cancellationToken)
+        /// <param name="senderUid">The UID of the local client (origin of the key).</param>
+        /// <param name="publicKeyDer">The RSA public key in DER format (may be empty).</param>
+        /// <param name="requesterUid">The UID of the client requesting the key (or self in solo publish).</param>
+        /// <param name="cancellationToken">Cancellation token for async operations.</param>
+        public async Task<bool> SendPublicKeyToServerAsync(Guid senderUid, byte[] publicKeyDer, Guid requesterUid, CancellationToken cancellationToken)
         {
             /// <summary> Validates connection early. </summary>
             if (_tcpClient?.Client == null || !_tcpClient.Connected)
@@ -1390,14 +1417,16 @@ namespace chat_client.Net
                 /// <summary> Ensures payload is non-null; empty array means "clear mode". </summary>
                 var payloadKey = publicKeyDer ?? Array.Empty<byte>();
 
-                /// <summary> Builds the packet with required fields: opcode, origin UID, DER key, requester UID. </summary>
+                /// <summary>
+                /// Builds the packet with required fields: opcode, origin UID, DER key, requester UID.
+                /// </summary>
                 var publicKeyPacket = new PacketBuilder();
                 publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
-                publicKeyPacket.WriteUid(senderUid);                  // origin UID
-                publicKeyPacket.WriteBytesWithLength(payloadKey);     // DER-encoded key
-                publicKeyPacket.WriteUid(senderUid);                  // requester UID (self in solo, valid in multi publish)
+                publicKeyPacket.WriteUid(senderUid);              // origin UID (owner of the key)
+                publicKeyPacket.WriteBytesWithLength(payloadKey); // DER-encoded key
+                publicKeyPacket.WriteUid(requesterUid);           // requester UID (peer or self)
 
-                ClientLogger.Log($"Sending public key — UID: {senderUid}, Key length: {payloadKey.Length}", ClientLogLevel.Debug);
+                ClientLogger.Log($"Sending public key — origin={senderUid}, requester={requesterUid}, Key length={payloadKey.Length}", ClientLogLevel.Debug);
 
                 /// <summary> Sends the raw payload via unified sender. </summary>
                 await SendFramedAsync(publicKeyPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
@@ -1408,17 +1437,17 @@ namespace chat_client.Net
                 _viewModel?.ReevaluateEncryptionStateFromConnection();
                 return true;
             }
-            catch (OperationCanceledException) 
-            { 
-                throw; 
+            catch (OperationCanceledException)
+            {
+                throw;
             }
-
             catch (Exception ex)
             {
                 ClientLogger.Log($"Public key send failed: {ex.Message}", ClientLogLevel.Error);
                 return false;
             }
         }
+
 
         /// <summary>
         /// Builds and sends a PublicKeyRequest packet to the server asynchronously.

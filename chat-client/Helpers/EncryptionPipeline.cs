@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 4th, 2025</date>
+/// <date>December 6th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
@@ -314,7 +314,8 @@ namespace chat_client.Helpers
                 && _viewModel.LocalUser.PublicKeyDer?.Length > 0  && _viewModel.Users.Count > 1)
             {
                 bool sentPublicKeyToServer = await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID,
-                    _viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>(), cancellationToken).ConfigureAwait(false);
+                _viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>(), _viewModel.LocalUser.UID, 
+                cancellationToken).ConfigureAwait(false);
 
                 if (sentPublicKeyToServer)
                 {
@@ -545,7 +546,8 @@ namespace chat_client.Helpers
                     ClientLogger.Log("Local public key not initialized — sending empty payload (clear mode).", ClientLogLevel.Warn);
                 }
 
-                await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID, localKey, cancellationToken);
+                await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID, localKey, _viewModel.LocalUser.UID,
+                    cancellationToken).ConfigureAwait(false);
 
                 /// <summary> Identifies peers whose public keys are missing. </summary>
                 List<Guid> missingKeys;

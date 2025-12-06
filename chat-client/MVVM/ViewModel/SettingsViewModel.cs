@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 4th, 2025</date>
+/// <date>December 6th, 2025</date>
 
 
 // The System.ComponentModel namespace enables WPF to track property changes

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 4th, 2025</date>
+/// <date>December 6th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -444,7 +444,8 @@ namespace chat_client.MVVM.ViewModel
 
                         /// <summary> Publishes the local public key to the server </summary>
                         ClientLogger.Log("Sending public key to server...", ClientLogLevel.Debug);
-                        await _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer, cancellationToken).ConfigureAwait(false);
+                        await _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer,
+                        LocalUser.UID, cancellationToken).ConfigureAwait(false);
                         ClientLogger.Log("SendPublicKeyToServerAsync completed", ClientLogLevel.Debug);
 
                         /// <summary> Initializes local encryption context </summary>
