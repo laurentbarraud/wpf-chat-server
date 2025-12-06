@@ -147,12 +147,12 @@ namespace chat_server
         /// • Ensures any previous connection CTS is disposed to avoid resource leaks.
         /// </summary>
 
-        internal void InitializeAfterHandshake(string username, Guid uid, byte[] publicKeyDer, CancellationToken serverToken = default)
+        internal void InitializeAfterHandshake(string username, Guid uid, byte[] publicKey, CancellationToken serverToken = default)
         {
             // Populates handshake-derived state
             Username = username ?? string.Empty;
             UID = uid;
-            PublicKeyDer = publicKeyDer ?? Array.Empty<byte>();
+            PublicKeyDer = publicKey ?? Array.Empty<byte>();
             _handshakeProcessed = true;
 
             // Disposes any existing per-connection CTS and create a new linked CTS with the server token.
@@ -289,14 +289,14 @@ namespace chat_server
                                 {
                                     /// <summary> Reads origin UID, DER key, and requester UID from the packet. </summary>
                                     var originUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    var publicKeyDer = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
+                                    var publicKey = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
                                     var requesterUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
                                     /// <summary> Updates the origin user's public key in the in-memory roster (if present). </summary>
                                     var origin = Program.Users.FirstOrDefault(u => u.UID == originUid);
                                     if (origin != null)
                                     {
-                                        origin.PublicKeyDer = publicKeyDer ?? Array.Empty<byte>();
+                                        origin.PublicKeyDer = publicKey ?? Array.Empty<byte>();
                                         ServerLogger.Log($"Registered/updated public key for {origin?.Username ?? "<unknown>"}", ServerLogLevel.Info);
 
                                     }
@@ -308,7 +308,7 @@ namespace chat_server
                                     /// <summary>
                                     /// Relays origin's public key to requester using centralized helper.
                                     /// </summary>
-                                    await Program.RelayPublicKeyToUser(originUid, publicKeyDer ?? Array.Empty<byte>(), 
+                                    await Program.RelayPublicKeyToUser(originUid, publicKey ?? Array.Empty<byte>(), 
                                         requesterUid, cancellationToken).ConfigureAwait(false);
 
                                     break;
@@ -329,26 +329,29 @@ namespace chat_server
 
                             case ServerPacketOpCode.EncryptedMessage:
                                 {
-                                    // Reads sender UID, recipient UID (ignored in broadcast mode), and ciphertext.
+                                    /// <summary> Reads sender UID, recipient UID (ignored in broadcast mode), and ciphertext. </summary>
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
 
-                                    // Validates ciphertext presence.
+                                    /// <summary> Validates ciphertext presence. </summary>
                                     if (ciphertext == null || ciphertext.Length == 0)
                                     {
                                         ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username);
                                         break;
                                     }
 
-                                    // Logs reception of encrypted message.
                                     ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, ciphertext.Length.ToString());
 
-                                    // Relays the encrypted message to all connected users, including the sender.
-                                    // Each recipient receives a packet encrypted with their own public key.
+                                    /// <summary>
+                                    /// Broadcast loop : relays the encrypted message to all connected users,
+                                    /// including the sender.
+                                    /// Each recipient receives the ciphertext prepared by the client.
+                                    /// </summary>
                                     foreach (var user in Program.Users.ToList())
                                     {
-                                        await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, user.UID, cancellationToken).ConfigureAwait(false);
+                                        await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, user.UID, 
+                                            cancellationToken).ConfigureAwait(false);
                                     }
                                     break;
                                 }
