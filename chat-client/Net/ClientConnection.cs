@@ -1174,6 +1174,8 @@ namespace chat_client.Net
                 return false;
 
             Guid senderUid = _viewModel.LocalUser.UID;
+            
+            /// <summary> Collects all users except the sender as recipients. </summary>
             var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
             bool isEncryptionReady = (_viewModel?.EncryptionPipeline?.IsEncryptionReady == true);
             bool messageSent = false;
@@ -1210,6 +1212,26 @@ namespace chat_client.Net
 
                 await SendFramedAsync(plainPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                 messageSent = true;
+            }
+
+            /// <summary>
+            /// Also send a self-copy encrypted with sender's own public key,
+            /// so local echo can be decrypted.
+            /// </summary>
+            if (isEncryptionReady && _viewModel?.LocalUser.PublicKeyDer?.Length > 0)
+            {
+                var selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
+                if (selfCipher != null && selfCipher.Length > 0)
+                {
+                    var selfPacket = new PacketBuilder();
+                    selfPacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                    selfPacket.WriteUid(senderUid);
+                    selfPacket.WriteUid(senderUid);
+                    selfPacket.WriteBytesWithLength(selfCipher);
+
+                    await SendFramedAsync(selfPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                    messageSent = true;
+                }
             }
 
             /// <summary> Solo mode (loopback). </summary>
