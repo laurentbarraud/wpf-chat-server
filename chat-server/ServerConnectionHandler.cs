@@ -329,19 +329,27 @@ namespace chat_server
 
                             case ServerPacketOpCode.EncryptedMessage:
                                 {
+                                    // Reads sender UID, recipient UID (ignored in broadcast mode), and ciphertext.
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
 
+                                    // Validates ciphertext presence.
                                     if (ciphertext == null || ciphertext.Length == 0)
                                     {
                                         ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username);
                                         break;
                                     }
 
+                                    // Logs reception of encrypted message.
                                     ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, ciphertext.Length.ToString());
 
-                                    await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken).ConfigureAwait(false);
+                                    // Relays the encrypted message to all connected users, including the sender.
+                                    // Each recipient receives a packet encrypted with their own public key.
+                                    foreach (var user in Program.Users.ToList())
+                                    {
+                                        await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, user.UID, cancellationToken).ConfigureAwait(false);
+                                    }
                                     break;
                                 }
 

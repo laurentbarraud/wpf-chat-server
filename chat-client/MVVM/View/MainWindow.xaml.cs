@@ -171,7 +171,7 @@ namespace chat_client
                     imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr.png", UriKind.Relative));
                 }
             }
-            else if (lang == "en")
+            else
             {
                 if (theme == "dark")
                 {
