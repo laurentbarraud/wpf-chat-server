@@ -298,4 +298,7 @@ Exemple :
   <data name="ServerPrefix" xml:space="preserve">
     <value># - Serveur:</value>
   </data>
+  <data name="ErrorOpeningSystemInfo" xml:space="preserve">
+    <value>Impossible d'ouvrir les informations système :</value>
+  </data>
 </root>

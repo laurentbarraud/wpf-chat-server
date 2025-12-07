@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 6th, 2025</date>
+/// <date>December 7th, 2025</date>
 
 using chat_client.Helpers;
 using System;
@@ -33,6 +33,28 @@ namespace chat_client.View
         private void CmdOk_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void CmdSystemInfo_Click(object sender, RoutedEventArgs e)
+        {
+            /// <summary> 
+            /// Launches Windows System Information (msinfo32).
+            /// The UseShellExecute = true option ensures that the process is started 
+            /// via the Windows shell, which is compatible with all versions.
+            /// </summary>
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "msinfo32.exe",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(LocalizationManager.GetString("ErrorOpeningSystemInfo") + " " + ex.Message);
+            }
+
         }
 
         /// <summary>

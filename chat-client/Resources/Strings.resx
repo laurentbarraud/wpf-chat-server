@@ -297,4 +297,7 @@ Example:
   <data name="ServerPrefix" xml:space="preserve">
     <value># - Server:</value>
   </data>
+  <data name="ErrorOpeningSystemInfo" xml:space="preserve">
+    <value>Unable to open system informations :</value>
+  </data>
 </root>

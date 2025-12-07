@@ -68,54 +68,47 @@
                        VerticalAlignment="Bottom"
                        TextWrapping="Wrap" Width="388" LineHeight="1" />
         </Grid>
+        
         <!-- Bottom panel -->
         <DockPanel Grid.Row="1"
-           Background="Black"
-           LastChildFill="False"
-           VerticalAlignment="Stretch">
+                   Background="Black"
+                   LastChildFill="False"
+                   VerticalAlignment="Stretch">
+            <Label x:Name="CliArgumentsLabel"
+                   FontSize="13"
+                   Foreground="WhiteSmoke"
+                   Background="Transparent"
+                   Style="{StaticResource InteractiveTextBlockStyle}"
+                   Cursor="Hand"
+                   Content="{Binding CliArgumentsText}"
+                   Margin="10,0,0,0"
+                   VerticalAlignment="Center"
+                   TabIndex="0"
+                   MouseDown="CliTextBlock_MouseDown"/>
 
-            <StackPanel Orientation="Horizontal"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Left"
-                Margin="20,0,0,0"
-                DockPanel.Dock="Left">
-
-                <Label x:Name="CliArgumentsLabel"
-               FontSize="12"
-               Foreground="WhiteSmoke"
-               Background="Transparent"
-               Style="{StaticResource InteractiveTextBlockStyle}"
-               Cursor="Hand"
-               Content="{Binding CliArgumentsText}"
-               VerticalAlignment="Center"
-               TabIndex="1"
-               MouseDown="CliTextBlock_MouseDown"/>
-
-                <Label x:Name="LicenceFinalLabel"
-               Content="{Binding LicenceFinal}"
-               FontSize="11"
-               VerticalAlignment="Center"
-               Margin="42,0,14,0"
-               Foreground="WhiteSmoke"
-               TabIndex="2"/>
-            </StackPanel>
+            <Label x:Name="LicenceFinalLabel"
+                   Content="{Binding LicenceFinal}"
+                   FontSize="11"
+                   VerticalAlignment="Center"
+                   Margin="14,0,14,0"
+                   Foreground="WhiteSmoke"
+                   TabIndex="1"/>
 
             <Button x:Name="CmdOk"
-            Content="Ok"
-            Width="90"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Center"
-            Margin="0,0,20,0"
-            HorizontalContentAlignment="Center"
-            VerticalContentAlignment="Center"
-            Padding="0"
-            Click="CmdOk_Click"
-            DockPanel.Dock="Right"
-            IsDefault="True"
-            IsCancel="True"
-            TabIndex="0" />
+                    Content="Ok"
+                    Width="90"
+                    Height="20"
+                    VerticalAlignment="Center"
+                    Margin="0,0,20,0"
+                    Padding="0"
+                    Click="CmdOk_Click"
+                    DockPanel.Dock="Right"
+                    IsDefault="True"
+                    IsCancel="True"
+                    TabIndex="3"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"/>
         </DockPanel>
-
     </Grid>
 
 </Window>

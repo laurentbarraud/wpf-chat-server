@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 6th, 2025</date>
+/// <date>December 7th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -329,7 +329,7 @@ namespace chat_server
 
                             case ServerPacketOpCode.EncryptedMessage:
                                 {
-                                    /// <summary> Reads sender UID, recipient UID (ignored in broadcast mode), and ciphertext. </summary>
+                                    /// <summary> Reads sender UID, recipient UID, and ciphertext. </summary>
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
@@ -344,15 +344,11 @@ namespace chat_server
                                     ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, ciphertext.Length.ToString());
 
                                     /// <summary>
-                                    /// Broadcast loop : relays the encrypted message to all connected users,
-                                    /// including the sender.
-                                    /// Each recipient receives the ciphertext prepared by the client.
+                                    /// Relay only to the intended recipient
                                     /// </summary>
-                                    foreach (var user in Program.Users.ToList())
-                                    {
-                                        await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, user.UID, 
-                                            cancellationToken).ConfigureAwait(false);
-                                    }
+                                    await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken)
+                                        .ConfigureAwait(false);
+
                                     break;
                                 }
 
