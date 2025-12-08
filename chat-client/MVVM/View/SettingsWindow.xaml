@@ -328,31 +328,44 @@
                 <!-- UpdateSourceTrigger=PropertyChanged: immediately pushes toggle state changes
                 to the ViewModel as soon as the toggle state changes, not only when focus is lost.-->
             </Grid>
-
+            
             <!-- Row 4: App Language -->
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <!-- Label -->
                     <ColumnDefinition Width="Auto" />
+                    <!-- Icon -->
+                    <ColumnDefinition Width="Auto" />
+                    <!-- ComboBox -->
                 </Grid.ColumnDefinitions>
 
+                <Image x:Name="LanguageSelectionIcon"
+                      Grid.Column="0"
+                      Width="30"
+                      Height="30"
+                      Margin="4,0,2,0"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Source="/Resources/language-selection.png" />
+
                 <Label x:Name="LabelAppLanguage"
-           Grid.Column="0"
-           VerticalAlignment="Center"
-           Foreground="{DynamicResource ForegroundBrush}"
-           Content="App language"
-           TabIndex="9" />
+                       Grid.Column="1"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ForegroundBrush}"
+                       Content="{Binding LocalizedAppLanguageLabel}"
+                       TabIndex="9" />
 
-                <ComboBox x:Name="LanguageComboBox"
-              Grid.Column="1"
-              Width="124"
-              Margin="20,0,0,0"
-              ItemsSource="{Binding SupportedLanguages}"
-              SelectedValuePath="LanguageCode"
-              SelectedValue="{Binding AppLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-              TabIndex="4">
+                 <ComboBox x:Name="LanguageComboBox"
+                          Grid.Column="2"
+                          Width="124"
+                          Margin="2,0,0,0"
+                          ItemsSource="{Binding SupportedLanguages}"
+                          SelectedValuePath="LanguageCode"
+                          SelectedValue="{Binding AppLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          TabIndex="4">
 
-                    <!-- Local style for ComboBoxItem: brushes, padding & fixed alignment -->
+                    <!-- Local style for ComboBoxItem -->
                     <ComboBox.ItemContainerStyle>
                         <Style TargetType="{x:Type ComboBoxItem}">
                             <Setter Property="Background"                 Value="{DynamicResource BackgroundBrush}" />
@@ -373,19 +386,31 @@
                         </Style>
                     </ComboBox.ItemContainerStyle>
 
-                    <!-- Display flag icon + localized language name -->
+                    <!-- Displays flag icon + localized language name -->
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
                                 <Image Source="{Binding FlagPath}"
-                           Width="20"
-                           Height="15"
-                           Margin="0,0,5,0" />
+                                       Width="20"
+                                       Height="15"
+                                       Margin="0,0,5,0" />
                                 <TextBlock Text="{Binding DisplayName}" />
                             </StackPanel>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
+
+                <!-- Style trigger: centers the bloc if app language code = fr -->
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding AppLanguage}" Value="fr">
+                                <Setter Property="HorizontalAlignment" Value="Center"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
             </Grid>
         </StackPanel>
 

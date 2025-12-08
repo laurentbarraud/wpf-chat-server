@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 7th, 2025</date>
+/// <date>December 8th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -598,8 +598,7 @@ namespace chat_client.MVVM.ViewModel
         /// <param name="rosterEntries">
         /// The complete list of connected users as tuples of (UserId, Username, PublicKeyDer).
         /// </param>
-        public void DisplayRosterSnapshot(
-            IEnumerable<(Guid UserId, string Username, byte[] PublicKeyDer)> rosterEntries)
+        public void DisplayRosterSnapshot(IEnumerable<(Guid UserId, string Username, byte[] PublicKeyDer)> rosterEntries)
         {
             // Materializes incoming roster for multiple passes
             var incomingSnapshot = rosterEntries
@@ -812,19 +811,9 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Handles a received public-key event from a peer.
+        /// Ensures dictionary update and triggers re-evaluation.
+        /// Also broadcasts the new key to other peers and requests missing keys.
         /// </summary>
-        /// <param name="senderUid">
-        /// The UID of the peer who provided the public key.
-        /// </param>
-        /// <param name="publicKeyDer">
-        /// The RSA public key as a DER-encoded byte array (may be empty).
-        /// </param>
-        /// <remarks>
-        /// • Accepts null or empty keys (treated as clear mode).  
-        /// • Updates the KnownPublicKeys dictionary in a thread-safe manner.  
-        /// • Calls pipeline re-evaluation via ViewModel helper to refresh readiness/UI.  
-        /// • Ignores self-echo packets (originUid == LocalUser.UID).  
-        /// </remarks>
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
         {
             bool isNewOrUpdatedKey = false;
@@ -843,13 +832,12 @@ namespace chat_client.MVVM.ViewModel
             /// </summary>
             if (senderUid == LocalUser.UID)
             {
-                ClientLogger.Log($"Public key echo for {LocalUser.Username}; ignoring.", ClientLogLevel.Debug);
                 return;
             }
 
             /// <summary>
-            /// Protects KnownPublicKeys dictionary from concurrent writes.
-            /// Updates or registers the key for the given sender UID.
+            /// Protects KnownPublicKeys dictionary with a lock to ensure thread safety.
+            /// Updates or registers the key depending on whether it already exists.
             /// </summary>
             lock (EncryptionPipeline.KnownPublicKeys)
             {
@@ -892,22 +880,44 @@ namespace chat_client.MVVM.ViewModel
                 }
             }
 
-            /// <summary>
-            /// Triggers pipeline re-evaluation and raise UI property change notifications.
-            /// Ensures encryption readiness state is recalculated after key update.
-            /// </summary>
-            ReevaluateEncryptionStateFromConnection();
+            if (isNewOrUpdatedKey)
+            {
+                /// <summary>
+                /// Broadcasts the new key to all peers:
+                /// - Sends our local key to each peer (so they can encrypt for us).
+                /// - Sends each peer's key to the new sender (so it can encrypt for them).
+                /// This ensures symmetric distribution of keys across all clients.
+                /// </summary>
+                foreach (var peer in Users.Where(u => u.UID != LocalUser.UID && u.UID != senderUid))
+                {
+                    // Sends our local key to existing peers
+                    _ = _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer!, peer.UID, CancellationToken.None);
 
-            /// <summary>
-            /// Log encryption readiness state after key update.
-            /// </summary>
-            if (isNewOrUpdatedKey && EncryptionPipeline.IsEncryptionReady)
-            {
-                ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.", ClientLogLevel.Debug);
-            }
-            else if (isNewOrUpdatedKey && !EncryptionPipeline.IsEncryptionReady)
-            {
-                ClientLogger.Log("Key registered/updated, but encryption not ready yet — waiting for remaining peers.", ClientLogLevel.Debug);
+                    // Sends each peer's key to the new client
+                    if (EncryptionPipeline.KnownPublicKeys.TryGetValue(peer.UID, out var peerKey))
+                    {
+                        _ = _clientConn.SendPublicKeyToServerAsync(peer.UID, peerKey, senderUid, CancellationToken.None);
+                    }
+                }
+
+                /// <summary>
+                /// Re-evaluates encryption state after key distribution.
+                /// Ensures that EncryptionReady is only set when all peer keys are present.
+                /// </summary>
+                ReevaluateEncryptionStateFromConnection();
+
+                /// <summary>
+                /// Logs encryption readiness state after key update.
+                /// Helps diagnose whether all keys are present or still missing.
+                /// </summary>
+                if (EncryptionPipeline.IsEncryptionReady)
+                {
+                    ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.", ClientLogLevel.Debug);
+                }
+                else
+                {
+                    ClientLogger.Log("Key registered/updated, but encryption not ready yet — waiting for remaining peers.", ClientLogLevel.Debug);
+                }
             }
         }
 

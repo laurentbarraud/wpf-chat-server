@@ -28,6 +28,7 @@
     <None Remove="Resources\chat-client-icon.ico" />
     <None Remove="Resources\encrypted.png" />
     <None Remove="Resources\greendot.png" />
+    <None Remove="Resources\language-selection.png" />
     <None Remove="Resources\left-arrow.png" />
     <None Remove="Resources\moon.png" />
     <None Remove="Resources\port-setting.png" />
@@ -57,6 +58,7 @@
     <Resource Include="Resources\AboutWireframeOverlay.png" />
     <Resource Include="Resources\calc-icon.ico" />
     <Resource Include="Resources\chat-client-icon.ico" />
+    <Resource Include="Resources\language-selection.png" />
     <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />

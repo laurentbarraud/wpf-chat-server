@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 7th, 2025</date>
+/// <date>December 8th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -190,13 +190,13 @@ namespace chat_server
             Guid disconnectedGuid = disconnectedUserId;
 
             // Snapshots current users
-            var snapshot = Users.ToList();
+            var snapshotUsers = Users.ToList();
 
             /// <summary>
             /// FirstOrDefault returns a nullable Client if no match is found,
             /// so we declare goneUser as Client? to reflect that.
             /// </summary>
-            ServerConnectionHandler? goneUser = snapshot.FirstOrDefault(u => u.UID == disconnectedGuid);
+            ServerConnectionHandler? goneUser = snapshotUsers.FirstOrDefault(u => u.UID == disconnectedGuid);
 
             /// <summary>
             /// Safely guards the removal logic
@@ -217,7 +217,7 @@ namespace chat_server
             /// </summary>
             var sendTasks = new List<Task>();
 
-            foreach (var listener in snapshot)
+            foreach (var listener in snapshotUsers)
             {
                 if (!listener.ClientSocket.Connected)
                     continue;
@@ -326,16 +326,16 @@ namespace chat_server
         public static async Task BroadcastRosterAsync(CancellationToken cancellationToken = default)
         {
             ///<summary> Snapshots current users <summary>
-            var snapshot = Users.ToList();
+            var snapshotUsers = Users.ToList();
 
             /// <summary> Builds the roster payload <summary>
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)ServerPacketOpCode.RosterBroadcast);
 
             /// <summary> Writes roster count as 4-byte big-endian Int32 </summary>
-            builder.WriteInt32NetworkOrder(snapshot.Count);
+            builder.WriteInt32NetworkOrder(snapshotUsers.Count);
 
-            foreach (var target in snapshot)
+            foreach (var target in snapshotUsers)
             {
                 builder.WriteUid(target.UID);
                 builder.WriteString(target.Username);
@@ -349,8 +349,8 @@ namespace chat_server
             ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             /// <summary> Launches send tasks for all recipients </summary>
-            var sendTasks = new List<Task>(snapshot.Count);
-            foreach (var recipient in snapshot)
+            var sendTasks = new List<Task>(snapshotUsers.Count);
+            foreach (var recipient in snapshotUsers)
             {
                 var task = Task.Run(async () =>
                 {
@@ -405,11 +405,11 @@ namespace chat_server
         public static async Task BroadcastPlainMessage(string messageText, Guid senderUid, CancellationToken cancellationToken)
         {
             // Snapshots current users
-            var snapshot = Users.ToList();
+            var snapshotUsers = Users.ToList();
 
-            var sendTasks = new List<Task>(snapshot.Count);
+            var sendTasks = new List<Task>(snapshotUsers.Count);
 
-            foreach (var target in snapshot)
+            foreach (var target in snapshotUsers)
             {
                 if (!target.ClientSocket.Connected)
                     continue;
@@ -615,8 +615,8 @@ namespace chat_server
         public static async Task RelayPublicKeyRequest(Guid requesterUid, Guid targetUid, CancellationToken cancellationToken)
         {
             /// <summary> Takes a snapshot of connected users and locates the target by UID. </summary>
-            var snapshot = Users.ToList();
-            var target = snapshot.FirstOrDefault(u => u.UID == targetUid);
+            var snapshotUsers = Users.ToList();
+            var target = snapshotUsers.FirstOrDefault(u => u.UID == targetUid);
 
             /// <summary> Aborts if target socket is not connected. </summary>
             if (target?.ClientSocket?.Connected != true)
@@ -667,8 +667,8 @@ namespace chat_server
             CancellationToken cancellationToken)
         {
             /// <summary> Snapshots user list to avoid collection-modification issues. </summary>
-            var snapshot = Users.ToList();
-            var target = snapshot.FirstOrDefault(usr => usr.UID == requesterUid);
+            var snapshotUsers = Users.ToList();
+            var target = snapshotUsers.FirstOrDefault(usr => usr.UID == requesterUid);
 
             /// <summary> Validates requester connection. </summary>
             if (target == null || target.ClientSocket?.Connected != true)
