@@ -592,12 +592,14 @@
                                  VerticalAlignment="Stretch"
                                  VerticalContentAlignment="Center"
                                  Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged}"
+                                 PreviewKeyDown="TxtMessageToSend_PreviewKeyDown"
                                  BorderThickness="0"
                                  Padding="0,0,40,0"/>
 
                         <!-- Send button -->
                         <Button x:Name="CmdSend"
                                 Grid.Column="1"
+                                Click="CmdSend_Click"
                                 Width="40"
                                 Height="32"
                                 Background="Transparent"
