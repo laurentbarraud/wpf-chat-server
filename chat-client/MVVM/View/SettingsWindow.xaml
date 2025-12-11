@@ -328,9 +328,15 @@
                 <!-- UpdateSourceTrigger=PropertyChanged: immediately pushes toggle state changes
                 to the ViewModel as soon as the toggle state changes, not only when focus is lost.-->
             </Grid>
-            
+
+            <!-- Thin horizontal separator with light gray and reduced opacity -->
+            <Border Height="1"
+                    Margin="0,0,0,16"
+                    Background="LightGray"
+                    Opacity="0.4" />
+
             <!-- Row 4: App Language -->
-            <Grid Margin="0,0,0,12">
+            <Grid Margin="0,0,0,20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <!-- Label -->
@@ -353,7 +359,7 @@
                        Grid.Column="1"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ForegroundBrush}"
-                       Content="{Binding LocalizedAppLanguageLabel}"
+                       Content="{Binding AppLanguage}"
                        TabIndex="9" />
 
                  <ComboBox x:Name="LanguageComboBox"
@@ -421,7 +427,7 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
                 Background="{DynamicResource AccentBrush}"
-                Margin="0,12,0,0"
+                Margin="0,8,0,0"
                 ToolTip="Done"
                 IsDefault="True"
                 IsCancel="True"
@@ -434,7 +440,7 @@
         <TextBlock x:Name="AboutTextBlock"
            Grid.Row="2"
            HorizontalAlignment="Center"
-           Margin="0,0,0,-50"
+           Margin="0,0,0,-30"
            Foreground="{DynamicResource ForegroundBrush}"
            Background="{DynamicResource BackgroundBrush}"
            Cursor="Hand"

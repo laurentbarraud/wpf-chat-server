@@ -1,7 +1,7 @@
 ﻿/// <file>ClientLogger.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 8th, 2025</date>
+/// <date>December 10th, 2025</date>
 
 namespace chat_client.Helpers
 {

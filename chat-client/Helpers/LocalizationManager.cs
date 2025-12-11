@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 8th, 2025</date>
+/// <date>December 10th, 2025</date>
 
 using System;
 using System.Resources;
@@ -118,8 +118,8 @@ namespace chat_client.Helpers
                     settingsWindow.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
                     settingsWindow.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
                     settingsWindow.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
-                    settingsWindow.LabelAppLanguage.Content = GetString("AppLanguageLabel");
-                    settingsWindow.AboutTextBlock.Text = GetString("About");
+                    settingsWindow.LabelAppLanguage.Content = GetString("AppLanguage");
+                    settingsWindow.AboutTextBlock.Text = GetString("AboutThisSoftware");
                     settingsWindow.LanguageComboBox.Items.Refresh();
                 }
                 else if (window is MainWindow mainWindow)

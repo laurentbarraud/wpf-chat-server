@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 8th, 2025</date>
+/// <date>December 10th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -310,41 +310,44 @@ namespace chat_server
                                 {
                                     /// <summary>
                                     /// Reads origin UID, DER key, and requester UID from the packet.
-                                    /// • originUid: owner of the public key being registered/updated
+                                    /// • originUserKeyUid: owner of the public key being registered/updated
                                     /// • publicKey: DER-encoded RSA public key (may be empty for "clear mode")
-                                    /// • requesterUid: target user who requested this key
+                                    /// • publicKeyRequesterUid: target user who requested this key
                                     /// </summary>
-                                    var originUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    var requesterUserPublicKeyUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     var publicKey = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
-                                    var requesterUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    var publicKeyRequesterUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
                                     /// <summary>
                                     /// Updates the origin user's public key in the in-memory roster (if present).
                                     /// This keeps the server-side snapshot consistent for subsequent broadcasts.
                                     /// </summary>
-                                    var origin = Program.Users.FirstOrDefault(u => u.UID == originUid);
-                                    if (origin != null)
+                                    var requesterUser = Program.Users.FirstOrDefault(u => u.UID == requesterUserPublicKeyUid);
+                                    
+                                    if (requesterUser != null)
                                     {
-                                        origin.PublicKeyDer = publicKey ?? Array.Empty<byte>();
-                                        ServerLogger.Log($"Registered/updated public key for {origin?.Username ?? "<unknown>"}", ServerLogLevel.Info);
+                                        requesterUser.PublicKeyDer = publicKey ?? Array.Empty<byte>();
+                                        ServerLogger.Log($"Registered/updated public key for {requesterUser?.Username ?? "<unknown>"}", ServerLogLevel.Info);
                                     }
                                     else
                                     {
-                                        ServerLogger.Log($"Origin user {originUid} not found in roster; proceeding to relay.", ServerLogLevel.Warn);
+                                        ServerLogger.Log($"Origin user {requesterUserPublicKeyUid} not found in roster; proceeding to relay.", ServerLogLevel.Warn);
                                     }
 
-                                    /// <summary> Relays origin's public key to the requester using the centralized helper. </summary>
-                                    await Program.RelayPublicKeyToUser(originUid, publicKey ?? Array.Empty<byte>(), 
-                                        requesterUid, cancellationToken).ConfigureAwait(false);
+                                    /// <summary>
+                                    /// Relays origin's public key to the requester using the centralized helper.
+                                    /// Ensures the requester receives exactly one consistent packet.
+                                    /// </summary>
+                                    await Program.RelayPublicKeyToUser(requesterUserPublicKeyUid, publicKey ?? Array.Empty<byte>(),
+                                        publicKeyRequesterUid, cancellationToken).ConfigureAwait(false);
 
                                     /// <summary>
-                                    /// Broadcasts the newly registered/updated key to all other peers,
-                                    /// and sends each peer's existing key back to the origin user.
+                                    /// Broadcasts the newly registered/updated key to all other peers.
+                                    /// Also sends each peer's existing key back to the origin user.
                                     /// This ensures symmetric distribution so all clients can encrypt for one another.
                                     /// </summary>
-                                    await BroadcastNewPublicKey(originUid, publicKey ?? Array.Empty<byte>(),
+                                    await Program.BroadcastNewPublicKeyAsync(publicKey ?? Array.Empty<byte>(),
                                         cancellationToken).ConfigureAwait(false);
-
                                     break;
                                 }
 

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 8th, 2025</date>
+/// <date>December 10th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -13,11 +13,13 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics.Metrics;
 using System.IO;
+using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
@@ -45,10 +47,21 @@ namespace chat_client.MVVM.ViewModel
         private readonly HashSet<Guid> _uidsKeySentTo = new();
 
         /// <summary>
+        /// Backing field for the active client connection instance.
+        /// Manages the network session and exposes connection state.
+        /// </summary>
+        private ClientConnection _clientConn;
+
+        /// <summary>
         /// Atomic guard to ensure the client-side disconnect sequence runs only once.
         /// 0 = not running, 1 = already invoked.
         /// </summary>
         private int _clientDisconnecting = 0;
+
+        /// <summary>
+        /// Backing field that stores the default height value
+        /// </summary>
+        private int _emojiPanelHeight = 20;
 
         /// <summary>
         /// Ensures that encryption initialization runs only once per session.
@@ -79,7 +92,28 @@ namespace chat_client.MVVM.ViewModel
         /// Holds what the user types in the first textbox on top left of the MainWindow
         private string _username = string.Empty;
 
+        /// <summary>
+        /// Holds the current width of the MainWindow, used to compute layout‑dependent values.
+        /// </summary>
+        private int _windowWidth;
+
+        // PROTECTED METHODS
+
+        /// <summary>
+        /// Notifies UI bindings that a property value has changed, enabling automatic interface updates.
+        /// </summary>
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
         // PUBLIC PROPERTIES
+
+        /// <summary>
+        /// Gets the active client connection instance used by the ViewModel
+        /// to manage the network session and monitor connection state.
+        /// </summary>
+        public ClientConnection ClientConn => _clientConn;
 
         /// <summary>
         /// Gets whether the chat panels (SpnDown, SpnEmojiPanel) are visible.
@@ -94,10 +128,26 @@ namespace chat_client.MVVM.ViewModel
         public bool AreCredentialsEditable => !IsConnected;
 
         /// <summary>
+        /// Gets the reduced value of the current MainWindow width,
+        /// returned as a pixel value for proportional UI sizing.
+        /// </summary>
+        public int BrdMessageInputWidth => (int)Math.Round(WindowWidth * 0.7);
+
+        /// <summary>
         /// Connects or disconnects the client depending on the current connection state.
         /// Used by the main button and keyboard shortcuts.
         /// </summary>
         public RelayCommand ConnectDisconnectCommand { get; }
+        
+        /// <summary>
+        /// Gets the dynamic emoji button size, proportional to the popup width.
+        /// </summary>
+        public int EmojiButtonSize => (int)Math.Round((EmojiPopupWidth / 12.0) * 0.85);
+
+        /// <summary>
+        /// Gets the dynamic emoji font size, proportional to the button size.
+        /// </summary>
+        public double EmojiFontSize => EmojiButtonSize * 0.55;
 
         /// <summary>
         /// Declaring the list as public ensures it can be resolved by WPF's binding system,
@@ -110,6 +160,37 @@ namespace chat_client.MVVM.ViewModel
             "🍾", "🥳", "🍰", "🍱", "😁", "😇", "🤨", "🤷", "🤐", "😘", "❤️", "😲", "😬",
             "😷", "😴", "💤", "🔧", "🚗", "🏡", "☀️",  "🔥", "⭐", "🌟", "✨", "🌧️", "🕒"
         };
+
+        /// <summary>
+        /// Gets or sets the base height of the emoji panel.
+        /// This value defines the default vertical size of the popup
+        /// before any dynamic layout adjustments are applied.
+        /// </summary>
+        public int EmojiPanelHeight
+        {
+            get => _emojiPanelHeight;
+            set => _emojiPanelHeight = value;
+        }
+
+        /// <summary>
+        /// Gets the base height of the emoji popup, large enough
+        /// to display square emoji buttons without vertical compression.
+        /// </summary>
+        public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.3);
+
+        /// <summary>
+        /// Gets the dynamic width of the emoji popup,
+        /// computed as 90% of the message input field width.
+        /// This keeps the popup proportionally sized when the window is resized.
+        /// </summary>
+        public int EmojiPopupWidth => (int)Math.Round(BrdMessageInputWidth * 0.90);
+
+        /// <summary>
+        /// Gets the dynamic emoji size, computed as one thirty‑second
+        /// of the current emoji popup width.  
+        /// This keeps emojis proportionally scaled as the popup resizes.
+        /// </summary>
+        public double EmojiSize => EmojiPopupWidth / 32.0;
 
         /// <summary>
         /// Provides access to the encryption pipeline instance,
@@ -151,7 +232,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_isDarkTheme == value) return;
                 _isDarkTheme = value;
-                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsDarkTheme));
 
                 // Saves the new theme preference
                 Settings.Default.AppTheme = value ? "Dark" : "Light";
@@ -170,7 +251,7 @@ namespace chat_client.MVVM.ViewModel
 
         // What the user types in the textbox on bottom right
         // of the MainWindow in View gets stored in this property (bound in XAML).
-        public static string Message { get; set; } = string.Empty;
+        public static string MessageToSend { get; set; } = string.Empty;
 
         /// <summary>
         /// Represents a dynamic data collections that provides notification
@@ -183,8 +264,6 @@ namespace chat_client.MVVM.ViewModel
         /// Implements the INotifyPropertyChanged interface to support reactive updates in WPF.
         /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
-
-        public ClientConnection _clientConn;
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -248,15 +327,32 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public string WindowTitle =>
             "WPF chat client" + (IsConnected ? " – " + LocalizationManager.GetString("Connected") : "");
-      
-        // PROTECTED METHODS
 
         /// <summary>
-        /// Notifies UI bindings that a property value has changed, enabling automatic interface updates.
+        /// Gets or sets the current width of the MainWindow.  
+        /// This value is updated by the view and used to compute layout‑dependent properties.
         /// </summary>
-        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        public int WindowWidth
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            get => _windowWidth;
+            set
+            {
+                if (_windowWidth != value)
+                {
+                    _windowWidth = value;
+
+                    /// <summary> Notifies WindowWidth </summary >
+                    OnPropertyChanged();
+
+                    /// <summary> Notifies dependent properties </summary>
+                    OnPropertyChanged(nameof(BrdMessageInputWidth));
+                    OnPropertyChanged(nameof(EmojiButtonSize));
+                    OnPropertyChanged(nameof(EmojiFontSize));
+                    OnPropertyChanged(nameof(EmojiPopupHeight));
+                    OnPropertyChanged(nameof(EmojiPopupWidth));
+                    OnPropertyChanged(nameof(EmojiSize));
+                }
+            }
         }
 
         /// <summary>
@@ -271,15 +367,10 @@ namespace chat_client.MVVM.ViewModel
             Messages = new ObservableCollection<string>();
 
             /// <summary> Creates client connection with dispatcher callback and reference to this ViewModel </summary>
-            _clientConn = new ClientConnection(
-                action => Application.Current.Dispatcher.BeginInvoke(action),
-                this
-            );
+            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action), this);
 
             /// <summary> Creates encryption pipeline with ViewModel and client connection </summary>
-            EncryptionPipeline = new EncryptionPipeline(
-                this,
-                _clientConn,
+            EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action)
             );
 
@@ -310,14 +401,34 @@ namespace chat_client.MVVM.ViewModel
                 () => true
             );
 
-            /// <summary> Creates ThemeToggleCommand bound to UI toggle button </summary>
+            /// <summary>
+            /// Creates ThemeTogglandCommand, which is bound to the UI toggle button.
+            /// When executed, determines whether the dark theme is selected,
+            /// updates the application settings accordingly, persists the choice,
+            /// and applies the selected theme using ThemeManager class.
+            /// </summary>
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
+                /// <summary>
+                /// Evaluates the toggle state parameter. 
+                /// If true, dark theme is selected; otherwise, light theme is applied.
+                /// </summary>
                 bool isDarkThemeSelected = param is bool toggleState && toggleState;
+                /// <remarks>
+                /// "param is bool toggleState" is a pattern matching (introduced in C# 7).
+                /// It tests if param is of type bool.
+                /// If yes, it assigns the param value to a new local variable toggleState (of type bool).
+                /// If not, the expression is false and toggleState is not initialized.
+                /// "&& toggleState" ensures "toggleState" is only evaluated if the type check succeeds.
+                /// </remarks>
 
+                /// <summary>
+                /// Updates the application theme setting ("Dark" or "Light") and saves it.
+                /// </summary>
                 Settings.Default.AppTheme = isDarkThemeSelected ? "Dark" : "Light";
                 Settings.Default.Save();
 
+                /// <summary> Applies the selected theme to the application./// </summary>
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 

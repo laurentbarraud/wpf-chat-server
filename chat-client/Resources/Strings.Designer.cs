@@ -63,9 +63,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à About this software.
         /// </summary>
-        public static string About {
+        public static string AboutThisSoftware {
             get {
-                return ResourceManager.GetString("About", resourceCulture);
+                return ResourceManager.GetString("AboutThisSoftware", resourceCulture);
             }
         }
         
@@ -81,9 +81,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à App language.
         /// </summary>
-        public static string AppLanguageLabel {
+        public static string AppLanguage {
             get {
-                return ResourceManager.GetString("AppLanguageLabel", resourceCulture);
+                return ResourceManager.GetString("AppLanguage", resourceCulture);
             }
         }
         
@@ -441,18 +441,18 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Scroll left.
         /// </summary>
-        public static string ScrollLeft {
+        public static string ScrollLeftToolTip {
             get {
-                return ResourceManager.GetString("ScrollLeft", resourceCulture);
+                return ResourceManager.GetString("ScrollLeftToolTip", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Scroll right.
         /// </summary>
-        public static string ScrollRight {
+        public static string ScrollRightToolTip {
             get {
-                return ResourceManager.GetString("ScrollRight", resourceCulture);
+                return ResourceManager.GetString("ScrollRightToolTip", resourceCulture);
             }
         }
         

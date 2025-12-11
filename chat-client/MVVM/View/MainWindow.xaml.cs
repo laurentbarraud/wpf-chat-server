@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 8th, 2025</date>
+/// <date>December 10th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -35,12 +35,7 @@ namespace chat_client
         /// Indicates whether the client is currently connected to the server.
         /// Uses null-conditional access to safely evaluate connection state. 
         /// </summary>
-        public bool IsConnected => ViewModel?._clientConn != null && ViewModel._clientConn.IsConnected;
-
-        /// <summary>
-        /// Height of the emoji panel
-        /// </summary>
-        public static double EmojiPanelHeight => 30;
+        public bool IsConnected => ViewModel?.ClientConn != null && ViewModel.ClientConn.IsConnected;
 
         /// <summary>
         /// Represents the tray menu item used to reopen the main application window.
@@ -84,30 +79,43 @@ namespace chat_client
         /// </summary>
         public MainWindow()
         {
-            // Load all XAML‐defined elements, styles, and resources
+            /// <summary> Loads all XAML‐defined elements, styles, and resources </summary>
             InitializeComponent();
 
-            // Instantiate and bind the view model
+            /// <summary> Instantiate and bind the view model </summary>
             ViewModel = new MainViewModel();
             DataContext = ViewModel;
 
-            // Auto‐scroll chat when new messages arrive
+            /// <summary> Updates ViewModel with window width </summary>
+            this.SizeChanged += (s, e) =>
+            {
+                if (DataContext is MainViewModel vm)
+                {
+                    vm.WindowWidth = (int)Math.Round(e.NewSize.Width);
+                }
+            };
+
+            /// <summary> Auto‐scrolls chat when new messages arrive </summary>
             ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
-           
-            // Setup the emoji panel placement logic
+
+            /// <summary> Setup the emoji panel placement logic <summary>
             AttachEmojiPanelCallback();
 
-            // Configure the auto‐scroll timer for the emoji panel
+            /// <summary> Configures the auto‐scroll timer for the emoji panel <summary>
             scrollTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(50)
             };
             scrollTimer.Tick += ScrollTimer_Tick;
 
-            // Assign WPF‐generated named elements to strongly‐typed fields
+            /// <summary> Assigns WPF‐generated named elements to localized keys <summary>
             trayIcon = (TaskbarIcon)FindName("TrayIcon");
             TrayMenuOpen = (MenuItem)FindName("TrayMenuOpen");
             TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
+
+            CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
+            CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftTooltip");
+            CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightTooltip");
         }
 
         /// <summary>
@@ -118,22 +126,18 @@ namespace chat_client
         /// </summary>
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // Restores last used IP address
+            /// <summary> Restores last used IP address </summary>
             TxtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
 
-            // Applies localization
+            /// <summary> Applies localization </summary>
             string languageSet = Properties.Settings.Default.AppLanguage;
             LocalizationManager.Initialize(languageSet);
             LocalizationManager.UpdateLocalizedUI();
 
-            CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
-
-            // Synchronizes theme toggle with saved preference
+            /// <summary> Synchronizes theme toggle with saved preference <summary>
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme?.ToLower() == "dark";
 
-            // Applies watermark visuals on startup
-            ApplyWatermarkImages();
-
+            ApplyWatermarkImages();     
             TxtUsername.Focus();
         }
 
@@ -155,25 +159,26 @@ namespace chat_client
         /// </summary>
         public void ApplyWatermarkImages()
         {
-            string lang = Properties.Settings.Default.AppLanguage;   // "fr" or "en"
-            string theme = Properties.Settings.Default.AppTheme;     // "light" or "dark"
+            string languageCodeToApply = Properties.Settings.Default.AppLanguage;   // "fr" or "en"
+            string themeToApply = Properties.Settings.Default.AppTheme;     // "light" or "dark"
 
-            if (lang == "fr")
+            if (languageCodeToApply == "fr")
             {
-                if (theme == "dark")
+                if (themeToApply == "dark")
                 {
                     imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr_dark.png", UriKind.Relative));
                     imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr_dark.png", UriKind.Relative));
                 }
-                else // light
+                else // default : light
                 {
                     imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr.png", UriKind.Relative));
                     imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr.png", UriKind.Relative));
                 }
             }
+            // default : english
             else
             {
-                if (theme == "dark")
+                if (themeToApply == "dark")
                 {
                     imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en_dark.png", UriKind.Relative));
                     imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en_dark.png", UriKind.Relative));
@@ -281,9 +286,9 @@ namespace chat_client
         {
             // Prevents sending if the message is empty, the socket is not connected,
             // or the handshake/establishment is not yet complete.
-            if (string.IsNullOrEmpty(MainViewModel.Message) ||
-                ViewModel._clientConn?.IsConnected != true ||
-                ViewModel._clientConn?.IsEstablished != true)
+            if (string.IsNullOrEmpty(MainViewModel.MessageToSend) ||
+                ViewModel.ClientConn?.IsConnected != true ||
+                ViewModel.ClientConn?.IsEstablished != true)
             {
                 ClientLogger.Log("Send blocked: connection not yet fully established", ClientLogLevel.Debug);
                 return;
@@ -291,10 +296,10 @@ namespace chat_client
 
             try
             {
-                string messageToSend = MainViewModel.Message;
+                string messageToSend = MainViewModel.MessageToSend;
 
                 // Awaits the unified send method; handles encryption internally if enabled.
-                bool success = await ViewModel._clientConn.SendMessageAsync(messageToSend, CancellationToken.None);
+                bool success = await ViewModel.ClientConn.SendMessageAsync(messageToSend, CancellationToken.None);
 
                 if (success)
                 {
@@ -351,21 +356,23 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Positions the emoji popup directly above the message input field.
+        /// Positions the emoji popup centered horizontally above the message input field.
         /// </summary>
-        /// <param name="popupSize">The size of the popup content.</param>
-        /// <param name="_unusedTargetSize">Unused.</param>
-        /// <param name="_unusedOffset">Unused.</param>
-        /// <returns>A single placement directly above the target.</returns>
-        /// Supprime l’avertissement de paramètre inutilisé
-        private static CustomPopupPlacement[] OnCustomPopupPlacement(Size popupSize, Size _unusedTargetSize, Point _unusedOffset)
+        private CustomPopupPlacement[] OnCustomPopupPlacement(Size popupSize, Size targetSize, Point _)
         {
-            double posX = 40;
+            // targetSize = size of TxtMessageToSend (PlacementTarget)
+            double targetWidth = targetSize.Width;
+
+            // Centers the popup over the input field
+            double posX = ((targetWidth - popupSize.Width) / 2) + 22;
+
+            // Places the popup above the input field
             double posY = -popupSize.Height;
+
             return new[]
             {
                 new CustomPopupPlacement(new Point(posX, posY), PopupPrimaryAxis.Horizontal)
-            };
+             };
         }
 
         public void DisposeTrayIcon()
@@ -481,9 +488,9 @@ namespace chat_client
         private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             // Scrolls to the last message when a new one is added
-            if (e.Action == NotifyCollectionChangedAction.Add && lstMessagesReceived.Items.Count > 0)
+            if (e.Action == NotifyCollectionChangedAction.Add && lstReceivedMessages.Items.Count > 0)
             {
-                lstMessagesReceived.ScrollIntoView(lstMessagesReceived.Items[lstMessagesReceived.Items.Count - 1]);
+                lstReceivedMessages.ScrollIntoView(lstReceivedMessages.Items[lstReceivedMessages.Items.Count - 1]);
             }
         }
 
@@ -531,12 +538,12 @@ namespace chat_client
             if (scrollDirection == -1)
             {
                 // Scroll left
-                emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset - 10);
+                emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset - 20);
             }
             else if (scrollDirection == 1)
             {
                 // Scroll right
-                emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset + 10);
+                emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset + 20);
             }
         }
 
@@ -604,7 +611,7 @@ namespace chat_client
 
         private void TxtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (TxtMessageToSend.Text == "" || ViewModel._clientConn.IsConnected == false)
+            if (TxtMessageToSend.Text == "" || ViewModel.ClientConn.IsConnected == false)
             {
                 CmdSend.IsEnabled = false;
             }

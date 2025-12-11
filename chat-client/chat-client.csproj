@@ -27,7 +27,6 @@
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\chat-client-icon.ico" />
     <None Remove="Resources\encrypted.png" />
-    <None Remove="Resources\greendot.png" />
     <None Remove="Resources\language-selection.png" />
     <None Remove="Resources\left-arrow.png" />
     <None Remove="Resources\moon.png" />
@@ -63,7 +62,6 @@
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />
     <Resource Include="Resources\french-flag.png" />
-    <Resource Include="Resources\greendot.png" />
     <Resource Include="Resources\left-arrow.png" />
     <Resource Include="Resources\moon.png" />
     <Resource Include="Resources\port-setting.png" />

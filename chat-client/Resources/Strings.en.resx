@@ -117,10 +117,10 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="About" xml:space="preserve">
+  <data name="AboutThisSoftware" xml:space="preserve">
     <value>About this software</value>
   </data>
-  <data name="AppLanguageLabel" xml:space="preserve">
+  <data name="AppLanguage" xml:space="preserve">
     <value>App language</value>
   </data>
   <data name="ChooseAnAppropriatePortNumber" xml:space="preserve">
@@ -225,10 +225,10 @@
   <data name="SendingPublicKey" xml:space="preserve">
     <value>Sending public key...</value>
   </data>
-  <data name="ScrollLeft" xml:space="preserve">
+  <data name="ScrollLeftToolTip" xml:space="preserve">
     <value>Scroll left</value>
   </data>
-  <data name="ScrollRight" xml:space="preserve">
+  <data name="ScrollRightToolTip" xml:space="preserve">
     <value>Scroll right</value>
   </data>
   <data name="CliOptionsHelpTitle" xml:space="preserve">
