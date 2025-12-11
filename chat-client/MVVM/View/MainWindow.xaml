@@ -102,7 +102,7 @@
     </Window.Resources>
 
     <Grid x:Name="GrdMain" Background="{DynamicResource BackgroundBrush}">
-        
+
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
@@ -688,42 +688,41 @@
                         Grid.Column="0"
                         Width="{Binding BrdMessageInputWidth}"
                         Height="{Binding MessageInputHeight}"
+                        HorizontalAlignment="Left"
                         VerticalAlignment="Bottom"
-                        HorizontalAlignment="Stretch"
                         Margin="0,0,0,2"
                         BorderBrush="{DynamicResource PrimaryBrush}"
-                        BorderThickness="1"
-                        Padding="0,0,6,0">
+                        BorderThickness="1">
 
-                    <Grid Margin="9,0,0,0">
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <!-- Text input -->
-
                         <TextBox x:Name="TxtMessageInput"
                                  Grid.Column="0"
+                                 Width="546" 
+                                 Height="{Binding MessageInputHeight}"
+                                 HorizontalAlignment="Left"  
+                                 VerticalContentAlignment="Center"
                                  Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="{Binding ConversationsAndConnectedUsersTextSize}"
-                                 Height="{Binding MessageInputHeight}"
-                                 VerticalAlignment="Stretch"
-                                 VerticalContentAlignment="Center"
                                  PreviewKeyDown="TxtMessageInput_PreviewKeyDown"
-                                 BorderThickness="0"
-                                 Padding="0,0,40,0"/>
+                                 BorderThickness="0" 
+                                 MaxLines="1000"/>
 
                         <!-- Send button -->
                         <Button x:Name="CmdSend"
-                        Grid.Column="1"
-                        Click="CmdSend_Click"
-                        Width="40"
-                        Height="32"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        HorizontalAlignment="Right"
-                        VerticalContentAlignment="Center">
+                                Grid.Column="1"
+                                Click="CmdSend_Click"
+                                Width="40"
+                                Height="32"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                HorizontalAlignment="Right"
+                                VerticalContentAlignment="Center">
                             <Image Source="/Resources/send.png"
                                    Width="18" Height="18"/>
                         </Button>
