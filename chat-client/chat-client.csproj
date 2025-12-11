@@ -24,16 +24,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="MVVM\View\MainWindow.xaml~RF15b5bf3.TMP" />
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\chat-client-icon.ico" />
     <None Remove="Resources\encrypted.png" />
+    <None Remove="Resources\font-size.png" />
     <None Remove="Resources\language-selection.png" />
     <None Remove="Resources\left-arrow.png" />
+    <None Remove="Resources\minus-rounded.png" />
     <None Remove="Resources\moon.png" />
+    <None Remove="Resources\plus-rounded.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
     <None Remove="Resources\reduce-to-tray-calc-icon.png" />
-    <None Remove="Resources\right-arrow-disabled.png" />
     <None Remove="Resources\right-arrow.png" />
     <None Remove="Resources\send.png" />
     <None Remove="Resources\settings.png" />
@@ -57,7 +60,10 @@
     <Resource Include="Resources\AboutWireframeOverlay.png" />
     <Resource Include="Resources\calc-icon.ico" />
     <Resource Include="Resources\chat-client-icon.ico" />
+    <Resource Include="Resources\font-size.png" />
     <Resource Include="Resources\language-selection.png" />
+    <Resource Include="Resources\minus-rounded.png" />
+    <Resource Include="Resources\plus-rounded.png" />
     <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />
@@ -67,7 +73,6 @@
     <Resource Include="Resources\port-setting.png" />
     <Resource Include="Resources\reddot.png" />
     <Resource Include="Resources\reduce-to-tray-calc-icon.png" />
-    <Resource Include="Resources\right-arrow-disabled.png" />
     <Resource Include="Resources\right-arrow.png" />
     <Resource Include="Resources\send.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>

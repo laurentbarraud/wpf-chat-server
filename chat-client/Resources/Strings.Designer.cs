@@ -178,6 +178,16 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Text size for conversations
+        ///and connected users list.
+        /// </summary>
+        public static string ConversationsAndConnectedUsersTextSize {
+            get {
+                return ResourceManager.GetString("ConversationsAndConnectedUsersTextSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à _Disconnect.
         /// </summary>
         public static string Disconnect {

@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 10th, 2025</date>
+/// <date>December 11th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -48,24 +48,25 @@ namespace chat_client
         /// Bound to the system tray context menu to allow clean shutdown from the tray icon.
         /// </summary>
         public MenuItem TrayMenuQuit { get; private set; }
-
-        /// <summary>
-        /// Tray icon variables
-        /// </summary>
-        private TaskbarIcon trayIcon;
-
-
+        
         /// <summary>
         /// Stores the timestamp of the last Ctrl key press.
         /// Used for detecting double-press or timing-based shortcuts.
         /// </summary>
         private DateTime lastCtrlPress = DateTime.MinValue;
 
-        /// <summary>
-        /// Scoll variables
-        /// </summary>
+        /// <summary> Minimum and maximum allowed font sizes for UI text scaling. </summary>
+        private const int MinFontSize = 12;
+        private const int MaxFontSize = 24;
+
+        /// <summary> Used for horizontal scrolling animations (emoji panel auto‑scroll on hover). </summary>
         private DispatcherTimer scrollTimer;
-        private int scrollDirection = 0; // -1 = left, 1 = right
+
+        /// <summary> Current scroll direction: -1 = scroll left, 1 = scroll right, 0 = idle. </summary>
+        private int scrollDirection = 0;
+
+        /// <summary> Tray icon variable </summary>
+        private TaskbarIcon trayIcon;
 
         /// <summary>
         /// Initializes the main window :
@@ -114,8 +115,9 @@ namespace chat_client
             TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
 
             CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
-            CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftTooltip");
-            CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightTooltip");
+            CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftToolTip");
+            CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
+            TxtFontSizeLabel.Text = LocalizationManager.GetString("ConversationsAndConnectedUsersTextSize") ?? string.Empty;
         }
 
         /// <summary>
@@ -139,6 +141,22 @@ namespace chat_client
 
             ApplyWatermarkImages();     
             TxtUsername.Focus();
+        }
+
+        /// <summary>
+        /// Updates the unified font size used across the UI.
+        /// </summary>
+        /// <remarks>
+        /// The actual resizing of UI elements is handled entirely through XAML bindings:
+        /// - message history items update via their DataTemplate binding,
+        /// - the connected users list width updates via a bound ViewModel property,
+        /// - the message input field updates through its FontSize binding.
+        /// This method simply updates the ViewModel property that drives all these bindings,
+        /// without directly modifying layout heights to avoid conflicts.
+        /// </remarks>
+        private void ApplyFontSize(int size)
+        {
+            ViewModel.ConversationsAndConnectedUsersTextSize = size;
         }
 
         /// <summary>
@@ -197,12 +215,12 @@ namespace chat_client
         /// </summary>
         private void AttachEmojiPanelCallback()
         {
-            if (popupEmojiPanel == null)
+            if (popupEmoji == null)
                 return;
 
             try
             {
-                popupEmojiPanel.CustomPopupPlacementCallback = OnCustomPopupPlacement;
+                popupEmoji.CustomPopupPlacementCallback = OnPopupPlacement;
             }
             catch (Exception ex)
             {
@@ -234,22 +252,42 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Toggles the emoji popup panel and updates the arrow icon based on its state.
+        /// Decreases the current font size by one step, respecting min/max limits.
+        /// </summary>
+        private void CmdDecreaseFont_Click(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.FontSizeSetting > MinFontSize)
+            {
+                ViewModel.FontSizeSetting--;
+                ApplyFontSize(ViewModel.FontSizeSetting);
+            }
+        }
+
+        /// <summary>
+        /// Show the emoji popup panel and hides the arrow button.
         /// </summary>
         private void CmdEmojiPanel_Click(object sender, RoutedEventArgs e)
         {
-            // Disable the button immediately to prevent double clicks
-            CmdEmojiPanel.IsEnabled = false;
-            ImgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow-disabled.png", UriKind.Relative));
+            popupEmoji.VerticalOffset = -popupEmoji.ActualHeight;
+            popupEmoji.IsOpen = true;
+            ImgEmojiPanel.Visibility = Visibility.Collapsed;
+        }
 
-            if (popupEmojiPanel.IsOpen)
+        /// <summary>
+        /// Toggles the font size popup: opens it if closed, closes it if already open.
+        /// The popup remains anchored to the font size toolbar button.
+        /// </summary>
+        private void CmdFontSize_Click(object sender, RoutedEventArgs e)
+        {
+            popupFontSize.IsOpen = !popupFontSize.IsOpen;
+        }
+
+        private void CmdIncreaseFont_Click(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel.FontSizeSetting < MaxFontSize)
             {
-                popupEmojiPanel.IsOpen = false;
-            }
-            else
-            {
-                popupEmojiPanel.VerticalOffset = -popupEmojiPanel.ActualHeight;
-                popupEmojiPanel.IsOpen = true;
+                ViewModel.FontSizeSetting++;
+                ApplyFontSize(ViewModel.FontSizeSetting);
             }
         }
 
@@ -304,8 +342,8 @@ namespace chat_client
                 if (success)
                 {
                     // Clears the input box and refocuses it on success
-                    TxtMessageToSend.Text = "";
-                    TxtMessageToSend.Focus();
+                    TxtMessageInput.Text = "";
+                    TxtMessageInput.Focus();
                 }
                 else
                 {
@@ -356,11 +394,65 @@ namespace chat_client
         }
 
         /// <summary>
+        /// Computes the optimal width for the connected users list based on:
+        /// - the current font size,
+        /// - the average username length,
+        /// - and a typographic width estimation (fontSize * 0.60).
+        /// </summary>
+        private double ComputeUserListWidth(int fontSize)
+        {
+            // Retrieve all usernames from the ViewModel
+            var names = ViewModel.Users.Select(u => u.Username).ToList();
+
+            // Fallback width if no users are connected
+            if (names.Count == 0)
+                return 200;
+
+            // Compute average username length
+            double avgLength = names.Average(n => n.Length);
+
+            // Approximate pixel width per character (Segoe UI / Emoji)
+            double charWidth = fontSize * 0.60;
+
+            // Extra padding for margins, icons, and scrollbar
+            double padding = 40;
+
+            // Final predicted width
+            return (avgLength * charWidth) + padding;
+        }
+
+
+        /// <summary>
+        /// Calculates the custom placement of the font‑size popup so that it appears
+        /// horizontally centered and directly above its target button.
+        /// </summary>
+        private CustomPopupPlacement[] OnFontSizePopupPlacement(Size popupSize, Size targetSize, Point offset)
+        {
+            /// <summary>
+            /// Computes horizontal centering: place the popup so that its center
+            /// aligns with the center of the target control.
+            /// </summary>
+            double x = (targetSize.Width - popupSize.Width) / 2;
+
+            /// <summary>
+            /// Positions the popup directly above the target control.
+            /// A negative Y value moves the popup upward.
+            /// </summary >
+            double y = -popupSize.Height;
+
+            return new[]
+            {
+                new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal)
+            };
+        }
+
+
+        /// <summary>
         /// Positions the emoji popup centered horizontally above the message input field.
         /// </summary>
-        private CustomPopupPlacement[] OnCustomPopupPlacement(Size popupSize, Size targetSize, Point _)
+        private CustomPopupPlacement[] OnPopupPlacement(Size popupSize, Size targetSize, Point _)
         {
-            // targetSize = size of TxtMessageToSend (PlacementTarget)
+            // targetSize = size of TxtMessageInput (PlacementTarget)
             double targetWidth = targetSize.Width;
 
             // Centers the popup over the input field
@@ -391,9 +483,9 @@ namespace chat_client
         {
             if (sender is Button btnEmoji && btnEmoji.Content is TextBlock tbEmoji)
             {
-                TxtMessageToSend.Text += tbEmoji.Text;
-                TxtMessageToSend.Focus();
-                TxtMessageToSend.CaretIndex = TxtMessageToSend.Text.Length;
+                TxtMessageInput.Text += tbEmoji.Text;
+                TxtMessageInput.Focus();
+                TxtMessageInput.CaretIndex = TxtMessageInput.Text.Length;
             }
         }
 
@@ -495,15 +587,13 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Resets the arrow icon to point right when popup is closed
+        /// Shows back the arrow icon when popup is closed
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void PopupEmojiPanel_Closed(object sender, EventArgs e)
+        private void popupEmoji_Closed(object sender, EventArgs e)
         {
-            // Re-enables the button and restores the default icon
-            CmdEmojiPanel.IsEnabled = true;
-            ImgEmojiPanel.Source = new BitmapImage(new Uri("/Resources/right-arrow.png", UriKind.Relative));
+            ImgEmojiPanel.Visibility = Visibility.Visible;
         }
 
         /// <summary>
@@ -597,7 +687,7 @@ namespace chat_client
             Application.Current.Shutdown();
         }
 
-        private void TxtMessageToSend_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private void TxtMessageInput_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
@@ -609,9 +699,9 @@ namespace chat_client
             }
         }
 
-        private void TxtMessageToSend_TextChanged(object sender, TextChangedEventArgs e)
+        private void TxtMessageInput_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (TxtMessageToSend.Text == "" || ViewModel.ClientConn.IsConnected == false)
+            if (TxtMessageInput.Text == "" || ViewModel.ClientConn.IsConnected == false)
             {
                 CmdSend.IsEnabled = false;
             }
@@ -622,9 +712,14 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Handles Enter key in the Username field
-        /// and invokes ConnectDisconnectCommand on the ViewModel.
+        /// Handles the Enter key in the Username field and invokes the
+        /// ConnectDisconnectCommand on the ViewModel.
         /// </summary>
+        /// <remarks>
+        /// The event is marked as handled to prevent WPF from performing
+        /// its default processing of the Enter key (such as moving focus
+        /// or triggering other key bindings).
+        /// </remarks>
         private void TxtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -634,6 +729,8 @@ namespace chat_client
                 {
                     vm.ConnectDisconnectCommand.Execute(null);
                 }
+
+                /// <summary> Stops further propagation of the Enter key </summary>
                 e.Handled = true;
             }
         }

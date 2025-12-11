@@ -301,4 +301,7 @@ Exemple :
   <data name="ErrorOpeningSystemInfo" xml:space="preserve">
     <value>Impossible d'ouvrir les informations système :</value>
   </data>
+  <data name="ConversationsAndConnectedUsersTextSize" xml:space="preserve">
+    <value>Taille du texte des conversations et de la liste des utilisateurs connectés</value>
+  </data>
 </root>

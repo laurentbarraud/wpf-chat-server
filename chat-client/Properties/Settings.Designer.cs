@@ -106,5 +106,17 @@ namespace chat_client.Properties {
                 this["AppLanguage"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("14")]
+        public int FontSizeSetting {
+            get {
+                return ((int)(this["FontSizeSetting"]));
+            }
+            set {
+                this["FontSizeSetting"] = value;
+            }
+        }
     }
 }

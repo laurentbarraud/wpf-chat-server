@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 10th, 2025</date>
+/// <date>December 11th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -11,19 +11,12 @@ using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics.Metrics;
-using System.IO;
-using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
-using System.Runtime.ConstrainedExecution;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media.Animation;
-using static System.Net.WebRequestMethods;
+
 
 
 namespace chat_client.MVVM.ViewModel
@@ -59,9 +52,26 @@ namespace chat_client.MVVM.ViewModel
         private int _clientDisconnecting = 0;
 
         /// <summary>
+        /// Width of the connected users list.
+        /// </summary>
+        private double _connectedUsersListWidth = 182;
+
+        /// <summary>
+        /// Unified font size for conversations, connected users list,
+        /// and message input field.
+        /// </summary>
+        private int _conversationsAndConnectedUsersTextSize = 14;
+
+        /// <summary>
         /// Backing field that stores the default height value
         /// </summary>
         private int _emojiPanelHeight = 20;
+
+        /// <summary>
+        /// Stores the localized tooltip text shown when encryption is fully
+        /// enabled and all required keys are available.
+        /// </summary>
+        private string _encryptionEnabledTooltip = "";
 
         /// <summary>
         /// Ensures that encryption initialization runs only once per session.
@@ -69,6 +79,16 @@ namespace chat_client.MVVM.ViewModel
         /// Reset to 0 during disconnect cleanup to allow fresh initialization.
         /// </summary>
         private int _encryptionInitOnce = 0;
+
+        /// <summary>
+        /// Backing field for the global font size setting used by the UI.
+        /// </summary>
+        private int _fontSizeSetting = 14;
+
+        /// <summary>
+        /// Backing field for the tooltip displayed when encryption keys are missing.
+        /// </summary>
+        private string _gettingMissingKeysTooltip = "";
 
         /// <summary>
         /// Stores the current theme selection state.
@@ -83,10 +103,25 @@ namespace chat_client.MVVM.ViewModel
         private bool _isFirstRosterSnapshot = true;
 
         /// <summary>
+        /// Backing field for the font size applied to the message history.
+        /// </summary>
+        private int _messageFontSize = 14;
+
+        /// <summary>
+        /// Height of the message input TextBox.
+        /// </summary>
+        private double _messageInputHeight = 30;
+
+        /// <summary>
         /// Holds the previous roster’s user IDs and usernames for diffing.
         /// </summary>
         private List<(Guid UserId, string Username)> _previousRosterSnapshot
             = new List<(Guid, string)>();
+
+        /// <summary>
+        /// Backing field for the font size applied to the connected users list.
+        /// </summary>
+        private int _userListFontSize = 14;
 
         /// <summary>
         /// Holds what the user types in the first textbox on top left of the MainWindow
@@ -138,7 +173,45 @@ namespace chat_client.MVVM.ViewModel
         /// Used by the main button and keyboard shortcuts.
         /// </summary>
         public RelayCommand ConnectDisconnectCommand { get; }
-        
+
+        /// <summary>
+        /// Width of the connected users list.
+        /// </summary>
+        public double ConnectedUsersListWidth
+        {
+            get => _connectedUsersListWidth;
+            private set
+            {
+                _connectedUsersListWidth = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Font size applied to conversation messages and connected users list.
+        /// Updated whenever the user changes the setting in the popup.
+        /// </summary>
+        public int ConversationsAndConnectedUsersTextSize
+        {
+            get => _conversationsAndConnectedUsersTextSize;
+            set
+            {
+                if (value < 12) value = 12;
+                if (value > 20) value = 20;
+
+                _conversationsAndConnectedUsersTextSize = value;
+                OnPropertyChanged();
+
+                // Saves to user settings
+                Properties.Settings.Default.FontSizeSetting = value;
+                Properties.Settings.Default.Save();
+
+                // Updates dependent layout values
+                MessageInputHeight = 30 + (value - 12) * 2;
+                ConnectedUsersListWidth = ComputeConnectedUsersListWidth(value);
+            }
+        }
+
         /// <summary>
         /// Gets the dynamic emoji button size, proportional to the popup width.
         /// </summary>
@@ -176,7 +249,7 @@ namespace chat_client.MVVM.ViewModel
         /// Gets the base height of the emoji popup, large enough
         /// to display square emoji buttons without vertical compression.
         /// </summary>
-        public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.3);
+        public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.3) - 12;
 
         /// <summary>
         /// Gets the dynamic width of the emoji popup,
@@ -193,6 +266,21 @@ namespace chat_client.MVVM.ViewModel
         public double EmojiSize => EmojiPopupWidth / 32.0;
 
         /// <summary>
+        /// Gets or sets the localized tooltip text displayed when encryption
+        /// is ready. This value is updated through localization and notifies
+        /// the UI whenever it changes.
+        /// </summary>
+        public string EncryptionEnabledTooltip
+        {
+            get => _encryptionEnabledTooltip;
+            set
+            {
+                _encryptionEnabledTooltip = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
         /// Provides access to the encryption pipeline instance,
         /// which manages key generation, publication, synchronization,
         /// and readiness evaluation for secure communication.
@@ -205,8 +293,35 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public int ExpectedClientCount { get; set; } = 1; // Starts at 1 (self)
 
-        // What the user types in the second textbox on top left of
-        // the MainWindow in View gets stored in this property (bound in XAML).
+         /// <summary>
+        /// Stores the current global font size selected by the user.
+        /// This value is used as the base reference for updating all
+        /// UI elements that support dynamic text scaling.
+        /// </summary>
+        public int FontSizeSetting
+        {
+            get => _fontSizeSetting;
+            set
+            {
+                _fontSizeSetting = value;
+                OnPropertyChanged();
+            }
+        }
+        /// <summary>
+        /// Gets or sets the localized tooltip text displayed when encryption
+        /// keys are missing. This value is updated through localization and
+        /// notifies the UI whenever it changes.
+        /// </summary>
+        public string GettingMissingKeysTooltip
+        {
+            get => _gettingMissingKeysTooltip;
+            set
+            {
+                _gettingMissingKeysTooltip = value;
+                OnPropertyChanged();
+            }
+        }
+
         public static string IPAddressOfServer { get; set; } = string.Empty;
 
         /// <summary>
@@ -248,6 +363,33 @@ namespace chat_client.MVVM.ViewModel
         /// Is initialized to an empty User instance to satisfy non-nullable requirements.
         /// </summary>
         public UserModel LocalUser { get; private set; } = new UserModel();
+
+        /// <summary>
+        /// Font size used for rendering the conversation history on the right panel.
+        /// Updated whenever the global font size setting changes.
+        /// </summary>
+        public int MessageFontSize
+        {
+            get => _messageFontSize;
+            set
+            {
+                _messageFontSize = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Height of the message input TextBox.
+        /// </summary>
+        public double MessageInputHeight
+        {
+            get => _messageInputHeight;
+            private set
+            {
+                _messageInputHeight = value;
+                OnPropertyChanged();
+            }
+        }
 
         // What the user types in the textbox on bottom right
         // of the MainWindow in View gets stored in this property (bound in XAML).
@@ -298,6 +440,20 @@ namespace chat_client.MVVM.ViewModel
 
                 /// <summary> Atomically trigger the pipeline toggle via ViewModel </summary>
                 ToggleEncryption(value);
+            }
+        }
+
+        /// <summary>
+        /// Font size used for rendering the connected users list on the left panel.
+        /// Updated whenever the global font size setting changes.
+        /// </summary>
+        public int UserListFontSize
+        {
+            get => _userListFontSize;
+            set
+            {
+                _userListFontSize = value;
+                OnPropertyChanged();
             }
         }
 
@@ -365,6 +521,14 @@ namespace chat_client.MVVM.ViewModel
             /// <summary> Initializes collections bound to the UI </summary>
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
+
+            /// <summary> 
+            /// Initializes tooltip strings used by the encryption status icon.
+            /// These values are set to empty at startup and later populated
+            /// through localization when the ViewModel loads.
+            /// </summary>
+            GettingMissingKeysTooltip = string.Empty;
+            EncryptionEnabledTooltip = string.Empty;
 
             /// <summary> Creates client connection with dispatcher callback and reference to this ViewModel </summary>
             _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action), this);
@@ -440,6 +604,30 @@ namespace chat_client.MVVM.ViewModel
                     ConnectDisconnectCommand.RaiseCanExecuteChanged();
                 }
             };
+
+            /// <summary> Loads saved font size </summary>
+            int savedFontSize = Properties.Settings.Default.FontSizeSetting;
+
+            // Applies it (this triggers all layout updates)
+            ConversationsAndConnectedUsersTextSize = savedFontSize;
+        }
+        /// <summary>
+        /// Calculates the appropriate width for the connected‑users list based on font size.
+        /// </summary>
+        private double ComputeConnectedUsersListWidth(int fontSize)
+        {
+            const int usernameLength = 24;
+            double charWidth = fontSize * 0.28;
+            double padding = 40;
+
+            double predicted = (usernameLength * charWidth) + padding;
+
+            double minWidth = 182;
+            double maxWidth = 360;
+
+            if (predicted < minWidth) return minWidth;
+            if (predicted > maxWidth) return maxWidth;
+            return predicted;
         }
 
         /// <summary>
@@ -578,7 +766,7 @@ namespace chat_client.MVVM.ViewModel
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
-                        mainWindow.TxtMessageToSend.Focus();
+                        mainWindow.TxtMessageInput.Focus();
                 });
 
                 /// <summary> Saves last used IP address for next session </summary>

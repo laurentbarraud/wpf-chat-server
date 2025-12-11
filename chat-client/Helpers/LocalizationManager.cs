@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 10th, 2025</date>
+/// <date>December 11th, 2025</date>
 
 using System;
 using System.Resources;
@@ -126,9 +126,10 @@ namespace chat_client.Helpers
                 {
                     mainWindow.ApplyWatermarkImages();
 
-                    mainWindow.CmdScrollLeft.ToolTip = GetString("ScrollLeftTooltip");
-                    mainWindow.CmdScrollRight.ToolTip = GetString("ScrollRightTooltip");
+                    mainWindow.CmdScrollLeft.ToolTip = GetString("ScrollLeftToolTip");
+                    mainWindow.CmdScrollRight.ToolTip = GetString("ScrollRightToolTip");
                     mainWindow.CmdSettings.ToolTip = GetString("Settings");
+                    mainWindow.TxtFontSizeLabel.Text = GetString("ConversationsAndConnectedUsersTextSize");
 
                     if (mainWindow.TrayMenuOpen != null)
                         mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
