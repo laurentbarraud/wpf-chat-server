@@ -129,8 +129,7 @@ namespace chat_client.Helpers
                     mainWindow.CmdScrollLeft.ToolTip = GetString("ScrollLeftToolTip");
                     mainWindow.CmdScrollRight.ToolTip = GetString("ScrollRightToolTip");
                     mainWindow.CmdSettings.ToolTip = GetString("Settings");
-                    mainWindow.TxtFontSizeLabel.Text = GetString("ConversationsAndConnectedUsersTextSize");
-
+                    
                     if (mainWindow.TrayMenuOpen != null)
                         mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
 

@@ -21,6 +21,37 @@
 
     <Window.Resources>
 
+        <!--
+        Switches the TextBox between editable IP input (TwoWay to IPAddressOfServer)
+        and a read‑only “Connected” display (OneWay to CurrentIpDisplay). 
+        Ensures UI state never overwrites the persisted IP. 
+        CurrentIpDisplay requires Mode=OneWay to avoid TwoWay binding errors on a read‑only property.
+        -->
+        <Style x:Key="IpAddressTextBoxStyle" TargetType="TextBox">
+            <Setter Property="IsEnabled" Value="True"/>
+            <Setter Property="Text" Value="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <Style.Triggers>
+
+                <!-- When connected -->
+                <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                    <Setter Property="IsEnabled" Value="False"/>
+                    <Setter Property="Text" 
+                            Value="{Binding CurrentIpDisplay, Mode=OneWay}"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                </DataTrigger>
+
+                <!-- When disconnected -->
+                <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                    <Setter Property="IsEnabled" Value="True"/>
+                    <Setter Property="Text" 
+                            Value="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                </DataTrigger>
+                
+            </Style.Triggers>
+        </Style>
+
         <!-- Slide animation for emoji popup -->
         <Storyboard x:Key="SlideInStoryboard">
             <DoubleAnimation Storyboard.TargetName="popupEmoji"
@@ -126,7 +157,7 @@
                 <!-- Username field -->
                 <Grid Height="25" Margin="0">
                     <TextBox x:Name="TxtUsername"
-                         IsEnabled="{Binding AreCredentialsEditable}"
+                         IsEnabled="{Binding IsNotConnected}"
                          Background="Transparent"
                          Foreground="{DynamicResource ForegroundBrush}" 
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
@@ -151,40 +182,42 @@
                 </Grid>
 
                 <!-- IP address field -->
-
-
-
+                <!-- When disconnected: editable, bound to IPAddressOfServer (TwoWay).
+                        - When connected: disabled and visually replaced by CurrentIpDisplay.
+                        - IPAddressOfServer is only a temporary UI buffer; the real persisted value
+                          is Settings.Default.LastIPAddressUsed, used as the single source of truth.
+                -->
                 <Grid Height="25" Margin="0">
                     <TextBox x:Name="TxtIPAddress"
-                         IsEnabled="{Binding AreCredentialsEditable}"
-                         Background="Transparent"
-                         Foreground="{DynamicResource ForegroundBrush}" 
-                         Text="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="TxtIPAddress_TextChanged"
-                         FontSize="14"
-                         MaxLines="1"
-                         MaxLength="15"
-                         TabIndex="1"
-                         VerticalAlignment="Top"
-                         HorizontalAlignment="Left"
-                         Width="182"
-                         Height="25"
-                         Panel.ZIndex="1">
+                             Style="{StaticResource IpAddressTextBoxStyle}"
+                             Background="Transparent"
+                             Foreground="{DynamicResource ForegroundBrush}"
+                             TextChanged="TxtIPAddress_TextChanged"
+                             FontSize="14"
+                             MaxLines="1"
+                             MaxLength="15"
+                             TabIndex="1"
+                             VerticalAlignment="Top"
+                             HorizontalAlignment="Left"
+                             Width="182"
+                             Height="25"
+                             Panel.ZIndex="1">
                         <TextBox.InputBindings>
                             <KeyBinding Key="Enter"
-                                    Command="{Binding DataContext.ConnectDisconnectCommand,
-                                             RelativeSource={RelativeSource Mode=FindAncestor,
-                                             AncestorType={x:Type Window}}}" />
+                                        Command="{Binding DataContext.ConnectDisconnectCommand,
+                                                 RelativeSource={RelativeSource Mode=FindAncestor,
+                                                 AncestorType={x:Type Window}}}" />
                         </TextBox.InputBindings>
                     </TextBox>
-                    <Image x:Name="imgIPAddressWatermark"
-                       IsHitTestVisible="False"
-                       VerticalAlignment="Top"
-                       HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=TxtIPAddress}"
-                       Height="{Binding ActualHeight, ElementName=TxtIPAddress}" />
-                </Grid>
 
+                    <Image x:Name="imgIPAddressWatermark"
+                           IsHitTestVisible="False"
+                           VerticalAlignment="Top"
+                           HorizontalAlignment="Left"
+                           Width="{Binding ActualWidth, ElementName=TxtIPAddress}"
+                           Height="{Binding ActualHeight, ElementName=TxtIPAddress}" />
+                </Grid>
+                
                 <!-- Connect / Disconnect button -->
                 <Button x:Name="CmdConnectDisconnect"
                     Height="25"
@@ -332,114 +365,7 @@
                                VerticalAlignment="Center"
                                HorizontalAlignment="Center"/>
                 </Button>
-
-                <!-- Font size button -->
-                <Button x:Name="CmdFontSize"
-                         DockPanel.Dock="Left"
-                         Width="32"
-                         Height="32"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         VerticalAlignment="Center"
-                         Margin="5,0,5,0"
-                         Click="CmdFontSize_Click">
-                    <Button.Style>
-                        <Style TargetType="{x:Type Button}">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Style.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Opacity" Value="0.8"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-
-                    <Image Source="/Resources/font-size.png"
-                            Stretch="Uniform"
-                            VerticalAlignment="Center"
-                            HorizontalAlignment="Center"/>
-                </Button>
             </DockPanel>
-
-            <!-- Popup for adjusting font size -->
-            <Popup x:Name="popupFontSize"
-                   Placement="Custom"
-                   PlacementTarget="{Binding ElementName=CmdFontSize}"
-                   CustomPopupPlacementCallback="OnFontSizePopupPlacement"
-                   StaysOpen="False"
-                   AllowsTransparency="True">
-
-                <Border Background="{DynamicResource BackgroundBrush}"
-                        BorderBrush="{DynamicResource PrimaryBrush}"
-                        BorderThickness="1"
-                        Padding="10"
-                        CornerRadius="6">
-
-                    <StackPanel Orientation="Vertical" Width="160">
-                        <!-- Label -->
-                        <TextBlock x:Name="TxtFontSizeLabel"
-                                   Text=""
-                                   HorizontalAlignment="Center"
-                                   Margin="0 0 0 8"
-                                   TextWrapping="Wrap"/>
-
-                        <!-- NumericUpDown Windows 11 style with auto-repeat -->
-                        <Border CornerRadius="6"
-                                HorizontalAlignment="Center"
-                                Background="{DynamicResource BackgroundBrush}"
-                                BorderBrush="{DynamicResource PrimaryBrush}"
-                                BorderThickness="1"
-                                Padding="6"
-                                SnapsToDevicePixels="True">
-
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="50" />
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Decrease button -->
-                                <RepeatButton x:Name="CmdDecreaseFont"
-                                              Grid.Column="0"
-                                              Width="28"
-                                              Height="28"
-                                              Background="Transparent"
-                                              BorderThickness="0"
-                                              Click="CmdDecreaseFont_Click"
-                                              Delay="300"
-                                              Interval="80">
-                                    <Image Source="/Resources/minus-rounded.png"
-                                           Stretch="Uniform"/>
-                                </RepeatButton>
-
-                                <!-- Display value (in %) -->
-                                <TextBlock x:Name="TxtFontSizeValue"
-                                           Grid.Column="1"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           FontSize="16"
-                                           Text="{Binding FontSizeSetting, Converter={StaticResource FontSizeToPercentageConverter}}"/>
-
-                                <!-- Increase button -->
-                                <RepeatButton x:Name="CmdIncreaseFont"
-                                              Grid.Column="2"
-                                              Width="28"
-                                              Height="28"
-                                              Background="Transparent"
-                                              BorderThickness="0"
-                                              Click="CmdIncreaseFont_Click"
-                                              Delay="300"
-                                              Interval="80">
-                                    <Image Source="/Resources/plus-rounded.png"
-                                           Stretch="Uniform"/>
-                                </RepeatButton>
-
-                            </Grid>
-                        </Border>
-                    </StackPanel>
-                </Border>
-            </Popup>
         </Grid>
 
         <Grid x:Name="GrdRight" 

@@ -6,6 +6,7 @@
 using chat_client.Helpers;
 using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
+using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -30,12 +31,17 @@ namespace chat_client
     public partial class MainWindow : Window
     {
         public MainViewModel ViewModel { get; set; }
-        
+
         /// <summary>
         /// Indicates whether the client is currently connected to the server.
         /// Uses null-conditional access to safely evaluate connection state. 
         /// </summary>
         public bool IsConnected => ViewModel?.ClientConn != null && ViewModel.ClientConn.IsConnected;
+
+        /// <summary>
+        /// Inverse of IsConnected, used for UI bindings that require the opposite state
+        /// </summary>
+        public bool IsNotConnected => !IsConnected;
 
         /// <summary>
         /// Represents the tray menu item used to reopen the main application window.
@@ -117,7 +123,6 @@ namespace chat_client
             CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
             CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftToolTip");
             CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
-            TxtFontSizeLabel.Text = LocalizationManager.GetString("ConversationsAndConnectedUsersTextSize") ?? string.Empty;
         }
 
         /// <summary>
@@ -129,7 +134,7 @@ namespace chat_client
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             /// <summary> Restores last used IP address </summary>
-            TxtIPAddress.Text = chat_client.Properties.Settings.Default.LastIPAddressUsed;
+            TxtIPAddress.Text = chat_client.Properties.Settings.Default.IPAddressSaved;
 
             /// <summary> Applies localization </summary>
             string languageSet = Properties.Settings.Default.AppLanguage;
@@ -273,15 +278,6 @@ namespace chat_client
             ImgEmojiPanel.Visibility = Visibility.Collapsed;
         }
 
-        /// <summary>
-        /// Toggles the font size popup: opens it if closed, closes it if already open.
-        /// The popup remains anchored to the font size toolbar button.
-        /// </summary>
-        private void CmdFontSize_Click(object sender, RoutedEventArgs e)
-        {
-            popupFontSize.IsOpen = !popupFontSize.IsOpen;
-        }
-
         private void CmdIncreaseFont_Click(object sender, RoutedEventArgs e)
         {
             if (ViewModel.FontSizeSetting < MaxFontSize)
@@ -391,80 +387,6 @@ namespace chat_client
                 Owner = this
             };
             settings.Show();
-        }
-
-        /// <summary>
-        /// Computes the optimal width for the connected users list based on:
-        /// - the current font size,
-        /// - the average username length,
-        /// - and a typographic width estimation (fontSize * 0.60).
-        /// </summary>
-        private double ComputeUserListWidth(int fontSize)
-        {
-            // Retrieve all usernames from the ViewModel
-            var names = ViewModel.Users.Select(u => u.Username).ToList();
-
-            // Fallback width if no users are connected
-            if (names.Count == 0)
-                return 200;
-
-            // Compute average username length
-            double avgLength = names.Average(n => n.Length);
-
-            // Approximate pixel width per character (Segoe UI / Emoji)
-            double charWidth = fontSize * 0.60;
-
-            // Extra padding for margins, icons, and scrollbar
-            double padding = 40;
-
-            // Final predicted width
-            return (avgLength * charWidth) + padding;
-        }
-
-
-        /// <summary>
-        /// Calculates the custom placement of the font‑size popup so that it appears
-        /// horizontally centered and directly above its target button.
-        /// </summary>
-        private CustomPopupPlacement[] OnFontSizePopupPlacement(Size popupSize, Size targetSize, Point offset)
-        {
-            /// <summary>
-            /// Computes horizontal centering: place the popup so that its center
-            /// aligns with the center of the target control.
-            /// </summary>
-            double x = (targetSize.Width - popupSize.Width) / 2;
-
-            /// <summary>
-            /// Positions the popup directly above the target control.
-            /// A negative Y value moves the popup upward.
-            /// </summary >
-            double y = -popupSize.Height;
-
-            return new[]
-            {
-                new CustomPopupPlacement(new Point(x, y), PopupPrimaryAxis.Horizontal)
-            };
-        }
-
-
-        /// <summary>
-        /// Positions the emoji popup centered horizontally above the message input field.
-        /// </summary>
-        private CustomPopupPlacement[] OnPopupPlacement(Size popupSize, Size targetSize, Point _)
-        {
-            // targetSize = size of TxtMessageInput (PlacementTarget)
-            double targetWidth = targetSize.Width;
-
-            // Centers the popup over the input field
-            double posX = ((targetWidth - popupSize.Width) / 2) + 22;
-
-            // Places the popup above the input field
-            double posY = -popupSize.Height;
-
-            return new[]
-            {
-                new CustomPopupPlacement(new Point(posX, posY), PopupPrimaryAxis.Horizontal)
-             };
         }
 
         public void DisposeTrayIcon()
@@ -584,6 +506,27 @@ namespace chat_client
             {
                 lstReceivedMessages.ScrollIntoView(lstReceivedMessages.Items[lstReceivedMessages.Items.Count - 1]);
             }
+        }
+
+
+        /// <summary>
+        /// Positions the emoji popup centered horizontally above the message input field.
+        /// </summary>
+        private CustomPopupPlacement[] OnPopupPlacement(Size popupSize, Size targetSize, Point _)
+        {
+            // targetSize = size of TxtMessageInput (PlacementTarget)
+            double targetWidth = targetSize.Width;
+
+            // Centers the popup over the input field
+            double posX = ((targetWidth - popupSize.Width) / 2) + 22;
+
+            // Places the popup above the input field
+            double posY = -popupSize.Height;
+
+            return new[]
+            {
+                new CustomPopupPlacement(new Point(posX, posY), PopupPrimaryAxis.Horizontal)
+             };
         }
 
         /// <summary>

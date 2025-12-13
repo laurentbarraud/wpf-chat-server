@@ -157,12 +157,6 @@ namespace chat_client.MVVM.ViewModel
         public bool AreChatControlsVisible => IsConnected;
 
         /// <summary>
-        /// Gets whether the username/IP textboxes are editable.
-        /// They’re editable only when not connected.
-        /// </summary>
-        public bool AreCredentialsEditable => !IsConnected;
-
-        /// <summary>
         /// Gets the reduced value of the current MainWindow width,
         /// returned as a pixel value for proportional UI sizing.
         /// </summary>
@@ -211,6 +205,14 @@ namespace chat_client.MVVM.ViewModel
                 ConnectedUsersListWidth = ComputeConnectedUsersListWidth(value);
             }
         }
+
+        /// <summary>
+        /// Provides the IP address text to display in the UI.
+        /// When connected, shows a localized "Connected" label.
+        /// When disconnected, shows the last used server IP.
+        /// </summary>
+        public string CurrentIpDisplay =>
+            IsConnected ? LocalizationManager.GetString("Connected") : Settings.Default.IPAddressSaved;
 
         /// <summary>
         /// Gets the dynamic emoji button size, proportional to the popup width.
@@ -322,6 +324,16 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+        /// <summary>
+        /// Backing property used by the IP address TextBox when the client is disconnected.
+        /// This value is bound in TwoWay mode to allow user editing.
+        /// 
+        /// Note:
+        /// - This property is only used when IsNotConnected == true.
+        /// - When connected, the TextBox switches to a read-only binding on CurrentIpDisplay.
+        /// - The actual persisted value comes from Settings.Default.LastIPAddressUsed,
+        ///   which acts as the single source of truth for the saved server IP.
+        /// </summary>
         public static string IPAddressOfServer { get; set; } = string.Empty;
 
         /// <summary>
@@ -357,6 +369,11 @@ namespace chat_client.MVVM.ViewModel
                 ThemeManager.ApplyTheme(value);
             }
         }
+
+        /// <summary>
+        /// True when the client is not connected. Convenience property for UI bindings.
+        /// </summary>
+        public bool IsNotConnected => !IsConnected;
 
         /// <summary>
         /// Represents the currently authenticated user.
@@ -670,8 +687,10 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
-                /// <summary> Delegates handshake to client connection and retrieves UID and server public key </summary>
-                var (uid, publicKeyDer) = await _clientConn.ConnectToServerAsync(Username.Trim(), IPAddressOfServer, cancellationToken).ConfigureAwait(false);
+                /// <summary> Performs handshake and retrieves UID and server public key </summary>
+                var (uid, publicKeyDer) = await _clientConn
+                    .ConnectToServerAsync(Username.Trim(), IPAddressOfServer, cancellationToken)
+                    .ConfigureAwait(false);
 
                 /// <summary> Guards against handshake failure (empty UID or key) </summary>
                 if (uid == Guid.Empty || publicKeyDer == null || publicKeyDer.Length == 0)
@@ -686,18 +705,32 @@ namespace chat_client.MVVM.ViewModel
                 }
 
                 /// <summary> Initializes LocalUser with handshake results </summary>
-                LocalUser = new UserModel { Username = Username.Trim(), UID = uid, PublicKeyDer = publicKeyDer };
+                LocalUser = new UserModel 
+                { 
+                    Username = Username.Trim(), 
+                    UID = uid, 
+                    PublicKeyDer = publicKeyDer 
+                };
+
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
 
                 /// <summary> Updates UI bindings to reflect connected state </summary>
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
+                    // Updates connection state
                     OnPropertyChanged(nameof(IsConnected));
+                    OnPropertyChanged(nameof(IsNotConnected));
+
+                    // Updates dependent elements
+                    OnPropertyChanged(nameof(CurrentIpDisplay));
                     OnPropertyChanged(nameof(WindowTitle));
                     OnPropertyChanged(nameof(ConnectButtonText));
-                    OnPropertyChanged(nameof(AreCredentialsEditable));
                     OnPropertyChanged(nameof(AreChatControlsVisible));
                 });
+
+                /// <summary> Saves last used IP address for next session </summary>
+                Settings.Default.IPAddressSaved = Settings.Default.IPAddressSaved;
+                Settings.Default.Save();
 
                 ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
 
@@ -768,10 +801,6 @@ namespace chat_client.MVVM.ViewModel
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                         mainWindow.TxtMessageInput.Focus();
                 });
-
-                /// <summary> Saves last used IP address for next session </summary>
-                Settings.Default.LastIPAddressUsed = IPAddressOfServer;
-                Settings.Default.Save();
             }
             catch (OperationCanceledException)
             {
@@ -862,10 +891,16 @@ namespace chat_client.MVVM.ViewModel
                 /// <summary>
                 /// Notifies UI bindings to reflect disconnected state.
                 /// </summary>
+                /// <summary> Updates connection state </summary>
                 OnPropertyChanged(nameof(IsConnected));
+                OnPropertyChanged(nameof(IsNotConnected));
+
+                /// <summary> Restores last used IP address </summary>
+                OnPropertyChanged(nameof(CurrentIpDisplay));
+
+                /// <summary> Updates dependent UI elements </summary>
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
-                OnPropertyChanged(nameof(AreCredentialsEditable));
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
                 /// <summary>
@@ -880,8 +915,7 @@ namespace chat_client.MVVM.ViewModel
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
+                MessageBox.Show(LocalizationManager.GetString("ErrorWhileDisconnecting") + ex.Message,
                     LocalizationManager.GetString("Error"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error
@@ -1015,7 +1049,6 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(IsConnected));
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
-                OnPropertyChanged(nameof(AreCredentialsEditable));
                 OnPropertyChanged(nameof(AreChatControlsVisible));
 
                 /// <summary>
@@ -1236,6 +1269,7 @@ namespace chat_client.MVVM.ViewModel
             // Forces WPF to re-query any localized properties
             OnPropertyChanged(nameof(ConnectButtonText));
             OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(CurrentIpDisplay));
         }
 
         /// <summary>
@@ -1388,7 +1422,6 @@ namespace chat_client.MVVM.ViewModel
             OnPropertyChanged(nameof(IsConnected));
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(ConnectButtonText));
-            OnPropertyChanged(nameof(AreCredentialsEditable));
             OnPropertyChanged(nameof(AreChatControlsVisible));
         }
 
