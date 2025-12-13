@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -1468,9 +1468,6 @@ namespace chat_client.MVVM.ViewModel
 
             /// <summary> Clears any existing key material before proceeding. </summary>
             EncryptionPipeline.KnownPublicKeys.Clear();
-            LocalUser.PublicKeyDer = Array.Empty<byte>();
-            LocalUser.PrivateKeyDer = Array.Empty<byte>();
-            EncryptionHelper.ClearLocalPrivateKey();
 
             bool pipelineSucceeded;
 
@@ -1528,7 +1525,7 @@ namespace chat_client.MVVM.ViewModel
         {
             if (chosenPort >= 1000 && chosenPort <= 65535)
             {
-                Settings.Default.CustomPortNumber = chosenPort;
+                Settings.Default.PortNumber = chosenPort;
                 Settings.Default.Save();
                 return true;
             }

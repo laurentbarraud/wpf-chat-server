@@ -442,9 +442,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Reduce in system tray.
         /// </summary>
-        public static string ReduceToTrayLabel {
+        public static string ReduceToTray {
             get {
-                return ResourceManager.GetString("ReduceToTrayLabel", resourceCulture);
+                return ResourceManager.GetString("ReduceToTray", resourceCulture);
             }
         }
         
@@ -539,20 +539,20 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Use custom TCP port.
+        ///   Recherche une chaîne localisée semblable à Use encryption for messages.
         /// </summary>
-        public static string UseCustomPortLabel {
+        public static string UseEncryptionForMessages {
             get {
-                return ResourceManager.GetString("UseCustomPortLabel", resourceCulture);
+                return ResourceManager.GetString("UseEncryptionForMessages", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Use encryption for messages.
+        ///   Recherche une chaîne localisée semblable à Use TCP port :.
         /// </summary>
-        public static string UseEncryptionLabel {
+        public static string UseTcpPort {
             get {
-                return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
+                return ResourceManager.GetString("UseTcpPort", resourceCulture);
             }
         }
     }

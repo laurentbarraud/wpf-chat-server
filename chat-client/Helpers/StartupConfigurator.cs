@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -71,9 +71,7 @@ namespace chat_client.Helpers
                         case "--port":
                             if (i + 1 < args.Length && int.TryParse(args[i + 1], out var portNumberArgument))
                             {
-                                customPortChosen = portNumberArgument;
-                                Properties.Settings.Default.UseCustomPort = true;
-                                Properties.Settings.Default.CustomPortNumber = customPortChosen;
+                                Properties.Settings.Default.PortNumber = portNumberArgument;
                                 i++;
                             }
                             break;
@@ -134,11 +132,10 @@ namespace chat_client.Helpers
                                     usernameChosen = args[++i];
                                 break;
                             case 'p':
-                                if (i + 1 < args.Length && int.TryParse(args[i + 1], out var portParameter))
+                                if (i + 1 < args.Length && int.TryParse(args[i + 1], out var inputPort))
                                 {
-                                    customPortChosen = portParameter;
-                                    Properties.Settings.Default.UseCustomPort = true;
-                                    Properties.Settings.Default.CustomPortNumber = customPortChosen;
+                                    customPortChosen = inputPort;
+                                    Properties.Settings.Default.PortNumber = customPortChosen;
                                     i++;
                                 }
                                 break;
@@ -183,12 +180,26 @@ namespace chat_client.Helpers
                             if (!string.IsNullOrEmpty(flagArgument))
                             {
                                 if (flag == 'u')
-                                    usernameChosen = flagArgument;
-                                else if (flag == 'p' && int.TryParse(flagArgument, out var customPortValue))
                                 {
-                                    customPortChosen = customPortValue;
-                                    Properties.Settings.Default.UseCustomPort = true;
-                                    Properties.Settings.Default.CustomPortNumber = customPortChosen;
+                                    usernameChosen = flagArgument;
+                                }
+                                else if (flag == 'p')
+                                {
+                                    // Tries to parse the port number
+                                    if (int.TryParse(flagArgument, out var inputPort))
+                                    {
+                                        // Validates the port using the same logic as the UI
+                                        bool isPortValid = MainViewModel.TrySavePort(inputPort);
+
+                                        // Only saves if valid — otherwise does nothing
+                                        if (isPortValid)
+                                        {
+                                            Properties.Settings.Default.PortNumber = inputPort;
+                                            Properties.Settings.Default.Save();
+                                        }
+                                    }
+
+                                    // If parsing fails → do nothing (keep existing port)
                                 }
                             }
                             break;

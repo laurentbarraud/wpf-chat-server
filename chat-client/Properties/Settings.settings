@@ -8,12 +8,6 @@
     <Setting Name="AppTheme" Type="System.String" Scope="User">
       <Value Profile="(Default)">Light</Value>
     </Setting>
-    <Setting Name="CustomPortNumber" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">7123</Value>
-    </Setting>
-    <Setting Name="UseCustomPort" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
     <Setting Name="ReduceToTray" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
@@ -25,6 +19,9 @@
     </Setting>
     <Setting Name="FontSizeSetting" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">14</Value>
+    </Setting>
+    <Setting Name="PortNumber" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">7123</Value>
     </Setting>
   </Settings>
 </SettingsFile>

@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.Net;
@@ -170,14 +170,6 @@ namespace chat_client.Helpers
             /// <summary> Clears peer keys and resets local publication state </summary>
             KnownPublicKeys.Clear();
             _localKeyPublished = false;
-
-            /// <summary> Clears local key material if available </summary>
-            if (_viewModel.LocalUser != null)
-            {
-                _viewModel.LocalUser.PublicKeyDer = Array.Empty<byte>();
-                _viewModel.LocalUser.PrivateKeyDer = Array.Empty<byte>();
-            }
-            EncryptionHelper.ClearLocalPrivateKey();
 
             _viewModel.ResetEncryptionPipelineAndUI();
             
@@ -562,13 +554,19 @@ namespace chat_client.Helpers
 
                 /// <summary>
                 /// Publishes the local public key to the server for distribution in multi-client mode.
-                /// Ensures that the payload is never null by substituting an empty array if needed.
+                /// Ensures that the payload is never null.
                 /// </summary>
-                var localKey = _viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>();
+                var localKey = _viewModel.LocalUser.PublicKeyDer;
 
-                if (localKey.Length == 0)
+                if (localKey == null || localKey.Length == 0)
                 {
-                    ClientLogger.Log("Local public key not initialized — sending empty payload (clear mode).", ClientLogLevel.Warn);
+                    ClientLogger.Log("SyncKeysAsync aborted — local public key not initialized.", ClientLogLevel.Error);
+                    _uiDispatcherInvoke(() =>
+                    {
+                        IsEncryptionReady = false;
+                        IsSyncingKeys = false;
+                    });
+                    return false;
                 }
 
                 await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID, localKey, _viewModel.LocalUser.UID,

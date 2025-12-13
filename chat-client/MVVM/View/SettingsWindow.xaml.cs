@@ -1,18 +1,19 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
+using chat_client.Helpers;                   // For EncryptionHelper, ClientLogger
+using chat_client.MVVM.ViewModel;            // For SettingsViewModel
+using chat_client.Properties;
+using chat_client.View;                      // For AboutWindow
+using Hardcodet.Wpf.TaskbarNotification;     // For TaskbarIcon
 using System;
+using System.ComponentModel;                 // For PropertyChangedEventArgs
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using System.ComponentModel;                 // For PropertyChangedEventArgs
-using System.Windows;
-using Hardcodet.Wpf.TaskbarNotification;     // For TaskbarIcon
-using chat_client.MVVM.ViewModel;            // For SettingsViewModel
-using chat_client.Helpers;                   // For EncryptionHelper, ClientLogger
-using chat_client.View;                      // For AboutWindow
 
 
 namespace chat_client.MVVM.View
@@ -52,22 +53,10 @@ namespace chat_client.MVVM.View
         private void SettingsViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
-            {
-                case nameof(SettingsViewModel.CustomPortNumber):
-                    // Validates port and updates image
-                    ValidatePortInput();                                       
-                    break;
-
-                case nameof(SettingsViewModel.UseCustomPort):
-                    // Shows/hides status icon
-                    ImgPortStatus.Visibility = _settingsViewModel.UseCustomPort
-                        ? Visibility.Visible
-                        : Visibility.Collapsed;
-                    break;
-
+            {             
                 case nameof(SettingsViewModel.ReduceToTray):
-                    // Manages tray icon visibility
-                    HandleTrayIcon();
+                    
+                    InitializeTrayIcon();
                     break;
             }
         }
@@ -112,23 +101,41 @@ namespace chat_client.MVVM.View
             this.Close();
         }
 
-        /// <summary>
-        /// Initializes or hides the tray icon based on ReduceToTray.
-        /// </summary>
-        private void HandleTrayIcon()
+        private void InitializeTrayIcon()
         {
-            var main = Application.Current.MainWindow as MainWindow;
-            if (main?.TryFindResource("TrayIcon") is not TaskbarIcon icon)
-                return;
+            try
+            {
+                if (Application.Current.MainWindow is not MainWindow main)
+                {
+                    return;
+                }
 
-            if (_settingsViewModel.ReduceToTray)
-            {
-                main.EnsureTrayIconReady();                                // Creates tray icon once
+                if (main.TryFindResource("TrayIcon") is not TaskbarIcon icon)
+                {
+                    return;
+                }
+
+                main.InitializeTrayIcon();
             }
-            else
+            catch
             {
-                icon.Visibility = Visibility.Collapsed;                    // Hides tray icon
             }
+        }
+
+        private void ReduceToTrayToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            Settings.Default.ReduceToTray = true;
+            Settings.Default.Save();
+
+            InitializeTrayIcon();
+        }
+
+        private void ReduceToTrayToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            Settings.Default.ReduceToTray = false;
+            Settings.Default.Save();
+
+            UnloadTrayIcon();
         }
 
         /// <summary>
@@ -138,27 +145,77 @@ namespace chat_client.MVVM.View
         /// <param name="e">Event data for the text change.</param>
         private void TxtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (UseCustomPortToggle.IsChecked == true)
+            ValidatePortInput();
+        }
+
+        private void UnloadTrayIcon()
+        {
+            try
             {
-                ValidatePortInput();
+                if (Application.Current.MainWindow is not MainWindow main)
+                {
+                    return;
+                }
+
+                if (main.TryFindResource("TrayIcon") is not TaskbarIcon trayIcon)
+                {
+                    return;
+                }
+
+                trayIcon.Dispose();
+            }
+            catch
+            {   
             }
         }
-  
+
+        /// <summary>
+        /// If the entered port is invalid, 
+        /// silently falls back to 7123 and shows a red dot icon.
+        /// </summary>
         private void ValidatePortInput()
         {
-            if (!int.TryParse(TxtCustomPort.Text, out int port)) return;
+            /// <summary> 
+            /// If the textbox content is not a valid integer, stop here to avoid
+            /// processing invalid data (empty, non‑numeric or whitespace)
+            /// </summary> 
+            if (!int.TryParse(TxtPort.Text, out int inputPort))
+            {
+                /// <summary> Invalid value : silently resets the default port </summary> 
+                Settings.Default.PortNumber = 7123;
+                Settings.Default.Save();
 
-            bool isValid = MainViewModel.TrySavePort(port);
-            var uri = isValid
-                      ? new Uri("/Resources/validate.png", UriKind.Relative)
-                      : new Uri("/Resources/reddot.png", UriKind.Relative);
+                TxtPort.Text = "7123";
 
-            ImgPortStatus.Source = new BitmapImage(uri);
-            ImgPortStatus.ToolTip = isValid
-                ? LocalizationManager.GetString("PortNumberValid")
-                : LocalizationManager.GetString("PortNumberInvalid")
-                  + "\n"
-                  + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
+                ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/reddot.png", UriKind.Relative));
+                ImgPortStatus.ToolTip = LocalizationManager.GetString("PortNumberInvalid")
+                                       + "\n"
+                                       + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
+
+                return;
+            }
+
+            bool isPortValid = MainViewModel.TrySavePort(inputPort);
+
+            if (!isPortValid)
+            {
+                /// <summary> Invalid value : silently resets the default port </summary> 
+                Settings.Default.PortNumber = 7123;
+                Settings.Default.Save();
+
+                TxtPort.Text = "7123";
+
+                ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/reddot.png", UriKind.Relative));
+                ImgPortStatus.ToolTip = LocalizationManager.GetString("PortNumberInvalid")
+                                       + "\n"
+                                       + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
+
+                return;
+            }
+
+            /// <summary> Valid port : green validate icon </summary> 
+            ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/validate.png", UriKind.Relative));
+            ImgPortStatus.ToolTip = LocalizationManager.GetString("PortNumberValid");
         }
     }
 }

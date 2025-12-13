@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -105,28 +105,6 @@ namespace chat_server
             // Creates a PacketReader over the underlying network stream for framed reads.
             // PacketReader is async-first.
             packetReader = new PacketReader(ClientSocket.GetStream());
-        }
-
-        /// <summary>
-        /// Broadcasts a newly registered public key to all peers,
-        /// and sends all existing peer keys to the new client.
-        /// Ensures symmetric distribution of keys across the session.
-        /// </summary>
-        private static async Task BroadcastNewPublicKey(Guid newUid, byte[] newKey, CancellationToken cancellationToken)
-        {
-            var snapshotUsers = Program.Users.ToList();
-
-            foreach (var peer in snapshotUsers.Where(u => u.UID != newUid))
-            {
-                /// <summary> Sends new client's key to existing peer </summary> 
-                await Program.RelayPublicKeyToUser(newUid, newKey, peer.UID, cancellationToken).ConfigureAwait(false);
-
-                /// <summary> Sends existing peer's key to the new client </summary> 
-                if (peer.PublicKeyDer != null && peer.PublicKeyDer.Length > 0)
-                {
-                    await Program.RelayPublicKeyToUser(peer.UID, peer.PublicKeyDer, newUid, cancellationToken).ConfigureAwait(false);
-                }
-            }
         }
 
         /// <summary>

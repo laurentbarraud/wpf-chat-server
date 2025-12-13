@@ -49,30 +49,6 @@ namespace chat_client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("7123")]
-        public int CustomPortNumber {
-            get {
-                return ((int)(this["CustomPortNumber"]));
-            }
-            set {
-                this["CustomPortNumber"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool UseCustomPort {
-            get {
-                return ((bool)(this["UseCustomPort"]));
-            }
-            set {
-                this["UseCustomPort"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool ReduceToTray {
             get {
@@ -116,6 +92,18 @@ namespace chat_client.Properties {
             }
             set {
                 this["FontSizeSetting"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("7123")]
+        public int PortNumber {
+            get {
+                return ((int)(this["PortNumber"]));
+            }
+            set {
+                this["PortNumber"] = value;
             }
         }
     }

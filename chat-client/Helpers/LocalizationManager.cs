@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 using System;
 using System.Resources;
@@ -115,9 +115,9 @@ namespace chat_client.Helpers
             {
                 if (window is SettingsWindow settingsWindow)
                 {
-                    settingsWindow.UseCustomPortLabel.Content = GetString("UseCustomPortLabel");
-                    settingsWindow.ReduceToTrayLabel.Content = GetString("ReduceToTrayLabel");
-                    settingsWindow.UseEncryptionLabel.Content = GetString("UseEncryptionLabel");
+                    settingsWindow.UseTcpPort.Content = GetString("UseTcpPort");
+                    settingsWindow.ReduceToTray.Content = GetString("ReduceToTray");
+                    settingsWindow.UseEncryptionForMessages.Content = GetString("UseEncryptionForMessages");
                     settingsWindow.LabelAppLanguage.Content = GetString("AppLanguage");
                     settingsWindow.AboutTextBlock.Text = GetString("AboutThisSoftware");
                     settingsWindow.LanguageComboBox.Items.Refresh();

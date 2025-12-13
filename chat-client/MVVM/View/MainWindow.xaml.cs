@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -494,7 +494,7 @@ namespace chat_client
         /// Uses null-safe casting to avoid runtime warnings and ensures the menu is attached only once.
         /// Handles right-click behavior.
         /// </summary>
-        public void EnsureTrayIconReady()
+        public void InitializeTrayIcon()
         {
             // Safely retrieve the tray icon resource and assign it if valid
             if (TryFindResource("TrayIcon") is TaskbarIcon icon)

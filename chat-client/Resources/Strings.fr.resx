@@ -195,7 +195,7 @@
   <data name="PublicKeyRejected" xml:space="preserve">
     <value>La clé publique a été rejetée par le serveur. Le chiffrement n'a pas été activé.</value>
   </data>
-  <data name="ReduceToTrayLabel" xml:space="preserve">
+  <data name="ReduceToTray" xml:space="preserve">
     <value>Réduire dans la zone de notification</value>
   </data>
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
@@ -213,10 +213,10 @@
   <data name="TrayQuit" xml:space="preserve">
     <value>Quitter</value>
   </data>
-  <data name="UseCustomPortLabel" xml:space="preserve">
-    <value>Utiliser un port TCP personnalisé</value>
+  <data name="UseTcpPort" xml:space="preserve">
+    <value>Utiliser le port TCP :</value>
   </data>
-  <data name="UseEncryptionLabel" xml:space="preserve">
+  <data name="UseEncryptionForMessages" xml:space="preserve">
     <value>Utiliser le chiffrage des messages</value>
   </data>
   <data name="GettingMissingKeys" xml:space="preserve">

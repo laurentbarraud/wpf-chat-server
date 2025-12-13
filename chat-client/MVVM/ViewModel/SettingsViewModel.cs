@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 
 // The System.ComponentModel namespace enables WPF to track property changes
@@ -65,22 +65,6 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Custom TCP port number.
-        /// </summary>
-        public int CustomPortNumber
-        {
-            get => _customPortNumber;
-            set
-            {
-                if (_customPortNumber == value) return;
-                _customPortNumber = value;
-                OnPropertyChanged(nameof(CustomPortNumber));   // Notifies UI of port change
-                Properties.Settings.Default.CustomPortNumber = value;
-                Properties.Settings.Default.Save();
-            }
-        }
-
-        /// <summary>
         /// Minimizes the app to system tray when true.
         /// </summary>
         public bool ReduceToTray
@@ -95,23 +79,7 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.Save();
             }
         }
-
-        /// <summary>
-        /// Enables or disables the custom port section.
-        /// </summary>
-        public bool UseCustomPort
-        {
-            get => _useCustomPort;
-            set
-            {
-                if (_useCustomPort == value) return;
-                _useCustomPort = value;
-                OnPropertyChanged(nameof(UseCustomPort));      // Notifies UI of toggle change
-                Properties.Settings.Default.UseCustomPort = value;
-                Properties.Settings.Default.Save();
-            }
-        }
-
+       
         /// <summary>
         /// Proxy property that exposes the encryption toggle state
         /// from the MainViewModel. This allows the SettingsWindow
@@ -133,13 +101,11 @@ namespace chat_client.MVVM.ViewModel
 
         // Backing private fields
         private string _appLanguage = Properties.Settings.Default.AppLanguage;
-        private int _customPortNumber = Properties.Settings.Default.CustomPortNumber;
         
         // Reference to the MainViewModel instance
         private readonly MainViewModel _mainViewModel;
         
         private bool _reduceToTray = Properties.Settings.Default.ReduceToTray;
-        private bool _useCustomPort = Properties.Settings.Default.UseCustomPort;
 
         /// <summary>
         /// Initializes a new instance of the SettingsViewModel class.

@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 11th, 2025</date>
+/// <date>December 13th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -295,10 +295,8 @@ namespace chat_client.Net
                     throw new ArgumentException(LocalizationManager.GetString("IPAddressInvalid"));
                 }
 
-                /// <summary> Selects port from settings or uses the default development port </summary>
-                int port = Properties.Settings.Default.UseCustomPort
-                    ? Properties.Settings.Default.CustomPortNumber
-                    : 7123;
+                /// <summary> Selects port from settings </summary>
+                int port = Settings.Default.PortNumber;
 
                 /// <summary> Opens the TCP connection asynchronously </summary>
                 await _tcpClient.ConnectAsync(ipToConnect, port).ConfigureAwait(false);
@@ -769,10 +767,7 @@ namespace chat_client.Net
                                     {
                                         await SendPublicKeyToServerAsync(viewModel.LocalUser.UID, localKey,
                                             requesterUid, cancellationToken).ConfigureAwait(false);
-
-                                        ClientLogger.Log($"Responded to public key request from {requesterUid}", ClientLogLevel.Debug);
                                     }
-
                                     else
                                     {
                                         ClientLogger.Log("PublicKeyRequest ignored (no local key available).", ClientLogLevel.Debug);
@@ -1315,8 +1310,13 @@ namespace chat_client.Net
 
             try
             {
-                /// <summary> Ensures payload is non-null; empty array means "clear mode". </summary>
-                var payloadKey = publicKeyDer ?? Array.Empty<byte>();
+                if (publicKeyDer == null || publicKeyDer.Length == 0)
+                {
+                    ClientLogger.Log("PublicKeyResponse not sent — empty key payload is not allowed.", ClientLogLevel.Warn);
+                    return false;
+                }
+
+                var payloadKey = publicKeyDer;
 
                 /// <summary>
                 /// Builds the packet with required fields:
