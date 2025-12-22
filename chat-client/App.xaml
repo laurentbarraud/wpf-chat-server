@@ -1,7 +1,8 @@
 ﻿<Application x:Class="chat_client.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:tb="http://www.hardcodet.net/taskbar">
+             xmlns:tb="http://www.hardcodet.net/taskbar"
+             xmlns:helpers="clr-namespace:chat_client.Helpers">
 
     <Application.Resources>
         <ResourceDictionary>
@@ -10,13 +11,11 @@
                 <ResourceDictionary Source="Themes/LightTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Global tray icon declaration -->
-            <tb:TaskbarIcon x:Key="TrayIcon"
-                            IconSource="/Resources/calc-icon.ico"
-                            ToolTipText="Windows Calculator"
-                            MenuActivation="RightClick"
-                            TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick"
-                            Visibility="Collapsed" />
+            <!-- Global BooleanToVisibilityConverter -->
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+            <!-- Converts a left-offset (double) into a Margin applied on the left side. -->
+            <helpers:LeftOffsetToMarginConverter x:Key="LeftOffsetToMarginConverter" />
 
             <!-- Interactive label style -->
             <Style x:Key="InteractiveTextBlockStyle" TargetType="Label">
@@ -35,11 +34,11 @@
                         <ControlTemplate TargetType="Label">
                             <Border Background="{TemplateBinding Background}">
                                 <TextBlock x:Name="PART_Text"
-                               Text="{TemplateBinding Content}"
-                               Foreground="{TemplateBinding Foreground}"
-                               FontSize="{TemplateBinding FontSize}"
-                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                                           Text="{TemplateBinding Content}"
+                                           Foreground="{TemplateBinding Foreground}"
+                                           FontSize="{TemplateBinding FontSize}"
+                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <!-- Mouse hover -->

@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
 using chat_client.View;
@@ -39,8 +39,8 @@ namespace chat_client.Helpers
 
             // Variables to hold parsed values
             string usernameChosen = "";
-            string themeChosen = "";
-            string languageChosen = "en";
+            string themeChosen = "light";
+            string langCodeChosen = "en";
             int customPortChosen;
             bool enableEncryption = false;
             bool reduceInTray = false;
@@ -48,14 +48,14 @@ namespace chat_client.Helpers
             bool showHelp = false;
             bool showAbout = false;
 
-            // Iterates through each argument with support for bundled short flags like -teu
+            /// <summary> Iterates through each argument with support for bundled short flags like -teu </summary>
             for (int i = 0; i < args.Length; i++)
             {
                 string rawArg = args[i];
                 if (string.IsNullOrEmpty(rawArg))
                     continue;
 
-                // Normalize: accepts both Unix-style (--) and Windows-style (/)
+                /// <summary> Normalize: accepts both Unix-style (--) and Windows-style (/) </summary>
                 string arg = rawArg.StartsWith("/") ? "-" + rawArg.Substring(1) : rawArg;
                 arg = arg.ToLowerInvariant();
 
@@ -83,11 +83,11 @@ namespace chat_client.Helpers
                             break;
                         case "--en":
                         case "--english":
-                            languageChosen = "en";
+                            langCodeChosen = "en";
                             break;
                         case "--fr":
                         case "--french":
-                            languageChosen = "fr";
+                            langCodeChosen = "fr";
                             break;                      
                         case "--encrypted":
                             enableEncryption = true;
@@ -114,7 +114,7 @@ namespace chat_client.Helpers
                     continue;
                 }
 
-                // Handle single-dash or slash-normalized flags and bundles
+                /// <summary> Handles single-dash or slash-normalized flags and bundles </summary>
                 if (arg.StartsWith("-") && arg.Length >= 2)
                 {
                     if (arg == "-?")
@@ -185,13 +185,13 @@ namespace chat_client.Helpers
                                 }
                                 else if (flag == 'p')
                                 {
-                                    // Tries to parse the port number
+                                    /// <summary> Tries to parse the port number </summary>
                                     if (int.TryParse(flagArgument, out var inputPort))
                                     {
-                                        // Validates the port using the same logic as the UI
+                                        /// <summary> Validates the port using the same logic as the UI </summary>
                                         bool isPortValid = MainViewModel.TrySavePort(inputPort);
 
-                                        // Only saves if valid — otherwise does nothing
+                                        ///<summary> Only saves if valid — otherwise does nothing </summary>
                                         if (isPortValid)
                                         {
                                             Properties.Settings.Default.PortNumber = inputPort;
@@ -230,10 +230,20 @@ namespace chat_client.Helpers
                 }
             }
 
-            // Applies language choice globally
-            if (!string.IsNullOrEmpty(languageChosen))
+            ///<summary> Applies chosen localization </summary>
+            if (!string.IsNullOrEmpty(langCodeChosen))
             {
-                LocalizationManager.Initialize(languageChosen);
+                var supported = new[] { "en", "fr" };
+                if (supported.Contains(langCodeChosen.ToLowerInvariant()))
+                {
+                    LocalizationManager.InitializeLocalization(langCodeChosen);
+                    Properties.Settings.Default.AppLanguageCode = langCodeChosen;
+                }
+                else
+                {
+                    LocalizationManager.InitializeLocalization("en");
+                    Properties.Settings.Default.AppLanguageCode = "en";
+                }
             }
 
             // Shows help and exits
@@ -253,25 +263,9 @@ namespace chat_client.Helpers
                 return;
             }
 
-            // Re-applies chosen localization
-            if (!string.IsNullOrEmpty(languageChosen))
-            {
-                var supported = new[] { "en", "fr" };
-                if (supported.Contains(languageChosen.ToLowerInvariant()))
-                {
-                    LocalizationManager.Initialize(languageChosen);
-                    Properties.Settings.Default.AppLanguage = languageChosen;
-                }
-                else
-                {
-                    LocalizationManager.Initialize("en");
-                    Properties.Settings.Default.AppLanguage = "en";
-                }
-            }
-
             // Retrieves window and view model if available
             if (Application.Current.MainWindow is MainWindow mainWindow &&
-                mainWindow.ViewModel is MainViewModel viewModel)
+                mainWindow.viewModel is MainViewModel viewModel)
             {
                 // Persists the preference first
                 Properties.Settings.Default.UseEncryption = enableEncryption;
@@ -329,7 +323,7 @@ namespace chat_client.Helpers
             {
                 bool isDarkThemeChosen = themeChosen.Equals("dark", StringComparison.OrdinalIgnoreCase);
                 ThemeManager.ApplyTheme(isDarkThemeChosen);
-                Properties.Settings.Default.AppTheme = isDarkThemeChosen ? "Dark" : "Light";
+                Properties.Settings.Default.AppTheme = isDarkThemeChosen ? "dark" : "light";
             }
 
             // Reduce app to tray setting

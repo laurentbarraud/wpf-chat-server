@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -14,6 +14,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Input;
 
@@ -40,6 +41,12 @@ namespace chat_client.MVVM.ViewModel
         private readonly HashSet<Guid> _uidsKeySentTo = new();
 
         /// <summary>
+        /// Stores the application language currently selected by the user.
+        /// Loaded from persisted settings at startup.
+        /// </summary>
+        private string _appLanguage = Properties.Settings.Default.AppLanguageCode;
+
+        /// <summary>
         /// Backing field for the active client connection instance.
         /// Manages the network session and exposes connection state.
         /// </summary>
@@ -52,15 +59,12 @@ namespace chat_client.MVVM.ViewModel
         private int _clientDisconnecting = 0;
 
         /// <summary>
-        /// Width of the connected users list.
+        /// Global unified font size setting for :
+        /// - conversations
+        /// - connected users list
+        /// - username, ip address and message input field
         /// </summary>
-        private double _connectedUsersListWidth = 182;
-
-        /// <summary>
-        /// Unified font size for conversations, connected users list,
-        /// and message input field.
-        /// </summary>
-        private int _conversationsAndConnectedUsersTextSize = 14;
+        private int _displayFontSize = Settings.Default.DisplayFontSize;
 
         /// <summary>
         /// Backing field that stores the default height value
@@ -71,7 +75,7 @@ namespace chat_client.MVVM.ViewModel
         /// Stores the localized tooltip text shown when encryption is fully
         /// enabled and all required keys are available.
         /// </summary>
-        private string _encryptionEnabledTooltip = "";
+        private string _encryptionEnabledToolTip = "";
 
         /// <summary>
         /// Ensures that encryption initialization runs only once per session.
@@ -79,38 +83,37 @@ namespace chat_client.MVVM.ViewModel
         /// Reset to 0 during disconnect cleanup to allow fresh initialization.
         /// </summary>
         private int _encryptionInitOnce = 0;
-
+       
         /// <summary>
-        /// Backing field for the global font size setting used by the UI.
+        /// Backing field storing the tooltip text shown when encryption keys are missing.
         /// </summary>
-        private int _fontSizeSetting = 14;
-
+        private string _gettingMissingKeysToolTip = "";
+        
         /// <summary>
-        /// Backing field for the tooltip displayed when encryption keys are missing.
+        /// Backing field for the server IP address used when the client is disconnected.
+        /// This value is bound in TwoWay mode to allow user input and is initialized from application settings.
         /// </summary>
-        private string _gettingMissingKeysTooltip = "";
+        private string _iPAddressOfServer = Settings.Default.IPAddressOfServer;
 
         /// <summary>
         /// Stores the current theme selection state.
-        /// Initialized from the saved AppTheme ("Dark" = true, otherwise false).
+        /// Initialized from the saved AppTheme ("dark" = true, otherwise false).
         /// </summary>
-        private bool _isDarkTheme = Settings.Default.AppTheme == "Dark";
+        private bool _isDarkTheme = Settings.Default.AppTheme == "dark";
 
         /// <summary>
         /// Indicates whether the next roster snapshot is the very first update
-        /// received after connecting. Suppresses join/leave notifications on first load.
+        /// received after connecting. 
+        /// Suppresses join/leave notifications on first load.
         /// </summary>
         private bool _isFirstRosterSnapshot = true;
 
         /// <summary>
-        /// Backing field for the font size applied to the message history.
+        /// Represents the proportional width of the left column, expressed as a value
+        /// between 0.0 and 1.0. A value of 0.3 means the left panel occupies 30% of
+        /// the total window width.
         /// </summary>
-        private int _messageFontSize = 14;
-
-        /// <summary>
-        /// Height of the message input TextBox.
-        /// </summary>
-        private double _messageInputHeight = 30;
+        private double _leftColumnRatio = 0.3;
 
         /// <summary>
         /// Holds the previous roster’s user IDs and usernames for diffing.
@@ -119,30 +122,47 @@ namespace chat_client.MVVM.ViewModel
             = new List<(Guid, string)>();
 
         /// <summary>
-        /// Backing field for the font size applied to the connected users list.
+        /// Backing field storing the current computed width of the right panel.
+        /// Updated whenever the window is resized.
         /// </summary>
-        private int _userListFontSize = 14;
+        private double _rightGridWidth;
 
         /// <summary>
         /// Holds what the user types in the first textbox on top left of the MainWindow
         private string _username = string.Empty;
 
-        /// <summary>
-        /// Holds the current width of the MainWindow, used to compute layout‑dependent values.
-        /// </summary>
-        private int _windowWidth;
-
-        // PROTECTED METHODS
+        // PUBLIC PROPERTIES
 
         /// <summary>
-        /// Notifies UI bindings that a property value has changed, enabling automatic interface updates.
+        /// Application UI language code.
+        /// Persists user choice, reloads resources, and updates UI labels.
         /// </summary>
-        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        public string AppLanguage
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            get => _appLanguage;
+            set
+            {
+                if (_appLanguage == value)
+                {
+                    return;
+                }
+                _appLanguage = value;
+
+                // Persists the new language choice
+                Properties.Settings.Default.AppLanguageCode = value;
+                Properties.Settings.Default.Save();
+
+                OnPropertyChanged(nameof(AppLanguage));  // Notifies UI of AppLanguage change
+                
+                // Reloads localization resources and refresh all UI labels
+                LocalizationManager.InitializeLocalization(value);
+
+                // Refreshes ComboBox items so each DisplayName re‐localizes
+                OnPropertyChanged(nameof(SupportedLanguages));
+            }
         }
 
-        // PUBLIC PROPERTIES
+        public static string AppLanguageLabel => LocalizationManager.GetString("AppLanguageLabel");
 
         /// <summary>
         /// Gets the active client connection instance used by the ViewModel
@@ -150,17 +170,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public ClientConnection ClientConn => _clientConn;
 
-        /// <summary>
-        /// Gets whether the chat panels (SpnDown, SpnEmojiPanel) are visible.
-        /// They’re visible only when connected.
-        /// </summary>
-        public bool AreChatControlsVisible => IsConnected;
-
-        /// <summary>
-        /// Gets the reduced value of the current MainWindow width,
-        /// returned as a pixel value for proportional UI sizing.
-        /// </summary>
-        public int BrdMessageInputWidth => (int)Math.Round(WindowWidth * 0.7);
+        public static string AboutThisSoftwareLabel => LocalizationManager.GetString("AboutThisSoftwareLabel");
 
         /// <summary>
         /// Connects or disconnects the client depending on the current connection state.
@@ -169,40 +179,54 @@ namespace chat_client.MVVM.ViewModel
         public RelayCommand ConnectDisconnectCommand { get; }
 
         /// <summary>
-        /// Width of the connected users list.
+        /// Computes the dynamic height of the Connect button based on the current 
+        /// display font size. 
+        /// The height scales proportionally with the font size and increases 
+        /// smoothly up.
         /// </summary>
-        public double ConnectedUsersListWidth
+
+        public double ConnectDisconnectButtonHeight
         {
-            get => _connectedUsersListWidth;
-            private set
+            get
             {
-                _connectedUsersListWidth = value;
-                OnPropertyChanged();
+                // Base height derived from font size
+                double baseHeight = DisplayFontSize * HeightScaleFactor;
+
+                // Computes progression ratio (0 → min font, 1 → max font)
+                double ratio = (DisplayFontSize - MinDisplayFontSize) /
+                               (MaxDisplayFontSize - MinDisplayFontSize);
+
+                ratio = Math.Clamp(ratio, 0, 1);
+
+                // Increases height proportionally
+                return baseHeight * (1 + ratio * 0.15);
             }
         }
 
         /// <summary>
-        /// Font size applied to conversation messages and connected users list.
-        /// Updated whenever the user changes the setting in the popup.
+        /// Computes the dynamic height of the Connect/Disconnect button based on the
+        /// current global font size. 
+        /// The height scales proportionally and increases up.
         /// </summary>
-        public int ConversationsAndConnectedUsersTextSize
+        public double ConnectButtonHeight
         {
-            get => _conversationsAndConnectedUsersTextSize;
-            set
+            get
             {
-                if (value < 12) value = 12;
-                if (value > 20) value = 20;
+                // Computes the raw height before proportional scaling
+                double baseHeight = DisplayFontSize * HeightScaleFactor;
 
-                _conversationsAndConnectedUsersTextSize = value;
-                OnPropertyChanged();
+                // Normalizes the current font size into a 0–1 progression ratio
+                double ratio = (DisplayFontSize - MinDisplayFontSize) /
+                               (MaxDisplayFontSize - MinDisplayFontSize);
 
-                // Saves to user settings
-                Properties.Settings.Default.FontSizeSetting = value;
-                Properties.Settings.Default.Save();
+                // Ensures the ratio stays within valid bounds
+                ratio = Math.Clamp(ratio, 0, 1);
 
-                // Updates dependent layout values
-                MessageInputHeight = 30 + (value - 12) * 2;
-                ConnectedUsersListWidth = ComputeConnectedUsersListWidth(value);
+                // Applies a progressive height increase up to +40% at maximum font size
+                double increaseFactor = 1 + (ratio * 0.40);
+
+                // Final computed height
+                return baseHeight * increaseFactor;
             }
         }
 
@@ -212,12 +236,47 @@ namespace chat_client.MVVM.ViewModel
         /// When disconnected, shows the last used server IP.
         /// </summary>
         public string CurrentIpDisplay =>
-            IsConnected ? LocalizationManager.GetString("Connected") : Settings.Default.IPAddressSaved;
+            IsConnected ? LocalizationManager.GetString("Connected") : Settings.Default.IPAddressOfServer;
+
+        /// <summary>
+        /// Stores the current global font size applied to conversation messages,
+        /// the input field, and the connected users list.
+        /// </summary>
+        public int DisplayFontSize
+        {
+            get => _displayFontSize;
+            set
+            {
+                int clampedFontSizeValue = Math.Clamp(value, 12, 36);
+
+                if (_displayFontSize == clampedFontSizeValue)
+                    return;
+
+                _displayFontSize = clampedFontSizeValue;
+
+                // Notifies the font size itself
+                OnPropertyChanged(nameof(DisplayFontSize));
+
+                // Notifies dependent UI elements
+                OnPropertyChanged(nameof(InputFieldHeight));
+                OnPropertyChanged(nameof(MessageInputFieldHeight));
+                OnPropertyChanged(nameof(ConnectButtonHeight));
+
+                // Persists user preference
+                Properties.Settings.Default.DisplayFontSize = clampedFontSizeValue;
+                Properties.Settings.Default.Save();
+            }
+        }
+
+        /// <summary>
+        /// Gets the localized font size label text
+        /// </summary>
+        public static string DisplayFontSizeLabel => LocalizationManager.GetString("DisplayFontSizeLabel");
 
         /// <summary>
         /// Gets the dynamic emoji button size, proportional to the popup width.
         /// </summary>
-        public int EmojiButtonSize => (int)Math.Round((EmojiPopupWidth / 12.0) * 0.85);
+        public int EmojiButtonSize => (int)Math.Round((EmojiPopupWidth / 12.0) * 0.85 * 2.0);
 
         /// <summary>
         /// Gets the dynamic emoji font size, proportional to the button size.
@@ -251,14 +310,14 @@ namespace chat_client.MVVM.ViewModel
         /// Gets the base height of the emoji popup, large enough
         /// to display square emoji buttons without vertical compression.
         /// </summary>
-        public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.3) - 12;
+        public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.3);
 
         /// <summary>
         /// Gets the dynamic width of the emoji popup,
         /// computed as 90% of the message input field width.
         /// This keeps the popup proportionally sized when the window is resized.
         /// </summary>
-        public int EmojiPopupWidth => (int)Math.Round(BrdMessageInputWidth * 0.90);
+        public int EmojiPopupWidth => (int)Math.Round(MessageInputFieldWidth * 0.90);
 
         /// <summary>
         /// Gets the dynamic emoji size, computed as one thirty‑second
@@ -272,12 +331,12 @@ namespace chat_client.MVVM.ViewModel
         /// is ready. This value is updated through localization and notifies
         /// the UI whenever it changes.
         /// </summary>
-        public string EncryptionEnabledTooltip
+        public string EncryptionEnabledToolTip
         {
-            get => _encryptionEnabledTooltip;
+            get => _encryptionEnabledToolTip;
             set
             {
-                _encryptionEnabledTooltip = value;
+                _encryptionEnabledToolTip = value;
                 OnPropertyChanged();
             }
         }
@@ -295,46 +354,66 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public int ExpectedClientCount { get; set; } = 1; // Starts at 1 (self)
 
-         /// <summary>
-        /// Stores the current global font size selected by the user.
-        /// This value is used as the base reference for updating all
-        /// UI elements that support dynamic text scaling.
-        /// </summary>
-        public int FontSizeSetting
-        {
-            get => _fontSizeSetting;
-            set
-            {
-                _fontSizeSetting = value;
-                OnPropertyChanged();
-            }
-        }
         /// <summary>
         /// Gets or sets the localized tooltip text displayed when encryption
         /// keys are missing. This value is updated through localization and
         /// notifies the UI whenever it changes.
         /// </summary>
-        public string GettingMissingKeysTooltip
+        public string GettingMissingKeysToolTip
         {
-            get => _gettingMissingKeysTooltip;
+            get => _gettingMissingKeysToolTip;
             set
             {
-                _gettingMissingKeysTooltip = value;
+                _gettingMissingKeysToolTip = value;
                 OnPropertyChanged();
             }
         }
 
         /// <summary>
-        /// Backing property used by the IP address TextBox when the client is disconnected.
-        /// This value is bound in TwoWay mode to allow user editing.
-        /// 
-        /// Note:
-        /// - This property is only used when IsNotConnected == true.
-        /// - When connected, the TextBox switches to a read-only binding on CurrentIpDisplay.
-        /// - The actual persisted value comes from Settings.Default.LastIPAddressUsed,
-        ///   which acts as the single source of truth for the saved server IP.
+        /// Base multiplier used to convert the global font size into a consistent control height.
         /// </summary>
-        public static string IPAddressOfServer { get; set; } = string.Empty;
+        public double HeightScaleFactor { get; } = 2.2;
+
+        /// <summary>
+        /// Computes the dynamic height of username and IP input fields, scaling up to +30% at maximum font size.
+        /// </summary>
+        public double InputFieldHeight
+        {
+            get
+            {
+                // Base height derived from the global font size
+                double baseHeight = DisplayFontSize * HeightScaleFactor;
+
+                // Normalized ratio (0–1) representing how far the slider is between min and max font size
+                double ratio = (DisplayFontSize - MinDisplayFontSize) /
+                               (MaxDisplayFontSize - MinDisplayFontSize);
+
+                // Ensures the ratio stays within valid bounds
+                ratio = Math.Clamp(ratio, 0, 1);
+
+                // Applies a progressive increase up to +30% at maximum font size
+                return baseHeight * (1 + ratio * 0.30);
+            }
+        }
+
+
+
+        /// <summary>
+        /// Property used by the IP address TextBox when the client is disconnected.
+        /// This value is bound in TwoWay mode to allow user editing.
+        /// When connected, the TextBox switches to a read-only binding on CurrentIpDisplay.
+        /// The actual persisted value comes from Settings.Default.LastIPAddressUsed,
+        /// which acts as the single source of truth for the saved server IP.
+        /// </summary>
+        public string IPAddressOfServer
+        {
+            get => _iPAddressOfServer;
+            set
+            {
+                _iPAddressOfServer = value;
+                OnPropertyChanged();
+            }
+        }
 
         /// <summary>
         /// Proxy to the ClientConnection state.
@@ -359,10 +438,10 @@ namespace chat_client.MVVM.ViewModel
             {
                 if (_isDarkTheme == value) return;
                 _isDarkTheme = value;
-                OnPropertyChanged(nameof(IsDarkTheme));
+                OnPropertyChanged();
 
                 // Saves the new theme preference
-                Settings.Default.AppTheme = value ? "Dark" : "Light";
+                Settings.Default.AppTheme = value ? "dark" : "light";
                 Settings.Default.Save();
 
                 // Applies the selected theme immediately
@@ -371,45 +450,167 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// True when the client is not connected. Convenience property for UI bindings.
-        /// </summary>
-        public bool IsNotConnected => !IsConnected;
-
-        /// <summary>
         /// Represents the currently authenticated user.
         /// Is initialized to an empty User instance to satisfy non-nullable requirements.
         /// </summary>
         public UserModel LocalUser { get; private set; } = new UserModel();
 
         /// <summary>
-        /// Font size used for rendering the conversation history on the right panel.
-        /// Updated whenever the global font size setting changes.
+        /// Gets the computed pixel width of the left column. 
+        /// This value is recalculated whenever the window size or 
+        /// LeftColumnRatio changes to maintain a responsive layout.
         /// </summary>
-        public int MessageFontSize
+        public double LeftColumnWidth { get; private set; }
+
+        /// <summary>
+        /// Gets the maximum font size allowed for UI text scaling.
+        /// </summary>
+        public static int MaxDisplayFontSize => 36;
+
+        /// <summary>
+        /// Message input field height grows linearly with font size.
+        /// </summary>
+        public double MessageInputFieldHeight
         {
-            get => _messageFontSize;
-            set
+            get
             {
-                _messageFontSize = value;
-                OnPropertyChanged();
+                const double baseFont = 12.0;
+                const double baseHeight = 34.0;
+                const double incrementPerPoint = 1.1;
+
+                return baseHeight + (DisplayFontSize - baseFont) * incrementPerPoint;
             }
         }
 
         /// <summary>
-        /// Height of the message input TextBox.
+        /// Computes the pixel offset of the message input field based on the right
+        /// panel width and the user-defined percentage.
         /// </summary>
-        public double MessageInputHeight
+        public double MessageInputFieldLeftOffset
         {
-            get => _messageInputHeight;
-            private set
+            get
             {
-                _messageInputHeight = value;
-                OnPropertyChanged();
+                double rawOffset = RightGridWidth * (MessageInputFieldLeftOffsetPercent / 100.0);
+
+                double maxOffset = RightGridWidth - MessageInputFieldWidth;
+
+                if (maxOffset < 0)
+                    maxOffset = 0;
+
+                return Math.Min(rawOffset, maxOffset);
             }
         }
 
-        // What the user types in the textbox on bottom right
-        // of the MainWindow in View gets stored in this property (bound in XAML).
+
+        /// <summary>
+        /// Gets the localized label text for the message input field's left offset slider.
+        /// </summary>
+        public static string MessageInputFieldLeftOffsetLabel => LocalizationManager.GetString("MessageInputFieldLeftOffsetLabel");
+
+
+        /// <summary>
+        /// Stores the percentage (1–100) of horizontal offset applied to the message
+        /// input field within the right panel. The value is persisted in application settings.
+        /// </summary>
+        public double MessageInputFieldLeftOffsetPercent
+        {
+            get
+            {
+                double storedLeftOffsetPercent = Properties.Settings.Default.MessageInputFieldLeftOffsetPercent;
+
+                // Fallback to 0% if invalid
+                if (storedLeftOffsetPercent < 0)
+                    storedLeftOffsetPercent = 0;
+
+                return Math.Clamp(storedLeftOffsetPercent, 0.0, 100.0);
+            }
+            set
+            {
+                double clampedValue = Math.Clamp(value, 0.0, 100.0);
+
+                if (Math.Abs(clampedValue - Properties.Settings.Default.MessageInputFieldLeftOffsetPercent) < 0.01)
+                    return;
+
+                Properties.Settings.Default.MessageInputFieldLeftOffsetPercent = clampedValue;
+                Properties.Settings.Default.Save();
+
+                OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
+                OnPropertyChanged(nameof(MessageInputFieldMargin));
+            }
+        }
+
+
+        /// <summary>
+        /// Converts the computed left offset into a Thickness margin.
+        /// </summary>
+        public Thickness MessageInputFieldMargin
+        {
+            get
+            {
+                return new Thickness(MessageInputFieldLeftOffset, 0, 0, 0);
+            }
+        }
+
+        /// <summary>
+        /// Computes the actual pixel width of the message input field based on the
+        /// right panel width and the user-defined percentage.
+        /// </summary>
+        public double MessageInputFieldWidth
+        {
+            get
+            {
+                if (RightGridWidth <= 100)
+                {
+                    return 100;
+                }
+
+                return RightGridWidth * (MessageInputFieldWidthPercent / 100.0);
+            }
+        }
+
+        public static string MessageInputFieldWidthLabel => LocalizationManager.GetString("MessageInputFieldWidthLabel");
+
+        /// <summary>
+        /// Stores the percentage (1–100) of the right panel width allocated
+        /// to the message input field. The value is clamped to prevent the
+        /// input field from collapsing, and is persisted in application settings.
+        /// </summary>
+        public double MessageInputFieldWidthPercent
+        {
+            get
+            {
+                double storedMessageInputFieldWidthPercent = Properties.Settings.Default.MessageInputFieldWidthPercent;
+
+                /// <summary> Fallbacks to 60% if the stored value is invalid or zero </summary>
+                if (storedMessageInputFieldWidthPercent <= 0)
+                {
+                    storedMessageInputFieldWidthPercent = 60.0;
+                }
+
+                /// <summary> Clamps the value between 1.0 and 100.0 </summary>
+                return Math.Clamp(storedMessageInputFieldWidthPercent, 1.0, 100.0);
+            }
+            set
+            {
+                // Clamps between 1% and 100% to ensure the input field remains visible
+                double clamped = Math.Clamp(value, 1.0, 100.0);
+
+                if (Math.Abs(clamped - Properties.Settings.Default.MessageInputFieldWidthPercent) < 0.01)
+                    return;
+
+                Properties.Settings.Default.MessageInputFieldWidthPercent = clamped;
+                Properties.Settings.Default.Save();
+
+                OnPropertyChanged(nameof(MessageInputFieldWidth));
+                OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
+                OnPropertyChanged(nameof(MessageInputFieldMargin));
+            }
+        }
+
+        /// <summary>
+        /// What the user types in the textbox on bottom right of the MainWindow
+        /// gets stored in this property (bound in XAML).
+        /// </summary>
         public static string MessageToSend { get; set; } = string.Empty;
 
         /// <summary>
@@ -419,10 +620,107 @@ namespace chat_client.MVVM.ViewModel
         public ObservableCollection<string> Messages { get; set; }
 
         /// <summary>
+        /// Minimum font size allowed for UI text scaling.
+        /// </summary>
+        public static int MinDisplayFontSize => 12;
+
+        /// <summary>
+        /// Notifies the UI that a property value has changed.
+        /// </summary>
+        /// <param name="propertyName">The name of the changed property.</param>
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        /// <summary>
+        /// Gets or sets the port number used by the client.
+        /// This property acts as a proxy to the underlying application settings.
+        /// </summary>
+        public int PortNumber
+        {
+            get => Settings.Default.PortNumber;
+            set
+            {
+                if (Settings.Default.PortNumber != value)
+                {
+                    Settings.Default.PortNumber = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        /// <summary>
         /// Event triggered when a property value changes, used to notify bound UI elements in data-binding scenarios.
         /// Implements the INotifyPropertyChanged interface to support reactive updates in WPF.
         /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>
+        /// Collection of languages for the ComboBox (ISO code + localized name).
+        /// </summary>
+        public ObservableCollection<LanguageOptions> SupportedLanguages { get; }
+            = new ObservableCollection<LanguageOptions>
+            {
+                new LanguageOptions("en"),
+                new LanguageOptions("fr")
+            };
+
+        /// <summary>
+        /// Determines whether the application should minimize to the system tray.
+        /// </summary>
+        public bool ReduceToTray
+        {
+            get => Properties.Settings.Default.ReduceToTray;
+            set
+            {
+                if (Properties.Settings.Default.ReduceToTray == value)
+                    return;
+
+                Properties.Settings.Default.ReduceToTray = value;
+                Properties.Settings.Default.Save();
+
+                OnPropertyChanged(); // CallerMemberName: "ReduceToTray"
+            }
+        }
+
+        /// <summary>
+        /// Gets the localized reduce to tray label text
+        /// </summary>
+        public static string ReduceToTrayLabel => LocalizationManager.GetString("ReduceToTrayLabel");
+
+        /// <summary>
+        /// Represents the current pixel width of the right panel. 
+        /// This value is updated automatically whenever the panel is resized 
+        /// and is used as the basis for computing proportional UI elements 
+        /// such as the message input field width and its horizontal offset.
+        /// </summary>
+
+        public double RightGridWidth
+        {
+            get => _rightGridWidth;
+            set
+            {
+                if (Math.Abs(_rightGridWidth - value) < 0.5)
+                    return;
+
+                _rightGridWidth = value;
+
+                OnPropertyChanged(nameof(RightGridWidth));
+                OnPropertyChanged(nameof(MessageInputFieldWidth));
+                OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
+                OnPropertyChanged(nameof(MessageInputFieldMargin));
+                OnPropertyChanged(nameof(EmojiPopupWidth));
+                OnPropertyChanged(nameof(EmojiButtonSize));
+                OnPropertyChanged(nameof(EmojiPopupHeight));
+
+            }
+        }
+
+        public static string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
+        public static string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
+
+        public static string SettingsToolTip => LocalizationManager.GetString("SettingsToolTip");
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -435,6 +733,9 @@ namespace chat_client.MVVM.ViewModel
         /// Saves the preference, applies the theme with animation, and refreshes watermark visuals.
         /// </summary>
         public ICommand ThemeToggleCommand { get; }
+
+        public static string TrayOpenLabel => LocalizationManager.GetString("TrayOpenLabel");
+        public static string TrayQuitLabel => LocalizationManager.GetString("TrayQuitLabel");
 
         /// <summary>
         /// Proxy-property: gets or sets the application setting
@@ -453,26 +754,20 @@ namespace chat_client.MVVM.ViewModel
                 Settings.Default.Save();
 
                 /// <summary> Notifies UI bindings </summary>
-                OnPropertyChanged(nameof(UseEncryption));
+                OnPropertyChanged();
 
                 /// <summary> Atomically trigger the pipeline toggle via ViewModel </summary>
                 ToggleEncryption(value);
             }
         }
 
+
         /// <summary>
-        /// Font size used for rendering the connected users list on the left panel.
-        /// Updated whenever the global font size setting changes.
+        /// Gets the localized use encryption for messages label text
         /// </summary>
-        public int UserListFontSize
-        {
-            get => _userListFontSize;
-            set
-            {
-                _userListFontSize = value;
-                OnPropertyChanged();
-            }
-        }
+        public static string UseEncryptionLabel => LocalizationManager.GetString("ReduceToTrayLabel");
+
+        public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
         /// <summary>
         /// What the user types in the first textbox on top left of the MainWindow.
@@ -496,39 +791,6 @@ namespace chat_client.MVVM.ViewModel
         public ObservableCollection<UserModel> Users { get; set; }
 
         /// <summary>
-        /// Gets the localized window title according to connection state.
-        /// </summary>
-        public string WindowTitle =>
-            "WPF chat client" + (IsConnected ? " – " + LocalizationManager.GetString("Connected") : "");
-
-        /// <summary>
-        /// Gets or sets the current width of the MainWindow.  
-        /// This value is updated by the view and used to compute layout‑dependent properties.
-        /// </summary>
-        public int WindowWidth
-        {
-            get => _windowWidth;
-            set
-            {
-                if (_windowWidth != value)
-                {
-                    _windowWidth = value;
-
-                    /// <summary> Notifies WindowWidth </summary >
-                    OnPropertyChanged();
-
-                    /// <summary> Notifies dependent properties </summary>
-                    OnPropertyChanged(nameof(BrdMessageInputWidth));
-                    OnPropertyChanged(nameof(EmojiButtonSize));
-                    OnPropertyChanged(nameof(EmojiFontSize));
-                    OnPropertyChanged(nameof(EmojiPopupHeight));
-                    OnPropertyChanged(nameof(EmojiPopupWidth));
-                    OnPropertyChanged(nameof(EmojiSize));
-                }
-            }
-        }
-
-        /// <summary>
         /// Initializes the MainViewModel.
         /// Sets up collections, creates pipeline and connection,
         /// wires events, and configures UI commands.
@@ -539,14 +801,6 @@ namespace chat_client.MVVM.ViewModel
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
 
-            /// <summary> 
-            /// Initializes tooltip strings used by the encryption status icon.
-            /// These values are set to empty at startup and later populated
-            /// through localization when the ViewModel loads.
-            /// </summary>
-            GettingMissingKeysTooltip = string.Empty;
-            EncryptionEnabledTooltip = string.Empty;
-
             /// <summary> Creates client connection with dispatcher callback and reference to this ViewModel </summary>
             _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action), this);
 
@@ -555,11 +809,11 @@ namespace chat_client.MVVM.ViewModel
                 action => Application.Current.Dispatcher.BeginInvoke(action)
             );
 
-            /// <summary> Relay pipeline PropertyChanged to proxy property for UI binding </summary>
+            /// <summary> Relays pipeline PropertyChanged to proxy property for UI binding </summary>
             EncryptionPipeline.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(EncryptionPipeline.IsEncryptionReady))
-                    OnPropertyChanged(nameof(IsEncryptionReady)); // Relais pour la UI
+                    OnPropertyChanged(nameof(IsEncryptionReady)); // Relay for UI
             };
 
             /// <summary> Binds the connection to the pipeline </summary>
@@ -598,53 +852,29 @@ namespace chat_client.MVVM.ViewModel
                 /// <remarks>
                 /// "param is bool toggleState" is a pattern matching (introduced in C# 7).
                 /// It tests if param is of type bool.
-                /// If yes, it assigns the param value to a new local variable toggleState (of type bool).
-                /// If not, the expression is false and toggleState is not initialized.
+                /// - if yes, it assigns the param value to a new local variable toggleState (of type bool).
+                /// - if not, the expression is false and toggleState is not initialized.
                 /// "&& toggleState" ensures "toggleState" is only evaluated if the type check succeeds.
                 /// </remarks>
 
                 /// <summary>
-                /// Updates the application theme setting ("Dark" or "Light") and saves it.
+                /// Updates the application theme setting ("dark" or "light") and saves it.
                 /// </summary>
-                Settings.Default.AppTheme = isDarkThemeSelected ? "Dark" : "Light";
+                Settings.Default.AppTheme = isDarkThemeSelected ? "dark" : "light";
                 Settings.Default.Save();
 
                 /// <summary> Applies the selected theme to the application./// </summary>
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
-            /// <summary> Reevaluates Connect/Disconnect command when connection state changes </summary>
-            PropertyChanged += (sender, args) =>
-            {
-                if (args.PropertyName == nameof(IsConnected))
-                {
-                    ConnectDisconnectCommand.RaiseCanExecuteChanged();
-                }
-            };
+            /// <summary> Loads localized UI strings </summary>
+            LoadLocalizedStrings();
 
             /// <summary> Loads saved font size </summary>
-            int savedFontSize = Properties.Settings.Default.FontSizeSetting;
+            int savedDisplayFontSize = Properties.Settings.Default.DisplayFontSize;
 
-            // Applies it (this triggers all layout updates)
-            ConversationsAndConnectedUsersTextSize = savedFontSize;
-        }
-        /// <summary>
-        /// Calculates the appropriate width for the connected‑users list based on font size.
-        /// </summary>
-        private double ComputeConnectedUsersListWidth(int fontSize)
-        {
-            const int usernameLength = 24;
-            double charWidth = fontSize * 0.28;
-            double padding = 40;
-
-            double predicted = (usernameLength * charWidth) + padding;
-
-            double minWidth = 182;
-            double maxWidth = 360;
-
-            if (predicted < minWidth) return minWidth;
-            if (predicted > maxWidth) return maxWidth;
-            return predicted;
+            /// <summary> Applies it (this triggers all layout updates) </summary>
+            DisplayFontSize = savedDisplayFontSize;
         }
 
         /// <summary>
@@ -719,17 +949,14 @@ namespace chat_client.MVVM.ViewModel
                 {
                     // Updates connection state
                     OnPropertyChanged(nameof(IsConnected));
-                    OnPropertyChanged(nameof(IsNotConnected));
 
                     // Updates dependent elements
                     OnPropertyChanged(nameof(CurrentIpDisplay));
-                    OnPropertyChanged(nameof(WindowTitle));
                     OnPropertyChanged(nameof(ConnectButtonText));
-                    OnPropertyChanged(nameof(AreChatControlsVisible));
                 });
 
                 /// <summary> Saves last used IP address for next session </summary>
-                Settings.Default.IPAddressSaved = Settings.Default.IPAddressSaved;
+                Settings.Default.IPAddressOfServer = IPAddressOfServer;
                 Settings.Default.Save();
 
                 ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
@@ -870,12 +1097,6 @@ namespace chat_client.MVVM.ViewModel
             try
             {
                 /// <summary>
-                /// Marks this disconnect as explicitly requested by the user.
-                /// This flag will be checked later to suppress server-closed messages.
-                /// </summary>
-                _clientConn?.MarkUserInitiatedDisconnect();
-
-                /// <summary>
                 /// Closes the underlying TCP connection via the client connection.
                 /// </summary>
                 if (_clientConn?.IsConnected == true)
@@ -893,15 +1114,12 @@ namespace chat_client.MVVM.ViewModel
                 /// </summary>
                 /// <summary> Updates connection state </summary>
                 OnPropertyChanged(nameof(IsConnected));
-                OnPropertyChanged(nameof(IsNotConnected));
 
                 /// <summary> Restores last used IP address </summary>
                 OnPropertyChanged(nameof(CurrentIpDisplay));
 
                 /// <summary> Updates dependent UI elements </summary>
-                OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
-                OnPropertyChanged(nameof(AreChatControlsVisible));
 
                 /// <summary>
                 /// Disables encryption pipeline safely.
@@ -933,18 +1151,18 @@ namespace chat_client.MVVM.ViewModel
         /// </param>
         public void DisplayRosterSnapshot(IEnumerable<(Guid UserId, string Username, byte[] PublicKeyDer)> rosterEntries)
         {
-            // Materializes incoming roster for multiple passes
+            /// <summary> Materializes incoming roster for multiple passes </summary>
             var incomingSnapshot = rosterEntries
                 .Select(e => (e.UserId, e.Username))
                 .ToList();
 
-            // On first snapshot, populates Users silently
+            /// <summary> On first snapshot, populates Users silently </summary>
             if (_isFirstRosterSnapshot)
             {
                 Users.Clear();
                 foreach (var (userId, username) in incomingSnapshot)
                 {
-                    // Finds the corresponding tuple once and copies its DER bytes safely
+                    /// <summary> Finds the corresponding tuple once and copies its DER bytes safely </summary>
                     var entry = rosterEntries.First(e => e.UserId == userId);
                     Users.Add(new UserModel
                     {
@@ -954,39 +1172,34 @@ namespace chat_client.MVVM.ViewModel
                     });
                 }
 
-                // Records this state and disables silent mode
+                /// <summary> Records this state and disables silent mode </summary>
                 _previousRosterSnapshot = incomingSnapshot;
                 _isFirstRosterSnapshot = false;
                 return;
             }
 
-            // Determines who joined (users in incoming but not in previous)
+            /// <summary> Determines who joined (users in incoming but not in previous) </summary>
             var joinedUsers = incomingSnapshot
                 .Except(_previousRosterSnapshot)
                 .ToList();
 
-            // Determines who left (users in previous but not in incoming)
+            /// <summary> Determines who left (users in previous but not in incoming) </summary>
             var leftUsers = _previousRosterSnapshot
                 .Except(incomingSnapshot)
                 .ToList();
 
-            /// <summary>
-            /// For each joined user, only the username is needed for the notification.
-            /// </summary>
+            /// <summary> For each joined user, only the username is needed for the notification. </summary>
             foreach (var (_, username) in joinedUsers)
             {
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
             }
 
-            /// <summary>
-            /// For each left user, only the username is needed for the notification.
-            /// </summary>
+            /// <summary> For each left user, only the username is needed for the notification. </summary>
             foreach (var (_, username) in leftUsers)
             {
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
             }
-
-            // Refreshes the Users collection with the full, current roster
+            
             Users.Clear();
 
             /// <summary>
@@ -1005,9 +1218,41 @@ namespace chat_client.MVVM.ViewModel
                 });
             }
 
-            // Saves for next diff
             _previousRosterSnapshot = incomingSnapshot;
         }
+
+        /// <summary>
+        /// Notifies the UI that all localized ViewModel properties must refresh
+        /// after a culture change.
+        /// </summary>
+        public void LoadLocalizedStrings()
+        {
+            // Tooltips
+            OnPropertyChanged(nameof(GettingMissingKeysToolTip));
+            OnPropertyChanged(nameof(EncryptionEnabledToolTip));
+            OnPropertyChanged(nameof(ScrollLeftToolTip));
+            OnPropertyChanged(nameof(ScrollRightToolTip));
+            OnPropertyChanged(nameof(SettingsToolTip));
+
+            // Tray menu
+            OnPropertyChanged(nameof(TrayOpenLabel));
+            OnPropertyChanged(nameof(TrayQuitLabel));
+
+            // Settings window labels
+            OnPropertyChanged(nameof(UseTcpPortLabel));
+            OnPropertyChanged(nameof(ReduceToTrayLabel));
+            OnPropertyChanged(nameof(UseEncryptionLabel));
+            OnPropertyChanged(nameof(DisplayFontSizeLabel));
+            OnPropertyChanged(nameof(MessageInputFieldWidthLabel));
+            OnPropertyChanged(nameof(MessageInputFieldLeftOffsetLabel));
+            OnPropertyChanged(nameof(AppLanguageLabel));
+            OnPropertyChanged(nameof(AboutThisSoftwareLabel));
+
+            // Other localized properties
+            OnPropertyChanged(nameof(ConnectButtonText));
+            OnPropertyChanged(nameof(CurrentIpDisplay));
+        }
+
 
         /// <summary>
         /// Handles a server-initiated disconnect command.  
@@ -1047,9 +1292,7 @@ namespace chat_client.MVVM.ViewModel
                 /// Notifies UI bindings so dependent logic refreshes.
                 /// </summary>
                 OnPropertyChanged(nameof(IsConnected));
-                OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(ConnectButtonText));
-                OnPropertyChanged(nameof(AreChatControlsVisible));
 
                 /// <summary>
                 /// Resets the encryption initialization flag so that the next session
@@ -1253,24 +1496,19 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-        /// Handles changes to the AppLanguage setting:
-        /// - Switches the localization culture in LocalizationManager.
-        /// - Raises PropertyChanged for all UI-bound properties that use localized strings,
-        /// ensuring immediate refresh without window reload.
+        /// <summary>
+        /// Reacts to AppLanguage changes by applying the new culture
+        /// and reloading all localized ViewModel strings.
         /// </summary>
         private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName != nameof(Settings.Default.AppLanguage))
+            if (e.PropertyName != nameof(Settings.Default.AppLanguageCode))
                 return;
 
-            // Changes the current culture used by LocalizationManager
-            LocalizationManager.Initialize(Properties.Settings.Default.AppLanguage);
-
-            // Forces WPF to re-query any localized properties
-            OnPropertyChanged(nameof(ConnectButtonText));
-            OnPropertyChanged(nameof(WindowTitle));
-            OnPropertyChanged(nameof(CurrentIpDisplay));
+            LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode);
+            LoadLocalizedStrings();
         }
+
 
         /// <summary>
         /// Handles a new user join event.
@@ -1334,70 +1572,36 @@ namespace chat_client.MVVM.ViewModel
         {
             try
             {
-                // Locates the user by UID
+                /// <summary>  Locates the user by UID  </summary> 
                 var user = Users.FirstOrDefault(u => u.UID == uid);
                 if (user == null)
                     return;
 
-                // Removes the user from the UI-bound list
+                /// <summary> Removes the user from the UI-bound list </summary> 
                 Users.Remove(user);
 
-                // Updates the expected client count after removal
+                /// <summary> Updates the expected client count after removal </summary> 
                 ExpectedClientCount = Users.Count;
                 ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", ClientLogLevel.Debug);
 
-                // Rechecks encryption readiness when encryption is active
+                /// <summary> Rechecks encryption readiness when encryption is active 
                 if (Settings.Default.UseEncryption)
                 {
                     if (EncryptionPipeline != null)
                     {
-                        // Evaluates encryption state safely
                         EncryptionPipeline.EvaluateEncryptionState();
                     }
                     else
                     {
-                        // Logs that pipeline is missing instead of throwing NullReferenceException
                         ClientLogger.Log("OnUserDisconnected detects null pipeline — skip EvaluateEncryptionState.", ClientLogLevel.Warn);
                     }
                 }
 
-                // Logs the disconnect event in a localized, simplified way
                 ClientLogger.LogLocalized("ClientRemoved", ClientLogLevel.Info, username);
             }
             catch (Exception ex)
             {
-                // Logs any unexpected failure in the disconnect handler
                 ClientLogger.Log($"OnUserDisconnected handler fails: {ex.Message}", ClientLogLevel.Error);
-            }
-        }
-
-        /// <summary>
-        /// Represents the user's preference for minimizing the app to the system tray.
-        /// When changed, it updates the application setting, saves it, and shows or hides the tray icon accordingly.
-        /// This property is bound to the ReduceToTray toggle in the settings UI.
-        /// </summary>
-        public bool ReduceToTray
-        {
-            get => Settings.Default.ReduceToTray;
-            set
-            {
-                if (Settings.Default.ReduceToTray != value)
-                {
-                    Settings.Default.ReduceToTray = value;
-                    Settings.Default.Save();
-
-                    OnPropertyChanged(nameof(ReduceToTray));
-
-                    // Updates tray icon visibility
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
-                    {
-                        TaskbarIcon? trayIcon = mainWindow.TryFindResource("TrayIcon") as TaskbarIcon;
-                        if (trayIcon != null)
-                        {
-                            trayIcon.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-                        }
-                    }
-                }
             }
         }
 
@@ -1411,18 +1615,6 @@ namespace chat_client.MVVM.ViewModel
 
             // Ensures UI bindings refresh for IsEncryptionReady
             OnPropertyChanged(nameof(EncryptionPipeline.IsEncryptionReady));
-        }
-
-        /// <summary>
-        /// Raises PropertyChanged for all connection-related bindings.
-        /// </summary>
-        public void RefreshConnectionBindings()
-        {
-            // Forces WPF to re-read all properties
-            OnPropertyChanged(nameof(IsConnected));
-            OnPropertyChanged(nameof(WindowTitle));
-            OnPropertyChanged(nameof(ConnectButtonText));
-            OnPropertyChanged(nameof(AreChatControlsVisible));
         }
 
         /// <summary>
@@ -1565,5 +1757,6 @@ namespace chat_client.MVVM.ViewModel
 
             return false;
         }
+
     }
 }

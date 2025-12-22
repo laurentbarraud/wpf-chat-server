@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using System;
 using System.Resources;
@@ -93,50 +93,22 @@ namespace chat_client.Helpers
         /// Updates CurrentCulture, reloads the ResourceManager, and refreshes all open windows.
         /// </summary>
         /// <param name="languageCode">The culture code to apply.</param>
-        public static void Initialize(string languageCode)
+        public static void InitializeLocalization(string languageCode)
         {
             CurrentCulture = new CultureInfo(languageCode);
             Thread.CurrentThread.CurrentUICulture = CurrentCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CurrentCulture;
 
-            // Reset ResourceManager in case satellite assemblies are now loaded
-            ResourceManager = new ResourceManager("chat_client.Resources.Strings",
-                                                  Assembly.GetExecutingAssembly());
+            /// <summary> Resets ResourceManager in case satellite assemblies are now loaded </summary>
+            ResourceManager = new ResourceManager("chat_client.Resources.Strings", Assembly.GetExecutingAssembly());
 
-            UpdateLocalizedUI();
-        }
-
-        /// <summary>
-        /// Applies the current culture’s localized strings to all open SettingsWindow and MainWindow instances.
-        /// </summary>
-        public static void UpdateLocalizedUI()
-        {
+            ///<summary> Updates watermark images </summary>
             foreach (Window window in Application.Current.Windows)
             {
-                if (window is SettingsWindow settingsWindow)
-                {
-                    settingsWindow.UseTcpPort.Content = GetString("UseTcpPort");
-                    settingsWindow.ReduceToTray.Content = GetString("ReduceToTray");
-                    settingsWindow.UseEncryptionForMessages.Content = GetString("UseEncryptionForMessages");
-                    settingsWindow.LabelAppLanguage.Content = GetString("AppLanguage");
-                    settingsWindow.AboutTextBlock.Text = GetString("AboutThisSoftware");
-                    settingsWindow.LanguageComboBox.Items.Refresh();
-                }
-                else if (window is MainWindow mainWindow)
-                {
+                if (window is MainWindow mainWindow)
                     mainWindow.ApplyWatermarkImages();
-
-                    mainWindow.CmdScrollLeft.ToolTip = GetString("ScrollLeftToolTip");
-                    mainWindow.CmdScrollRight.ToolTip = GetString("ScrollRightToolTip");
-                    mainWindow.CmdSettings.ToolTip = GetString("Settings");
-                    
-                    if (mainWindow.TrayMenuOpen != null)
-                        mainWindow.TrayMenuOpen.Header = GetString("TrayOpen");
-
-                    if (mainWindow.TrayMenuQuit != null)
-                        mainWindow.TrayMenuQuit.Header = GetString("TrayQuit");
-                }
             }
+
         }
     }
 }

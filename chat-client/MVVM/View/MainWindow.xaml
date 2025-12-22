@@ -5,14 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:chat_client" 
         xmlns:vm="clr-namespace:chat_client.MVVM.ViewModel"
-        xmlns:helpers="clr-namespace:chat_client.Helpers"
         xmlns:tb="http://www.hardcodet.net/taskbar"
+        xmlns:helpers="clr-namespace:chat_client.Helpers"
         mc:Ignorable="d"
-        Title="{Binding WindowTitle}" 
+        Title="Chat client" 
         Height="491" 
         Width="759" 
         WindowStartupLocation="CenterScreen" 
-        Loaded="MainWindow_Loaded" 
         Icon="/Resources/chat-client-icon.ico" 
         TabIndex="12" 
         StateChanged="MainWindow1_StateChanged" 
@@ -27,28 +26,20 @@
         Ensures UI state never overwrites the persisted IP. 
         CurrentIpDisplay requires Mode=OneWay to avoid TwoWay binding errors on a read‑only property.
         -->
-        <Style x:Key="IpAddressTextBoxStyle" TargetType="TextBox">
-            <Setter Property="IsEnabled" Value="True"/>
-            <Setter Property="Text" Value="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged}"/>
+        <Style x:Key="IPAddressTextBoxStyle" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="False"/>
+            <Setter Property="Text" Value="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
 
             <Style.Triggers>
-
-                <!-- When connected -->
                 <DataTrigger Binding="{Binding IsConnected}" Value="True">
-                    <Setter Property="IsEnabled" Value="False"/>
-                    <Setter Property="Text" 
-                            Value="{Binding CurrentIpDisplay, Mode=OneWay}"/>
+                    <Setter Property="IsReadOnly" Value="True"/>
                     <Setter Property="HorizontalContentAlignment" Value="Center"/>
                 </DataTrigger>
 
-                <!-- When disconnected -->
                 <DataTrigger Binding="{Binding IsConnected}" Value="False">
-                    <Setter Property="IsEnabled" Value="True"/>
-                    <Setter Property="Text" 
-                            Value="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+                    <Setter Property="IsReadOnly" Value="False"/>
                     <Setter Property="HorizontalContentAlignment" Value="Left"/>
                 </DataTrigger>
-                
             </Style.Triggers>
         </Style>
 
@@ -93,9 +84,6 @@
                              DecelerationRatio="0.8"/>
         </Storyboard>
 
-        <!-- Bool → Visibility -->
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-
         <!-- Encryption icon style -->
         <Style x:Key="EncryptionStatusIconStyle" TargetType="Image">
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
@@ -113,12 +101,12 @@
 
             <Setter Property="Source" Value="/Resources/syncing-keys.png"/>
             <Setter Property="ToolTip"
-                    Value="{Binding GettingMissingKeysTooltip}"/>
+                    Value="{Binding GettingMissingKeysToolTip}"/>
 
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsEncryptionReady}" Value="True">
                     <Setter Property="Source" Value="/Resources/encrypted.png"/>
-                    <Setter Property="ToolTip" Value="{Binding EncryptionEnabledTooltip}"/>
+                    <Setter Property="ToolTip" Value="{Binding EncryptionEnabledToolTip}"/>
 
                     <DataTrigger.EnterActions>
                         <BeginStoryboard Storyboard="{StaticResource LockDropAnim}"/>
@@ -127,20 +115,31 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Font size converter -->
-        <helpers:FontSizeToPercentageConverter x:Key="FontSizeToPercentageConverter" />
+        <!-- Global tray icon declaration -->
+        <tb:TaskbarIcon x:Key="TrayIcon"
+                IconSource="pack://application:,,,/Resources/calc-icon.ico"
+                ToolTipText="Windows Calculator"
+                MenuActivation="RightClick"
+                TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick"
+                Visibility="Collapsed" />
 
     </Window.Resources>
 
-    <Grid x:Name="GrdMain" Background="{DynamicResource BackgroundBrush}">
+    <Grid x:Name="GrdMain" 
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
+          DataContext="{Binding}"
+          Background="{DynamicResource BackgroundBrush}">
 
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto" MinWidth="190"/>
+            <ColumnDefinition Width="5"/>
+            <!-- Splitter -->
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- LEFT PANEL -->
-        <Grid x:Name="GrdLeft" Grid.Column="0">
+        <Grid x:Name="GrdLeft" Grid.Column="0" HorizontalAlignment="Stretch">
 
             <!-- Layout -->
             <Grid.RowDefinitions>
@@ -149,89 +148,97 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- ========================= -->
             <!-- Row 0 : Credentials block -->
-            <!-- ========================= -->
-            <StackPanel Grid.Row="0" Orientation="Vertical">
+            <Grid Grid.Row="0" HorizontalAlignment="Stretch">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <!-- Username field -->
-                <Grid Height="25" Margin="0">
+                <!-- Username -->
+                <Grid Grid.Row="0" 
+                      HorizontalAlignment="Stretch">
                     <TextBox x:Name="TxtUsername"
-                         IsEnabled="{Binding IsNotConnected}"
-                         Background="Transparent"
-                         Foreground="{DynamicResource ForegroundBrush}" 
-                         Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="TxtUsername_TextChanged"
-                         PreviewKeyDown="TxtUsername_PreviewKeyDown"
-                         FontSize="14"
-                         MaxLines="1"
-                         MaxLength="50"
-                         TabIndex="0"
-                         VerticalAlignment="Top"
-                         HorizontalAlignment="Left"
-                         Width="182"
-                         Height="25"
-                         Panel.ZIndex="1"/>
+                             IsReadOnly="{Binding IsConnected}"
+                             Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                             Height="{Binding InputFieldHeight}"
+                             FontSize="{Binding DisplayFontSize}" 
+                             PreviewKeyDown="TxtUsername_PreviewKeyDown"
+                             TextChanged="TxtUsername_TextChanged"
+                             LostFocus="TxtUsername_LostFocus"
+                             Panel.ZIndex="1"
+                             MinHeight="25"
+                             MinWidth="120"
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Background="Transparent"
+                             Foreground="{DynamicResource ForegroundBrush}"/>
+
                     <Image x:Name="imgUsernameWatermark"
-                       Stretch="Fill"
-                       IsHitTestVisible="False"
-                       VerticalAlignment="Top"
-                       HorizontalAlignment="Left"
-                       Width="{Binding ActualWidth, ElementName=TxtUsername}"
-                       Height="{Binding ActualHeight, ElementName=TxtUsername}" />
+                           Width="{Binding ActualWidth, ElementName=TxtUsername}"
+                           Height="{Binding ActualHeight, ElementName=TxtUsername}"
+                           Panel.ZIndex="0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           Source="/Resources/txtUsername_background_en.png"
+                           Stretch="Uniform">
+                    </Image>
                 </Grid>
 
-                <!-- IP address field -->
-                <!-- When disconnected: editable, bound to IPAddressOfServer (TwoWay).
-                        - When connected: disabled and visually replaced by CurrentIpDisplay.
-                        - IPAddressOfServer is only a temporary UI buffer; the real persisted value
-                          is Settings.Default.LastIPAddressUsed, used as the single source of truth.
-                -->
-                <Grid Height="25" Margin="0">
+                <!-- IP Address -->
+                <Grid Grid.Row="1" HorizontalAlignment="Stretch">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
                     <TextBox x:Name="TxtIPAddress"
-                             Style="{StaticResource IpAddressTextBoxStyle}"
+                             Style="{StaticResource IPAddressTextBoxStyle}"
+                             IsReadOnly="{Binding IsConnected}"
+                             Text="{Binding IPAddressOfServer}"
+                             Height="{Binding InputFieldHeight}"
+                             FontSize="{Binding DisplayFontSize}"
+                             TextChanged="TxtIPAddress_TextChanged"
+                             LostFocus="TxtIPAddress_LostFocus"
+                             Grid.Column="0"
+                             MinHeight="25"
+                             MinWidth="120"
                              Background="Transparent"
                              Foreground="{DynamicResource ForegroundBrush}"
-                             TextChanged="TxtIPAddress_TextChanged"
-                             FontSize="14"
-                             MaxLines="1"
-                             MaxLength="15"
-                             TabIndex="1"
-                             VerticalAlignment="Top"
-                             HorizontalAlignment="Left"
-                             Width="182"
-                             Height="25"
-                             Panel.ZIndex="1">
-                        <TextBox.InputBindings>
-                            <KeyBinding Key="Enter"
-                                        Command="{Binding DataContext.ConnectDisconnectCommand,
-                                                 RelativeSource={RelativeSource Mode=FindAncestor,
-                                                 AncestorType={x:Type Window}}}" />
-                        </TextBox.InputBindings>
-                    </TextBox>
+                             HorizontalAlignment="Stretch"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Panel.ZIndex="1"/>
 
                     <Image x:Name="imgIPAddressWatermark"
-                           IsHitTestVisible="False"
-                           VerticalAlignment="Top"
-                           HorizontalAlignment="Left"
                            Width="{Binding ActualWidth, ElementName=TxtIPAddress}"
-                           Height="{Binding ActualHeight, ElementName=TxtIPAddress}" />
-                </Grid>
-                
-                <!-- Connect / Disconnect button -->
-                <Button x:Name="CmdConnectDisconnect"
-                    Height="25"
-                    Content="{Binding ConnectButtonText}"
-                    Command="{Binding ConnectDisconnectCommand}" 
-                    Background="{DynamicResource PrimaryBrush}"
-                    Foreground="{DynamicResource ForegroundBrush}"
-                    TabIndex="2"
-                    Margin="0"/>
-            </StackPanel>
+                           Height="{Binding ActualHeight, ElementName=TxtIPAddress}"
+                           Grid.Column="0"
+                           Panel.ZIndex="0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top"
+                           Source="/Resources/txtIPAddress_background_en.png"
+                           Stretch="Uniform"/>
 
-            <!-- ===================================== -->
-            <!-- Row 1 : Connected users list (fills)  -->
-            <!-- ===================================== -->
+                </Grid>
+
+                <!-- Connect button -->
+                <Button Grid.Row="2"
+                        x:Name="CmdConnectDisconnect"
+                        Content="{Binding ConnectButtonText}"
+                        Command="{Binding ConnectDisconnectCommand}"
+                        Height="{Binding InputFieldHeight}"
+                        MinHeight="25"
+                        FontSize="{Binding DisplayFontSize}" 
+                        HorizontalAlignment="Stretch"
+                        VerticalContentAlignment="Center"
+                        MinWidth="120"
+                        Background="{DynamicResource PrimaryBrush}"
+                        Foreground="{DynamicResource ForegroundBrush}"/>
+            </Grid>
+
+            <!-- Row 1 : Connected users list  -->
             <Border Grid.Row="1"
                     BorderBrush="#1A000000"
 
@@ -240,9 +247,8 @@
 
                 <ListView x:Name="lstConnectedUsers"
                           ItemsSource="{Binding Users}"
-                          HorizontalAlignment="Left"
+                          HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
-                          Width="{Binding ConnectedUsersListWidth}"
                           Margin="0"
                           Background="{DynamicResource BackgroundBrush}"
                           Foreground="{DynamicResource ForegroundBrush}"
@@ -252,7 +258,7 @@
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Username}"
-                                       FontSize="{Binding DataContext.ConversationsAndConnectedUsersTextSize,
+                                       FontSize="{Binding DataContext.DisplayFontSize,
                                                           RelativeSource={RelativeSource AncestorType=Window}}"
                                        TextWrapping="NoWrap"
                                        VerticalAlignment="Center"/>
@@ -262,27 +268,29 @@
                 </ListView>
             </Border>
 
-            <!-- ========================= -->
             <!-- Row 2 : Bottom toolbar    -->
-            <!-- ========================= -->
-            <DockPanel x:Name="SpnToolbar"
-                           Grid.Row="2"
-                           Height="34"
-                           Margin="0,0,0,2"
-                           LastChildFill="False"
-                           VerticalAlignment="Bottom">
+            <Grid x:Name="GridToolbar"
+                  Grid.Row="2"
+                  Height="34"
+                  Margin="0,0,0,2"
+                  VerticalAlignment="Bottom">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
                 <!-- Theme toggle -->
                 <ToggleButton x:Name="ThemeToggle"
-                  DockPanel.Dock="Left"
-                  Width="60"
-                  Height="32"
-                  VerticalAlignment="Center"
-                  Margin="5,0,10,0"
-                  Command="{Binding ThemeToggleCommand}"
-                  CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Mode=Self}}"
-                  IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
-                  TabIndex="3">
+                              Grid.Column="0"
+                              Width="60"
+                              Height="32"
+                              VerticalAlignment="Center"
+                              Margin="5,0,10,0"
+                              Command="{Binding ThemeToggleCommand}"
+                              CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Mode=Self}}"
+                              IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
+                              TabIndex="3">
 
                     <ToggleButton.Template>
                         <ControlTemplate TargetType="{x:Type ToggleButton}">
@@ -290,24 +298,24 @@
 
                                 <!-- Background -->
                                 <Border x:Name="SwitchBackground"
-                            CornerRadius="16"
-                            Background="{DynamicResource BackgroundBrush}"
-                            BorderBrush="{DynamicResource PrimaryBrush}"
-                            BorderThickness="1" />
+                                        CornerRadius="16"
+                                        Background="{DynamicResource BackgroundBrush}"
+                                        BorderBrush="{DynamicResource PrimaryBrush}"
+                                        BorderThickness="1" />
 
                                 <!-- Thumb -->
                                 <Grid x:Name="ThumbContainer"
-                          Width="28" Height="28"
-                          VerticalAlignment="Center"
-                          Margin="2,2,30,2">
+                                      Width="28" Height="28"
+                                      VerticalAlignment="Center"
+                                      Margin="2,2,30,2">
 
                                     <Ellipse Fill="{DynamicResource PrimaryBrush}" />
 
                                     <Image x:Name="SwitchIcon"
-                               Source="/Resources/sun.png"
-                               Width="18" Height="18"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
+                                           Source="/Resources/sun.png"
+                                           Width="18" Height="18"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
                                 </Grid>
                             </Grid>
 
@@ -341,7 +349,7 @@
 
                 <!-- Settings button (right side, before font size button) -->
                 <Button x:Name="CmdSettings"
-                            DockPanel.Dock="Left"
+                            Grid.Column="1"
                             Width="32"
                             Height="32"
                             Background="Transparent"
@@ -365,12 +373,25 @@
                                VerticalAlignment="Center"
                                HorizontalAlignment="Center"/>
                 </Button>
-            </DockPanel>
+
+                <!-- Spacer -->
+                <Border Grid.Column="2"/>
+            </Grid>
+
         </Grid>
 
+        <GridSplitter Grid.Column="1"
+              Width="4"
+              Background="Transparent"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              ShowsPreview="True"
+              ResizeBehavior="PreviousAndNext"/>
+
         <Grid x:Name="GrdRight" 
-              Grid.Column="1" 
-              Background="{DynamicResource BackgroundBrush}">
+              Grid.Column="2" 
+              Background="{DynamicResource BackgroundBrush}" 
+              SizeChanged="GrdRight_SizeChanged">
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -385,14 +406,7 @@
                 <!-- Input bar -->
             </Grid.RowDefinitions>
 
-            <!-- ========================= -->
             <!-- Row 0 : Received messages -->
-            <!-- ========================= -->
-
-            <!-- ========================= -->
-            <!-- Row 1 : Emoji bar         -->
-            <!-- ========================= -->
-            <!-- ========================= -->
             <ListView x:Name="lstReceivedMessages"
                       Grid.Row="0"
                       ItemsSource="{Binding Messages}"
@@ -424,29 +438,36 @@
                         <TextBlock Text="{Binding}"
                                    TextWrapping="Wrap"
                                    FontFamily="Segoe UI Emoji"
-                                   FontSize="{Binding DataContext.ConversationsAndConnectedUsersTextSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"/>
+                                   FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"/>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
 
-            <!-- ========================= -->
-            <StackPanel x:Name="SpnEmojiPanel"
-                        Grid.Row="1"
-                        Orientation="Horizontal"
-                        Height="Auto"
-                        Visibility="{Binding AreChatControlsVisible, Converter={StaticResource BoolToVis}}">
+            <!-- Row 1 : Emoji bar         -->
+            <Grid x:Name="GrdEmoji"
+                  Grid.Row="1"
+                  Height="Auto"
+                  HorizontalAlignment="Left"
+                  Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
 
                 <!-- Emoji toggle button -->
                 <Button x:Name="CmdEmojiPanel"
-                        Height="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
-                        Width="{Binding ActualHeight, ElementName=SpnEmojiPanel}"
+                        Height="{Binding ActualHeight, ElementName=GrdEmoji}"
+                        Width="{Binding ActualHeight, ElementName=GrdEmoji}"
+                        Margin="2,0,0,0"
+                        Click="CmdEmojiPanel_Click"
                         Background="Transparent"
                         BorderThickness="0"
                         VerticalAlignment="Center"
                         ToolTip="Emoji bar"
                         TabIndex="6"
-                        Click="CmdEmojiPanel_Click"
-                        Margin="4,0,4,0">
+>
                     <Image x:Name="ImgEmojiPanel"
                             Source="/Resources/right-arrow.png"
                             Stretch="Uniform"
@@ -462,13 +483,13 @@
 
                 <!-- Emoji popup -->
                 <Popup x:Name="popupEmoji"
-                       Placement="Custom"
+                       Placement="Top"
                        PlacementTarget="{Binding ElementName=TxtMessageInput}"
-                       CustomPopupPlacementCallback="OnPopupPlacement"
                        StaysOpen="False"
                        AllowsTransparency="True"
                        PopupAnimation="Slide"
-                       Closed="popupEmoji_Closed">
+                       HorizontalOffset="0"
+                       VerticalOffset="-5">
 
                     <Popup.RenderTransform>
                         <TranslateTransform X="0" />
@@ -480,7 +501,8 @@
                             BorderThickness="1"
                             Padding="4"
                             Height="{Binding EmojiPopupHeight}"
-                            Width="{Binding BrdMessageInputWidth}">
+                            Width="{Binding EmojiPopupWidth}"
+                            HorizontalAlignment="Center">
 
                         <!-- Emoji panel layout -->
                         <Grid>
@@ -522,7 +544,7 @@
                                           Grid.Column="1"
                                           VerticalAlignment="Center"
                                           MinHeight="48"
-                                          Margin="4,0"
+                                          Margin="4,0,0,0"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Disabled"
                                           CanContentScroll="True">
@@ -538,7 +560,7 @@
                                         <DataTemplate>
                                             <Button Width="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                     Height="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                    Margin="2"
+                                                    Margin="2,0,0,0"
                                                     Padding="0"
                                                     Background="{DynamicResource PrimaryBrush}"
                                                     Foreground="{DynamicResource ForegroundBrush}"
@@ -596,59 +618,68 @@
                         </Grid>
                     </Border>
                 </Popup>
-            </StackPanel>
+            </Grid>
 
             <!-- Row 2 : Input bar -->
-            <Grid x:Name="GrdDown"
+            <Grid x:Name="GrdMessageInput"
                   Grid.Row="2"
                   Height="Auto"
-                  Visibility="{Binding AreChatControlsVisible, Converter={StaticResource BoolToVis}}">
+                  MinHeight="32"
+                  MinWidth="50"
+                  VerticalAlignment="Center"
+                  Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}"
+                  Margin="0,1,0,-1">
 
+                <!-- One column -->
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Input container -->
-                <Border x:Name="BrdMessageInput"
+                <!-- Input border container -->
+                <Border x:Name="BrdMessageInputField"
                         Grid.Column="0"
-                        Width="{Binding BrdMessageInputWidth}"
-                        Height="{Binding MessageInputHeight}"
+                        MinWidth="50"
+                        Width="{Binding MessageInputFieldWidth}"
+                        d:Width="400"
                         HorizontalAlignment="Left"
-                        VerticalAlignment="Bottom"
-                        Margin="0,0,0,2"
+                        MinHeight="34"
+                        Height="{Binding MessageInputFieldHeight}"
+                        Margin="{Binding MessageInputFieldMargin}"
+                        VerticalAlignment="Center"
                         BorderBrush="{DynamicResource PrimaryBrush}"
                         BorderThickness="1">
 
+                    <!-- One internal column -->
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <!-- Text input -->
                         <TextBox x:Name="TxtMessageInput"
-                                 Grid.Column="0"
-                                 Width="546" 
-                                 Height="{Binding MessageInputHeight}"
-                                 HorizontalAlignment="Left"  
+                                 VerticalAlignment="Center"
                                  VerticalContentAlignment="Center"
+                                 Width="Auto"
+                                 Height="{Binding MessageInputFieldHeight}"
                                  Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged}"
-                                 FontSize="{Binding ConversationsAndConnectedUsersTextSize}"
+                                 FontSize="{Binding DisplayFontSize}"
+                                 Background="{DynamicResource BackgroundBrush}"
+                                 Foreground="{DynamicResource ForegroundBrush}"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"                 
                                  PreviewKeyDown="TxtMessageInput_PreviewKeyDown"
-                                 BorderThickness="0" 
-                                 MaxLines="1000"/>
+                                 BorderThickness="0"
+                                 MaxLines="1000" Margin="0,0,40,0"/>
 
-                        <!-- Send button -->
+                        <!-- Send button (in the same column, right aligned) -->
                         <Button x:Name="CmdSend"
-                                Grid.Column="1"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
                                 Click="CmdSend_Click"
                                 Width="40"
                                 Height="32"
                                 Background="Transparent"
-                                BorderThickness="0"
-                                HorizontalAlignment="Right"
-                                VerticalContentAlignment="Center">
+                                BorderThickness="0">
                             <Image Source="/Resources/send.png"
                                    Width="18" Height="18"/>
                         </Button>
@@ -656,6 +687,7 @@
                     </Grid>
                 </Border>
             </Grid>
+
         </Grid>
     </Grid>
 </Window>

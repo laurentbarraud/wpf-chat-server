@@ -26,18 +26,18 @@ namespace chat_client.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string IPAddressSaved {
+        public string IPAddressOfServer {
             get {
-                return ((string)(this["IPAddressSaved"]));
+                return ((string)(this["IPAddressOfServer"]));
             }
             set {
-                this["IPAddressSaved"] = value;
+                this["IPAddressOfServer"] = value;
             }
         }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Light")]
+        [global::System.Configuration.DefaultSettingValueAttribute("light")]
         public string AppTheme {
             get {
                 return ((string)(this["AppTheme"]));
@@ -74,24 +74,24 @@ namespace chat_client.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("en")]
-        public string AppLanguage {
+        public string AppLanguageCode {
             get {
-                return ((string)(this["AppLanguage"]));
+                return ((string)(this["AppLanguageCode"]));
             }
             set {
-                this["AppLanguage"] = value;
+                this["AppLanguageCode"] = value;
             }
         }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("14")]
-        public int FontSizeSetting {
+        public int DisplayFontSize {
             get {
-                return ((int)(this["FontSizeSetting"]));
+                return ((int)(this["DisplayFontSize"]));
             }
             set {
-                this["FontSizeSetting"] = value;
+                this["DisplayFontSize"] = value;
             }
         }
         
@@ -104,6 +104,30 @@ namespace chat_client.Properties {
             }
             set {
                 this["PortNumber"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("10")]
+        public double MessageInputFieldWidthPercent {
+            get {
+                return ((double)(this["MessageInputFieldWidthPercent"]));
+            }
+            set {
+                this["MessageInputFieldWidthPercent"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public double MessageInputFieldLeftOffsetPercent {
+            get {
+                return ((double)(this["MessageInputFieldLeftOffsetPercent"]));
+            }
+            set {
+                this["MessageInputFieldLeftOffsetPercent"] = value;
             }
         }
     }

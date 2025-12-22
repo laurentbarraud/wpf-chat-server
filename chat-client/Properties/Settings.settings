@@ -2,11 +2,11 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="chat_client.Properties" GeneratedClassName="Settings">
   <Profiles />
   <Settings>
-    <Setting Name="IPAddressSaved" Type="System.String" Scope="User">
+    <Setting Name="IPAddressOfServer" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="AppTheme" Type="System.String" Scope="User">
-      <Value Profile="(Default)">Light</Value>
+      <Value Profile="(Default)">light</Value>
     </Setting>
     <Setting Name="ReduceToTray" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
@@ -14,14 +14,20 @@
     <Setting Name="UseEncryption" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
-    <Setting Name="AppLanguage" Type="System.String" Scope="User">
+    <Setting Name="AppLanguageCode" Type="System.String" Scope="User">
       <Value Profile="(Default)">en</Value>
     </Setting>
-    <Setting Name="FontSizeSetting" Type="System.Int32" Scope="User">
+    <Setting Name="DisplayFontSize" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">14</Value>
     </Setting>
     <Setting Name="PortNumber" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">7123</Value>
+    </Setting>
+    <Setting Name="MessageInputFieldWidthPercent" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">10</Value>
+    </Setting>
+    <Setting Name="MessageInputFieldLeftOffsetPercent" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">0</Value>
     </Setting>
   </Settings>
 </SettingsFile>

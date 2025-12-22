@@ -117,11 +117,11 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AboutThisSoftware" xml:space="preserve">
+  <data name="AboutThisSoftwareLabel" xml:space="preserve">
     <value>About this software</value>
   </data>
-  <data name="AppLanguage" xml:space="preserve">
-    <value>App language</value>
+  <data name="AppLanguageLabel" xml:space="preserve">
+    <value>Application language</value>
   </data>
   <data name="ChooseAnAppropriatePortNumber" xml:space="preserve">
     <value>Please choose a number between 1000 and 65535.</value>
@@ -147,7 +147,7 @@
   <data name="DisconnectError" xml:space="preserve">
     <value>Disconnect error</value>
   </data>
-  <data name="EncryptionEnabled" xml:space="preserve">
+  <data name="EncryptionEnabledToolTip" xml:space="preserve">
     <value>Message encryption enabled.</value>
   </data>
   <data name="EncryptionRequiresConnection" xml:space="preserve">
@@ -195,7 +195,7 @@
   <data name="PublicKeyRejected" xml:space="preserve">
     <value>The public key was rejected by the server. Encryption was not enabled.</value>
   </data>
-  <data name="ReduceToTray" xml:space="preserve">
+  <data name="ReduceToTrayLabel" xml:space="preserve">
     <value>Reduce in system tray</value>
   </data>
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
@@ -207,19 +207,19 @@
   <data name="ServerUnreachable" xml:space="preserve">
     <value>The server is unreachable or has refused the connection.</value>
   </data>
-  <data name="TrayOpen" xml:space="preserve">
+  <data name="TrayOpenLabel" xml:space="preserve">
     <value>Open</value>
   </data>
-  <data name="TrayQuit" xml:space="preserve">
+  <data name="TrayQuitLabel" xml:space="preserve">
     <value>Quit</value>
   </data>
-  <data name="UseTcpPort" xml:space="preserve">
+  <data name="UseTcpPortLabel" xml:space="preserve">
     <value>Use TCP port :</value>
   </data>
-  <data name="UseEncryptionForMessages" xml:space="preserve">
+  <data name="UseEncryptionLabel" xml:space="preserve">
     <value>Use encryption for messages</value>
   </data>
-  <data name="GettingMissingKeys" xml:space="preserve">
+  <data name="GettingMissingKeysToolTip" xml:space="preserve">
     <value>Getting missing keys...</value>
   </data>
   <data name="SendingPublicKey" xml:space="preserve">
@@ -273,7 +273,7 @@ Example:
   <data name="SendingFailed" xml:space="preserve">
     <value>Failed to send message.</value>
   </data>
-  <data name="Settings" xml:space="preserve">
+  <data name="SettingsToolTip" xml:space="preserve">
     <value>Settings</value>
   </data>
   <data name="ErrorPlaintextEmpty" xml:space="preserve">
@@ -300,8 +300,14 @@ Example:
   <data name="ErrorOpeningSystemInfo" xml:space="preserve">
     <value>Unable to open system informations :</value>
   </data>
-  <data name="ConversationsAndConnectedUsersTextSize" xml:space="preserve">
+  <data name="DisplayFontSizeLabel" xml:space="preserve">
     <value>Text size for conversations
 and connected users list</value>
+  </data>
+  <data name="MessageInputFieldLeftOffsetLabel" xml:space="preserve">
+    <value>Input field left offset</value>
+  </data>
+  <data name="MessageInputFieldWidthLabel" xml:space="preserve">
+    <value>Input field width</value>
   </data>
 </root>

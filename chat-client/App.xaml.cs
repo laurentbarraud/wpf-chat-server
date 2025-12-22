@@ -1,7 +1,7 @@
 ﻿/// <file>App.xaml.cs</fil
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.Properties;
@@ -33,13 +33,13 @@ namespace chat_client
             StartupConfigurator.ApplyStartupArguments(args);
 
             // Culture & localization
-            string language = Settings.Default.AppLanguage ?? "en";
+            string language = Settings.Default.AppLanguageCode ?? "en";
             var culture = new CultureInfo(language);
             Thread.CurrentThread.CurrentCulture = culture;
             Thread.CurrentThread.CurrentUICulture = culture;
             CultureInfo.DefaultThreadCurrentCulture = culture;
             CultureInfo.DefaultThreadCurrentUICulture = culture;
-            LocalizationManager.Initialize(language);
+            LocalizationManager.InitializeLocalization(language);
 
             // Creates and shows the main window
             var mainWindow = new MainWindow();
@@ -61,12 +61,6 @@ namespace chat_client
                 Console.OutputEncoding = System.Text.Encoding.UTF8;
             }
 #endif
-        }
-
-        public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
-        {
-            if (Application.Current.MainWindow is MainWindow mw)
-                mw.TrayMenu_Open_Click(sender, e);
         }
     }
 }

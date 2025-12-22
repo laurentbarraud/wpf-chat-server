@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -57,9 +57,6 @@ namespace chat_client.Net
         /// </summary>
         private bool _hasSentPublicKey = false;
 
-        // Flag to ensure local key is published only once
-        private bool _localKeyPublished = false;
-
         // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
         private PacketReader? _packetReader;
 
@@ -72,13 +69,6 @@ namespace chat_client.Net
         /// Used for sending and receiving framed packets over the network.
         /// </summary>
         private TcpClient _tcpClient;
-
-        /// <summary>
-        /// Indicates whether the current disconnection was explicitly requested by the user.
-        /// Used to suppress automatic "server closed" messages when the disconnect
-        /// originates from the UI (e.g. clicking the Disconnect button).
-        /// </summary>
-        private volatile bool _userInitiatedDisconnect;
 
         /// <summary>
         /// Reference to the main ViewModel (set at connection init)
@@ -187,9 +177,6 @@ namespace chat_client.Net
             /// <summary> Initializes encryption state flags </summary>
             _viewModel.ResetEncryptionPipelineAndUI();
             IsSyncingKeys = false;
-
-            /// <summary> Ensures local key publish flag starts false </summary>
-            _localKeyPublished = false;
         }
 
         /// <summary>
@@ -206,12 +193,8 @@ namespace chat_client.Net
         {
             /// <summary> Resets handshake and encryption flags for a fresh state </summary>
             _hasSentPublicKey = false;
-            _localKeyPublished = false;
             _viewModel.ResetEncryptionPipelineAndUI();
             Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-            /// <summary> Resets user disconnect flag so future sessions start clean </summary>
-            _userInitiatedDisconnect = false;
 
             /// <summary> Cancels handshake TCS to wake any awaiters </summary>
             _handshakeCompletionTcs?.TrySetCanceled();
@@ -557,14 +540,6 @@ namespace chat_client.Net
         }
 
         /// <summary>
-        /// Marks the current connection as user-initiated disconnect.
-        /// </summary>
-        public void MarkUserInitiatedDisconnect()
-        {
-            _userInitiatedDisconnect = true;
-        }
-
-        /// <summary>
         /// Background task that continuously reads framed packets until the connection closes.
         /// • Reads length‑prefixed payloads with PacketReader.
         /// • Dispatches roster and message updates to the UI thread.
@@ -579,13 +554,17 @@ namespace chat_client.Net
             /// <summary> Captures ViewModel without blocking the network read thread </summary>
             await Application.Current.Dispatcher.BeginInvoke(() =>
             {
-                if (Application.Current.MainWindow is MainWindow mw)
-                    viewModel = mw.ViewModel;
+                if (Application.Current.MainWindow is MainWindow mainWindow)
+                {
+                    viewModel = mainWindow.viewModel;
+                }
             }).Task.ConfigureAwait(false);
 
             /// <summary> Ensures that ViewModel is available before proceeding </summary>
             if (viewModel == null)
+            {
                 return;
+            }
 
             /// <summary> Waits for handshake reader to release lock before starting continuous read </summary>
             await _readerLock.WaitAsync(cancellationToken).ConfigureAwait(false);

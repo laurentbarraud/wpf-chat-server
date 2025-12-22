@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using chat_client.Helpers;                   // For EncryptionHelper, ClientLogger
 using chat_client.MVVM.ViewModel;            // For SettingsViewModel
@@ -15,72 +15,45 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 
-
 namespace chat_client.MVVM.View
 {
     /// <summary>
-    /// Configuration window for client preferences.
-    /// Allows users to customize encryption usage, port settings, and server IP address.
-    /// Persists settings across sessions using application-level storage.
-    /// Provides localized labels and tooltips for accessibility and clarity.
+    /// Settings window bound to the main ViewModel.
+    /// Allows users to configure client preferences and persists them across sessions.
     /// </summary>
     public partial class SettingsWindow : Window
     {
-        // Holds the SettingsViewModel instance for data binding
-        private readonly SettingsViewModel _settingsViewModel;
+        private readonly MainViewModel _mainViewModel;
 
-        /// <summary>
-        /// Initializes the SettingsWindow with the provided MainViewModel.
-        /// </summary>
         public SettingsWindow(MainViewModel mainViewModel)
         {
             InitializeComponent();
 
-            // Creates and assigns DataContext
-            _settingsViewModel = new SettingsViewModel(mainViewModel);
-            DataContext = _settingsViewModel;
+            _mainViewModel = mainViewModel;
+            DataContext = _mainViewModel;
 
-            // Subscribes to property changes
-            _settingsViewModel.PropertyChanged += SettingsViewModel_PropertyChanged;
+            // Listens to ViewModel property changes (language, tray behavior, etc.)
+            _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
+
+            // Initial refresh when window opens
+            _mainViewModel.LoadLocalizedStrings();
         }
 
         /// <summary>
-        /// Handles property change notifications from SettingsViewModel.
+        /// Handles property change notifications from MainViewModel.
         /// Updates UI elements in SettingsWindow when specific properties change.
         /// </summary>
-        /// <param name="sender">The SettingsViewModel instance raising the event.</param>
-        /// <param name="e">Provides the name of the property that changed.</param>
-        private void SettingsViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
-            {             
-                case nameof(SettingsViewModel.ReduceToTray):
-                    
+            {
+                case nameof(MainViewModel.ReduceToTray):
                     InitializeTrayIcon();
                     break;
-            }
-        }
 
-        /// <summary>
-        /// Initializes the settings window by loading and applying saved preferences.
-        /// </summary>
-        private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Initialize and apply the saved UI language resources
-                var appLanguage = Properties.Settings.Default.AppLanguage;
-                LocalizationManager.Initialize(appLanguage);
-                LocalizationManager.UpdateLocalizedUI();
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"SettingsWindow_Loaded failed: {ex.Message}", ClientLogLevel.Error);
-                MessageBox.Show(
-                    LocalizationManager.GetString("ErrorLoadingThemeResources"),
-                    LocalizationManager.GetString("Error"),
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                case nameof(MainViewModel.AppLanguage):
+                    RefreshLocalizedBindings();
+                    break;
             }
         }
 
@@ -139,16 +112,32 @@ namespace chat_client.MVVM.View
         }
 
         /// <summary>
+        /// Updates all localized bindings in the settings window.
+        /// Ensures labels and tooltips refresh immediately when the language changes.
+        /// </summary>
+        private void RefreshLocalizedBindings()
+        {
+            UpdateBinding(UseTcpPortLabel);
+            UpdateBinding(ReduceToTrayLabel);
+            UpdateBinding(UseEncryptionLabel);
+            UpdateBinding(DisplayFontSizeLabel);
+            UpdateBinding(MessageInputFieldWidthLabel);
+            UpdateBinding(MessageInputFieldLeftOffsetLabel);
+            UpdateBinding(AppLanguageLabel);
+            UpdateBinding(AboutLabel);
+        }
+
+        /// <summary>
         /// Validates the custom port value as the user edits the text, if the custom port option is enabled.
         /// </summary>
         /// <param name="sender">The TextBox whose content has changed.</param>
         /// <param name="e">Event data for the text change.</param>
-        private void TxtCustomPort_TextChanged(object sender, TextChangedEventArgs e)
+        private void TxtPort_TextChanged(object sender, TextChangedEventArgs e)
         {
             ValidatePortInput();
         }
 
-        private void UnloadTrayIcon()
+        private static void UnloadTrayIcon()
         {
             try
             {
@@ -167,6 +156,14 @@ namespace chat_client.MVVM.View
             catch
             {   
             }
+        }
+
+        /// <summary>
+        /// Forces WPF to re-evaluate the Content binding of a control.
+        /// </summary>
+        private static void UpdateBinding(ContentControl control)
+        {
+            control.GetBindingExpression(ContentControl.ContentProperty)?.UpdateTarget();
         }
 
         /// <summary>

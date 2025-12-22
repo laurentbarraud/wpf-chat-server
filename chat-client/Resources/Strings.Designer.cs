@@ -63,9 +63,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à About this software.
         /// </summary>
-        public static string AboutThisSoftware {
+        public static string AboutThisSoftwareLabel {
             get {
-                return ResourceManager.GetString("AboutThisSoftware", resourceCulture);
+                return ResourceManager.GetString("AboutThisSoftwareLabel", resourceCulture);
             }
         }
         
@@ -79,11 +79,11 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à App language.
+        ///   Recherche une chaîne localisée semblable à Application language.
         /// </summary>
-        public static string AppLanguage {
+        public static string AppLanguageLabel {
             get {
-                return ResourceManager.GetString("AppLanguage", resourceCulture);
+                return ResourceManager.GetString("AppLanguageLabel", resourceCulture);
             }
         }
         
@@ -178,16 +178,6 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Text size for conversations
-        ///and connected users list.
-        /// </summary>
-        public static string ConversationsAndConnectedUsersTextSize {
-            get {
-                return ResourceManager.GetString("ConversationsAndConnectedUsersTextSize", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Recherche une chaîne localisée semblable à _Disconnect.
         /// </summary>
         public static string Disconnect {
@@ -215,11 +205,21 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Text size for conversations
+        ///and connected users list.
+        /// </summary>
+        public static string DisplayFontSizeLabel {
+            get {
+                return ResourceManager.GetString("DisplayFontSizeLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Message encryption enabled..
         /// </summary>
-        public static string EncryptionEnabled {
+        public static string EncryptionEnabledToolTip {
             get {
-                return ResourceManager.GetString("EncryptionEnabled", resourceCulture);
+                return ResourceManager.GetString("EncryptionEnabledToolTip", resourceCulture);
             }
         }
         
@@ -334,9 +334,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Getting missing keys....
         /// </summary>
-        public static string GettingMissingKeys {
+        public static string GettingMissingKeysToolTip {
             get {
-                return ResourceManager.GetString("GettingMissingKeys", resourceCulture);
+                return ResourceManager.GetString("GettingMissingKeysToolTip", resourceCulture);
             }
         }
         
@@ -404,6 +404,24 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Input field left offset.
+        /// </summary>
+        public static string MessageInputFieldLeftOffsetLabel {
+            get {
+                return ResourceManager.GetString("MessageInputFieldLeftOffsetLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Input field width.
+        /// </summary>
+        public static string MessageInputFieldWidthLabel {
+            get {
+                return ResourceManager.GetString("MessageInputFieldWidthLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à [Error : Your message failed to send.].
         /// </summary>
         public static string MessageSendingFailed {
@@ -442,9 +460,9 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Reduce in system tray.
         /// </summary>
-        public static string ReduceToTray {
+        public static string ReduceToTrayLabel {
             get {
-                return ResourceManager.GetString("ReduceToTray", resourceCulture);
+                return ResourceManager.GetString("ReduceToTrayLabel", resourceCulture);
             }
         }
         
@@ -514,45 +532,45 @@ namespace chat_client.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Settings.
         /// </summary>
-        public static string Settings {
+        public static string SettingsToolTip {
             get {
-                return ResourceManager.GetString("Settings", resourceCulture);
+                return ResourceManager.GetString("SettingsToolTip", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Open.
         /// </summary>
-        public static string TrayOpen {
+        public static string TrayOpenLabel {
             get {
-                return ResourceManager.GetString("TrayOpen", resourceCulture);
+                return ResourceManager.GetString("TrayOpenLabel", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Quit.
         /// </summary>
-        public static string TrayQuit {
+        public static string TrayQuitLabel {
             get {
-                return ResourceManager.GetString("TrayQuit", resourceCulture);
+                return ResourceManager.GetString("TrayQuitLabel", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Use encryption for messages.
         /// </summary>
-        public static string UseEncryptionForMessages {
+        public static string UseEncryptionLabel {
             get {
-                return ResourceManager.GetString("UseEncryptionForMessages", resourceCulture);
+                return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Use TCP port :.
         /// </summary>
-        public static string UseTcpPort {
+        public static string UseTcpPortLabel {
             get {
-                return ResourceManager.GetString("UseTcpPort", resourceCulture);
+                return ResourceManager.GetString("UseTcpPortLabel", resourceCulture);
             }
         }
     }

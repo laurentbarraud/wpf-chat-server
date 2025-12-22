@@ -1,7 +1,7 @@
 ﻿/// <file>AboutViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using chat_client.Helpers;
 using System.ComponentModel;
@@ -16,16 +16,14 @@ namespace chat_client.MVVM.ViewModel
     /// </summary>
     public class AboutViewModel : INotifyPropertyChanged
     {
-        // Backing fields for localized strings
+        /// <summary> Backing fields for localized strings </summary>
         private string _aboutWindowTitle = string.Empty;
         private string _cliArgumentsText = string.Empty;
         private string _licenceInfo = string.Empty;
         private string _licenceInfoResources = string.Empty;
         private string _licenceFinal = string.Empty;
 
-        /// <summary>
-        /// Localized text for the about window title.
-        /// </summary>
+        /// <summary> Localized text for the about window title. </summary>
         public string AboutWindowTitle
         {
             get => _aboutWindowTitle;
@@ -36,7 +34,7 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-        /// <summary>
+        /// <summary> 
         /// Localized text for the CLI link.
         /// Bound to the TextBlock (CliTextBlock) in the About window.
         /// </summary>
@@ -105,17 +103,16 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Event raised when a property value changes.
-        /// Required for INotifyPropertyChanged implementation.
+        /// Helper method that use CallerMemberName to avoid hardcoding property names.
+        /// Notifies the UI that a property value has changed.
         /// </summary>
-        public event PropertyChangedEventHandler? PropertyChanged = delegate { };
+        /// <param name="propertyName">The name of the changed property.</param>
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
-        /// <summary>
-        /// Helper method to raise PropertyChanged events.
-        /// Uses CallerMemberName to avoid hardcoding property names.
-        /// </summary>
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 }
 

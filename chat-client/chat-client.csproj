@@ -29,11 +29,9 @@
     <None Remove="Resources\chat-client-icon.ico" />
     <None Remove="Resources\encrypted.png" />
     <None Remove="Resources\font-size.png" />
-    <None Remove="Resources\language-selection.png" />
     <None Remove="Resources\left-arrow.png" />
-    <None Remove="Resources\minus-rounded.png" />
+    <None Remove="Resources\message-input-field-left-offset.png" />
     <None Remove="Resources\moon.png" />
-    <None Remove="Resources\plus-rounded.png" />
     <None Remove="Resources\port-setting.png" />
     <None Remove="Resources\reddot.png" />
     <None Remove="Resources\reduce-to-tray-calc-icon.png" />
@@ -61,9 +59,9 @@
     <Resource Include="Resources\calc-icon.ico" />
     <Resource Include="Resources\chat-client-icon.ico" />
     <Resource Include="Resources\font-size.png" />
-    <Resource Include="Resources\language-selection.png" />
-    <Resource Include="Resources\minus-rounded.png" />
-    <Resource Include="Resources\plus-rounded.png" />
+    <Resource Include="Resources\message-input-field-left-offset.png" />
+    <Resource Include="Resources\message-input-field-width.png" />
+    <Resource Include="Resources\app-language-selection.png" />
     <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />

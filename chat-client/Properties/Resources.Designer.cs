@@ -65,7 +65,7 @@ namespace chat_client.Properties {
         /// </summary>
         internal static System.Drawing.Bitmap language_selection {
             get {
-                object obj = ResourceManager.GetObject("language-selection", resourceCulture);
+                object obj = ResourceManager.GetObject("app-language-selection", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

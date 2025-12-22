@@ -117,10 +117,10 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AboutThisSoftware" xml:space="preserve">
+  <data name="AboutThisSoftwareLabel" xml:space="preserve">
     <value>A propos de ce logiciel</value>
   </data>
-  <data name="AppLanguage" xml:space="preserve">
+  <data name="AppLanguageLabel" xml:space="preserve">
     <value>Langue de l'application</value>
   </data>
   <data name="ChooseAnAppropriatePortNumber" xml:space="preserve">
@@ -147,7 +147,7 @@
   <data name="DisconnectError" xml:space="preserve">
     <value>Erreur de déconnexion</value>
   </data>
-  <data name="EncryptionEnabled" xml:space="preserve">
+  <data name="EncryptionEnabledToolTip" xml:space="preserve">
     <value>Chiffrage des messages activé.</value>
   </data>
   <data name="EncryptionRequiresConnection" xml:space="preserve">
@@ -195,7 +195,7 @@
   <data name="PublicKeyRejected" xml:space="preserve">
     <value>La clé publique a été rejetée par le serveur. Le chiffrement n'a pas été activé.</value>
   </data>
-  <data name="ReduceToTray" xml:space="preserve">
+  <data name="ReduceToTrayLabel" xml:space="preserve">
     <value>Réduire dans la zone de notification</value>
   </data>
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
@@ -207,19 +207,19 @@
   <data name="ServerUnreachable" xml:space="preserve">
     <value>Le serveur est inaccessible ou a refusé la connexion.</value>
   </data>
-  <data name="TrayOpen" xml:space="preserve">
+  <data name="TrayOpenLabel" xml:space="preserve">
     <value>Ouvrir</value>
   </data>
-  <data name="TrayQuit" xml:space="preserve">
+  <data name="TrayQuitLabel" xml:space="preserve">
     <value>Quitter</value>
   </data>
-  <data name="UseTcpPort" xml:space="preserve">
+  <data name="UseTcpPortLabel" xml:space="preserve">
     <value>Utiliser le port TCP :</value>
   </data>
-  <data name="UseEncryptionForMessages" xml:space="preserve">
+  <data name="UseEncryptionLabel" xml:space="preserve">
     <value>Utiliser le chiffrage des messages</value>
   </data>
-  <data name="GettingMissingKeys" xml:space="preserve">
+  <data name="GettingMissingKeysToolTip" xml:space="preserve">
     <value>Obtention des clés manquantes...</value>
   </data>
   <data name="SendingPublicKey" xml:space="preserve">
@@ -273,7 +273,7 @@ Exemple :
   <data name="SendingFailed" xml:space="preserve">
     <value>Échec de l’envoi du message.</value>
   </data>
-  <data name="Settings" xml:space="preserve">
+  <data name="SettingsToolTip" xml:space="preserve">
     <value>Paramètres</value>
   </data>
   <data name="ErrorPlaintextEmpty" xml:space="preserve">
@@ -301,7 +301,15 @@ Exemple :
   <data name="ErrorOpeningSystemInfo" xml:space="preserve">
     <value>Impossible d'ouvrir les informations système :</value>
   </data>
-  <data name="ConversationsAndConnectedUsersTextSize" xml:space="preserve">
-    <value>Taille du texte des conversations et de la liste des utilisateurs connectés</value>
+  <data name="DisplayFontSizeLabel" xml:space="preserve">
+    <value>Taille du texte des conversations
+et de la liste des utilisateurs</value>
+  </data>
+  <data name="MessageInputFieldLeftOffsetLabel" xml:space="preserve">
+    <value>Décalage du champ de saisie
+depuis la gauche</value>
+  </data>
+  <data name="MessageInputFieldWidthLabel" xml:space="preserve">
+    <value>Largeur du champ de saisie</value>
   </data>
 </root>

@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 13th, 2025</date>
+/// <date>December 22th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -30,18 +30,13 @@ namespace chat_client
     /// </summary>
     public partial class MainWindow : Window
     {
-        public MainViewModel ViewModel { get; set; }
+        public MainViewModel viewModel { get; set; }
 
         /// <summary>
         /// Indicates whether the client is currently connected to the server.
         /// Uses null-conditional access to safely evaluate connection state. 
         /// </summary>
-        public bool IsConnected => ViewModel?.ClientConn != null && ViewModel.ClientConn.IsConnected;
-
-        /// <summary>
-        /// Inverse of IsConnected, used for UI bindings that require the opposite state
-        /// </summary>
-        public bool IsNotConnected => !IsConnected;
+        public bool IsConnected => viewModel?.ClientConn != null && viewModel.ClientConn.IsConnected;
 
         /// <summary>
         /// Represents the tray menu item used to reopen the main application window.
@@ -61,10 +56,6 @@ namespace chat_client
         /// </summary>
         private DateTime lastCtrlPress = DateTime.MinValue;
 
-        /// <summary> Minimum and maximum allowed font sizes for UI text scaling. </summary>
-        private const int MinFontSize = 12;
-        private const int MaxFontSize = 24;
-
         /// <summary> Used for horizontal scrolling animations (emoji panel auto‑scroll on hover). </summary>
         private DispatcherTimer scrollTimer;
 
@@ -75,47 +66,26 @@ namespace chat_client
         private TaskbarIcon trayIcon;
 
         /// <summary>
-        /// Initializes the main window :
-        ///   • Loads XAML components and resources.
-        ///   • Instantiates and binds the MainViewModel.
-        ///   • Wires up chat auto‐scroll and dynamic UI updates (connect button & lock icon).
-        ///   • Applies initial UI state based on ViewModel properties.
-        ///   • Attaches the emoji panel placement callback.
-        ///   • Configures the emoji panel scroll timer.
-        ///   • Retrieves XAML‐named tray icon and menu items.
+        /// Initializes the main window by loading UI components, binding the view model,
+        /// restoring user preferences, configuring layout synchronization, and applying
+        /// localization, theming, and emoji panel behavior.
         /// </summary>
         public MainWindow()
         {
-            /// <summary> Loads all XAML‐defined elements, styles, and resources </summary>
             InitializeComponent();
 
-            /// <summary> Instantiate and bind the view model </summary>
-            ViewModel = new MainViewModel();
-            DataContext = ViewModel;
+            /// <summary> Instantiates and binds the view model </summary>
+            viewModel = new MainViewModel();
+            DataContext = viewModel;
 
-            /// <summary> Updates ViewModel with window width </summary>
-            this.SizeChanged += (s, e) =>
-            {
-                if (DataContext is MainViewModel vm)
-                {
-                    vm.WindowWidth = (int)Math.Round(e.NewSize.Width);
-                }
-            };
+            /// <summary> Auto-scrolls chat when new messages arrive </summary>
+            viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            /// <summary> Auto‐scrolls chat when new messages arrive </summary>
-            ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
-
-            /// <summary> Setup the emoji panel placement logic <summary>
-            AttachEmojiPanelCallback();
-
-            /// <summary> Configures the auto‐scroll timer for the emoji panel <summary>
-            scrollTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(50)
-            };
+            /// <summary> Configures the auto-scroll timer for the emoji panel </summary>
+            scrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             scrollTimer.Tick += ScrollTimer_Tick;
 
-            /// <summary> Assigns WPF‐generated named elements to localized keys <summary>
+            /// <summary> Assigns WPF-generated named elements to localized keys </summary>
             trayIcon = (TaskbarIcon)FindName("TrayIcon");
             TrayMenuOpen = (MenuItem)FindName("TrayMenuOpen");
             TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
@@ -123,45 +93,19 @@ namespace chat_client
             CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
             CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftToolTip");
             CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
-        }
 
-        /// <summary>
-        /// Handles window load events and applies persisted settings.
-        /// Restores IP address, applies localization and theme, initializes watermark visuals,
-        /// and evaluates encryption readiness if enabled and connected.
-        /// Ensures that the UI reflects the correct cryptographic state on startup.
-        /// </summary>
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
             /// <summary> Restores last used IP address </summary>
-            TxtIPAddress.Text = chat_client.Properties.Settings.Default.IPAddressSaved;
+            TxtIPAddress.Text = chat_client.Properties.Settings.Default.IPAddressOfServer;
 
             /// <summary> Applies localization </summary>
-            string languageSet = Properties.Settings.Default.AppLanguage;
-            LocalizationManager.Initialize(languageSet);
-            LocalizationManager.UpdateLocalizedUI();
+            string storedLanguageCode = Properties.Settings.Default.AppLanguageCode;
+            LocalizationManager.InitializeLocalization(storedLanguageCode);
 
-            /// <summary> Synchronizes theme toggle with saved preference <summary>
+            /// <summary> Synchronizes theme toggle with saved preference </summary>
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme?.ToLower() == "dark";
 
-            ApplyWatermarkImages();     
+            ApplyWatermarkImages();
             TxtUsername.Focus();
-        }
-
-        /// <summary>
-        /// Updates the unified font size used across the UI.
-        /// </summary>
-        /// <remarks>
-        /// The actual resizing of UI elements is handled entirely through XAML bindings:
-        /// - message history items update via their DataTemplate binding,
-        /// - the connected users list width updates via a bound ViewModel property,
-        /// - the message input field updates through its FontSize binding.
-        /// This method simply updates the ViewModel property that drives all these bindings,
-        /// without directly modifying layout heights to avoid conflicts.
-        /// </remarks>
-        private void ApplyFontSize(int size)
-        {
-            ViewModel.ConversationsAndConnectedUsersTextSize = size;
         }
 
         /// <summary>
@@ -182,7 +126,7 @@ namespace chat_client
         /// </summary>
         public void ApplyWatermarkImages()
         {
-            string languageCodeToApply = Properties.Settings.Default.AppLanguage;   // "fr" or "en"
+            string languageCodeToApply = Properties.Settings.Default.AppLanguageCode;   // "fr" or "en"
             string themeToApply = Properties.Settings.Default.AppTheme;     // "light" or "dark"
 
             if (languageCodeToApply == "fr")
@@ -213,27 +157,6 @@ namespace chat_client
                 }
             }
         }
-
-        /// <summary>
-        /// Attempts to bind the custom placement callback for the emoji popup.
-        /// Falls back silently if the signature isn’t compatible or something else goes wrong.
-        /// </summary>
-        private void AttachEmojiPanelCallback()
-        {
-            if (popupEmoji == null)
-                return;
-
-            try
-            {
-                popupEmoji.CustomPopupPlacementCallback = OnPopupPlacement;
-            }
-            catch (Exception ex)
-            {
-                ClientLogger.Log($"Could not assign custom popup placement callback: {ex.Message}",
-                    ClientLogLevel.Warn);
-            }
-        }
-
         private ContextMenu BuildLocalizedTrayMenu()
         {
             var contextMenu = new ContextMenu();
@@ -257,34 +180,12 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Decreases the current font size by one step, respecting min/max limits.
-        /// </summary>
-        private void CmdDecreaseFont_Click(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.FontSizeSetting > MinFontSize)
-            {
-                ViewModel.FontSizeSetting--;
-                ApplyFontSize(ViewModel.FontSizeSetting);
-            }
-        }
-
-        /// <summary>
         /// Show the emoji popup panel and hides the arrow button.
         /// </summary>
         private void CmdEmojiPanel_Click(object sender, RoutedEventArgs e)
         {
             popupEmoji.VerticalOffset = -popupEmoji.ActualHeight;
             popupEmoji.IsOpen = true;
-            ImgEmojiPanel.Visibility = Visibility.Collapsed;
-        }
-
-        private void CmdIncreaseFont_Click(object sender, RoutedEventArgs e)
-        {
-            if (ViewModel.FontSizeSetting < MaxFontSize)
-            {
-                ViewModel.FontSizeSetting++;
-                ApplyFontSize(ViewModel.FontSizeSetting);
-            }
         }
 
         private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
@@ -321,8 +222,8 @@ namespace chat_client
             // Prevents sending if the message is empty, the socket is not connected,
             // or the handshake/establishment is not yet complete.
             if (string.IsNullOrEmpty(MainViewModel.MessageToSend) ||
-                ViewModel.ClientConn?.IsConnected != true ||
-                ViewModel.ClientConn?.IsEstablished != true)
+                viewModel.ClientConn?.IsConnected != true ||
+                viewModel.ClientConn?.IsEstablished != true)
             {
                 ClientLogger.Log("Send blocked: connection not yet fully established", ClientLogLevel.Debug);
                 return;
@@ -333,7 +234,7 @@ namespace chat_client
                 string messageToSend = MainViewModel.MessageToSend;
 
                 // Awaits the unified send method; handles encryption internally if enabled.
-                bool success = await ViewModel.ClientConn.SendMessageAsync(messageToSend, CancellationToken.None);
+                bool success = await viewModel.ClientConn.SendMessageAsync(messageToSend, CancellationToken.None);
 
                 if (success)
                 {
@@ -344,7 +245,7 @@ namespace chat_client
                 else
                 {
                     // Notifies user of logical failure (e.g., missing keys or encryption error)
-                    ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
+                    viewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
                 }
             }
             catch (OperationCanceledException)
@@ -354,7 +255,7 @@ namespace chat_client
             catch (Exception ex)
             {
                 ClientLogger.Log($"Send failed: {ex.Message}", ClientLogLevel.Error);
-                ViewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
+                viewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
             }
         }
         
@@ -377,7 +278,7 @@ namespace chat_client
             }
 
             /// <summary>Creates and shows a new SettingsWindow, passing the current MainViewModel via the ViewModel property</summary>
-            var settings = new SettingsWindow(ViewModel)
+            var settings = new SettingsWindow(viewModel)
             {
                 /// <summary>
                 /// Sets the owner of the SettingsWindow to the MainWindow instance.
@@ -409,6 +310,15 @@ namespace chat_client
                 TxtMessageInput.Focus();
                 TxtMessageInput.CaretIndex = TxtMessageInput.Text.Length;
             }
+        }
+
+        /// <summary>
+        /// Handles size changes of the right panel and updates the ViewModel with
+        /// its current pixel width.
+        /// </summary>
+        private void GrdRight_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            viewModel.RightGridWidth = GrdRight.ActualWidth;
         }
 
         /// <summary>
@@ -450,7 +360,6 @@ namespace chat_client
             }
         }
 
-
         /// <summary>
         /// Handles global key press events to trigger tray reduction behavior
         /// and debug console activation.
@@ -461,7 +370,9 @@ namespace chat_client
         {
             // Skips tray logic if feature is disabled
             if (!chat_client.Properties.Settings.Default.ReduceToTray)
+            {
                 return;
+            }
 
             // Reduces to tray on Escape key
             if (e.Key == Key.Escape)
@@ -482,6 +393,10 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Handles window state changes and minimizes the application to the
+        /// system tray when the user has enabled the "Reduce to tray" option.
+        /// </summary>
         private void MainWindow1_StateChanged(object sender, EventArgs e)
         {
             if (Properties.Settings.Default.ReduceToTray && WindowState == WindowState.Minimized)
@@ -508,27 +423,6 @@ namespace chat_client
             }
         }
 
-
-        /// <summary>
-        /// Positions the emoji popup centered horizontally above the message input field.
-        /// </summary>
-        private CustomPopupPlacement[] OnPopupPlacement(Size popupSize, Size targetSize, Point _)
-        {
-            // targetSize = size of TxtMessageInput (PlacementTarget)
-            double targetWidth = targetSize.Width;
-
-            // Centers the popup over the input field
-            double posX = ((targetWidth - popupSize.Width) / 2) + 22;
-
-            // Places the popup above the input field
-            double posY = -popupSize.Height;
-
-            return new[]
-            {
-                new CustomPopupPlacement(new Point(posX, posY), PopupPrimaryAxis.Horizontal)
-             };
-        }
-
         /// <summary>
         /// Shows back the arrow icon when popup is closed
         /// </summary>
@@ -546,18 +440,18 @@ namespace chat_client
         /// </summary>
         private void ReduceToTray()
         {
-            // Check if tray mode is enabled in settings
+            // Checks if tray mode is enabled in settings
             if (!chat_client.Properties.Settings.Default.ReduceToTray)
                 return;
 
-            // Retrieve tray icon from resources
+            // Retrieves tray icon from resources
             var trayIcon = TryFindResource("TrayIcon") as TaskbarIcon;
             if (trayIcon != null)
             {
                 trayIcon.Visibility = Visibility.Visible;
             }
 
-            // Hide main window and remove from taskbar
+            // Hides main window and remove from taskbar
             this.Hide();
             this.ShowInTaskbar = false;
         }
@@ -583,7 +477,7 @@ namespace chat_client
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
             // Save user preference
-            Properties.Settings.Default.AppTheme = "Dark";
+            Properties.Settings.Default.AppTheme = "dark";
             Properties.Settings.Default.Save();
 
             // Apply dark theme to this window with fade animation
@@ -596,7 +490,7 @@ namespace chat_client
         private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             // Save user preference
-            Properties.Settings.Default.AppTheme = "Light";
+            Properties.Settings.Default.AppTheme = "light";
             Properties.Settings.Default.Save();
 
             // Apply light theme to this window with fade animation
@@ -604,6 +498,12 @@ namespace chat_client
 
             // Apply light theme watermarks
             ApplyWatermarkImages();
+        }
+
+        public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mw)
+                mw.TrayMenu_Open_Click(sender, e);
         }
 
         /// <summary>
@@ -624,35 +524,52 @@ namespace chat_client
             this.ShowInTaskbar = true;
         }
 
-
         public void TrayMenu_Quit_Click(object sender, RoutedEventArgs e)
         {
             Application.Current.Shutdown();
         }
 
-        private void TxtMessageInput_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        /// <summary>
+        /// Handles keyboard input inside the message textbox.
+        /// Enter alone sends the message.
+        /// Shift+Enter or Ctrl+Enter insert a new line.
+        /// </summary>
+        private void TxtMessageInput_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // Shift+Enter or Ctrl+Enter inserts a new line
+            if (e.Key == Key.Enter &&
+                (Keyboard.Modifiers == ModifierKeys.Shift || Keyboard.Modifiers == ModifierKeys.Control))
+            {
+                return; // allows WPF to insert the newline
+            }
+
+            // Enter alone sends the message
             if (e.Key == Key.Enter)
             {
-                // Simulate the click on the CmdSend button
+                e.Handled = true; // prevents newline
+                
+                // Equivalent to WinForms PerformClick()
                 CmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-
-                // Prevents the line break in the textBox
-                e.Handled = true;
             }
         }
 
+        /// <summary>
+        /// Handles changes in the message input field.
+        /// Updates the watermark visibility and enables the Send button
+        /// only when the field contains text and the client is connected.
+        /// </summary>
         private void TxtMessageInput_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (TxtMessageInput.Text == "" || ViewModel.ClientConn.IsConnected == false)
-            {
-                CmdSend.IsEnabled = false;
-            }
-            else
-            {
-                CmdSend.IsEnabled = true;
-            }
+            bool hasText = !string.IsNullOrWhiteSpace(TxtMessageInput.Text);
+            bool isConnected = viewModel.ClientConn.IsConnected;
+
+            // Watermark visible only if the field is empty
+            imgIPAddressWatermark.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
+
+            // Send button enabled only if the field has text AND the client is connected
+            CmdSend.IsEnabled = hasText && isConnected;
         }
+
 
         /// <summary>
         /// Handles the Enter key in the Username field and invokes the
@@ -667,15 +584,42 @@ namespace chat_client
         {
             if (e.Key == Key.Enter)
             {
-                if (DataContext is MainViewModel vm &&
-                    vm.ConnectDisconnectCommand.CanExecute(null))
-                {
-                    vm.ConnectDisconnectCommand.Execute(null);
+                if (DataContext is MainViewModel viewModel) 
+                {  
+                    viewModel.ConnectDisconnectCommand.Execute(null);
                 }
 
                 /// <summary> Stops further propagation of the Enter key </summary>
                 e.Handled = true;
             }
+        }
+
+        /// <summary>
+        /// Toggles watermark visibility when IpAddress textbox loses focus
+        /// </summary>
+        private void TxtIPAddress_LostFocus(object sender, RoutedEventArgs e)
+        {
+            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtIPAddress.Text);
+            imgIPAddressWatermark.Visibility = textBoxHasText ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Handles live updates to the IP address textbox.
+        /// Toggles watermark visibility based on input.
+        /// </summary>
+        private void TxtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtIPAddress.Text);
+            imgIPAddressWatermark.Visibility = textBoxHasText ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Toggles watermark visibility when Username textbox loses focus
+        /// </summary>
+        private void TxtUsername_LostFocus(object sender, RoutedEventArgs e)
+        {
+            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtUsername.Text);
+            imgUsernameWatermark.Visibility = textBoxHasText ? Visibility.Collapsed : Visibility.Visible;
         }
 
         /// <summary>
@@ -685,32 +629,13 @@ namespace chat_client
         /// </summary>
         private void TxtUsername_TextChanged(object sender, TextChangedEventArgs e)
         {
-            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(TxtUsername.Text);
+            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtUsername.Text);
 
-            // Shows watermark when textbox is empty
-            imgUsernameWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
+            /// <summary> Shows watermark only when textbox is empty </summary>
+            imgUsernameWatermark.Visibility = textBoxHasText ? Visibility.Collapsed : Visibility.Visible;
 
-            // Enables the connect button only when input is non-empty
-            CmdConnectDisconnect.IsEnabled = !textBoxIsEmpty;
-
-            // Removes the error style if it was previously applied
-            if (TxtUsername.Style != null)
-            {
-                TxtUsername.ClearValue(Control.StyleProperty);
-            }
-        }
-
-        /// <summary>
-        /// Handles live updates to the IP address textbox.
-        /// Toggles the visibility of the watermark image based on whether the input field is empty.
-        /// </summary>
-        private void TxtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            // Checks if the textbox is empty or contains only whitespace
-            bool textBoxIsEmpty = string.IsNullOrWhiteSpace(TxtIPAddress.Text);
-
-            // Shows or hides the watermark image depending on input state
-            imgIPAddressWatermark.Visibility = textBoxIsEmpty ? Visibility.Visible : Visibility.Hidden;
+            /// <summary> Clears error style if previously applied </summary>
+            TxtUsername.ClearValue(Control.StyleProperty);
         }
     }
 }
