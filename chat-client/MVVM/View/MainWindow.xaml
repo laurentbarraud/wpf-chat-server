@@ -21,25 +21,31 @@
     <Window.Resources>
 
         <!--
-        Switches the TextBox between editable IP input (TwoWay to IPAddressOfServer)
-        and a read‑only “Connected” display (OneWay to CurrentIpDisplay). 
-        Ensures UI state never overwrites the persisted IP. 
-        CurrentIpDisplay requires Mode=OneWay to avoid TwoWay binding errors on a read‑only property.
+        Switches the TextBox between editable IP input when disconnected
+        and a read‑only “Connected” display when connected.
+        Prevents the UI from overwriting the stored server IP.
         -->
+
         <Style x:Key="IPAddressTextBoxStyle" TargetType="TextBox">
             <Setter Property="IsReadOnly" Value="False"/>
-            <Setter Property="Text" Value="{Binding IPAddressOfServer, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
 
             <Style.Triggers>
+
+                <!-- Connected -->
                 <DataTrigger Binding="{Binding IsConnected}" Value="True">
                     <Setter Property="IsReadOnly" Value="True"/>
                     <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="Text" Value="{Binding CurrentIPDisplay}"/>
                 </DataTrigger>
 
+                <!-- Disconnected -->
                 <DataTrigger Binding="{Binding IsConnected}" Value="False">
                     <Setter Property="IsReadOnly" Value="False"/>
                     <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                    <Setter Property="Text" Value="{Binding CurrentIPDisplay}"/>
                 </DataTrigger>
+
             </Style.Triggers>
         </Style>
 
@@ -157,16 +163,15 @@
                 </Grid.RowDefinitions>
 
                 <!-- Username -->
-                <Grid Grid.Row="0" 
+                <Grid Grid.Row="0"
                       HorizontalAlignment="Stretch">
+
                     <TextBox x:Name="TxtUsername"
                              IsReadOnly="{Binding IsConnected}"
                              Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                             Height="{Binding InputFieldHeight}"
-                             FontSize="{Binding DisplayFontSize}" 
+                             Height="{Binding UsernameAndIPAddressInputFieldHeight}"
+                             FontSize="{Binding DisplayFontSize}"
                              PreviewKeyDown="TxtUsername_PreviewKeyDown"
-                             TextChanged="TxtUsername_TextChanged"
-                             LostFocus="TxtUsername_LostFocus"
                              Panel.ZIndex="1"
                              MinHeight="25"
                              MinWidth="120"
@@ -176,50 +181,122 @@
                              Background="Transparent"
                              Foreground="{DynamicResource ForegroundBrush}"/>
 
-                    <Image x:Name="imgUsernameWatermark"
-                           Width="{Binding ActualWidth, ElementName=TxtUsername}"
-                           Height="{Binding ActualHeight, ElementName=TxtUsername}"
-                           Panel.ZIndex="0"
-                           HorizontalAlignment="Left"
-                           VerticalAlignment="Center"
-                           Source="/Resources/txtUsername_background_en.png"
-                           Stretch="Uniform">
-                    </Image>
+                    <!-- Native watermark overlay for username -->
+                    <TextBlock x:Name="TxtUsernameWatermark"
+                               Margin="4,0,0,0"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               IsHitTestVisible="False"
+                               FontSize="{Binding DisplayFontSize}"
+                               Foreground="{DynamicResource WatermarkBrush}"
+                               FontStyle="Italic"
+                               Text="{Binding UsernameWatermarkText}"
+                               Panel.ZIndex="0">
+                        <!--
+                        Summary:
+                        Native watermark for the username TextBox.
+                        Displays a localized placeholder when the field is empty and not focused.
+                        Uses a lighter foreground color and italic style to mimic a modern placeholder.
+                        -->
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <!-- Default: hidden -->
+                                <Setter Property="Visibility" Value="Collapsed"/>
+
+                                <Style.Triggers>
+
+                                    <!-- Show watermark when empty and not focused -->
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Text, ElementName=TxtUsername}" Value=""/>
+                                            <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=TxtUsername}" Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Setter Property="FontStyle" Value="Italic"/>
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                    </MultiDataTrigger>
+
+                                    <!-- Hides watermark when focused -->
+                                    <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TxtUsername}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+
+                                    <!-- Hides watermark when there is text -->
+                                    <DataTrigger Binding="{Binding Text, ElementName=TxtUsername}" Value="">
+                                        <!-- nothing here: MultiDataTrigger manages the display for the empty case -->
+                                    </DataTrigger>
+
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
 
                 <!-- IP Address -->
-                <Grid Grid.Row="1" HorizontalAlignment="Stretch">
+                <Grid Grid.Row="1"
+                      HorizontalAlignment="Stretch">
+
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBox x:Name="TxtIPAddress"
+                    <!-- Main IP address input -->
+                    <TextBox x:Name="TxtServerIPAddress"
                              Style="{StaticResource IPAddressTextBoxStyle}"
-                             IsReadOnly="{Binding IsConnected}"
-                             Text="{Binding IPAddressOfServer}"
-                             Height="{Binding InputFieldHeight}"
+                             Text="{Binding CurrentIPDisplay}"
+                             Height="{Binding UsernameAndIPAddressInputFieldHeight}"
                              FontSize="{Binding DisplayFontSize}"
-                             TextChanged="TxtIPAddress_TextChanged"
-                             LostFocus="TxtIPAddress_LostFocus"
-                             Grid.Column="0"
+                             Panel.ZIndex="1"
                              MinHeight="25"
                              MinWidth="120"
                              Background="Transparent"
                              Foreground="{DynamicResource ForegroundBrush}"
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Center"
-                             VerticalContentAlignment="Center"
-                             Panel.ZIndex="1"/>
+                             VerticalContentAlignment="Center"/>
 
-                    <Image x:Name="imgIPAddressWatermark"
-                           Width="{Binding ActualWidth, ElementName=TxtIPAddress}"
-                           Height="{Binding ActualHeight, ElementName=TxtIPAddress}"
-                           Grid.Column="0"
-                           Panel.ZIndex="0"
-                           HorizontalAlignment="Left"
-                           VerticalAlignment="Top"
-                           Source="/Resources/txtIPAddress_background_en.png"
-                           Stretch="Uniform"/>
+                    <!-- Native watermark overlay -->
+                    <TextBlock x:Name="TxtIPAddressWatermark"
+                               Grid.Column="0"
+                               Margin="4,0,0,0"
+                               Panel.ZIndex="0"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+                               IsHitTestVisible="False"
+                               FontSize="{Binding DisplayFontSize}"
+                               Foreground="{DynamicResource WatermarkBrush}"
+                               FontStyle="Italic"
+                               Text="{Binding IPAddressWatermarkText}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+
+                                <Style.Triggers>
+
+                                    <!-- Shows watermark only when empty, not focused, and disconnected -->
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Text, ElementName=TxtServerIPAddress}" Value=""/>
+                                            <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=TxtServerIPAddress}" Value="False"/>
+                                            <Condition Binding="{Binding IsConnected}" Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </MultiDataTrigger>
+
+                                    <!-- Hides watermark when focused -->
+                                    <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TxtServerIPAddress}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+
+                                    <!-- Hides watermark when connected -->
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
                 </Grid>
 
@@ -228,7 +305,7 @@
                         x:Name="CmdConnectDisconnect"
                         Content="{Binding ConnectButtonText}"
                         Command="{Binding ConnectDisconnectCommand}"
-                        Height="{Binding InputFieldHeight}"
+                        Height="{Binding UsernameAndIPAddressInputFieldHeight}"
                         MinHeight="25"
                         FontSize="{Binding DisplayFontSize}" 
                         HorizontalAlignment="Stretch"
@@ -484,7 +561,7 @@
                 <!-- Emoji popup -->
                 <Popup x:Name="popupEmoji"
                        Placement="Top"
-                       PlacementTarget="{Binding ElementName=TxtMessageInput}"
+                       PlacementTarget="{Binding ElementName=TxtMessageInputField}"
                        StaysOpen="False"
                        AllowsTransparency="True"
                        PopupAnimation="Slide"
@@ -621,7 +698,7 @@
             </Grid>
 
             <!-- Row 2 : Input bar -->
-            <Grid x:Name="GrdMessageInput"
+            <Grid x:Name="GrdMessageInputField"
                   Grid.Row="2"
                   Height="Auto"
                   MinHeight="32"
@@ -630,14 +707,8 @@
                   Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}"
                   Margin="0,1,0,-1">
 
-                <!-- One column -->
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!-- Input border container -->
+                <!-- Input border -->
                 <Border x:Name="BrdMessageInputField"
-                        Grid.Column="0"
                         MinWidth="50"
                         Width="{Binding MessageInputFieldWidth}"
                         d:Width="400"
@@ -649,45 +720,120 @@
                         BorderBrush="{DynamicResource PrimaryBrush}"
                         BorderThickness="1">
 
-                    <!-- One internal column -->
+                    <!-- Simple layout with 2 columns -->
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="40" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Text input -->
-                        <TextBox x:Name="TxtMessageInput"
-                                 VerticalAlignment="Center"
-                                 VerticalContentAlignment="Center"
-                                 Width="Auto"
-                                 Height="{Binding MessageInputFieldHeight}"
+                        <!-- Dummy watermark for code-behind compatibility -->
+                        <TextBlock x:Name="TxtMessageInputFieldWatermark"
+                                   Visibility="Collapsed"
+                                   Text="{Binding MessageInputFieldWatermarkText}" />
+
+                        <!-- Text input with built‑in watermark template -->
+                        <TextBox x:Name="TxtMessageInputField"
+                                 Grid.Column="0"
                                  Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="{Binding DisplayFontSize}"
-                                 Background="{DynamicResource BackgroundBrush}"
+                                 Background="Transparent"
                                  Foreground="{DynamicResource ForegroundBrush}"
-                                 TextWrapping="Wrap"
-                                 AcceptsReturn="True"                 
-                                 PreviewKeyDown="TxtMessageInput_PreviewKeyDown"
                                  BorderThickness="0"
-                                 MaxLines="1000" Margin="0,0,40,0"/>
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Padding="8,0,8,0"
+                                 VerticalContentAlignment="Center">
 
-                        <!-- Send button (in the same column, right aligned) -->
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="TextBox">
+                                    <Grid>
+                                        <!-- Real textbox -->
+                                        <ScrollViewer x:Name="PART_ContentHost"/>
+
+                                        <!-- Real watermark -->
+                                        <TextBlock Text="{Binding MessageInputFieldWatermarkText}"
+                                                   Foreground="{DynamicResource WatermarkBrush}"
+                                                   Margin="8,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   IsHitTestVisible="False"
+                                                   FontSize="{Binding DisplayFontSize}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+
+                                                        <!-- Show watermark when Text is empty -->
+                                                        <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource AncestorType=TextBox}}" Value="">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+
+                                                        <!-- Hide when focused -->
+                                                        <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=TextBox}}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
+
+                        <!-- Send button -->
                         <Button x:Name="CmdSend"
-                                HorizontalAlignment="Right"
+                                Grid.Column="1"
+                                Background="Transparent"
+                                HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
                                 Click="CmdSend_Click"
                                 Width="40"
                                 Height="32"
-                                Background="Transparent"
                                 BorderThickness="0">
+
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <!-- Base look -->
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderBrush" Value="Transparent"/>
+                                    <Setter Property="Opacity" Value="1"/>
+
+                                    <Style.Triggers>
+
+                                        <!-- Disabled state (no grey background) -->
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderBrush" Value="Transparent"/>
+                                            <Setter Property="Opacity" Value="0.45"/>
+                                        </Trigger>
+
+                                        <!-- Disables when input is empty -->
+                                        <DataTrigger Binding="{Binding Text, ElementName=TxtMessageInputField}" Value="">
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                        </DataTrigger>
+
+                                        <!-- Hover -->
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Opacity" Value="0.75"/>
+                                        </Trigger>
+
+                                        <!-- Pressed -->
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter Property="Opacity" Value="0.55"/>
+                                        </Trigger>
+
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+
                             <Image Source="/Resources/send.png"
                                    Width="18" Height="18"/>
                         </Button>
-
                     </Grid>
                 </Border>
             </Grid>
-
         </Grid>
     </Grid>
 </Window>

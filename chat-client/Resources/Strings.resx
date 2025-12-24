@@ -310,4 +310,13 @@ and connected users list</value>
   <data name="MessageInputFieldWidthLabel" xml:space="preserve">
     <value>Input field width</value>
   </data>
+  <data name="MessageInputFieldWatermark" xml:space="preserve">
+    <value>Enter a message...</value>
+  </data>
+  <data name="UsernameWatermark" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="IPAddressWatermark" xml:space="preserve">
+    <value>Server IP address</value>
+  </data>
 </root>

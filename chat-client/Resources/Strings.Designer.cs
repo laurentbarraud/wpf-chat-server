@@ -377,6 +377,15 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Server IP address.
+        /// </summary>
+        public static string IPAddressWatermark {
+            get {
+                return ResourceManager.GetString("IPAddressWatermark", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à  v1.0 - dec. 2025 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
@@ -409,6 +418,15 @@ namespace chat_client.Resources {
         public static string MessageInputFieldLeftOffsetLabel {
             get {
                 return ResourceManager.GetString("MessageInputFieldLeftOffsetLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Enter a message....
+        /// </summary>
+        public static string MessageInputFieldWatermark {
+            get {
+                return ResourceManager.GetString("MessageInputFieldWatermark", resourceCulture);
             }
         }
         
@@ -562,6 +580,15 @@ namespace chat_client.Resources {
         public static string UseEncryptionLabel {
             get {
                 return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Username.
+        /// </summary>
+        public static string UsernameWatermark {
+            get {
+                return ResourceManager.GetString("UsernameWatermark", resourceCulture);
             }
         }
         

@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 22th, 2025</date>
+/// <date>December 24th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -33,7 +33,7 @@ namespace chat_client
         public MainViewModel viewModel { get; set; }
 
         /// <summary>
-        /// Indicates whether the client is currently connected to the server.
+        /// Calculated property that indicates whether the client is currently connected to the server.
         /// Uses null-conditional access to safely evaluate connection state. 
         /// </summary>
         public bool IsConnected => viewModel?.ClientConn != null && viewModel.ClientConn.IsConnected;
@@ -57,7 +57,7 @@ namespace chat_client
         private DateTime lastCtrlPress = DateTime.MinValue;
 
         /// <summary> Used for horizontal scrolling animations (emoji panel auto‑scroll on hover). </summary>
-        private DispatcherTimer scrollTimer;
+        private readonly DispatcherTimer scrollTimer;
 
         /// <summary> Current scroll direction: -1 = scroll left, 1 = scroll right, 0 = idle. </summary>
         private int scrollDirection = 0;
@@ -95,7 +95,7 @@ namespace chat_client
             CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
 
             /// <summary> Restores last used IP address </summary>
-            TxtIPAddress.Text = chat_client.Properties.Settings.Default.IPAddressOfServer;
+            TxtServerIPAddress.Text = chat_client.Properties.Settings.Default.ServerIPAddress;
 
             /// <summary> Applies localization </summary>
             string storedLanguageCode = Properties.Settings.Default.AppLanguageCode;
@@ -104,7 +104,7 @@ namespace chat_client
             /// <summary> Synchronizes theme toggle with saved preference </summary>
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme?.ToLower() == "dark";
 
-            ApplyWatermarkImages();
+            ApplyWatermarks();
             TxtUsername.Focus();
         }
 
@@ -122,41 +122,43 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Changes the watermark images
+        /// Refreshes all watermark texts and visual states after a language or theme change.
+        /// This method updates the ViewModel watermark properties and forces the UI to re‑evaluate
+        /// its visibility triggers for each watermark TextBlock.
         /// </summary>
-        public void ApplyWatermarkImages()
+        public void ApplyWatermarks()
         {
-            string languageCodeToApply = Properties.Settings.Default.AppLanguageCode;   // "fr" or "en"
-            string themeToApply = Properties.Settings.Default.AppTheme;     // "light" or "dark"
+            if (DataContext is MainViewModel viewModel)
+            {
+                // Refreshes localized watermark texts
+                viewModel.InitializeWatermarkResources();
 
-            if (languageCodeToApply == "fr")
-            {
-                if (themeToApply == "dark")
+                // Refreshes watermarks text
+                TxtUsernameWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+                TxtIPAddressWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+                TxtMessageInputFieldWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+
+                // Refreshes visibility triggers 
+                TxtUsernameWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
+                TxtIPAddressWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
+                TxtMessageInputFieldWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
+
+                // Refreshes the "Connected" / IP display text
+                if (viewModel.IsConnected)
                 {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr_dark.png", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr_dark.png", UriKind.Relative));
+                    viewModel.CurrentIPDisplay = LocalizationManager.GetString("Connected");
                 }
-                else // default : light
+                else
                 {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_fr.png", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_fr.png", UriKind.Relative));
+                    viewModel.CurrentIPDisplay = Settings.Default.ServerIPAddress;
                 }
-            }
-            // default : english
-            else
-            {
-                if (themeToApply == "dark")
-                {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en_dark.png", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en_dark.png", UriKind.Relative));
-                }
-                else // light
-                {
-                    imgUsernameWatermark.Source = new BitmapImage(new Uri("/Resources/txtUsername_background_en.png", UriKind.Relative));
-                    imgIPAddressWatermark.Source = new BitmapImage(new Uri("/Resources/txtIPAddress_background_en.png", UriKind.Relative));
-                }
+
+                // Notifies UI in all cases
+                viewModel.OnPropertyChanged(nameof(viewModel.CurrentIPDisplay));
             }
         }
+
+
         private ContextMenu BuildLocalizedTrayMenu()
         {
             var contextMenu = new ContextMenu();
@@ -239,8 +241,8 @@ namespace chat_client
                 if (success)
                 {
                     // Clears the input box and refocuses it on success
-                    TxtMessageInput.Text = "";
-                    TxtMessageInput.Focus();
+                    TxtMessageInputField.Text = "";
+                    TxtMessageInputField.Focus();
                 }
                 else
                 {
@@ -306,9 +308,9 @@ namespace chat_client
         {
             if (sender is Button btnEmoji && btnEmoji.Content is TextBlock tbEmoji)
             {
-                TxtMessageInput.Text += tbEmoji.Text;
-                TxtMessageInput.Focus();
-                TxtMessageInput.CaretIndex = TxtMessageInput.Text.Length;
+                TxtMessageInputField.Text += tbEmoji.Text;
+                TxtMessageInputField.Focus();
+                TxtMessageInputField.CaretIndex = TxtMessageInputField.Text.Length;
             }
         }
 
@@ -484,7 +486,7 @@ namespace chat_client
             ThemeManager.ApplyTheme(true);
 
             // Apply dark theme watermarks
-            ApplyWatermarkImages();
+            ApplyWatermarks();
         }
 
         private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
@@ -497,7 +499,7 @@ namespace chat_client
             ThemeManager.ApplyTheme(false);
 
             // Apply light theme watermarks
-            ApplyWatermarkImages();
+            ApplyWatermarks();
         }
 
         public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
@@ -534,7 +536,7 @@ namespace chat_client
         /// Enter alone sends the message.
         /// Shift+Enter or Ctrl+Enter insert a new line.
         /// </summary>
-        private void TxtMessageInput_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void TxtMessageInputField_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             // Shift+Enter or Ctrl+Enter inserts a new line
             if (e.Key == Key.Enter &&
@@ -552,24 +554,6 @@ namespace chat_client
                 CmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
-
-        /// <summary>
-        /// Handles changes in the message input field.
-        /// Updates the watermark visibility and enables the Send button
-        /// only when the field contains text and the client is connected.
-        /// </summary>
-        private void TxtMessageInput_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            bool hasText = !string.IsNullOrWhiteSpace(TxtMessageInput.Text);
-            bool isConnected = viewModel.ClientConn.IsConnected;
-
-            // Watermark visible only if the field is empty
-            imgIPAddressWatermark.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
-
-            // Send button enabled only if the field has text AND the client is connected
-            CmdSend.IsEnabled = hasText && isConnected;
-        }
-
 
         /// <summary>
         /// Handles the Enter key in the Username field and invokes the
@@ -592,50 +576,6 @@ namespace chat_client
                 /// <summary> Stops further propagation of the Enter key </summary>
                 e.Handled = true;
             }
-        }
-
-        /// <summary>
-        /// Toggles watermark visibility when IpAddress textbox loses focus
-        /// </summary>
-        private void TxtIPAddress_LostFocus(object sender, RoutedEventArgs e)
-        {
-            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtIPAddress.Text);
-            imgIPAddressWatermark.Visibility = textBoxHasText ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        /// <summary>
-        /// Handles live updates to the IP address textbox.
-        /// Toggles watermark visibility based on input.
-        /// </summary>
-        private void TxtIPAddress_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtIPAddress.Text);
-            imgIPAddressWatermark.Visibility = textBoxHasText ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        /// <summary>
-        /// Toggles watermark visibility when Username textbox loses focus
-        /// </summary>
-        private void TxtUsername_LostFocus(object sender, RoutedEventArgs e)
-        {
-            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtUsername.Text);
-            imgUsernameWatermark.Visibility = textBoxHasText ? Visibility.Collapsed : Visibility.Visible;
-        }
-
-        /// <summary>
-        /// Handles live updates to the username textbox.
-        /// Toggles watermark visibility and connection button state based on input.
-        /// Clears the error style if previously applied, restoring the default textbox appearance.
-        /// </summary>
-        private void TxtUsername_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            bool textBoxHasText = !string.IsNullOrWhiteSpace(TxtUsername.Text);
-
-            /// <summary> Shows watermark only when textbox is empty </summary>
-            imgUsernameWatermark.Visibility = textBoxHasText ? Visibility.Collapsed : Visibility.Visible;
-
-            /// <summary> Clears error style if previously applied </summary>
-            TxtUsername.ClearValue(Control.StyleProperty);
         }
     }
 }

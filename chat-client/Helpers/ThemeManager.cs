@@ -1,7 +1,7 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 22th, 2025</date>
+/// <date>December 24th, 2025</date>
 
 using System;
 using System.Windows;
@@ -83,7 +83,7 @@ namespace chat_client.Helpers
                     {
                         if (targetWindow is MainWindow mainWindow)
                         {
-                            mainWindow.ApplyWatermarkImages();
+                            mainWindow.ApplyWatermarks();
                         }
                     });
                 };
@@ -133,7 +133,7 @@ namespace chat_client.Helpers
             var targetWindow = Application.Current.MainWindow;
             if (targetWindow is MainWindow mainWindow)
             {
-                mainWindow.ApplyWatermarkImages();
+                mainWindow.ApplyWatermarks();
             }
         }
     }

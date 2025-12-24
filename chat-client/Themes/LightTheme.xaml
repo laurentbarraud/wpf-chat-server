@@ -11,11 +11,14 @@
     <Color x:Key="DisabledButtonColor">#333333</Color>
     <!-- Sky blue accent -->
     <Color x:Key="AccentColor">#FFC9DEF5</Color>
+    <!-- Dark grey placeholder for light theme -->
+    <Color x:Key="WatermarkColor">#FF5A5A5A</Color>
 
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
     <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource DisabledButtonColor}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
-   
+    <SolidColorBrush x:Key="WatermarkBrush" Color="{StaticResource WatermarkColor}" />
+    
 </ResourceDictionary>

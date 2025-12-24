@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 22th, 2025</date>
+/// <date>December 24th, 2025</date>
 
 using System;
 using System.Resources;
@@ -106,7 +106,7 @@ namespace chat_client.Helpers
             foreach (Window window in Application.Current.Windows)
             {
                 if (window is MainWindow mainWindow)
-                    mainWindow.ApplyWatermarkImages();
+                    mainWindow.ApplyWatermarks();
             }
 
         }

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 22th, 2025</date>
+/// <date>December 24th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -17,6 +17,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 
 
 
@@ -59,6 +60,18 @@ namespace chat_client.MVVM.ViewModel
         private int _clientDisconnecting = 0;
 
         /// <summary>
+        /// Holds the localized text displayed in the IP address field
+        /// when the client is connected. 
+        /// This replaces the normal placeholder and is centered and non‑italic. 
+        /// </summary> 
+        private string _connectedWatermarkText = "";
+
+        /// <summary>
+        /// Backing field for the IP or connection status displayed in the UI.
+        /// </summary>
+        private string _currentIPDisplay = "";
+
+        /// <summary>
         /// Global unified font size setting for :
         /// - conversations
         /// - connected users list
@@ -88,12 +101,12 @@ namespace chat_client.MVVM.ViewModel
         /// Backing field storing the tooltip text shown when encryption keys are missing.
         /// </summary>
         private string _gettingMissingKeysToolTip = "";
-        
-        /// <summary>
-        /// Backing field for the server IP address used when the client is disconnected.
-        /// This value is bound in TwoWay mode to allow user input and is initialized from application settings.
-        /// </summary>
-        private string _iPAddressOfServer = Settings.Default.IPAddressOfServer;
+       
+        /// <summary> 
+        /// Holds the localized placeholder text displayed 
+        /// in the IP address input field when it is empty and not focused.
+        /// </summary> 
+        private string _ipAddressWatermarkText = "";
 
         /// <summary>
         /// Stores the current theme selection state.
@@ -109,17 +122,16 @@ namespace chat_client.MVVM.ViewModel
         private bool _isFirstRosterSnapshot = true;
 
         /// <summary>
-        /// Represents the proportional width of the left column, expressed as a value
-        /// between 0.0 and 1.0. A value of 0.3 means the left panel occupies 30% of
-        /// the total window width.
-        /// </summary>
-        private double _leftColumnRatio = 0.3;
-
-        /// <summary>
         /// Holds the previous roster’s user IDs and usernames for diffing.
         /// </summary>
         private List<(Guid UserId, string Username)> _previousRosterSnapshot
             = new List<(Guid, string)>();
+
+        /// <summary> 
+        /// Backing field storing the watermark text displayed in the message 
+        /// input field when empty. 
+        /// </summary>
+        private string _messageInputFieldWatermarkText = "";
 
         /// <summary>
         /// Backing field storing the current computed width of the right panel.
@@ -128,8 +140,27 @@ namespace chat_client.MVVM.ViewModel
         private double _rightGridWidth;
 
         /// <summary>
+        /// Backing field for the server IP address used when the client is disconnected.
+        /// This value is bound in TwoWay mode to allow user input and is initialized from application settings.
+        /// </summary>
+        private string _serverIPAddress = Settings.Default.ServerIPAddress;
+
+        /// <summary>
         /// Holds what the user types in the first textbox on top left of the MainWindow
+        /// </summary>
         private string _username = string.Empty;
+
+        /// <summary> 
+        /// Holds the localized placeholder text displayed in the username input field 
+        /// when it is empty and not focused. 
+        /// </summary> 
+        private string _usernameWatermarkText = "";
+
+        /// <summary>
+        /// Brush used to render watermark text. Its color adapts to the current theme:
+        /// a darker grey in light mode and a lighter grey in dark mode.
+        /// </summary>
+        private SolidColorBrush _watermarkBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128)) { Opacity = 0.45 };
 
         // PUBLIC PROPERTIES
 
@@ -156,6 +187,8 @@ namespace chat_client.MVVM.ViewModel
                 
                 // Reloads localization resources and refresh all UI labels
                 LocalizationManager.InitializeLocalization(value);
+
+                InitializeWatermarkResources();
 
                 // Refreshes ComboBox items so each DisplayName re‐localizes
                 OnPropertyChanged(nameof(SupportedLanguages));
@@ -230,13 +263,40 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+        /// <summary> 
+        /// Gets or sets the localized text displayed in the IP address field
+        /// when the client is connected. 
+        /// This replaces the normal placeholder. 
+        /// </summary>
+        public string ConnectedWatermarkText
+        {
+            get => _connectedWatermarkText;
+            set
+            {
+                _connectedWatermarkText = value;
+
+                OnPropertyChanged(nameof(ConnectedWatermarkText));
+            }
+        }
+
         /// <summary>
         /// Provides the IP address text to display in the UI.
         /// When connected, shows a localized "Connected" label.
         /// When disconnected, shows the last used server IP.
         /// </summary>
-        public string CurrentIpDisplay =>
-            IsConnected ? LocalizationManager.GetString("Connected") : Settings.Default.IPAddressOfServer;
+        public string CurrentIPDisplay 
+        {
+            get => _currentIPDisplay; 
+            set 
+            { 
+                if (_currentIPDisplay != value) 
+                { 
+                    _currentIPDisplay = value; 
+                    
+                    OnPropertyChanged(nameof(CurrentIPDisplay)); 
+                } 
+            } 
+        }
 
         /// <summary>
         /// Stores the current global font size applied to conversation messages,
@@ -258,7 +318,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(DisplayFontSize));
 
                 // Notifies dependent UI elements
-                OnPropertyChanged(nameof(InputFieldHeight));
+                OnPropertyChanged(nameof(UsernameAndIPAddressInputFieldHeight));
                 OnPropertyChanged(nameof(MessageInputFieldHeight));
                 OnPropertyChanged(nameof(ConnectButtonHeight));
 
@@ -375,44 +435,27 @@ namespace chat_client.MVVM.ViewModel
         public double HeightScaleFactor { get; } = 2.2;
 
         /// <summary>
-        /// Computes the dynamic height of username and IP input fields, scaling up to +30% at maximum font size.
+        /// Initializes localized watermark texts used by the input fields.
+        /// Called at startup and whenever the application language changes.
         /// </summary>
-        public double InputFieldHeight
+        public void InitializeWatermarkResources()
         {
-            get
-            {
-                // Base height derived from the global font size
-                double baseHeight = DisplayFontSize * HeightScaleFactor;
-
-                // Normalized ratio (0–1) representing how far the slider is between min and max font size
-                double ratio = (DisplayFontSize - MinDisplayFontSize) /
-                               (MaxDisplayFontSize - MinDisplayFontSize);
-
-                // Ensures the ratio stays within valid bounds
-                ratio = Math.Clamp(ratio, 0, 1);
-
-                // Applies a progressive increase up to +30% at maximum font size
-                return baseHeight * (1 + ratio * 0.30);
-            }
+            UsernameWatermarkText = LocalizationManager.GetString("UsernameWatermark");
+            IPAddressWatermarkText = LocalizationManager.GetString("IPAddressWatermark");
+            ConnectedWatermarkText = "- " + LocalizationManager.GetString("Connected") + " -";
+            MessageInputFieldWatermarkText = LocalizationManager.GetString("MessageInputFieldWatermark");
         }
 
-
-
-        /// <summary>
-        /// Property used by the IP address TextBox when the client is disconnected.
-        /// This value is bound in TwoWay mode to allow user editing.
-        /// When connected, the TextBox switches to a read-only binding on CurrentIpDisplay.
-        /// The actual persisted value comes from Settings.Default.LastIPAddressUsed,
-        /// which acts as the single source of truth for the saved server IP.
-        /// </summary>
-        public string IPAddressOfServer
-        {
-            get => _iPAddressOfServer;
-            set
-            {
-                _iPAddressOfServer = value;
-                OnPropertyChanged();
-            }
+        /// <summary> 
+        /// Gets or sets the localized placeholder text for the IP address field. 
+        /// Displayed when the field is empty and not focused. </summary> 
+        public string IPAddressWatermarkText 
+        { 
+            get => _ipAddressWatermarkText; 
+            set { _ipAddressWatermarkText = value; 
+                
+                OnPropertyChanged(nameof(IPAddressWatermarkText)); 
+            } 
         }
 
         /// <summary>
@@ -457,8 +500,8 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary>
         /// Gets the computed pixel width of the left column. 
-        /// This value is recalculated whenever the window size or 
-        /// LeftColumnRatio changes to maintain a responsive layout.
+        /// This value is recalculated whenever the window size
+        /// changes to maintain a responsive layout.
         /// </summary>
         public double LeftColumnWidth { get; private set; }
 
@@ -551,6 +594,22 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+        /// <summary> 
+        /// Localized watermark text displayed in the message input field when empty. </summary> 
+        public string MessageInputFieldWatermarkText 
+        { 
+            get => _messageInputFieldWatermarkText; 
+            set 
+            { 
+                if (_messageInputFieldWatermarkText != value) 
+                { 
+                    _messageInputFieldWatermarkText = value; 
+                    
+                    OnPropertyChanged(); 
+                } 
+            } 
+        }
+
         /// <summary>
         /// Computes the actual pixel width of the message input field based on the
         /// right panel width and the user-defined percentage.
@@ -611,7 +670,7 @@ namespace chat_client.MVVM.ViewModel
         /// What the user types in the textbox on bottom right of the MainWindow
         /// gets stored in this property (bound in XAML).
         /// </summary>
-        public static string MessageToSend { get; set; } = string.Empty;
+        public static string? MessageToSend { get; set; }
 
         /// <summary>
         /// Represents a dynamic data collections that provides notification
@@ -628,7 +687,7 @@ namespace chat_client.MVVM.ViewModel
         /// Notifies the UI that a property value has changed.
         /// </summary>
         /// <param name="propertyName">The name of the changed property.</param>
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
+        public void OnPropertyChanged([CallerMemberName] string propertyName = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -720,6 +779,23 @@ namespace chat_client.MVVM.ViewModel
         public static string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
         public static string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
 
+        /// <summary>
+        /// Property used by the IP address TextBox when the client is disconnected.
+        /// This value is bound in TwoWay mode to allow user editing.
+        /// When connected, the TextBox switches to a read-only binding on CurrentIPDisplay.
+        /// The actual persisted value comes from Settings.Default.ServerIPAddress,
+        /// which acts as the single source of truth for the saved server IP.
+        /// </summary>
+        public string ServerIPAddress
+        {
+            get => _serverIPAddress;
+            set
+            {
+                _serverIPAddress = value;
+                OnPropertyChanged();
+            }
+        }
+
         public static string SettingsToolTip => LocalizationManager.GetString("SettingsToolTip");
 
         /// <summary>
@@ -761,11 +837,46 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
         /// <summary>
         /// Gets the localized use encryption for messages label text
         /// </summary>
         public static string UseEncryptionLabel => LocalizationManager.GetString("ReduceToTrayLabel");
+
+        /// <summary> 
+        /// Gets or sets the localized placeholder text for the IP address field. 
+        /// Displayed when the field is empty and not focused. </summary> 
+        public string UsernameWatermarkText
+        {
+            get => _usernameWatermarkText;
+            set
+            {
+                _usernameWatermarkText = value;
+
+                OnPropertyChanged(nameof(UsernameWatermarkText));
+            }
+        }
+
+        /// <summary>
+        /// Computes the dynamic height of username and IP input fields, scaling up to +30% at maximum font size.
+        /// </summary>
+        public double UsernameAndIPAddressInputFieldHeight
+        {
+            get
+            {
+                // Base height derived from the global font size
+                double baseHeight = DisplayFontSize * HeightScaleFactor;
+
+                // Normalized ratio (0–1) representing how far the slider is between min and max font size
+                double ratio = (DisplayFontSize - MinDisplayFontSize) /
+                               (MaxDisplayFontSize - MinDisplayFontSize);
+
+                // Ensures the ratio stays within valid bounds
+                ratio = Math.Clamp(ratio, 0, 1);
+
+                // Applies a progressive increase up to +30% at maximum font size
+                return baseHeight * (1 + ratio * 0.30);
+            }
+        }
 
         public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
@@ -781,6 +892,20 @@ namespace chat_client.MVVM.ViewModel
                 if (_username == value) return;
                 _username = value;
                 OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the brush used for watermark text. The brush is theme‑aware
+        /// and updated whenever the theme changes.
+        /// </summary>
+        public SolidColorBrush WatermarkBrush
+        {
+            get => _watermarkBrush;
+            set
+            {
+                _watermarkBrush = value;
+                OnPropertyChanged(nameof(WatermarkBrush));
             }
         }
 
@@ -827,6 +952,11 @@ namespace chat_client.MVVM.ViewModel
             _clientConn.UserDisconnectedEvent += OnUserDisconnected;
             _clientConn.DisconnectedByServerEvent += OnDisconnectedByServer;
 
+            // Reloads user-scoped settings from disk to ensure the ViewModel
+            // starts with the most recently saved values.
+            Settings.Default.Reload();
+            CurrentIPDisplay = Settings.Default.ServerIPAddress;
+
             /// <summary> Subscribes to language changes to refresh UI text </summary>
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
@@ -838,9 +968,6 @@ namespace chat_client.MVVM.ViewModel
 
             /// <summary>
             /// Creates ThemeTogglandCommand, which is bound to the UI toggle button.
-            /// When executed, determines whether the dark theme is selected,
-            /// updates the application settings accordingly, persists the choice,
-            /// and applies the selected theme using ThemeManager class.
             /// </summary>
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
@@ -857,23 +984,17 @@ namespace chat_client.MVVM.ViewModel
                 /// "&& toggleState" ensures "toggleState" is only evaluated if the type check succeeds.
                 /// </remarks>
 
-                /// <summary>
-                /// Updates the application theme setting ("dark" or "light") and saves it.
-                /// </summary>
                 Settings.Default.AppTheme = isDarkThemeSelected ? "dark" : "light";
                 Settings.Default.Save();
 
-                /// <summary> Applies the selected theme to the application./// </summary>
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
-            /// <summary> Loads localized UI strings </summary>
             LoadLocalizedStrings();
 
-            /// <summary> Loads saved font size </summary>
             int savedDisplayFontSize = Properties.Settings.Default.DisplayFontSize;
 
-            /// <summary> Applies it (this triggers all layout updates) </summary>
+            /// <summary> Applies the font size (this triggers all layout updates) </summary>
             DisplayFontSize = savedDisplayFontSize;
         }
 
@@ -919,7 +1040,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 /// <summary> Performs handshake and retrieves UID and server public key </summary>
                 var (uid, publicKeyDer) = await _clientConn
-                    .ConnectToServerAsync(Username.Trim(), IPAddressOfServer, cancellationToken)
+                    .ConnectToServerAsync(Username.Trim(), ServerIPAddress, cancellationToken)
                     .ConfigureAwait(false);
 
                 /// <summary> Guards against handshake failure (empty UID or key) </summary>
@@ -929,7 +1050,13 @@ namespace chat_client.MVVM.ViewModel
                     _ = Application.Current.Dispatcher.BeginInvoke(() =>
                     {
                         ReinitializeUI();
+
+                        // Updates connection state
                         OnPropertyChanged(nameof(IsConnected));
+
+                        // Updates dependent element
+                        OnPropertyChanged(nameof(CurrentIPDisplay));
+
                     });
                     return;
                 }
@@ -945,19 +1072,18 @@ namespace chat_client.MVVM.ViewModel
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
 
                 /// <summary> Updates UI bindings to reflect connected state </summary>
-                _ = Application.Current.Dispatcher.BeginInvoke(() =>
-                {
-                    // Updates connection state
+                _ = Application.Current.Dispatcher.BeginInvoke(() => 
+                { 
+                    // Notifies connection state first
                     OnPropertyChanged(nameof(IsConnected));
 
-                    // Updates dependent elements
-                    OnPropertyChanged(nameof(CurrentIpDisplay));
-                    OnPropertyChanged(nameof(ConnectButtonText));
+                    // Updates display text after IsConnected is true
+                    CurrentIPDisplay = "- " + LocalizationManager.GetString("Connected") + " -"; 
+                    
+                    // Notifies dependent UI elements
+                    OnPropertyChanged(nameof(CurrentIPDisplay)); 
+                    OnPropertyChanged(nameof(ConnectButtonText)); 
                 });
-
-                /// <summary> Saves last used IP address for next session </summary>
-                Settings.Default.IPAddressOfServer = IPAddressOfServer;
-                Settings.Default.Save();
 
                 ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
 
@@ -1026,7 +1152,7 @@ namespace chat_client.MVVM.ViewModel
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
-                        mainWindow.TxtMessageInput.Focus();
+                        mainWindow.TxtMessageInputField.Focus();
                 });
             }
             catch (OperationCanceledException)
@@ -1037,7 +1163,12 @@ namespace chat_client.MVVM.ViewModel
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     ReinitializeUI();
+
+                    // Updates connection state
                     OnPropertyChanged(nameof(IsConnected));
+
+                    // Updates dependent element
+                    OnPropertyChanged(nameof(CurrentIPDisplay));
                 });
             }
             catch (Exception ex)
@@ -1051,7 +1182,12 @@ namespace chat_client.MVVM.ViewModel
                         LocalizationManager.GetString("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
 
                     ReinitializeUI();
+
+                    // Updates connection state
                     OnPropertyChanged(nameof(IsConnected));
+
+                    // Updates dependent element
+                    OnPropertyChanged(nameof(CurrentIPDisplay));
                 });
             }
         }
@@ -1096,39 +1232,29 @@ namespace chat_client.MVVM.ViewModel
         {
             try
             {
-                /// <summary>
-                /// Closes the underlying TCP connection via the client connection.
-                /// </summary>
+                /// <summary> Closes the underlying TCP connection via the client connection. </summary>
                 if (_clientConn?.IsConnected == true)
                 {
                     _ = _clientConn.DisconnectFromServerAsync();
                 }
 
-                /// <summary>
-                /// Clears all user/message data in the view.
-                /// </summary>
+                /// <summary> Clears all user/message data in the view. </summary>
                 ReinitializeUI();
 
-                /// <summary>
-                /// Notifies UI bindings to reflect disconnected state.
-                /// </summary>
                 /// <summary> Updates connection state </summary>
                 OnPropertyChanged(nameof(IsConnected));
 
                 /// <summary> Restores last used IP address </summary>
-                OnPropertyChanged(nameof(CurrentIpDisplay));
+                CurrentIPDisplay = Settings.Default.ServerIPAddress;
+                OnPropertyChanged(nameof(CurrentIPDisplay));
 
-                /// <summary> Updates dependent UI elements </summary>
+                /// <summary> Updates dependent UI element </summary>
                 OnPropertyChanged(nameof(ConnectButtonText));
 
-                /// <summary>
-                /// Disables encryption pipeline safely.
-                /// </summary>
+                /// <summary> Disables encryption pipeline safely. </summary>
                 EncryptionPipeline?.DisableEncryption();
 
-                /// <summary>
-                /// Resets encryption init flag for clean future sessions.
-                /// </summary>
+                /// <summary> Resets encryption init flag for clean future sessions. </summary>
                 Volatile.Write(ref _encryptionInitOnce, 0);
             }
             catch (Exception ex)
@@ -1222,6 +1348,31 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Initializes the watermark brush based on the current theme.
+        /// Light theme uses dark grey; dark theme uses light grey.
+        /// </summary>
+        public void InitializeWatermarkBrush()
+        {
+            var foregroundBrush = Application.Current.Resources["ForegroundBrush"] as SolidColorBrush;
+
+            if (foregroundBrush == null)
+            {
+                // Fallback: neutral grey
+                WatermarkBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128)) { Opacity = 0.45 };
+                return;
+            }
+
+            var foregroundBrushColor = foregroundBrush.Color;
+
+            bool isDarkTheme = foregroundBrushColor.R > 200 && foregroundBrushColor.G > 200 && foregroundBrushColor.B > 200;
+
+            var watermarkColor = isDarkTheme ? Color.FromRgb(180, 180, 180) : Color.FromRgb(90, 90, 90);
+
+            WatermarkBrush = new SolidColorBrush(watermarkColor) { Opacity = 0.45 };
+        }
+
+
+        /// <summary>
         /// Notifies the UI that all localized ViewModel properties must refresh
         /// after a culture change.
         /// </summary>
@@ -1250,7 +1401,9 @@ namespace chat_client.MVVM.ViewModel
 
             // Other localized properties
             OnPropertyChanged(nameof(ConnectButtonText));
-            OnPropertyChanged(nameof(CurrentIpDisplay));
+            OnPropertyChanged(nameof(CurrentIPDisplay));
+
+            InitializeWatermarkBrush();
         }
 
 
@@ -1288,9 +1441,7 @@ namespace chat_client.MVVM.ViewModel
                 /// </summary>
                 Messages.Add($"# {LocalizationManager.GetString("DisconnectedByServer")} #");
 
-                /// <summary>
-                /// Notifies UI bindings so dependent logic refreshes.
-                /// </summary>
+                /// <summary> Notifies UI bindings so dependent logic refreshes. </summary>
                 OnPropertyChanged(nameof(IsConnected));
                 OnPropertyChanged(nameof(ConnectButtonText));
 
@@ -1503,7 +1654,9 @@ namespace chat_client.MVVM.ViewModel
         private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName != nameof(Settings.Default.AppLanguageCode))
+            {
                 return;
+            }
 
             LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode);
             LoadLocalizedStrings();

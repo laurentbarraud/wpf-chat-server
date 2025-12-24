@@ -26,12 +26,12 @@ namespace chat_client.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string IPAddressOfServer {
+        public string ServerIPAddress {
             get {
-                return ((string)(this["IPAddressOfServer"]));
+                return ((string)(this["ServerIPAddress"]));
             }
             set {
-                this["IPAddressOfServer"] = value;
+                this["ServerIPAddress"] = value;
             }
         }
         

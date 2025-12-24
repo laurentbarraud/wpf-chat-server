@@ -312,4 +312,13 @@ depuis la gauche</value>
   <data name="MessageInputFieldWidthLabel" xml:space="preserve">
     <value>Largeur du champ de saisie</value>
   </data>
+  <data name="MessageInputFieldWatermark" xml:space="preserve">
+    <value>Entrez un message...</value>
+  </data>
+  <data name="UsernameWatermark" xml:space="preserve">
+    <value>Nom d'utilisateur</value>
+  </data>
+  <data name="IPAddressWatermark" xml:space="preserve">
+    <value>Adresse IP du serveur</value>
+  </data>
 </root>
