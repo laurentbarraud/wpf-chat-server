@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 24th, 2025</date>
+/// <date>December 25th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -67,11 +67,6 @@ namespace chat_client.MVVM.ViewModel
         private string _connectedWatermarkText = "";
 
         /// <summary>
-        /// Backing field for the IP or connection status displayed in the UI.
-        /// </summary>
-        private string _currentIPDisplay = "";
-
-        /// <summary>
         /// Global unified font size setting for :
         /// - conversations
         /// - connected users list
@@ -80,9 +75,9 @@ namespace chat_client.MVVM.ViewModel
         private int _displayFontSize = Settings.Default.DisplayFontSize;
 
         /// <summary>
-        /// Backing field that stores the default height value
+        /// Backing field for the IP or connection status displayed in the UI.
         /// </summary>
-        private int _emojiPanelHeight = 20;
+        private string _currentIPDisplay = "";
 
         /// <summary>
         /// Stores the localized tooltip text shown when encryption is fully
@@ -96,12 +91,12 @@ namespace chat_client.MVVM.ViewModel
         /// Reset to 0 during disconnect cleanup to allow fresh initialization.
         /// </summary>
         private int _encryptionInitOnce = 0;
-       
+
         /// <summary>
         /// Backing field storing the tooltip text shown when encryption keys are missing.
         /// </summary>
         private string _gettingMissingKeysToolTip = "";
-       
+
         /// <summary> 
         /// Holds the localized placeholder text displayed 
         /// in the IP address input field when it is empty and not focused.
@@ -138,6 +133,7 @@ namespace chat_client.MVVM.ViewModel
         /// Updated whenever the window is resized.
         /// </summary>
         private double _rightGridWidth;
+
 
         /// <summary>
         /// Backing field for the server IP address used when the client is disconnected.
@@ -184,7 +180,7 @@ namespace chat_client.MVVM.ViewModel
                 Properties.Settings.Default.Save();
 
                 OnPropertyChanged(nameof(AppLanguage));  // Notifies UI of AppLanguage change
-                
+
                 // Reloads localization resources and refresh all UI labels
                 LocalizationManager.InitializeLocalization(value);
 
@@ -197,6 +193,7 @@ namespace chat_client.MVVM.ViewModel
 
         public static string AppLanguageLabel => LocalizationManager.GetString("AppLanguageLabel");
 
+
         /// <summary>
         /// Gets the active client connection instance used by the ViewModel
         /// to manage the network session and monitor connection state.
@@ -204,44 +201,23 @@ namespace chat_client.MVVM.ViewModel
         public ClientConnection ClientConn => _clientConn;
 
         public static string AboutThisSoftwareLabel => LocalizationManager.GetString("AboutThisSoftwareLabel");
+      
+        /// <summary> 
+        /// Base emoji button size (minimum), derived from display font and height scale. 
+        /// </summary> 
+        private double BaseEmojiButtonSize => DisplayFontSize * HeightScaleFactor * 0.6;
 
-        /// <summary>
-        /// Connects or disconnects the client depending on the current connection state.
-        /// Used by the main button and keyboard shortcuts.
-        /// </summary>
-        public RelayCommand ConnectDisconnectCommand { get; }
-
-        /// <summary>
-        /// Computes the dynamic height of the Connect button based on the current 
-        /// display font size. 
-        /// The height scales proportionally with the font size and increases 
-        /// smoothly up.
-        /// </summary>
-
-        public double ConnectDisconnectButtonHeight
-        {
-            get
-            {
-                // Base height derived from font size
-                double baseHeight = DisplayFontSize * HeightScaleFactor;
-
-                // Computes progression ratio (0 → min font, 1 → max font)
-                double ratio = (DisplayFontSize - MinDisplayFontSize) /
-                               (MaxDisplayFontSize - MinDisplayFontSize);
-
-                ratio = Math.Clamp(ratio, 0, 1);
-
-                // Increases height proportionally
-                return baseHeight * (1 + ratio * 0.15);
-            }
-        }
-
+        /// <summary> 
+        /// Base emoji font size (minimum), 30% larger than display font. 
+        /// </summary> 
+        private double BaseEmojiFontSize => DisplayFontSize * 1.3;
+        
         /// <summary>
         /// Computes the dynamic height of the Connect/Disconnect button based on the
         /// current global font size. 
         /// The height scales proportionally and increases up.
         /// </summary>
-        public double ConnectButtonHeight
+        public double ConnectDisconnectButtonHeight
         {
             get
             {
@@ -262,6 +238,12 @@ namespace chat_client.MVVM.ViewModel
                 return baseHeight * increaseFactor;
             }
         }
+
+        /// <summary>
+        /// Connects or disconnects the client depending on the current connection state.
+        /// Used by the main button and keyboard shortcuts.
+        /// </summary>
+        public RelayCommand ConnectDisconnectCommand { get; }
 
         /// <summary> 
         /// Gets or sets the localized text displayed in the IP address field
@@ -284,18 +266,18 @@ namespace chat_client.MVVM.ViewModel
         /// When connected, shows a localized "Connected" label.
         /// When disconnected, shows the last used server IP.
         /// </summary>
-        public string CurrentIPDisplay 
+        public string CurrentIPDisplay
         {
-            get => _currentIPDisplay; 
-            set 
-            { 
-                if (_currentIPDisplay != value) 
-                { 
-                    _currentIPDisplay = value; 
-                    
-                    OnPropertyChanged(nameof(CurrentIPDisplay)); 
-                } 
-            } 
+            get => _currentIPDisplay;
+            set
+            {
+                if (_currentIPDisplay != value)
+                {
+                    _currentIPDisplay = value;
+
+                    OnPropertyChanged(nameof(CurrentIPDisplay));
+                }
+            }
         }
 
         /// <summary>
@@ -320,7 +302,7 @@ namespace chat_client.MVVM.ViewModel
                 // Notifies dependent UI elements
                 OnPropertyChanged(nameof(UsernameAndIPAddressInputFieldHeight));
                 OnPropertyChanged(nameof(MessageInputFieldHeight));
-                OnPropertyChanged(nameof(ConnectButtonHeight));
+                OnPropertyChanged(nameof(ConnectDisconnectButtonHeight));
 
                 // Persists user preference
                 Properties.Settings.Default.DisplayFontSize = clampedFontSizeValue;
@@ -333,15 +315,16 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public static string DisplayFontSizeLabel => LocalizationManager.GetString("DisplayFontSizeLabel");
 
-        /// <summary>
-        /// Gets the dynamic emoji button size, proportional to the popup width.
-        /// </summary>
-        public int EmojiButtonSize => (int)Math.Round((EmojiPopupWidth / 12.0) * 0.85 * 2.0);
+        /// <summary> 
+        /// Proportional emoji button size. 
+        /// </summary> 
+        public int EmojiButtonSize => (int)Math.Round(BaseEmojiButtonSize * EmojiScaleFactor);
 
-        /// <summary>
-        /// Gets the dynamic emoji font size, proportional to the button size.
-        /// </summary>
-        public double EmojiFontSize => EmojiButtonSize * 0.55;
+
+        /// <summary> 
+        /// Proportional emoji font size. 
+        /// </summary> 
+        public double EmojiFontSize => BaseEmojiFontSize * EmojiScaleFactor;
 
         /// <summary>
         /// Declaring the list as public ensures it can be resolved by WPF's binding system,
@@ -354,17 +337,6 @@ namespace chat_client.MVVM.ViewModel
             "🍾", "🥳", "🍰", "🍱", "😁", "😇", "🤨", "🤷", "🤐", "😘", "❤️", "😲", "😬",
             "😷", "😴", "💤", "🔧", "🚗", "🏡", "☀️",  "🔥", "⭐", "🌟", "✨", "🌧️", "🕒"
         };
-
-        /// <summary>
-        /// Gets or sets the base height of the emoji panel.
-        /// This value defines the default vertical size of the popup
-        /// before any dynamic layout adjustments are applied.
-        /// </summary>
-        public int EmojiPanelHeight
-        {
-            get => _emojiPanelHeight;
-            set => _emojiPanelHeight = value;
-        }
 
         /// <summary>
         /// Gets the base height of the emoji popup, large enough
@@ -380,11 +352,32 @@ namespace chat_client.MVVM.ViewModel
         public int EmojiPopupWidth => (int)Math.Round(MessageInputFieldWidth * 0.90);
 
         /// <summary>
-        /// Gets the dynamic emoji size, computed as one thirty‑second
-        /// of the current emoji popup width.  
-        /// This keeps emojis proportionally scaled as the popup resizes.
+        /// Gets a proportional scale factor based on the width of the message input field.
+        /// 1.0 = minimum size, grows smoothly as the field becomes wider.
         /// </summary>
-        public double EmojiSize => EmojiPopupWidth / 32.0;
+        private double EmojiScaleFactor
+        {
+            get
+            {
+                // Width at which emojis start scaling
+                const double referenceWidth = 400.0;
+
+                // Width at which scaling reaches its maximum
+                const double maxWidth = 900.0;
+
+                // Clamp the actual width
+                double w = MessageInputFieldWidth;
+                if (w <= referenceWidth)
+                    return 1.0;
+
+                if (w >= maxWidth)
+                    return 1.3; // maximum upscale (subtil, naturel)
+
+                // Linear interpolation between 1.0 and 1.3
+                double t = (w - referenceWidth) / (maxWidth - referenceWidth);
+                return 1.0 + t * 0.3;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the localized tooltip text displayed when encryption
@@ -433,6 +426,7 @@ namespace chat_client.MVVM.ViewModel
         /// Base multiplier used to convert the global font size into a consistent control height.
         /// </summary>
         public double HeightScaleFactor { get; } = 2.2;
+
 
         /// <summary>
         /// Initializes localized watermark texts used by the input fields.
@@ -499,13 +493,6 @@ namespace chat_client.MVVM.ViewModel
         public UserModel LocalUser { get; private set; } = new UserModel();
 
         /// <summary>
-        /// Gets the computed pixel width of the left column. 
-        /// This value is recalculated whenever the window size
-        /// changes to maintain a responsive layout.
-        /// </summary>
-        public double LeftColumnWidth { get; private set; }
-
-        /// <summary>
         /// Gets the maximum font size allowed for UI text scaling.
         /// </summary>
         public static int MaxDisplayFontSize => 36;
@@ -544,12 +531,10 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
         /// <summary>
         /// Gets the localized label text for the message input field's left offset slider.
         /// </summary>
         public static string MessageInputFieldLeftOffsetLabel => LocalizationManager.GetString("MessageInputFieldLeftOffsetLabel");
-
 
         /// <summary>
         /// Stores the percentage (1–100) of horizontal offset applied to the message
@@ -581,8 +566,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
             }
         }
-
-
+        
         /// <summary>
         /// Converts the computed left offset into a Thickness margin.
         /// </summary>
@@ -594,20 +578,21 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
+
         /// <summary> 
         /// Localized watermark text displayed in the message input field when empty. </summary> 
-        public string MessageInputFieldWatermarkText 
-        { 
-            get => _messageInputFieldWatermarkText; 
-            set 
-            { 
-                if (_messageInputFieldWatermarkText != value) 
-                { 
-                    _messageInputFieldWatermarkText = value; 
-                    
-                    OnPropertyChanged(); 
-                } 
-            } 
+        public string MessageInputFieldWatermarkText
+        {
+            get => _messageInputFieldWatermarkText;
+            set
+            {
+                if (_messageInputFieldWatermarkText != value)
+                {
+                    _messageInputFieldWatermarkText = value;
+
+                    OnPropertyChanged();
+                }
+            }
         }
 
         /// <summary>
@@ -665,6 +650,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
             }
         }
+
 
         /// <summary>
         /// What the user types in the textbox on bottom right of the MainWindow
@@ -769,13 +755,8 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(MessageInputFieldWidth));
                 OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
-                OnPropertyChanged(nameof(EmojiPopupWidth));
-                OnPropertyChanged(nameof(EmojiButtonSize));
-                OnPropertyChanged(nameof(EmojiPopupHeight));
-
             }
         }
-
         public static string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
         public static string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
 
@@ -842,19 +823,6 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public static string UseEncryptionLabel => LocalizationManager.GetString("ReduceToTrayLabel");
 
-        /// <summary> 
-        /// Gets or sets the localized placeholder text for the IP address field. 
-        /// Displayed when the field is empty and not focused. </summary> 
-        public string UsernameWatermarkText
-        {
-            get => _usernameWatermarkText;
-            set
-            {
-                _usernameWatermarkText = value;
-
-                OnPropertyChanged(nameof(UsernameWatermarkText));
-            }
-        }
 
         /// <summary>
         /// Computes the dynamic height of username and IP input fields, scaling up to +30% at maximum font size.
@@ -875,6 +843,20 @@ namespace chat_client.MVVM.ViewModel
 
                 // Applies a progressive increase up to +30% at maximum font size
                 return baseHeight * (1 + ratio * 0.30);
+            }
+        }
+
+        /// <summary> 
+        /// Gets or sets the localized placeholder text for the IP address field. 
+        /// Displayed when the field is empty and not focused. </summary> 
+        public string UsernameWatermarkText
+        {
+            get => _usernameWatermarkText;
+            set
+            {
+                _usernameWatermarkText = value;
+
+                OnPropertyChanged(nameof(UsernameWatermarkText));
             }
         }
 

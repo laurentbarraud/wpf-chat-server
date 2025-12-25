@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 24th, 2025</date>
+/// <date>December 25th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -150,17 +150,7 @@ namespace chat_server
                         { 
                             tcpClient.Close(); 
                         }
-                        catch
-                        {
-                            tcpClient.Close();
-                            if (client != null)
-                            {
-                                lock (Users)
-                                {
-                                    Users.Remove(client);
-                                }
-                            }
-                        }
+                        
                     }, token);
                 }
 

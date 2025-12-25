@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 24th, 2025</date>
+/// <date>December 25th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -11,6 +11,7 @@ using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Data;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -28,28 +29,15 @@ namespace chat_client
     /// Handles user interactions such as sending messages, connecting to the server, and toggling UI panels.
     /// Delegates core logic to MainViewModel and ensures thread-safe UI updates.
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        public MainViewModel viewModel { get; set; }
+        // PRIVATE FIELD
 
         /// <summary>
-        /// Calculated property that indicates whether the client is currently connected to the server.
-        /// Uses null-conditional access to safely evaluate connection state. 
+        /// Backing field that stores the default height value
         /// </summary>
-        public bool IsConnected => viewModel?.ClientConn != null && viewModel.ClientConn.IsConnected;
+        private int _emojiPanelHeight = 20;
 
-        /// <summary>
-        /// Represents the tray menu item used to reopen the main application window.
-        /// Typically bound to the system tray context menu for restoring visibility when minimized.
-        /// </summary>
-        public MenuItem TrayMenuOpen { get; private set; }
-        
-        /// <summary>
-        /// Represents the tray menu item used to exit the application.
-        /// Bound to the system tray context menu to allow clean shutdown from the tray icon.
-        /// </summary>
-        public MenuItem TrayMenuQuit { get; private set; }
-        
         /// <summary>
         /// Stores the timestamp of the last Ctrl key press.
         /// Used for detecting double-press or timing-based shortcuts.
@@ -64,6 +52,54 @@ namespace chat_client
 
         /// <summary> Tray icon variable </summary>
         private TaskbarIcon trayIcon;
+
+        // PUBLIC PROPERTIES
+
+        public MainViewModel viewModel { get; set; }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        
+        /// <summary>
+        /// Gets or sets the base height of the emoji panel.
+        /// This value defines the default vertical size of the popup
+        /// before any dynamic layout adjustments are applied.
+        /// </summary>
+        public int EmojiPanelHeight 
+        { 
+            get => _emojiPanelHeight; 
+            set 
+            { 
+                _emojiPanelHeight = value; 
+                OnPropertyChanged(); 
+            } 
+        }
+
+        /// <summary>
+        /// Calculated property that indicates whether the client is currently connected to the server.
+        /// Uses null-conditional access to safely evaluate connection state. 
+        /// </summary>
+        public bool IsConnected => viewModel?.ClientConn != null && viewModel.ClientConn.IsConnected;
+
+        /// <summary>
+        /// Indicates whether the window is wide enough or maximized,
+        /// in which case the emoji UI scales up slightly for long-session comfort.
+        /// </summary>
+        public bool IsWindowWide => TxtMessageInputField.ActualWidth > 600 || WindowState == WindowState.Maximized;
+
+        public MainViewModel ViewModel => (MainViewModel)DataContext;
+
+
+        /// <summary>
+        /// Represents the tray menu item used to reopen the main application window.
+        /// Typically bound to the system tray context menu for restoring visibility when minimized.
+        /// </summary>
+        public MenuItem TrayMenuOpen { get; private set; }
+        
+        /// <summary>
+        /// Represents the tray menu item used to exit the application.
+        /// Bound to the system tray context menu to allow clean shutdown from the tray icon.
+        /// </summary>
+        public MenuItem TrayMenuQuit { get; private set; }
 
         /// <summary>
         /// Initializes the main window by loading UI components, binding the view model,
@@ -418,11 +454,30 @@ namespace chat_client
         /// </param>
         private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            // Scrolls to the last message when a new one is added
-            if (e.Action == NotifyCollectionChangedAction.Add && lstReceivedMessages.Items.Count > 0)
+            if (e.Action != NotifyCollectionChangedAction.Add)
             {
-                lstReceivedMessages.ScrollIntoView(lstReceivedMessages.Items[lstReceivedMessages.Items.Count - 1]);
+                return;
             }
+
+            // UI not ready yet (happens on fast reconnect)
+            if (lstReceivedMessages.Items.Count == 0)
+            {
+                return;
+            }
+
+            var lastIndexOfMessage = lstReceivedMessages.Items.Count - 1;
+
+            if (lastIndexOfMessage < 0)
+            {
+                return;
+            }
+
+            lstReceivedMessages.ScrollIntoView(lstReceivedMessages.Items[lastIndexOfMessage]);
+        }
+
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         /// <summary>

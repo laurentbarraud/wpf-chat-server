@@ -1,13 +1,14 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 24th, 2025</date>
+/// <date>December 25th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
 using chat_server.Net.IO;
 using System;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 
 
 namespace chat_server
@@ -108,23 +109,23 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Atomically runs the per-connection cleanup sequence exactly once.
-        /// If the cleanup flag is 0 it is set to 1 and cleanup proceeds;
-        /// if another thread already performed cleanup the method returns immediately.
-        /// This prevents duplicated socket closes, duplicate broadcast notifications,
-        /// and reentrancy-related exceptions.
+        /// Executes the final cleanup sequence for this specific client connection,
+        /// ensuring it runs exactly once even if multiple threads detect the disconnection.
+        /// This method atomically marks the connection as closed, removes the associated
+        /// user from the server’s active user list, releases connection resources, and
+        /// broadcasts a disconnect notification so that all remaining clients update
+        /// their rosters accordingly.
         /// </summary>
         /// <remarks>
-        /// Syntax of Interlocked.CompareExchange :
-        /// • ref _cleanupState: we pass the variable by reference, so the method can read and modify the value
-        ///   directly.
-        /// • 1: the new value we want to set if the condition is met
-        /// • 0: the currently present expected value; the operation will only replace the value if the variable
-        ///   is exactly 0.
-        /// • method return: the old value that was in _cleanupState at the time of the call.
-        ///   If the returned value is 0, it means that the caller was successful in replacing it with 1.
-        ///   If the returned value is not 0, it means that another thread has already changed the value.
-        ///   The test != 0 in the code therefore means: "if the previous value was not 0, we do nothing and we exit".
+        /// Interlocked.CompareExchange is used to guarantee that only the first caller
+        /// performs the cleanup logic:
+        /// • ref _cleanupState — the cleanup flag passed by reference.
+        /// • 1 — the value to assign if the current value matches the expected one.
+        /// • 0 — the expected value; cleanup proceeds only if the flag was still 0.
+        /// The return value is the previous state. If it was not 0, another thread has
+        /// already executed cleanup, and the method exits immediately.
+        /// This prevents duplicate socket closes, duplicate user removals,
+        /// duplicate broadcast notifications, and reentrancy-related exceptions.
         /// </remarks>
         private void CleanupAfterDisconnect()
         {
@@ -132,8 +133,26 @@ namespace chat_server
             if (Interlocked.CompareExchange(ref _cleanupState, 1, 0) != 0)
                 return;
 
-            // Final localized log for all disconnect scenarios
-            ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Info, Username ?? UID.ToString());
+            try
+            {
+                var user = Program.Users.FirstOrDefault(usr => usr.UID == UID);
+
+                if (user != null)
+                {
+                    lock (Program.Users)
+                    {
+                        Program.Users.Remove(user);
+                    }
+
+                    _ = Program.BroadcastDisconnectNotify(user.UID, CancellationToken.None);
+                }
+
+                ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Info, Username ?? UID.ToString());
+            }
+            catch (Exception ex)
+            {
+                ServerLogger.LogLocalized("CleanupFailed", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
+            }
         }
 
         /// <summary>
