@@ -742,11 +742,12 @@
                                  Background="Transparent"
                                  Foreground="{DynamicResource ForegroundBrush}"
                                  SizeChanged="TxtMessageInputField_SizeChanged"
-                                 BorderThickness="0"
+                                 VerticalContentAlignment="Center"
                                  AcceptsReturn="True"
+                                 PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
                                  TextWrapping="Wrap"
-                                 Padding="8,0,8,0"
-                                 VerticalContentAlignment="Center">
+                                 BorderThickness="0"
+                                 Padding="8,0,8,0">
 
                             <TextBox.Template>
                                 <ControlTemplate TargetType="TextBox">

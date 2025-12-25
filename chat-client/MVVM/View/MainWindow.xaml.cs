@@ -602,33 +602,54 @@ namespace chat_client
         {
             Application.Current.Shutdown();
         }
+
         /// <summary>
         /// Handles keyboard input inside the message textbox.
         /// Enter alone sends the message.
-        /// Shift+Enter, Ctrl+Enter or Alt+Enter insert a new line.
+        /// Shift+Enter inserts a newline (native WPF behavior).
+        /// Ctrl+Enter and Alt+Enter also insert a newline (manually).
         /// </summary>
         private void TxtMessageInputField_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // Enter can be reported as Enter or Return depending on keyboard/layout
             bool isEnter = e.Key == Key.Enter || e.Key == Key.Return;
 
-            // Checks modifier keys individually (more reliable than Keyboard.Modifiers)
+            // Modifier keys (checked individually for reliability)
             bool isShift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
             bool isCtrl = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
-            bool isAlt = Keyboard.IsKeyDown(Key.LeftAlt) || Keyboard.IsKeyDown(Key.RightAlt);
 
-            // If Enter + ANY modifier: inserts a newline in the field
-            if (isEnter && (isShift || isCtrl || isAlt))
+            // Shift+Enter → lets WPF insert a newline normally
+            if (isEnter && isShift)
             {
-                return; // lets WPF insert the newline
+                return;
             }
 
-            // Enter alone: send message
+            // Ctrl+Enter: manually insert a newline
+            if (isEnter && isCtrl)
+            {
+                if (sender is TextBox textBox)
+                {
+                    int caretIndex = textBox.CaretIndex;
+
+                    // Inserts a newline at the current caret position
+                    textBox.Text = textBox.Text.Insert(caretIndex, Environment.NewLine);
+
+                    // Moves caret after the inserted newline
+                    textBox.CaretIndex = caretIndex + Environment.NewLine.Length;
+
+                    // Prevents default Enter behavior
+                    e.Handled = true;
+                }
+
+                return;
+            }
+
+            // Enter alone
             if (isEnter)
             {
-                e.Handled = true; // prevents newline
+                // Prevents newline insertion
+                e.Handled = true;
 
-                // Equivalent to WinForms PerformClick()
+                // Triggers the send message button (equivalent to WinForms PerformClick)
                 CmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
         }
