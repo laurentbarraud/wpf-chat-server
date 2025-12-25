@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 25th, 2025</date>
+/// <date>December 26th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -18,6 +18,7 @@ using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 
 
@@ -123,6 +124,12 @@ namespace chat_client.MVVM.ViewModel
             = new List<(Guid, string)>();
 
         /// <summary> 
+        /// Stores the computed pixel width of the message input field. 
+        /// Initialized to 400 so the UI has a reasonable default size. 
+        /// </summary> 
+        private double _messageInputFieldWidth = 400.0; 
+
+        /// <summary> 
         /// Backing field storing the watermark text displayed in the message 
         /// input field when empty. 
         /// </summary>
@@ -207,10 +214,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary> 
         private double BaseEmojiButtonSize => DisplayFontSize * HeightScaleFactor * 0.6;
 
-        /// <summary> 
-        /// Base emoji font size (minimum), 30% larger than display font. 
-        /// </summary> 
-        private double BaseEmojiFontSize => DisplayFontSize * 1.3;
+        private double BaseEmojiFontSize => 14;
         
         /// <summary>
         /// Computes the dynamic height of the Connect/Disconnect button based on the
@@ -296,9 +300,6 @@ namespace chat_client.MVVM.ViewModel
 
                 _displayFontSize = clampedFontSizeValue;
 
-                // Notifies the font size itself
-                OnPropertyChanged(nameof(DisplayFontSize));
-
                 // Notifies dependent UI elements
                 OnPropertyChanged(nameof(UsernameAndIPAddressInputFieldHeight));
                 OnPropertyChanged(nameof(MessageInputFieldHeight));
@@ -319,7 +320,6 @@ namespace chat_client.MVVM.ViewModel
         /// Proportional emoji button size. 
         /// </summary> 
         public int EmojiButtonSize => (int)Math.Round(BaseEmojiButtonSize * EmojiScaleFactor);
-
 
         /// <summary> 
         /// Proportional emoji font size. 
@@ -342,40 +342,49 @@ namespace chat_client.MVVM.ViewModel
         /// Gets the base height of the emoji popup, large enough
         /// to display square emoji buttons without vertical compression.
         /// </summary>
-        public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.3);
+        public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.4);
 
         /// <summary>
         /// Gets the dynamic width of the emoji popup,
         /// computed as 90% of the message input field width.
         /// This keeps the popup proportionally sized when the window is resized.
         /// </summary>
-        public int EmojiPopupWidth => (int)Math.Round(MessageInputFieldWidth * 0.90);
+        public int EmojiPopupWidth => (int)Math.Round(MessageInputFieldWidth * 0.99);
 
         /// <summary>
         /// Gets a proportional scale factor based on the width of the message input field.
-        /// 1.0 = minimum size, grows smoothly as the field becomes wider.
+        /// Linear growth: minimum = 1.15, maximum = 1.495.
         /// </summary>
         private double EmojiScaleFactor
         {
             get
             {
-                // Width at which emojis start scaling
-                const double referenceWidth = 400.0;
+                const double emojiReferenceWidth = 100.0;   // width where emojis start growing
+                const double maxWidthHandled = 900.0;       // width where emojis reach their maximum size
 
-                // Width at which scaling reaches its maximum
-                const double maxWidth = 900.0;
+                const double minScale = 1;               // emoji size when the field is small
+                const double maxScale = 2;              // emoji size when the field is very wide
 
-                // Clamp the actual width
-                double w = MessageInputFieldWidth;
-                if (w <= referenceWidth)
-                    return 1.0;
+                double msgInputWidth = MessageInputFieldWidth;
 
-                if (w >= maxWidth)
-                    return 1.3; // maximum upscale (subtil, naturel)
+                // If the field is smaller than the reference width → use the minimum size
+                if (msgInputWidth <= emojiReferenceWidth)
+                {
+                    return minScale;
+                }
 
-                // Linear interpolation between 1.0 and 1.3
-                double t = (w - referenceWidth) / (maxWidth - referenceWidth);
-                return 1.0 + t * 0.3;
+                // If the field is larger than the maximum width → use the maximum size
+                if (msgInputWidth >= maxWidthHandled)
+                {
+                    return maxScale;
+                }
+
+                // Ratio tells us "how far we are" between small and large
+                // 0.0 = at reference width, 1.0 = at max width
+                double ratio = (msgInputWidth - emojiReferenceWidth) / (maxWidthHandled - emojiReferenceWidth);
+
+                // Grows the emoji size smoothly between minScale and maxScale
+                return minScale + ratio * (maxScale - minScale);
             }
         }
 
@@ -595,21 +604,36 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-        /// <summary>
-        /// Computes the actual pixel width of the message input field based on the
-        /// right panel width and the user-defined percentage.
-        /// </summary>
+        /// <summary> 
+        /// Computes the actual pixel width of the message input field based 
+        /// on the right panel width and the user-defined percentage. 
+        /// </summary> 
         public double MessageInputFieldWidth
         {
             get
             {
+                // If the right panel is too small, enforces a minimum width
                 if (RightGridWidth <= 100)
                 {
                     return 100;
                 }
-
+                // Computes width based on the percentage chosen by the user
                 return RightGridWidth * (MessageInputFieldWidthPercent / 100.0);
             }
+            set
+            {
+                if (Math.Abs(_messageInputFieldWidth - value) < 0.1)
+                {
+                    return;
+                }
+
+                _messageInputFieldWidth = value;
+
+                // Notifies dependent properties
+                OnPropertyChanged(nameof(EmojiScaleFactor)); 
+                OnPropertyChanged(nameof(EmojiButtonSize)); 
+                OnPropertyChanged(nameof(EmojiPopupWidth)); 
+            } 
         }
 
         public static string MessageInputFieldWidthLabel => LocalizationManager.GetString("MessageInputFieldWidthLabel");
@@ -648,6 +672,7 @@ namespace chat_client.MVVM.ViewModel
                 OnPropertyChanged(nameof(MessageInputFieldWidth));
                 OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
+                OnPropertyChanged(nameof(EmojiPopupWidth));
             }
         }
 

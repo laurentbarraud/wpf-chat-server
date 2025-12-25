@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 25th, 2025</date>
+/// <date>December 26th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -139,6 +139,9 @@ namespace chat_client
 
             /// <summary> Synchronizes theme toggle with saved preference </summary>
             ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme?.ToLower() == "dark";
+
+            // Restore saved roster width
+            ColRoster.Width = new GridLength(Properties.Settings.Default.RosterWidth, GridUnitType.Pixel);
 
             ApplyWatermarks();
             TxtUsername.Focus();
@@ -348,6 +351,20 @@ namespace chat_client
                 TxtMessageInputField.Focus();
                 TxtMessageInputField.CaretIndex = TxtMessageInputField.Text.Length;
             }
+        }
+
+        private void GrdMain_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            double colRosterWidth = ColRoster.ActualWidth;
+
+            // Clamps to minimum 20 px
+            if (colRosterWidth < 20)
+            {
+                colRosterWidth = 20;
+            }
+            
+            Properties.Settings.Default.RosterWidth = colRosterWidth; 
+            Properties.Settings.Default.Save();
         }
 
         /// <summary>
@@ -585,29 +602,40 @@ namespace chat_client
         {
             Application.Current.Shutdown();
         }
-
         /// <summary>
         /// Handles keyboard input inside the message textbox.
         /// Enter alone sends the message.
-        /// Shift+Enter or Ctrl+Enter insert a new line.
+        /// Shift+Enter, Ctrl+Enter or Alt+Enter insert a new line.
         /// </summary>
         private void TxtMessageInputField_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // Shift+Enter or Ctrl+Enter inserts a new line
-            if (e.Key == Key.Enter &&
-                (Keyboard.Modifiers == ModifierKeys.Shift || Keyboard.Modifiers == ModifierKeys.Control))
+            // Enter can be reported as Enter or Return depending on keyboard/layout
+            bool isEnter = e.Key == Key.Enter || e.Key == Key.Return;
+
+            // Checks modifier keys individually (more reliable than Keyboard.Modifiers)
+            bool isShift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+            bool isCtrl = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+            bool isAlt = Keyboard.IsKeyDown(Key.LeftAlt) || Keyboard.IsKeyDown(Key.RightAlt);
+
+            // If Enter + ANY modifier: inserts a newline in the field
+            if (isEnter && (isShift || isCtrl || isAlt))
             {
-                return; // allows WPF to insert the newline
+                return; // lets WPF insert the newline
             }
 
-            // Enter alone sends the message
-            if (e.Key == Key.Enter)
+            // Enter alone: send message
+            if (isEnter)
             {
                 e.Handled = true; // prevents newline
-                
+
                 // Equivalent to WinForms PerformClick()
                 CmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
+        }
+
+        private void TxtMessageInputField_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            viewModel.MessageInputFieldWidth = TxtMessageInputField.ActualWidth;
         }
 
         /// <summary>

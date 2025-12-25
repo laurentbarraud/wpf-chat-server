@@ -135,10 +135,11 @@
           HorizontalAlignment="Stretch"
           VerticalAlignment="Stretch"
           DataContext="{Binding}"
-          Background="{DynamicResource BackgroundBrush}">
+          Background="{DynamicResource BackgroundBrush}"
+          SizeChanged="GrdMain_SizeChanged">
 
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" MinWidth="190"/>
+            <ColumnDefinition x:Name="ColRoster" Width="Auto" MinWidth="20"/>
             <ColumnDefinition Width="5"/>
             <!-- Splitter -->
             <ColumnDefinition Width="*"/>
@@ -560,6 +561,7 @@
 
                 <!-- Emoji popup -->
                 <Popup x:Name="popupEmoji"
+                       DataContext="{Binding}"
                        Placement="Top"
                        PlacementTarget="{Binding ElementName=TxtMessageInputField}"
                        StaysOpen="False"
@@ -739,6 +741,7 @@
                                  FontSize="{Binding DisplayFontSize}"
                                  Background="Transparent"
                                  Foreground="{DynamicResource ForegroundBrush}"
+                                 SizeChanged="TxtMessageInputField_SizeChanged"
                                  BorderThickness="0"
                                  AcceptsReturn="True"
                                  TextWrapping="Wrap"

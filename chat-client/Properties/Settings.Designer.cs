@@ -130,5 +130,17 @@ namespace chat_client.Properties {
                 this["MessageInputFieldLeftOffsetPercent"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("250")]
+        public double RosterWidth {
+            get {
+                return ((double)(this["RosterWidth"]));
+            }
+            set {
+                this["RosterWidth"] = value;
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 25th, 2025</date>
+/// <date>December 26th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
