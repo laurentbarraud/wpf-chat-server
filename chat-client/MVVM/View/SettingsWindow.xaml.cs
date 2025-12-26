@@ -6,7 +6,7 @@
 using chat_client.Helpers;                   // For EncryptionHelper, ClientLogger
 using chat_client.MVVM.ViewModel;            // For SettingsViewModel
 using chat_client.Properties;
-using chat_client.View;                      // For AboutWindow
+using chat_client.MVVM.View;                 // For AboutWindow
 using Hardcodet.Wpf.TaskbarNotification;     // For TaskbarIcon
 using System;
 using System.ComponentModel;                 // For PropertyChangedEventArgs
@@ -103,6 +103,7 @@ namespace chat_client.MVVM.View
             InitializeTrayIcon();
         }
 
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private void ReduceToTrayToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             Settings.Default.ReduceToTray = false;
@@ -137,6 +138,7 @@ namespace chat_client.MVVM.View
             ValidatePortInput();
         }
 
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private static void UnloadTrayIcon()
         {
             try
@@ -151,7 +153,7 @@ namespace chat_client.MVVM.View
                     return;
                 }
 
-                trayIcon.Dispose();
+                trayIcon?.Dispose();
             }
             catch
             {   

@@ -10,18 +10,16 @@ using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Data;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 
-namespace chat_client
+namespace chat_client.MVVM.View
 {
     /// <summary>
     /// Primary window for the client-side chat interface.
@@ -43,6 +41,16 @@ namespace chat_client
         /// Used for detecting double-press or timing-based shortcuts.
         /// </summary>
         private DateTime lastCtrlPress = DateTime.MinValue;
+
+        /// <summary>  Defines the minimum allowed height for the input area. </summary>
+        private const double MinInputAreaHeight = 34;
+       
+        /// <summary>
+        /// Indicates whether all persisted layout values (roster width and
+        /// input area height) should be restored after the first valid
+        /// layout pass of the window.
+        /// </summary>
+        private bool _pendingInitialRestore = true;
 
         /// <summary> Used for horizontal scrolling animations (emoji panel auto‑scroll on hover). </summary>
         private readonly DispatcherTimer scrollTimer;
@@ -101,27 +109,28 @@ namespace chat_client
         /// </summary>
         public MenuItem TrayMenuQuit { get; private set; }
 
-        /// <summary>
-        /// Initializes the main window by loading UI components, binding the view model,
-        /// restoring user preferences, configuring layout synchronization, and applying
-        /// localization, theming, and emoji panel behavior.
-        /// </summary>
+        // Initializes the main window: loads UI components, binds the ViewModel,
+        // restores user preferences, configures layout synchronization, and applies
+        // localization, theming, and emoji panel behavior.
         public MainWindow()
         {
             InitializeComponent();
 
-            /// <summary> Instantiates and binds the view model </summary>
-            viewModel = new MainViewModel();
+            // Creates and binds the ViewModel
+            viewModel = new MainViewModel(); 
             DataContext = viewModel;
 
-            /// <summary> Auto-scrolls chat when new messages arrive </summary>
+            // Will react to ViewModel layout updates
+            viewModel.PropertyChanged += ViewModel_PropertyChanged; 
+        
+            // Auto-scrolls chat when new messages arrive
             viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            /// <summary> Configures the auto-scroll timer for the emoji panel </summary>
+            // Configures the auto-scroll timer for the emoji panel
             scrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             scrollTimer.Tick += ScrollTimer_Tick;
 
-            /// <summary> Assigns WPF-generated named elements to localized keys </summary>
+            // Assigns WPF-generated named elements to localized keys
             trayIcon = (TaskbarIcon)FindName("TrayIcon");
             TrayMenuOpen = (MenuItem)FindName("TrayMenuOpen");
             TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
@@ -130,18 +139,23 @@ namespace chat_client
             CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftToolTip");
             CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
 
-            /// <summary> Restores last used IP address </summary>
-            TxtServerIPAddress.Text = chat_client.Properties.Settings.Default.ServerIPAddress;
+            // Restores last used IP address
+            TxtServerIPAddress.Text = Settings.Default.ServerIPAddress;
 
-            /// <summary> Applies localization </summary>
-            string storedLanguageCode = Properties.Settings.Default.AppLanguageCode;
+            // Applies localization
+            string storedLanguageCode = Settings.Default.AppLanguageCode;
             LocalizationManager.InitializeLocalization(storedLanguageCode);
 
-            /// <summary> Synchronizes theme toggle with saved preference </summary>
-            ThemeToggle.IsChecked = Properties.Settings.Default.AppTheme?.ToLower() == "dark";
+            // Synchronizes theme toggle with saved preference
+            ThemeToggle.IsChecked = Settings.Default.AppTheme?.ToLower() == "dark";
 
-            // Restore saved roster width
-            ColRoster.Width = new GridLength(Properties.Settings.Default.RosterWidth, GridUnitType.Pixel);
+            // Restores saved message input field height
+            double savedHeight = Settings.Default.InputAreaHeight;
+            
+            if (savedHeight < 34)
+            {
+                savedHeight = 34;
+            }
 
             ApplyWatermarks();
             TxtUsername.Focus();
@@ -197,7 +211,6 @@ namespace chat_client
             }
         }
 
-
         private ContextMenu BuildLocalizedTrayMenu()
         {
             var contextMenu = new ContextMenu();
@@ -226,6 +239,7 @@ namespace chat_client
         private void CmdEmojiPanel_Click(object sender, RoutedEventArgs e)
         {
             popupEmoji.VerticalOffset = -popupEmoji.ActualHeight;
+            popupEmoji.Visibility = Visibility.Visible;
             popupEmoji.IsOpen = true;
         }
 
@@ -355,16 +369,31 @@ namespace chat_client
 
         private void GrdMain_SizeChanged(object sender, SizeChangedEventArgs e)
         {
+            double totalWidth = GrdMain.ActualWidth;
+
+            // Maximum allowed width for the roster
+            double maxRosterWidth = totalWidth / 2.0;
+
+            // Current roster width
             double colRosterWidth = ColRoster.ActualWidth;
 
-            // Clamps to minimum 20 px
-            if (colRosterWidth < 20)
+            // Clamps to minimum 40 px
+            if (colRosterWidth < 40)
             {
-                colRosterWidth = 20;
+                colRosterWidth = 40;
             }
-            
-            Properties.Settings.Default.RosterWidth = colRosterWidth; 
-            Properties.Settings.Default.Save();
+
+            // Clamps to maximum half of the window width
+            if (colRosterWidth > maxRosterWidth)
+            {
+                colRosterWidth = maxRosterWidth;
+            }
+
+            // Applies the clamped width
+            ColRoster.Width = new GridLength(colRosterWidth, GridUnitType.Pixel);
+
+            // Enforces the hard limit on the left grid
+            GrdLeft.MaxWidth = maxRosterWidth;
         }
 
         /// <summary>
@@ -373,7 +402,98 @@ namespace chat_client
         /// </summary>
         private void GrdRight_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            viewModel.RightGridWidth = GrdRight.ActualWidth;
+            // Updates the width of the right panel
+            viewModel.RightGridWidth = GrdRight.ActualWidth; 
+        }
+
+        /// <summary> 
+        /// Enforces minimum height constraints for both the messages area and the
+        /// bottom input area while the horizontal splitter is being dragged.
+        /// Cancels the drag movement when a limit would be exceeded, 
+        /// ensuring the layout remains stable and visually usable during resizing.
+        /// </summary>
+        private void HorizontalSplitter_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            double totalHeight = GrdRight.ActualHeight;
+
+            // Mouse position relative to the right panel
+            Point mousePos = Mouse.GetPosition(GrdRight);
+
+            // Height the bottom area would have if the splitter moved here
+            double newBottomHeight = totalHeight - mousePos.Y;
+
+            const double MinMessagesAreaHeight = 20;
+            const double MinBottomHeight = 66;
+
+            // Prevents bottom area from becoming too small
+            if (newBottomHeight < MinBottomHeight)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            // Prevents messages area from becoming too small
+            double newMessagesHeight = totalHeight - newBottomHeight - 5;
+            if (newMessagesHeight < MinMessagesAreaHeight)
+            {
+                e.Handled = true;
+            }
+        }
+
+        /// <summary> Saves the input area height when the horizontal splitter drag operation completes. </summary> 
+        private void HorizontalSplitter_DragCompleted(object sender, DragCompletedEventArgs e) 
+        { 
+            double actualHeight = GrdBottom.ActualHeight;
+
+            if (actualHeight < MinInputAreaHeight)
+            {
+                actualHeight = MinInputAreaHeight;
+            }
+
+            Settings.Default.InputAreaHeight = actualHeight; 
+            Settings.Default.Save(); 
+        }
+
+        /// <summary>
+        /// Applies minimum height constraints while the horizontal splitter is being dragged.
+        /// This prevents the messages area or the bottom input area from shrinking below
+        /// their allowed limits during live mouse movement.
+        /// </summary>
+        private void HorizontalSplitter_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            // Only enforces limits while the user is actively dragging the splitter
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            // Total height of the right panel (messages history + splitter + bottom area)
+            double totalHeight = GrdRight.ActualHeight;
+
+            // Mouse position relative to GrdRight
+            Point mousePosition = e.GetPosition(GrdRight);
+
+            // If the splitter moved to this Y position, the bottom area would become:
+            double newBottomHeight = totalHeight - mousePosition.Y;
+
+            const double MinMessagesAreaHeight = 20;
+            const double MinBottomHeight = 66;
+
+            // Prevents bottom area from becoming too small
+            if (newBottomHeight < MinBottomHeight)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            // Height of the messages area if the splitter moved to this position
+            double newMessagesAreaHeight = totalHeight - newBottomHeight - 5;
+
+            // Prevents messages area from becoming too small
+            if (newMessagesAreaHeight < MinMessagesAreaHeight)
+            {
+                e.Handled = true;
+            }
         }
 
         /// <summary>
@@ -404,7 +524,7 @@ namespace chat_client
             }
         }
 
-        private void MainWindow1_Closing(object sender, CancelEventArgs e)
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
             // If “minimize to tray” is enabled, cancel close and hide instead
             if (Properties.Settings.Default.ReduceToTray)
@@ -415,13 +535,29 @@ namespace chat_client
             }
         }
 
+        /// <summary> 
+        /// Performs initial UI setup (hides the emoji popup). 
+        /// </summary>
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            popupEmoji.Visibility = Visibility.Collapsed;
+
+            double savedHeight = Properties.Settings.Default.InputAreaHeight;
+
+            // If saved height is invalid, clamp it
+            if (double.IsNaN(savedHeight) || savedHeight < MinInputAreaHeight)
+            {
+                savedHeight = MinInputAreaHeight;
+            }
+        }
+        
         /// <summary>
         /// Handles global key press events to trigger tray reduction behavior
         /// and debug console activation.
         /// Supports Escape key, double Ctrl press within one second,
         /// and Ctrl+Alt+D to open the console on demand.
         /// </summary>
-        private void MainWindow1_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             // Skips tray logic if feature is disabled
             if (!chat_client.Properties.Settings.Default.ReduceToTray)
@@ -452,7 +588,7 @@ namespace chat_client
         /// Handles window state changes and minimizes the application to the
         /// system tray when the user has enabled the "Reduce to tray" option.
         /// </summary>
-        private void MainWindow1_StateChanged(object sender, EventArgs e)
+        private void MainWindow_StateChanged(object sender, EventArgs e)
         {
             if (Properties.Settings.Default.ReduceToTray && WindowState == WindowState.Minimized)
             {
@@ -461,35 +597,31 @@ namespace chat_client
         }
 
         /// <summary>
-        /// Auto‐scrolls the chat view when new messages are added to the collection.
+        /// Auto-scrolls the chat view when new messages are added to the collection.
         /// </summary>
-        /// <param name="sender">
-        /// The source collection that raised the event (nullable).
-        /// </param>
-        /// <param name="e">
-        /// Details about which items were added, removed, or moved (never null).
-        /// </param>
         private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action != NotifyCollectionChangedAction.Add)
-            {
                 return;
-            }
 
-            // UI not ready yet (happens on fast reconnect)
+            // UI not ready yet
             if (lstReceivedMessages.Items.Count == 0)
             {
                 return;
             }
 
-            var lastIndexOfMessage = lstReceivedMessages.Items.Count - 1;
-
-            if (lastIndexOfMessage < 0)
+            var lastIndex = lstReceivedMessages.Items.Count - 1;
+            
+            if (lastIndex < 0)
             {
                 return;
             }
 
-            lstReceivedMessages.ScrollIntoView(lstReceivedMessages.Items[lastIndexOfMessage]);
+            // Lets the UI update, then scrolls
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                lstReceivedMessages.ScrollIntoView(lstReceivedMessages.Items[lastIndex]);
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -504,7 +636,7 @@ namespace chat_client
         /// <param name="e"></param>
         private void popupEmoji_Closed(object sender, EventArgs e)
         {
-            ImgEmojiPanel.Visibility = Visibility.Visible;
+            popupEmoji.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
@@ -654,6 +786,12 @@ namespace chat_client
             }
         }
 
+        /// <summary>
+        /// Updates the ViewModel with the current rendered width of the message
+        /// input TextBox whenever its size changes. This keeps the ViewModel's
+        /// width-dependent calculations (emoji scaling, popup width, etc.)
+        /// synchronized with the actual UI layout.
+        /// </summary>
         private void TxtMessageInputField_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             viewModel.MessageInputFieldWidth = TxtMessageInputField.ActualWidth;
@@ -680,6 +818,120 @@ namespace chat_client
                 /// <summary> Stops further propagation of the Enter key </summary>
                 e.Handled = true;
             }
+        }
+
+        /// <summary>
+        /// Saves the roster panel width when the vertical splitter drag operation completes.
+        /// </summary>
+        private void VerticalSplitter_DragCompleted(object sender, DragCompletedEventArgs e) 
+        { 
+            double actualWidth = ColRoster.ActualWidth;
+            if (actualWidth < 20)
+            {
+                actualWidth = 20;
+            }
+            
+            Settings.Default.RosterWidth = actualWidth; 
+            Settings.Default.Save(); 
+        }
+
+        /// <summary>
+        /// Restricts the vertical splitter movement by enforcing a maximum width
+        /// for the roster (half of the total window width).
+        /// Cancels the drag when the limit would be exceeded.
+        /// </summary>
+        private void VerticalSplitter_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
+
+            double totalWidth = GrdMain.ActualWidth;
+
+            // Maximum allowed width for the roster (half of the total width)
+            double maxRosterWidth = totalWidth / 2.0;
+
+            // Mouse position relative to GrdMain
+            Point mousePosition = e.GetPosition(GrdMain);
+
+            // The width the roster would have if the splitter moved here
+            double newRosterWidth = mousePosition.X;
+
+            // Prevents the roster from exceeding the maximum width
+            if (newRosterWidth > maxRosterWidth)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            // Prevents the roster from shrinking below 40 px
+            if (newRosterWidth < 40)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Reacts to ViewModel layout-related changes.
+        /// - Updates the bottom row height live when the splitter moves.
+        /// </summary>
+        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            // Live update when splitter moves
+            if (e.PropertyName == nameof(viewModel.InputAreaHeight))
+            {
+                RowBottomRight.Height = new GridLength(viewModel.InputAreaHeight, GridUnitType.Pixel);
+            }
+        }
+
+        /// <summary> 
+        /// Restores all persisted layout dimensions (roster width and input area height) 
+        /// after the first valid layout pass of the window. 
+        /// This ensures the restore occurs only once, 
+        /// after WPF has completed its initial layout calculations.
+        /// </summary>
+        private void Window_LayoutUpdated(object sender, EventArgs e)
+        {
+            if (!_pendingInitialRestore)
+            {
+                return;
+            }
+
+            double rosterWidth = Settings.Default.RosterWidth;
+            if (rosterWidth < 20)
+            {
+                rosterWidth = 20;
+            }
+
+            // Restores the roster width
+            ColRoster.Width = new GridLength(rosterWidth, GridUnitType.Pixel);
+
+            // Restores bottom input area height
+            double savedHeight = Settings.Default.InputAreaHeight;
+            if (double.IsNaN(savedHeight) || savedHeight < MinInputAreaHeight)
+            {
+                savedHeight = MinInputAreaHeight;
+            }
+
+            RowBottomRight.Height = new GridLength(savedHeight, GridUnitType.Pixel);
+
+            _pendingInitialRestore = false;
+        }
+
+        private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            double maxRosterWidth = this.ActualWidth / 2.0; 
+            
+            // Clamps the current roster width if it exceeds the new max
+            if (ColRoster.Width.Value > maxRosterWidth) 
+            { 
+                ColRoster.Width = new GridLength(maxRosterWidth, GridUnitType.Pixel); 
+            } 
+            
+            // Applies the max constraint
+            GrdLeft.MaxWidth = maxRosterWidth;
         }
     }
 }

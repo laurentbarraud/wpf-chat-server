@@ -14,6 +14,7 @@
     <Title>chat-client</Title>
     <Authors>Laurent Barraud</Authors>
     <Description>chat-server app</Description>
+    <StartupObject>chat_client.App</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -110,6 +111,12 @@
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="MVVM\View\MainWindow.xaml">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Page>
   </ItemGroup>
 
 </Project>

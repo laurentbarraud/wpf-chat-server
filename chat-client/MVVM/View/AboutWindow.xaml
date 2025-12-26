@@ -1,4 +1,4 @@
-﻿<Window x:Name="AboutWindow1" x:Class="chat_client.View.AboutWindow"
+﻿<Window x:Class="chat_client.MVVM.View.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" 
         xmlns:vm="clr-namespace:chat_client.MVVM.ViewModel"

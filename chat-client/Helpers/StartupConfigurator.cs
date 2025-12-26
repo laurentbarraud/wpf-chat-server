@@ -4,12 +4,9 @@
 /// <date>December 26th, 2025</date>
 
 using chat_client.MVVM.ViewModel;
-using chat_client.View;
+using chat_client.MVVM.View;
 using System;
-using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Documents;
-using System.Xml.Linq;
 
 namespace chat_client.Helpers
 {

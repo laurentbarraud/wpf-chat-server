@@ -6,6 +6,7 @@
 using System;
 using System.Windows;
 using System.Windows.Media.Animation;
+using chat_client.MVVM.View;
 
 namespace chat_client.Helpers
 {

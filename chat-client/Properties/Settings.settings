@@ -24,13 +24,16 @@
       <Value Profile="(Default)">7123</Value>
     </Setting>
     <Setting Name="MessageInputFieldWidthPercent" Type="System.Double" Scope="User">
-      <Value Profile="(Default)">10</Value>
+      <Value Profile="(Default)">60</Value>
     </Setting>
     <Setting Name="MessageInputFieldLeftOffsetPercent" Type="System.Double" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
     <Setting Name="RosterWidth" Type="System.Double" Scope="User">
-      <Value Profile="(Default)">250</Value>
+      <Value Profile="(Default)">160</Value>
+    </Setting>
+    <Setting Name="InputAreaHeight" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">120</Value>
     </Setting>
   </Settings>
 </SettingsFile>

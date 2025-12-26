@@ -5,21 +5,18 @@
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
+using chat_client.MVVM.View;
 using chat_client.Net;
 using chat_client.Properties;
-using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-
 
 
 namespace chat_client.MVVM.ViewModel
@@ -98,6 +95,12 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         private string _gettingMissingKeysToolTip = "";
 
+        /// <summary>
+        /// Backing field for the height of the message input area (the text input field),
+        /// excluding the emoji bar.
+        /// </summary> 
+        private double _inputAreaHeight = 34.0;
+
         /// <summary> 
         /// Holds the localized placeholder text displayed 
         /// in the IP address input field when it is empty and not focused.
@@ -125,7 +128,7 @@ namespace chat_client.MVVM.ViewModel
 
         /// <summary> 
         /// Stores the computed pixel width of the message input field. 
-        /// Initialized to 400 so the UI has a reasonable default size. 
+        /// Initialized to 400 so the field has a reasonable default width size. 
         /// </summary> 
         private double _messageInputFieldWidth = 400.0; 
 
@@ -302,7 +305,6 @@ namespace chat_client.MVVM.ViewModel
 
                 // Notifies dependent UI elements
                 OnPropertyChanged(nameof(UsernameAndIPAddressInputFieldHeight));
-                OnPropertyChanged(nameof(MessageInputFieldHeight));
                 OnPropertyChanged(nameof(ConnectDisconnectButtonHeight));
 
                 // Persists user preference
@@ -436,17 +438,28 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public double HeightScaleFactor { get; } = 2.2;
 
+        /// <summary> 
+        /// Stores the height of the message input area (the text input field). 
+        /// This value is updated live by the splitter and persisted in user settings.
+        /// </summary> 
+        public double InputAreaHeight 
+        { 
+            get => _inputAreaHeight; 
+            set 
+            { 
+                // Enforces minimum height
+                double clampedValue = Math.Max(value, 34.0);
 
-        /// <summary>
-        /// Initializes localized watermark texts used by the input fields.
-        /// Called at startup and whenever the application language changes.
-        /// </summary>
-        public void InitializeWatermarkResources()
-        {
-            UsernameWatermarkText = LocalizationManager.GetString("UsernameWatermark");
-            IPAddressWatermarkText = LocalizationManager.GetString("IPAddressWatermark");
-            ConnectedWatermarkText = "- " + LocalizationManager.GetString("Connected") + " -";
-            MessageInputFieldWatermarkText = LocalizationManager.GetString("MessageInputFieldWatermark");
+                if (Math.Abs(_inputAreaHeight - clampedValue) < 0.1)
+                {
+                    return; 
+                } 
+                _inputAreaHeight = clampedValue; 
+                OnPropertyChanged(); 
+
+                Settings.Default.InputAreaHeight = clampedValue;
+                Settings.Default.Save(); 
+            } 
         }
 
         /// <summary> 
@@ -505,21 +518,6 @@ namespace chat_client.MVVM.ViewModel
         /// Gets the maximum font size allowed for UI text scaling.
         /// </summary>
         public static int MaxDisplayFontSize => 36;
-
-        /// <summary>
-        /// Message input field height grows linearly with font size.
-        /// </summary>
-        public double MessageInputFieldHeight
-        {
-            get
-            {
-                const double baseFont = 12.0;
-                const double baseHeight = 34.0;
-                const double incrementPerPoint = 1.1;
-
-                return baseHeight + (DisplayFontSize - baseFont) * incrementPerPoint;
-            }
-        }
 
         /// <summary>
         /// Computes the pixel offset of the message input field based on the right
@@ -1378,6 +1376,17 @@ namespace chat_client.MVVM.ViewModel
             WatermarkBrush = new SolidColorBrush(watermarkColor) { Opacity = 0.45 };
         }
 
+        /// <summary>
+        /// Initializes localized watermark texts used by the input fields.
+        /// Called at startup and whenever the application language changes.
+        /// </summary>
+        public void InitializeWatermarkResources()
+        {
+            UsernameWatermarkText = LocalizationManager.GetString("UsernameWatermark");
+            IPAddressWatermarkText = LocalizationManager.GetString("IPAddressWatermark");
+            ConnectedWatermarkText = "- " + LocalizationManager.GetString("Connected") + " -";
+            MessageInputFieldWatermarkText = LocalizationManager.GetString("MessageInputFieldWatermark");
+        }
 
         /// <summary>
         /// Notifies the UI that all localized ViewModel properties must refresh

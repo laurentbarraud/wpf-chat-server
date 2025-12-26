@@ -5,14 +5,11 @@
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
+using chat_client.MVVM.View;
 using chat_client.Net.IO;
 using chat_client.Properties;
-using System.Diagnostics;
 using System.IO;
-using System.Net;
 using System.Net.Sockets;
-using System.Security.Policy;
-using System.Text;
 using System.Windows;
 
 namespace chat_client.Net

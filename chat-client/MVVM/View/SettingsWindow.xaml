@@ -168,7 +168,7 @@
             <Setter Property="VerticalContentAlignment"   Value="Center" />
         </Style>
 
-        <!-- Converts bool to Visibility (true → Visible, false → Collapsed) -->
+        <!-- Converts bool to Visibility (true: Visible, false: Hidden) -->
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
     </Window.Resources>

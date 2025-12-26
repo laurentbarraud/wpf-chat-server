@@ -109,7 +109,7 @@ namespace chat_client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("10")]
+        [global::System.Configuration.DefaultSettingValueAttribute("60")]
         public double MessageInputFieldWidthPercent {
             get {
                 return ((double)(this["MessageInputFieldWidthPercent"]));
@@ -133,13 +133,25 @@ namespace chat_client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("250")]
+        [global::System.Configuration.DefaultSettingValueAttribute("160")]
         public double RosterWidth {
             get {
                 return ((double)(this["RosterWidth"]));
             }
             set {
                 this["RosterWidth"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("120")]
+        public double InputAreaHeight {
+            get {
+                return ((double)(this["InputAreaHeight"]));
+            }
+            set {
+                this["InputAreaHeight"] = value;
             }
         }
     }

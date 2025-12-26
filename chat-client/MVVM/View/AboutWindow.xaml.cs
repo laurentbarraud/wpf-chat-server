@@ -7,9 +7,8 @@ using chat_client.Helpers;
 using System;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media.Animation;
 
-namespace chat_client.View
+namespace chat_client.MVVM.View
 {
     public partial class AboutWindow : Window
     {

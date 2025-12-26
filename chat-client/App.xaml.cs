@@ -5,6 +5,7 @@
 
 using chat_client.Helpers;
 using chat_client.Properties;
+using chat_client.MVVM.View;
 using System;
 using System.Globalization;
 using System.Linq;
