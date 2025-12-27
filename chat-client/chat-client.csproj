@@ -48,6 +48,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\chat-protocol\chat-protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Resources\AboutWireframeOverlay.png" />
     <Resource Include="Resources\calc-icon.ico" />
     <Resource Include="Resources\chat-client-icon.ico" />

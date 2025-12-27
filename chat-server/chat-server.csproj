@@ -15,6 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\chat-protocol\chat-protocol.csproj" />
   </ItemGroup>
 
   <ItemGroup>

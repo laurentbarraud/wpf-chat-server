@@ -1,14 +1,12 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
-using chat_client.Helpers;
 using System;
-using System.IO;
 using System.Text;
 
-namespace chat_client.Net.IO
+namespace chat_protocol.Net.IO
 {
     /// <summary>
     /// Async-first framed packet reader.
@@ -131,9 +129,6 @@ namespace chat_client.Net.IO
         {
             // Reads exactly 4 bytes from the stream to form the packet length header.
             byte[] headerBytes = await ReadExactAsync(BaseStream, 4, cancellationToken).ConfigureAwait(false);
-
-            // Diagnostic log: shows the raw header bytes for debugging purposes.
-            ClientLogger.Log($"READ_HEADER={BitConverter.ToString(headerBytes)}", ClientLogLevel.Debug);
 
             // Composes the integer value directly in big-endian order.
             int packetLength =

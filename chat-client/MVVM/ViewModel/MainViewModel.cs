@@ -1,13 +1,14 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.MVVM.View;
 using chat_client.Net;
-using chat_client.Net.IO;
+using chat_protocol.Net;
+using chat_protocol.Net.IO;
 using chat_client.Properties;
 using System;
 using System.Collections.ObjectModel;

@@ -1,18 +1,17 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
-using chat_server.Helpers;
-using chat_server.Net;
-using chat_server.Net.IO;
 using System;
+using chat_server.Helpers;
+using chat_protocol.Net.IO;
+using chat_protocol.Net;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 
 namespace chat_server
 {
@@ -115,7 +114,7 @@ namespace chat_server
                             using var memoryStream = new MemoryStream(payload);
                             var reader = new PacketReader(memoryStream);
 
-                            if ((ServerPacketOpCode)await reader.ReadByteAsync(token).ConfigureAwait(false) != ServerPacketOpCode.Handshake)
+                            if ((chat_protocol.Net.PacketOpCode)await reader.ReadByteAsync(token).ConfigureAwait(false) != PacketOpCode.Handshake)
                             { 
                                 tcpClient.Close(); return; 
                             }
@@ -144,7 +143,7 @@ namespace chat_server
 
                             // <summary> Sends HandshakeAck (framed) </summary>
                             var ack = new PacketBuilder();
-                            ack.WriteOpCode((byte)ServerPacketOpCode.HandshakeAck);
+                            ack.WriteOpCode((byte)PacketOpCode.HandshakeAck);
                             await SendFramedAsync(client, ack.GetPacketBytes(), token).ConfigureAwait(false);
 
                             // <summary> Broadcasts roster after ack so all clients get updated keys (empty keys included) </summary>
@@ -222,7 +221,7 @@ namespace chat_server
                 }
 
                 var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);
+                builder.WriteOpCode((byte)PacketOpCode.DisconnectNotify);
                 builder.WriteUid(disconnectedGuid);
                 builder.WriteString(username);
 
@@ -278,7 +277,7 @@ namespace chat_server
             foreach (var user in listeners)
             {
                 var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.ForceDisconnectClient);
+                builder.WriteOpCode((byte)PacketOpCode.ForceDisconnectClient);
                 builder.WriteUid(user.UID);
 
                 byte[] payload = builder.GetPacketBytes();
@@ -329,7 +328,7 @@ namespace chat_server
 
             /// <summary> Builds the roster payload <summary>
             var builder = new PacketBuilder();
-            builder.WriteOpCode((byte)ServerPacketOpCode.RosterBroadcast);
+            builder.WriteOpCode((byte)PacketOpCode.RosterBroadcast);
 
             /// <summary> Writes roster count as 4-byte big-endian Int32 </summary>
             builder.WriteInt32NetworkOrder(snapshotUsers.Count);
@@ -416,7 +415,7 @@ namespace chat_server
                 /// Keeps the framing consistent with other server packets.
                 /// </summary>
                 var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
+                builder.WriteOpCode((byte)PacketOpCode.PublicKeyResponse);
 
                 /// <summary>Writes the public key payload with an explicit length prefix. </summary>
                 /// <remarks>This allows variable key sizes.</remarks>
@@ -493,7 +492,7 @@ namespace chat_server
 
                 /// <summary> Builds the packet </summary>
                 var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ServerPacketOpCode.PlainMessage);
+                builder.WriteOpCode((byte)PacketOpCode.PlainMessage);
                 builder.WriteUid(senderUid);     // sender’s UID
                 builder.WriteUid(target.UID);    // recipient UID placeholder
                 builder.WriteString(messageText);// length+UTF-8 bytes
@@ -655,7 +654,7 @@ namespace chat_server
             /// opcode + sender UID + recipient UID + ciphertext
             /// </summary>
             var encMsgPacket = new PacketBuilder();
-            encMsgPacket.WriteOpCode((byte)ServerPacketOpCode.EncryptedMessage);
+            encMsgPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
             encMsgPacket.WriteUid(senderUid);
             encMsgPacket.WriteUid(recipientUid);
             encMsgPacket.WriteBytesWithLength(ciphertext);
@@ -709,7 +708,7 @@ namespace chat_server
 
             /// <summary> Builds the packet with opcode, requester UID, and target UID. </summary>
             var builder = new PacketBuilder();
-            builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyRequest);
+            builder.WriteOpCode((byte)PacketOpCode.PublicKeyRequest);
 
             /// <summary> First the UID of the target (the one who owns the key) </summary>
             builder.WriteUid(targetUid);
@@ -765,7 +764,7 @@ namespace chat_server
 
             /// <summary> Builds packet with origin UID, key, and requester UID. </summary>
             var builder = new PacketBuilder();
-            builder.WriteOpCode((byte)ServerPacketOpCode.PublicKeyResponse);
+            builder.WriteOpCode((byte)PacketOpCode.PublicKeyResponse);
             builder.WriteUid(originUid);
             builder.WriteBytesWithLength(publicKey ?? Array.Empty<byte>()); 
             builder.WriteUid(requesterUid);

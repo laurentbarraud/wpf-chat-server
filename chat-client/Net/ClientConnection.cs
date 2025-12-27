@@ -1,12 +1,13 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.MVVM.View;
-using chat_client.Net.IO;
+using chat_protocol.Net.IO;
+using chat_protocol.Net;
 using chat_client.Properties;
 using System.IO;
 using System.Net.Sockets;
@@ -618,12 +619,12 @@ namespace chat_client.Net
 
                         /// <summary> Reads opcode byte from framed payload </summary>
                         byte opcodeByte = await reader.ReadByteAsync(cancellationToken).ConfigureAwait(false);
-                        var opcode = (ClientPacketOpCode)opcodeByte;
+                        var opcode = (PacketOpCode)opcodeByte;
                         ClientLogger.Log($"RECEIVED_PACKET_OPCODE={(byte)opcode}", ClientLogLevel.Debug);
 
                         switch (opcode)
                         {
-                            case ClientPacketOpCode.RosterBroadcast:
+                            case PacketOpCode.RosterBroadcast:
                                 /// <summary> Resets unexpected-opcode counter </summary>
                                 if (_consecutiveUnexpectedOpcodes != 0)
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
@@ -649,7 +650,7 @@ namespace chat_client.Net
                                 }));
                                 break;
 
-                            case ClientPacketOpCode.HandshakeAck:
+                            case PacketOpCode.HandshakeAck:
                                 /// <summary> Signals handshake completion </summary>
                                 _handshakeCompletionTcs?.TrySetResult(true);
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
@@ -669,7 +670,7 @@ namespace chat_client.Net
 
                                 break;
 
-                            case ClientPacketOpCode.PlainMessage:
+                            case PacketOpCode.PlainMessage:
                                 /// <summary> Resets unexpected-opcode counter </summary>
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
@@ -688,7 +689,7 @@ namespace chat_client.Net
                                 }));
                                 break;
 
-                            case ClientPacketOpCode.EncryptedMessage:
+                            case PacketOpCode.EncryptedMessage:
                                 {
                                     /// <summary> Resets unexpected-opcode counter. </summary>
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
@@ -716,7 +717,7 @@ namespace chat_client.Net
                                     break;
                                 }
 
-                            case ClientPacketOpCode.PublicKeyRequest:
+                            case PacketOpCode.PublicKeyRequest:
                                 {
                                     Guid first = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid second = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
@@ -740,7 +741,7 @@ namespace chat_client.Net
                                     break;
                                 }
 
-                            case ClientPacketOpCode.PublicKeyResponse:
+                            case PacketOpCode.PublicKeyResponse:
                                 {
                                     /// <summary>
                                     /// Resets the consecutive unexpected-opcode counter.
@@ -786,7 +787,7 @@ namespace chat_client.Net
                                     break;
                                 }
 
-                            case ClientPacketOpCode.DisconnectNotify:
+                            case PacketOpCode.DisconnectNotify:
                                 /// <summary>
                                 /// Resets the unexpected-opcode counter to zero.
                                 /// Ensures that a valid disconnect notification does not count as protocol noise.
@@ -806,7 +807,7 @@ namespace chat_client.Net
                                 _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnUserDisconnected(discUid, discName));
                                 break;
 
-                            case ClientPacketOpCode.ForceDisconnectClient:
+                            case PacketOpCode.ForceDisconnectClient:
                                 /// <summary>
                                 /// Posts a forced disconnect to the UI thread and exits the loop.
                                 /// </summary>
@@ -906,7 +907,7 @@ namespace chat_client.Net
             try
             {
                 var packetBuilder = new PacketBuilder();
-                packetBuilder.WriteOpCode((byte)ClientPacketOpCode.PublicKeyRequest);
+                packetBuilder.WriteOpCode((byte)PacketOpCode.PublicKeyRequest);
                 packetBuilder.WriteUid(LocalUid);
 
                 byte[] payload = packetBuilder.GetPacketBytes();
@@ -937,7 +938,7 @@ namespace chat_client.Net
             try
             {
                 var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ClientPacketOpCode.DisconnectNotify);
+                builder.WriteOpCode((byte)PacketOpCode.DisconnectNotify);
                 builder.WriteUid(LocalUid);
 
                 byte[] payload = builder.GetPacketBytes();
@@ -1065,7 +1066,7 @@ namespace chat_client.Net
             {
                 // Builds the payload: opcode + username + uid + length-prefixed public key.
                 var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ClientPacketOpCode.Handshake);
+                builder.WriteOpCode((byte)PacketOpCode.Handshake);
                 builder.WriteString(username);
                 builder.WriteUid(uid);
                 builder.WriteBytesWithLength(publicKeyDer);
@@ -1112,7 +1113,7 @@ namespace chat_client.Net
                     byte receivedOpcode = frame[0];
                     ClientLogger.Log($"RECEIVED_PACKET_OPCODE={receivedOpcode}", ClientLogLevel.Debug);
 
-                    if (receivedOpcode != (byte)ClientPacketOpCode.HandshakeAck)
+                    if (receivedOpcode != (byte)PacketOpCode.HandshakeAck)
                     {
                         ClientLogger.Log($"Unexpected packet opcode while waiting for HandshakeAck: {receivedOpcode}", ClientLogLevel.Error);
                         _handshakeCompletionTcs?.TrySetCanceled(CancellationToken.None); // cancel on unexpected opcode
@@ -1171,7 +1172,7 @@ namespace chat_client.Net
                 if (!isEncryptionReady)
                 {
                     /// <summary> Plain packet with sender UID and text. </summary>
-                    plainPacket.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                    plainPacket.WriteOpCode((byte)PacketOpCode.PlainMessage);
                     plainPacket.WriteUid(senderUid);
                     plainPacket.WriteString(plainText);
                 }
@@ -1181,7 +1182,7 @@ namespace chat_client.Net
                     var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, pubKey);
                     if (cipher == null || cipher.Length == 0) continue;
 
-                    plainPacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                    plainPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
                     plainPacket.WriteUid(senderUid);
                     plainPacket.WriteUid(recipient.UID);
                     plainPacket.WriteBytesWithLength(cipher);
@@ -1206,7 +1207,7 @@ namespace chat_client.Net
                 if (selfCipher != null && selfCipher.Length > 0)
                 {
                     var selfPacket = new PacketBuilder();
-                    selfPacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                    selfPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
                     selfPacket.WriteUid(senderUid);
                     selfPacket.WriteUid(senderUid);
                     selfPacket.WriteBytesWithLength(selfCipher);
@@ -1224,7 +1225,7 @@ namespace chat_client.Net
 
                 if (!isEncryptionReady)
                 {
-                    encryptedPacket.WriteOpCode((byte)ClientPacketOpCode.PlainMessage);
+                    encryptedPacket.WriteOpCode((byte)PacketOpCode.PlainMessage);
                     encryptedPacket.WriteUid(senderUid);
                     encryptedPacket.WriteString(plainText);
                 }
@@ -1233,7 +1234,7 @@ namespace chat_client.Net
                     var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
                     if (cipher == null || cipher.Length == 0) return false;
 
-                    encryptedPacket.WriteOpCode((byte)ClientPacketOpCode.EncryptedMessage);
+                    encryptedPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
                     encryptedPacket.WriteUid(senderUid);
                     encryptedPacket.WriteUid(senderUid);
                     encryptedPacket.WriteBytesWithLength(cipher);
@@ -1290,7 +1291,7 @@ namespace chat_client.Net
                 /// - Requester UID (peer or self)
                 /// </summary>
                 var publicKeyPacket = new PacketBuilder();
-                publicKeyPacket.WriteOpCode((byte)ClientPacketOpCode.PublicKeyResponse);
+                publicKeyPacket.WriteOpCode((byte)PacketOpCode.PublicKeyResponse);
                 publicKeyPacket.WriteUid(senderUid);
                 publicKeyPacket.WriteBytesWithLength(payloadKey);
                 publicKeyPacket.WriteUid(requesterUid);
@@ -1337,7 +1338,7 @@ namespace chat_client.Net
             try
             {
                 var builder = new PacketBuilder();
-                builder.WriteOpCode((byte)ClientPacketOpCode.PublicKeyRequest);
+                builder.WriteOpCode((byte)PacketOpCode.PublicKeyRequest);
                 builder.WriteUid(LocalUid);
                 builder.WriteUid(targetUid);
 

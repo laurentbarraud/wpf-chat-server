@@ -1,15 +1,13 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
-using chat_server.Helpers;
-using chat_server.Net;
-using chat_server.Net.IO;
 using System;
 using System.Net.Sockets;
-using System.Security.Cryptography;
-
+using chat_server.Helpers;
+using chat_protocol.Net.IO;
+using chat_protocol.Net;
 
 namespace chat_server
 {
@@ -277,15 +275,15 @@ namespace chat_server
                         var bodyReader = new PacketReader(ms);
 
                         byte opcodeByte = await bodyReader.ReadByteAsync(cancellationToken).ConfigureAwait(false);
-                        var opcode = (ServerPacketOpCode)opcodeByte;
+                        var opcode = (PacketOpCode)opcodeByte;
 
                         switch (opcode)
                         {
-                            case ServerPacketOpCode.RosterBroadcast:
+                            case PacketOpCode.RosterBroadcast:
                                 await Program.BroadcastRosterAsync(cancellationToken).ConfigureAwait(false);
                                 break;
 
-                            case ServerPacketOpCode.PublicKeyRequest:
+                            case PacketOpCode.PublicKeyRequest:
                                 {
                                     /// <summary>
                                     /// Handles a public-key request packet.
@@ -299,7 +297,7 @@ namespace chat_server
                                     break;
                                 }
 
-                            case ServerPacketOpCode.PublicKeyResponse:
+                            case PacketOpCode.PublicKeyResponse:
                                 {
                                     /// <summary>
                                     /// Reads origin UID, DER key, and requester UID from the packet.
@@ -344,7 +342,7 @@ namespace chat_server
                                     break;
                                 }
 
-                            case ServerPacketOpCode.PlainMessage:
+                            case PacketOpCode.PlainMessage:
                                 {
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     string text = await bodyReader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
@@ -356,7 +354,7 @@ namespace chat_server
                                     break;
                                 }
 
-                            case ServerPacketOpCode.EncryptedMessage:
+                            case PacketOpCode.EncryptedMessage:
                                 {
                                     /// <summary> Reads sender UID, recipient UID, and ciphertext. </summary>
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
@@ -381,7 +379,7 @@ namespace chat_server
                                     break;
                                 }
 
-                            case ServerPacketOpCode.DisconnectNotify:
+                            case PacketOpCode.DisconnectNotify:
                                 {
                                     var disconnectedUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     if (Interlocked.CompareExchange(ref _disconnectNotifySent, 1, 0) == 0)
@@ -395,11 +393,11 @@ namespace chat_server
                                     break;
                                 }
 
-                            case ServerPacketOpCode.Handshake:
+                            case PacketOpCode.Handshake:
                                 ServerLogger.LogLocalized("UnexpectedHandshake", ServerLogLevel.Warn, Username);
                                 break;
 
-                            case ServerPacketOpCode.ForceDisconnectClient:
+                            case PacketOpCode.ForceDisconnectClient:
                                 {
                                     var targetUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     if (targetUid == UID)

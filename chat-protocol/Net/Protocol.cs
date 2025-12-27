@@ -1,17 +1,16 @@
 ﻿/// <file>Protocol.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
 using System;
 
-namespace chat_client.Net
+namespace chat_protocol.Net
 {
     /// <summary>
     /// Defines all opcodes used in the chat protocol.
-    /// Includes both client→server and server→client packet types.
     /// </summary>
-    public enum ClientPacketOpCode : byte
+    public enum PacketOpCode : byte
     {
         /// <summary>
         /// Client handshake packet.

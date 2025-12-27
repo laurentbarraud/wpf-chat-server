@@ -1,12 +1,12 @@
 ﻿/// <file>PacketBuilder.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
 using System;
 using System.Text;
 
-namespace chat_server.Net.IO
+namespace chat_protocol.Net.IO
 {
     /// <summary>
     /// Builds protocol-compliant packet bodies.
@@ -63,7 +63,7 @@ namespace chat_server.Net.IO
         {
             if (value == null) throw new ArgumentNullException(nameof(value));
             var encoded = Encoding.UTF8.GetBytes(value);
-            WriteBytesWithLength(encoded); 
+            WriteBytesWithLength(encoded);
         }
 
         /// <summary>

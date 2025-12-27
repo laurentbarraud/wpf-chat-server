@@ -1,17 +1,13 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 27th, 2025</date>
+/// <date>December 28th, 2025</date>
 
-using chat_client.MVVM.ViewModel;
 using chat_client.Net;
+using chat_client.MVVM.ViewModel;
 using chat_client.Properties;
-using Microsoft.VisualBasic.ApplicationServices;
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Threading;
-using System.Windows;
 
 namespace chat_client.Helpers
 {
