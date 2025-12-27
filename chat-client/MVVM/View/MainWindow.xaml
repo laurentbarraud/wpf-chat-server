@@ -769,7 +769,7 @@
                                      PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
                                      SizeChanged="TxtMessageInputField_SizeChanged"
                                      VerticalAlignment="Stretch"
-                                     VerticalContentAlignment="Stretch"
+                                     VerticalContentAlignment="Center"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      BorderThickness="0"

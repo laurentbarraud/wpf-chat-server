@@ -1,12 +1,13 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 26th, 2025</date>
+/// <date>December 27th, 2025</date>
 
-using chat_client.MVVM.ViewModel;
 using chat_client.MVVM.View;
+using chat_client.MVVM.ViewModel;
 using System;
 using System.Windows;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace chat_client.Helpers
 {
@@ -85,7 +86,7 @@ namespace chat_client.Helpers
                         case "--fr":
                         case "--french":
                             langCodeChosen = "fr";
-                            break;                      
+                            break;
                         case "--encrypted":
                             enableEncryption = true;
                             break;
@@ -278,7 +279,10 @@ namespace chat_client.Helpers
                     // Sets the chosen username on the VM
                     viewModel.Username = usernameChosen;
 
-                    // We assign the name onLoaded before the lambda to be able to use it inside the same lambda.
+                    // RoutedEventHandler is the delegate type used for WPF routed events
+                    // that travel through the visual tree, such as Loaded, Click, or MouseDown.
+                    // It is used for events that can bubble or tunnel through UI elements.
+                    // We declare 'onLoaded' before assigning the lambda so the lambda can reference itself.
                     RoutedEventHandler onLoaded = null!;
                     onLoaded = (s, e) =>
                     {
@@ -288,24 +292,20 @@ namespace chat_client.Helpers
                         // If the command is available and executable
                         if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
                         {
-                            // Executes the command
                             viewModel.ConnectDisconnectCommand.Execute(null);
                         }
                     };
 
-                    // If the window is already loaded
                     if (mainWindow.IsLoaded)
                     {
-                        // Direct invocation uses the same logic as the handler
                         if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
                         {
                             viewModel.ConnectDisconnectCommand.Execute(null);
                         }
                     }
-
                     else
                     {
-                        // Attaches the handler
+                        // Attach handler to execute once when loaded
                         mainWindow.Loaded += onLoaded;
                     }
                 }

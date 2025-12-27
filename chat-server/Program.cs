@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 26th, 2025</date>
+/// <date>December 27th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -135,8 +135,12 @@ namespace chat_server
                             client.InitializeAfterHandshake(username, uid, publicKey, token);
 
                             // <summary> Adds client to roster and log localized connection </summary>
-                            lock (Users) { Users.Add(client); }
-                            ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info);
+                            lock (Users) 
+                            { 
+                                Users.Add(client); 
+                            }
+                            
+                            ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, username);
 
                             // <summary> Sends HandshakeAck (framed) </summary>
                             var ack = new PacketBuilder();
@@ -179,27 +183,30 @@ namespace chat_server
             // Uses the provided Guid directly
             Guid disconnectedGuid = disconnectedUserId;
 
-            // Snapshots current users
-            var snapshotUsers = Users.ToList();
-
             /// <summary>
-            /// FirstOrDefault returns a nullable Client if no match is found,
-            /// so we declare goneUser as Client? to reflect that.
+            /// FirstOrDefault returns a nullable Client if no match is found
             /// </summary>
-            ServerConnectionHandler? goneUser = snapshotUsers.FirstOrDefault(u => u.UID == disconnectedGuid);
-
+            ServerConnectionHandler? goneUser = Users.FirstOrDefault(u => u.UID == disconnectedGuid);
+            
             /// <summary>
             /// Safely guards the removal logic
             /// </summary>
             if (goneUser is not null)
             {
                 lock (Users)
+                {
                     Users.Remove(goneUser);
+                }
             }
+
+            // Snapshots current users
+            var snapshotUsers = Users.ToList();
 
             // Chooses a safe username fallback:
             // uses disconnected GUID string when username is unavailable
-            string username = goneUser?.Username ?? disconnectedUserId.ToString();
+            string username = string.IsNullOrWhiteSpace(goneUser?.Username)
+                            ? "(unknown)"
+                            : goneUser.Username;
 
             /// <summary>
             /// Builds the framed DisconnectNotify for each remaining client
@@ -210,7 +217,9 @@ namespace chat_server
             foreach (var listener in snapshotUsers)
             {
                 if (!listener.ClientSocket.Connected)
+                {
                     continue;
+                }
 
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)ServerPacketOpCode.DisconnectNotify);

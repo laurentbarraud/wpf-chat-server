@@ -1,7 +1,7 @@
 ﻿/// <file>LanguageOption.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 26th, 2025</date>
+/// <date>December 27th, 2025</date>
 
 using System.Globalization;
 

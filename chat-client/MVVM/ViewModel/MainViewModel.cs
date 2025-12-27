@@ -1,12 +1,13 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 26th, 2025</date>
+/// <date>December 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.MVVM.View;
 using chat_client.Net;
+using chat_client.Net.IO;
 using chat_client.Properties;
 using System;
 using System.Collections.ObjectModel;
@@ -50,12 +51,6 @@ namespace chat_client.MVVM.ViewModel
         /// Manages the network session and exposes connection state.
         /// </summary>
         private ClientConnection _clientConn;
-
-        /// <summary>
-        /// Atomic guard to ensure the client-side disconnect sequence runs only once.
-        /// 0 = not running, 1 = already invoked.
-        /// </summary>
-        private int _clientDisconnecting = 0;
 
         /// <summary>
         /// Holds the localized text displayed in the IP address field
@@ -150,6 +145,16 @@ namespace chat_client.MVVM.ViewModel
         /// This value is bound in TwoWay mode to allow user input and is initialized from application settings.
         /// </summary>
         private string _serverIPAddress = Settings.Default.ServerIPAddress;
+
+        /// <summary>Blocks roster notifications during initialization.</summary>
+        private bool _suppressRosterNotifications = true;
+
+        /// <summary>
+        /// Indicates whether the user explicitly initiated a disconnect action.
+        /// Used to suppress automatic "You have been disconnected" notifications
+        /// and to avoid echo notifications after reconnect.
+        /// </summary>
+        private bool _userHasClickedOnDisconnect = false;
 
         /// <summary>
         /// Holds what the user types in the first textbox on top left of the MainWindow
@@ -846,6 +851,35 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public static string UseEncryptionLabel => LocalizationManager.GetString("ReduceToTrayLabel");
 
+        /// <summary>True if the user triggered a disconnect.</summary>
+        public bool UserHasClickedOnDisconnect
+        {
+            get => _userHasClickedOnDisconnect;
+            set
+            {
+                if (_userHasClickedOnDisconnect == value)
+                    return;
+
+                _userHasClickedOnDisconnect = value;
+                OnPropertyChanged();
+            }
+        }
+
+
+        /// <summary>
+        /// What the user types in the first textbox on top left of the MainWindow.
+        /// Bound in XAML and triggers UI updates.
+        /// </summary>
+        public string Username
+        {
+            get => _username;
+            set
+            {
+                if (_username == value) return;
+                _username = value;
+                OnPropertyChanged();
+            }
+        }
 
         /// <summary>
         /// Computes the dynamic height of username and IP input fields, scaling up to +30% at maximum font size.
@@ -885,20 +919,6 @@ namespace chat_client.MVVM.ViewModel
 
         public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
-        /// <summary>
-        /// What the user types in the first textbox on top left of the MainWindow.
-        /// Bound in XAML and triggers UI updates.
-        /// </summary>
-        public string Username
-        {
-            get => _username;
-            set
-            {
-                if (_username == value) return;
-                _username = value;
-                OnPropertyChanged();
-            }
-        }
 
         /// <summary>
         /// Gets or sets the brush used for watermark text. The brush is theme‑aware
@@ -1043,6 +1063,9 @@ namespace chat_client.MVVM.ViewModel
 
             try
             {
+                _userHasClickedOnDisconnect = false;
+                _suppressRosterNotifications = true;
+
                 /// <summary> Performs handshake and retrieves UID and server public key </summary>
                 var (uid, publicKeyDer) = await _clientConn
                     .ConnectToServerAsync(Username.Trim(), ServerIPAddress, cancellationToken)
@@ -1081,6 +1104,9 @@ namespace chat_client.MVVM.ViewModel
                 { 
                     // Notifies connection state first
                     OnPropertyChanged(nameof(IsConnected));
+
+                    // Resets manual-disconnect flag after successful connection
+                    _userHasClickedOnDisconnect = false;
 
                     // Updates display text after IsConnected is true
                     CurrentIPDisplay = "- " + LocalizationManager.GetString("Connected") + " -"; 
@@ -1204,25 +1230,23 @@ namespace chat_client.MVVM.ViewModel
             LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
 
         /// <summary>
-        /// Connects or disconnects the client depending on the current connection state.
-        /// Uses an asynchronous pattern so the UI thread is not blocked while the network
-        /// handshake runs. 
-        /// The method resumes on the UI context after awaits so subsequent
-        /// UI updates are safe.
+        /// Connects or disconnects the client depending on the current state.
+        /// Runs asynchronously so the UI thread stays responsive.
         /// </summary>
         public async Task ConnectDisconnectAsync()
         {
             if (_clientConn.IsConnected)
             {
+                _userHasClickedOnDisconnect = true;
+
+                // Sends DisconnectNotify without cancellation
+                await _clientConn.SendDisconnectNotifyToServerAsync(CancellationToken.None);
+
+                // Closes the connection
                 Disconnect();
                 return;
             }
 
-            // If not connected, start the asynchronous connect/handshake sequence.
-            // Awaiting ConnectAsync allows exceptions to propagate to the caller for handling.
-            // ConfigureAwait(true) requests that the continuation runs back on the captured
-            // synchronization context (the UI thread) so that any UI updates after the await
-            // are safe to perform directly.
             await ConnectAsync().ConfigureAwait(true);
         }
 
@@ -1237,6 +1261,8 @@ namespace chat_client.MVVM.ViewModel
         {
             try
             {
+                _suppressRosterNotifications = true;
+
                 /// <summary> Closes the underlying TCP connection via the client connection. </summary>
                 if (_clientConn?.IsConnected == true)
                 {
@@ -1245,6 +1271,9 @@ namespace chat_client.MVVM.ViewModel
 
                 /// <summary> Clears all user/message data in the view. </summary>
                 ReinitializeUI();
+
+                /// <summary> Clears message history for privacy and to avoid stale notifications. </summary>
+                Messages.Clear();
 
                 /// <summary> Updates connection state </summary>
                 OnPropertyChanged(nameof(IsConnected));
@@ -1273,83 +1302,119 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Applies a full roster snapshot from the server, updates the Users list,
-        /// and emits “X has joined” or “Y has left” messages only on subsequent updates.
-        /// Expects the incoming public key in DER byte[] form.
+        /// Applies a full roster snapshot from the server.
+        /// Updates the Users list and emits “X has joined” / “Y has left” notifications,
+        /// except for the local user or when notifications should be suppressed.
         /// </summary>
         /// <param name="rosterEntries">
         /// The complete list of connected users as tuples of (UserId, Username, PublicKeyDer).
         /// </param>
         public void DisplayRosterSnapshot(IEnumerable<(Guid UserId, string Username, byte[] PublicKeyDer)> rosterEntries)
         {
-            /// <summary> Materializes incoming roster for multiple passes </summary>
-            var incomingSnapshot = rosterEntries
-                .Select(e => (e.UserId, e.Username))
+            // Materializes incoming users snapshot
+            var incomingUsers = rosterEntries
+                .Select(e => (e.UserId, e.Username, e.PublicKeyDer))
                 .ToList();
 
-            /// <summary> On first snapshot, populates Users silently </summary>
+            // Builds a fast lookup
+            var incomingUsersLookup = incomingUsers.ToDictionary(e => e.UserId, e => e);
+
+            // First snapshot: silent initialization
             if (_isFirstRosterSnapshot)
             {
                 Users.Clear();
-                foreach (var (userId, username) in incomingSnapshot)
+
+                foreach (var usr in incomingUsers)
                 {
-                    /// <summary> Finds the corresponding tuple once and copies its DER bytes safely </summary>
-                    var entry = rosterEntries.First(e => e.UserId == userId);
                     Users.Add(new UserModel
                     {
-                        UID = userId,
-                        Username = username,
-                        PublicKeyDer = entry.PublicKeyDer ?? Array.Empty<byte>()
+                        UID = usr.UserId,
+                        Username = usr.Username,
+                        PublicKeyDer = usr.PublicKeyDer ?? Array.Empty<byte>()
                     });
                 }
 
-                /// <summary> Records this state and disables silent mode </summary>
-                _previousRosterSnapshot = incomingSnapshot;
-                _isFirstRosterSnapshot = false;
+                _previousRosterSnapshot = incomingUsers.Select(e => (e.UserId, e.Username)).ToList();
+                _isFirstRosterSnapshot = false; 
+                _suppressRosterNotifications = false;
                 return;
             }
 
-            /// <summary> Determines who joined (users in incoming but not in previous) </summary>
-            var joinedUsers = incomingSnapshot
-                .Except(_previousRosterSnapshot)
+            // Determines joined users whose UserId exists in 'incomingUsers'
+            // but does not exist in '_previousRosterSnapshot'.
+            // These represent newly connected users.
+            var joinedUsers = incomingUsers
+                .Where(e => !_previousRosterSnapshot.Any(p => p.UserId == e.UserId))
                 .ToList();
 
-            /// <summary> Determines who left (users in previous but not in incoming) </summary>
+            // Determine left users whose UserId existed in '_previousRosterSnapshot'
+            // but does not exist in 'incomingUsers' anymore.
+            // These represent users who have disconnected or left the room.
             var leftUsers = _previousRosterSnapshot
-                .Except(incomingSnapshot)
+                .Where(p => !incomingUsersLookup.ContainsKey(p.UserId))
                 .ToList();
 
-            /// <summary> For each joined user, only the username is needed for the notification. </summary>
-            foreach (var (_, username) in joinedUsers)
+            // Emits notifications for joined users (except local user)
+            foreach (var (userId, username, _) in joinedUsers)
             {
+                // Ignores notifications about the local user
+                if (userId == LocalUser.UID)
+                {
+                    continue;
+                }
+
+                // Ignores notifications if user manually disconnected
+                if (_userHasClickedOnDisconnect)
+                {
+                    continue;
+                }
+
+                if (_suppressRosterNotifications)
+                {
+                    continue;
+                }
+
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
             }
 
-            /// <summary> For each left user, only the username is needed for the notification. </summary>
-            foreach (var (_, username) in leftUsers)
+            // Emits notifications for left users (except local user)
+            foreach (var (userId, username) in leftUsers)
             {
+                if (userId == LocalUser.UID)
+                {
+                    continue;
+                }
+
+                if (_userHasClickedOnDisconnect)
+                {
+                    continue;
+                }
+
+                if (_suppressRosterNotifications)
+                {
+                    continue;
+                }
+
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
             }
-            
+
+            // Updates Users list
             Users.Clear();
 
-            /// <summary>
-            /// Iterates rosterEntries and assigns the DER public key directly to the user model.
-            /// Ensures a non-null byte[] by falling back to Array.Empty<byte>().
-            /// </summary>
-            foreach (var (userId, username, publicKeyDer) in rosterEntries)
+            foreach (var usr in incomingUsers)
             {
-                var safePublicKeyDer = publicKeyDer ?? Array.Empty<byte>();
-
                 Users.Add(new UserModel
                 {
-                    UID = userId,
-                    Username = username,
-                    PublicKeyDer = safePublicKeyDer
+                    UID = usr.UserId,
+                    Username = usr.Username,
+                    PublicKeyDer = usr.PublicKeyDer ?? Array.Empty<byte>()
                 });
             }
 
-            _previousRosterSnapshot = incomingSnapshot;
+            // Saves snapshot
+            _previousRosterSnapshot = incomingUsers.Select(usr => (usr.UserId, usr.Username)).ToList();
+
+            _suppressRosterNotifications = false;
         }
 
         /// <summary>
@@ -1422,51 +1487,40 @@ namespace chat_client.MVVM.ViewModel
             InitializeWatermarkBrush();
         }
 
-
         /// <summary>
-        /// Handles a server-initiated disconnect command.  
-        /// • Ensures the handler runs exactly once.  
-        /// • Suppresses all logic if the disconnect was explicitly requested by the user.  
-        /// • Clears the user list and posts a localized system message to chat history (only if not user-initiated).  
-        /// • Notifies UI bindings so dependent logic updates.  
-        /// • Performs cleanup without throwing from error paths.  
+        /// Handles a server-initiated disconnect.
+        /// Resets UI state, updates bindings and logs a user-visible notification.
         /// </summary>
         public void OnDisconnectedByServer()
         {
-            /// <summary>
-            /// Ensures the disconnect cleanup runs only once across threads.
-            /// Uses Interlocked.Exchange to set the sentinel _clientDisconnecting to 1.
-            /// If the previous value was non-zero, another thread already started cleanup,
-            /// so this call returns early to avoid duplicate socket closing or UI updates.
-            /// </summary>
-            if (Interlocked.Exchange(ref _clientDisconnecting, 1) != 0)
-            {
-                return;
-            }
+            // Hides the display of roster notifications
+            _suppressRosterNotifications = true;
 
-            Application.Current.Dispatcher.BeginInvoke(() =>
-            {
-                /// <summary>
-                /// Clears all entries from the UI user list.
-                /// </summary>
-                Users.Clear();
+            // Indicates if the disconnection is voluntary.
+            _userHasClickedOnDisconnect = false;
 
-                /// <summary>
-                /// Appends a localized system message to the chat history
-                /// only if the disconnect was not explicitly requested by the user.
-                /// </summary>
-                Messages.Add($"# {LocalizationManager.GetString("DisconnectedByServer")} #");
+            // Resets UI state (clears users, messages, input, etc)
+            ReinitializeUI();
 
-                /// <summary> Notifies UI bindings so dependent logic refreshes. </summary>
-                OnPropertyChanged(nameof(IsConnected));
-                OnPropertyChanged(nameof(ConnectButtonText));
+            // Notifies bindings that the connection state has changed
+            OnPropertyChanged(nameof(IsConnected));
 
-                /// <summary>
-                /// Resets the encryption initialization flag so that the next session
-                /// starts with a clean state.
-                /// </summary>
-                Volatile.Write(ref _encryptionInitOnce, 0);
-            });
+            // Restores last known IP address
+            CurrentIPDisplay = Settings.Default.ServerIPAddress;
+            OnPropertyChanged(nameof(CurrentIPDisplay));
+
+            // Updates connect button text
+            OnPropertyChanged(nameof(ConnectButtonText));
+
+            // Disables encryption pipeline
+            EncryptionPipeline?.DisableEncryption();
+            Volatile.Write(ref _encryptionInitOnce, 0);
+
+            // Clears history also for server-side disconnect
+            Messages.Clear();
+
+            // Adds a user-visible notification in the history
+            Messages.Add("# " + LocalizationManager.GetString("DisconnectedByServer") + " #");
         }
 
         /// <summary>
@@ -1480,8 +1534,10 @@ namespace chat_client.MVVM.ViewModel
         public void OnEncryptedMessageReceived(Guid senderUid, byte[] cipherBytes)
         {
             /// <summary> Validates that ciphertext is non-empty </summary>
-            if (cipherBytes == null || cipherBytes.Length == 0)
+            if (cipherBytes == null || cipherBytes.Length == 0) 
+            { 
                 return;
+            }
 
             /// <summary> Resolves sender name or falls back to UID string </summary>
             string username = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
@@ -1730,47 +1786,31 @@ namespace chat_client.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a user disconnect event (opcode: DisconnectNotify).
-        /// Removes the specified user from the roster,
-        /// updates the expected client count,
-        /// and rechecks encryption readiness if enabled.
+        /// Handles a server-issued DisconnectNotify event.
+        /// Removes the user from the local roster, updates the snapshot used 
+        /// for roster diffing, and emits a disconnect notification when appropriate.
         /// </summary>
-        /// <param name="uid">UID of the user who disconnected.</param>
+        /// <param name="userId">UID of the user who disconnected.</param>
         /// <param name="username">Display name of the user who disconnected.</param>
-        public void OnUserDisconnected(Guid uid, string username)
+        public void OnUserDisconnected(Guid userId, string username)
         {
-            try
+            var usr = Users.FirstOrDefault(u => u.UID == userId);
+
+            // Uses null‑conditional and null‑coalescing operators to pick the first non‑null, non‑empty value.
+            string realName = usr?.Username ?? username ?? "(unknown)";
+
+            if (usr != null)
             {
-                /// <summary>  Locates the user by UID  </summary> 
-                var user = Users.FirstOrDefault(u => u.UID == uid);
-                if (user == null)
-                    return;
-
-                /// <summary> Removes the user from the UI-bound list </summary> 
-                Users.Remove(user);
-
-                /// <summary> Updates the expected client count after removal </summary> 
-                ExpectedClientCount = Users.Count;
-                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", ClientLogLevel.Debug);
-
-                /// <summary> Rechecks encryption readiness when encryption is active 
-                if (Settings.Default.UseEncryption)
-                {
-                    if (EncryptionPipeline != null)
-                    {
-                        EncryptionPipeline.EvaluateEncryptionState();
-                    }
-                    else
-                    {
-                        ClientLogger.Log("OnUserDisconnected detects null pipeline — skip EvaluateEncryptionState.", ClientLogLevel.Warn);
-                    }
-                }
-
-                ClientLogger.LogLocalized("ClientRemoved", ClientLogLevel.Info, username);
+                Users.Remove(usr);
             }
-            catch (Exception ex)
+
+            _previousRosterSnapshot = Users.Select(u => (u.UID, u.Username)).ToList();
+
+            _suppressRosterNotifications = false;
+
+            if (!_userHasClickedOnDisconnect)
             {
-                ClientLogger.Log($"OnUserDisconnected handler fails: {ex.Message}", ClientLogLevel.Error);
+                Messages.Add($"# {realName} {LocalizationManager.GetString("HasDisconnected")} #");
             }
         }
 
@@ -1795,6 +1835,20 @@ namespace chat_client.MVVM.ViewModel
             // Clears the collections bound to the user list and chat window
             Users.Clear();
             Messages.Clear();
+
+            // Resets connection state
+            OnPropertyChanged(nameof(IsConnected));
+
+            // Restores the IP display
+            CurrentIPDisplay = Properties.Settings.Default.ServerIPAddress;
+            OnPropertyChanged(nameof(CurrentIPDisplay));
+
+            // Updates the connect button text
+            OnPropertyChanged(nameof(ConnectButtonText));
+
+            // Disables encryption pipeline
+            EncryptionPipeline?.DisableEncryption();
+            Volatile.Write(ref _encryptionInitOnce, 0);
         }
 
         /// <summary>

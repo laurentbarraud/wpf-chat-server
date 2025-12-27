@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 26th, 2025</date>
+/// <date>December 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -291,7 +291,7 @@ namespace chat_client.Net
                     _readerLock = new SemaphoreSlim(1, 1);
                 }
 
-                /// <summary> Generates a per-session UID </summary>
+                /// <summary> Generates a per-session UID that becomes the canonical ID on the server. </summary>
                 LocalUid = Guid.NewGuid();
 
                 /// <summary> Initializes public key for handshake (real if encryption enabled, dummy otherwise) </summary>
@@ -640,6 +640,8 @@ namespace chat_client.Net
                                     rosterEntries.Add((userId, username, publicKeyDer));
                                 }
 
+                                viewModel.UserHasClickedOnDisconnect = false;
+
                                 /// <summary> Posts roster snapshot update to UI thread </summary>
                                 _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                 {
@@ -716,32 +718,18 @@ namespace chat_client.Net
 
                             case ClientPacketOpCode.PublicKeyRequest:
                                 {
-                                    /// <summary>
-                                    /// Handles an incoming PublicKeyRequest packet.
-                                    /// Reads two GUIDs: target UID and requester UID.
-                                    /// Server relays [targetUid][requesterUid].
-                                    /// </summary>
                                     Guid first = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid second = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    /// <summary>
-                                    /// Determines requester UID based on packet order.
-                                    /// If the first GUID equals LocalUser.UID, then the second GUID is the requester.
-                                    /// </summary>
-                                    Guid requesterUid = (first == viewModel.LocalUser.UID) ? second : first;
+                                    // Compares with LocalUid (network identity)
+                                    Guid requesterUid = (first == LocalUid) ? second : first;
 
-                                    /// <summary>
-                                    /// Materializes the local public key (DER format).
-                                    /// Always responds, even if local encryption toggle is disabled.
-                                    /// </summary>
                                     var localKey = viewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
 
-                                    /// <summary>
-                                    /// Sends our public key back to the server for relay to the requester.
-                                    /// </summary>
                                     if (localKey?.Length > 0)
                                     {
-                                        await SendPublicKeyToServerAsync(viewModel.LocalUser.UID, localKey,
+                                        // Sends our public key using LocalUid (network identity)
+                                        await SendPublicKeyToServerAsync(LocalUid, localKey,
                                             requesterUid, cancellationToken).ConfigureAwait(false);
                                     }
                                     else
@@ -876,34 +864,34 @@ namespace chat_client.Net
             }
             finally
             {
-                /// <summary> Releases reader lock to avoid blocking other consumers </summary>
                 try 
-                { 
+                {
                     _readerLock.Release(); 
-                }
+                } 
+
                 catch { }
 
-                /// <summary> Notifies UI of disconnect asynchronously </summary>
                 try
                 {
                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
-                                          
-                        viewModel.OnDisconnectedByServer();
-                        
+                        // Do not notify the ViewModel if the user clicked Disconnect
+                        if (!viewModel.UserHasClickedOnDisconnect)
+                        {
+                            viewModel.OnDisconnectedByServer();
+                        }
                     }));
                 }
+
                 catch { }
 
-                /// <summary> Performs centralized cleanup of connection state </summary>
                 try 
-                {
+                { 
                     CleanConnection(); 
                 } 
-                catch 
-                { }
+                
+                catch { }
 
-                /// <summary> Resets opcode counter on disconnect </summary>
                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
             }
         }

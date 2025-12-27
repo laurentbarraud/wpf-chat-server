@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 26th, 2025</date>
+/// <date>December 27th, 2025</date>
 
 using chat_server.Helpers;
 using chat_server.Net;
@@ -111,10 +111,7 @@ namespace chat_server
         /// <summary>
         /// Executes the final cleanup sequence for this specific client connection,
         /// ensuring it runs exactly once even if multiple threads detect the disconnection.
-        /// This method atomically marks the connection as closed, removes the associated
-        /// user from the server’s active user list, releases connection resources, and
-        /// broadcasts a disconnect notification so that all remaining clients update
-        /// their rosters accordingly.
+        /// This method atomically marks the connection as closed.
         /// </summary>
         /// <remarks>
         /// Interlocked.CompareExchange is used to guarantee that only the first caller
@@ -124,8 +121,7 @@ namespace chat_server
         /// • 0 — the expected value; cleanup proceeds only if the flag was still 0.
         /// The return value is the previous state. If it was not 0, another thread has
         /// already executed cleanup, and the method exits immediately.
-        /// This prevents duplicate socket closes, duplicate user removals,
-        /// duplicate broadcast notifications, and reentrancy-related exceptions.
+        /// This prevents duplicate socket closes, duplicate user removals, etc.
         /// </remarks>
         private void CleanupAfterDisconnect()
         {
@@ -168,13 +164,13 @@ namespace chat_server
         internal void InitializeAfterHandshake(string username, Guid uid, byte[] publicKey, CancellationToken serverToken = default)
         {
             // Populates handshake-derived state
-            Username = username ?? string.Empty;
-            UID = uid;
+            this.Username = username ?? string.Empty;
+            this.UID = uid;
             PublicKeyDer = publicKey ?? Array.Empty<byte>();
             _handshakeProcessed = true;
 
             // Disposes any existing per-connection CTS and create a new linked CTS with the server token.
-            try 
+            try
             { 
                 _connectionCts?.Dispose(); 
             } 

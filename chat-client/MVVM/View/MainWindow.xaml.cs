@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 26th, 2025</date>
+/// <date>December 27th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -135,7 +135,7 @@ namespace chat_client.MVVM.View
             TrayMenuOpen = (MenuItem)FindName("TrayMenuOpen");
             TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
 
-            CmdSettings.ToolTip = LocalizationManager.GetString("Settings");
+            CmdSettings.ToolTip = LocalizationManager.GetString("SettingsToolTip");
             CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftToolTip");
             CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
 
