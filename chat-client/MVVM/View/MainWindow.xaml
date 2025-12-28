@@ -7,6 +7,7 @@
         xmlns:vm="clr-namespace:chat_client.MVVM.ViewModel"
         xmlns:tb="http://www.hardcodet.net/taskbar"
         xmlns:helpers="clr-namespace:chat_client.Helpers"
+        xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
         mc:Ignorable="d"
         Title="Chat client" 
         Height="491" 

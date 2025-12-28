@@ -217,7 +217,7 @@
     <value>Utiliser le port TCP :</value>
   </data>
   <data name="UseEncryptionLabel" xml:space="preserve">
-    <value>Utiliser le chiffrage des messages</value>
+    <value>Chiffrement des messages</value>
   </data>
   <data name="GettingMissingKeysToolTip" xml:space="preserve">
     <value>Obtention des clés manquantes...</value>

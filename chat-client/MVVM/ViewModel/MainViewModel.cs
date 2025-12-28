@@ -19,6 +19,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Data;
 
 
 namespace chat_client.MVVM.ViewModel
@@ -850,7 +851,7 @@ namespace chat_client.MVVM.ViewModel
         /// <summary>
         /// Gets the localized use encryption for messages label text
         /// </summary>
-        public static string UseEncryptionLabel => LocalizationManager.GetString("ReduceToTrayLabel");
+        public static string UseEncryptionLabel => LocalizationManager.GetString("UseEncryptionLabel");
 
         /// <summary>True if the user triggered a disconnect.</summary>
         public bool UserHasClickedOnDisconnect
@@ -941,36 +942,52 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public ObservableCollection<UserModel> Users { get; set; }
 
-        /// <summary>
-        /// Initializes the MainViewModel.
-        /// Sets up collections, creates pipeline and connection,
-        /// wires events, and configures UI commands.
+        /// <summary> 
+        /// Initializes the MainViewModel. 
+        /// Sets up observable collections, configures the client connection, 
+        /// initializes the encryption pipeline, and prepares UI‑bound data views.
         /// </summary>
         public MainViewModel()
         {
-            /// <summary> Initializes collections bound to the UI </summary>
+            // Initializes collections bound to the UI
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
 
-            /// <summary> Creates client connection with dispatcher callback and reference to this ViewModel </summary>
+            // Creates client connection with dispatcher callback and reference to this ViewModel.
+            // The dispatcher callback ensures that all UI‑affecting actions are marshalled back
+            // onto the WPF UI thread.
+            // Passing "this" allows the connection layer to push events into the ViewModel.
             _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action), this);
 
-            /// <summary> Creates encryption pipeline with ViewModel and client connection </summary>
+            // Gets the default view for the Users collection
+            // Note: WPF does not sort ObservableCollection automatically, so we obtain
+            // the default CollectionView and apply a SortDescription on Username. 
+            // This keeps the roster alphabetically ordered in the UI regardless
+            // of the order in which connection events arrive from the server.
+            var usersView = CollectionViewSource.GetDefaultView(Users);
+
+            // Ensures no previous sort rules remain.
+            usersView.SortDescriptions.Clear();
+
+            // Adds ascending sort on Username property.
+            usersView.SortDescriptions.Add(new SortDescription(nameof(UserModel.Username), ListSortDirection.Ascending));
+
+            // Creates encryption pipeline with ViewModel and client connection
             EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action)
             );
 
-            /// <summary> Relays pipeline PropertyChanged to proxy property for UI binding </summary>
+            // Relays pipeline PropertyChanged to proxy property for UI binding
             EncryptionPipeline.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(EncryptionPipeline.IsEncryptionReady))
                     OnPropertyChanged(nameof(IsEncryptionReady)); // Relay for UI
             };
 
-            /// <summary> Binds the connection to the pipeline </summary>
+            // Binds the connection to the pipeline
             _clientConn.EncryptionPipeline = EncryptionPipeline;
 
-            /// <summary> Subscribes to client connection events </summary>
+            // Subscribes to client connection events
             _clientConn.UserConnectedEvent += OnUserConnected;
             _clientConn.PlainMessageReceivedEvent += OnPlainMessageReceived;
             _clientConn.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
@@ -983,18 +1000,16 @@ namespace chat_client.MVVM.ViewModel
             Settings.Default.Reload();
             CurrentIPDisplay = Settings.Default.ServerIPAddress;
 
-            /// <summary> Subscribes to language changes to refresh UI text </summary>
+            // Subscribes to language changes to refresh UI text 
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
-            /// <summary> Creates Connect/Disconnect RelayCommand </summary>
+            // Creates Connect/Disconnect RelayCommand 
             ConnectDisconnectCommand = new RelayCommand(
                 () => { _ = ConnectDisconnectAsync(); },
                 () => true
             );
 
-            /// <summary>
-            /// Creates ThemeTogglandCommand, which is bound to the UI toggle button.
-            /// </summary>
+            // Creates ThemeTogglandCommand, which is bound to the UI toggle button.
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
                 /// <summary>
@@ -1020,7 +1035,7 @@ namespace chat_client.MVVM.ViewModel
 
             int savedDisplayFontSize = Properties.Settings.Default.DisplayFontSize;
 
-            /// <summary> Applies the font size (this triggers all layout updates) </summary>
+            // Applies the font size (this triggers all layout updates)
             DisplayFontSize = savedDisplayFontSize;
         }
 
