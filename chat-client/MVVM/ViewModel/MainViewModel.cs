@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 28th, 2025</date>
+/// <date>December 30th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -1082,12 +1082,12 @@ namespace chat_client.MVVM.ViewModel
                 _userHasClickedOnDisconnect = false;
                 _suppressRosterNotifications = true;
 
-                /// <summary> Performs handshake and retrieves UID and server public key </summary>
+                // Performs handshake and retrieves UID and server public key
                 var (uid, publicKeyDer) = await _clientConn
                     .ConnectToServerAsync(Username.Trim(), ServerIPAddress, cancellationToken)
                     .ConfigureAwait(false);
 
-                /// <summary> Guards against handshake failure (empty UID or key) </summary>
+                // Guards against handshake failure (empty UID or key)
                 if (uid == Guid.Empty || publicKeyDer == null || publicKeyDer.Length == 0)
                 {
                     ClientLogger.LogLocalized("ConnectionFailed", ClientLogLevel.Error);
@@ -1105,7 +1105,7 @@ namespace chat_client.MVVM.ViewModel
                     return;
                 }
 
-                /// <summary> Initializes LocalUser with handshake results </summary>
+                // Initializes LocalUser with handshake results
                 LocalUser = new UserModel 
                 { 
                     Username = Username.Trim(), 
@@ -1115,16 +1115,16 @@ namespace chat_client.MVVM.ViewModel
 
                 ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
 
-                /// <summary> Updates UI bindings to reflect connected state </summary>
+                // Updates UI bindings to reflect connected state
                 _ = Application.Current.Dispatcher.BeginInvoke(() => 
                 { 
-                    // Notifies connection state first
+                    // Notifies connection state
                     OnPropertyChanged(nameof(IsConnected));
 
-                    // Resets manual-disconnect flag after successful connection
+                    // Resets manual-disconnect flag
                     _userHasClickedOnDisconnect = false;
 
-                    // Updates display text after IsConnected is true
+                    // Updates display text
                     CurrentIPDisplay = "- " + LocalizationManager.GetString("Connected") + " -"; 
                     
                     // Notifies dependent UI elements
@@ -1134,58 +1134,50 @@ namespace chat_client.MVVM.ViewModel
 
                 ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
 
-                /// <summary> Initializes encryption only if requested by settings </summary>
                 if (Settings.Default.UseEncryption)
                 {
                     try
                     {
-                        /// <summary> Ensures client connection exists first </summary>
+                        // Ensures client connection exists first
                         _clientConn ??= new ClientConnection(action => 
                         Application.Current.Dispatcher.BeginInvoke(action), this);
 
-                        /// <summary> Ensures pipeline exists before usage </summary>
+                        // Ensures pipeline exists before usage
                         if (EncryptionPipeline == null)
                         {
-                            /// <summary> Creates encryption pipeline with ViewModel, client connection, and dispatcher </summary>
+                            // Creates encryption pipeline with ViewModel, client connection, and dispatcher 
                             EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
                                 action => Application.Current.Dispatcher.BeginInvoke(action)
                             );
 
-                            /// <summary> Bind connection to pipeline (bidirectional awareness if needed) </summary>
+                            // Binds connection to pipeline
                             _clientConn.EncryptionPipeline = EncryptionPipeline;
 
                             ClientLogger.Log("EncryptionPipeline is created before usage.", ClientLogLevel.Debug);
                         }
 
-                        /// <summary> Assigns in-memory RSA public key for this session </summary>
+                        //  Assigns in-memory RSA public key for this session
                         LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
                         ClientLogger.Log($"LocalUser.PublicKeyDer assigned — length={LocalUser.PublicKeyDer?.Length}", ClientLogLevel.Debug);
 
-                        /// <summary> Validates LocalUser.PublicKeyDer before use </summary>
+                        // Validates LocalUser.PublicKeyDer before use
                         if (LocalUser.PublicKeyDer == null || LocalUser.PublicKeyDer.Length == 0)
                         {
                             throw new InvalidOperationException("Public key not initialized");
                         }
 
-                        /// <summary> Synchronizes the local public key with ClientConnection </summary>
+                        // Synchronizes the local public key with ClientConnection
                         _clientConn.LocalPublicKey = LocalUser.PublicKeyDer;
 
-                        /// <summary> Delegates handshake completion and pipeline readiness </summary>
+                        // Delegates handshake completion and pipeline readiness
                         _clientConn.MarkHandshakeComplete(LocalUser.UID, LocalUser.PublicKeyDer);
                         ClientLogger.Log("Pipeline marked ready for session.", ClientLogLevel.Debug);
 
-                        /// <summary> Publishes the local public key to the server </summary>
-                        ClientLogger.Log("Sending public key to server...", ClientLogLevel.Debug);
-                        await _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer,
-                        LocalUser.UID, cancellationToken).ConfigureAwait(false);
-                        ClientLogger.Log("SendPublicKeyToServerAsync completed", ClientLogLevel.Debug);
-
-                        /// <summary> Initializes local encryption context </summary>
-                        ClientLogger.Log("Calling InitializeEncryptionAsync...", ClientLogLevel.Debug);
+                        // Initializes local encryption context
                         var encryptionInitOk = await EncryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
                         ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={encryptionInitOk}", ClientLogLevel.Debug);
 
-                        /// <summary> Evaluates encryption state and notify UI if needed </summary>
+                        // Evaluates encryption state and notify UI if needed 
                         var encryptionReady = EncryptionPipeline.EvaluateEncryptionState();
                         ClientLogger.Log($"EvaluateEncryptionState result — Ready={encryptionReady}", ClientLogLevel.Debug);
                     }
@@ -1195,7 +1187,7 @@ namespace chat_client.MVVM.ViewModel
                     }
                 }
 
-                /// <summary> Restores focus to message input for immediate typing </summary>
+                // Restores focus to message input for immediate typing
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
@@ -1206,7 +1198,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 ClientLogger.Log("Connection attempt canceled by user.", ClientLogLevel.Info);
 
-                /// <summary> Resets UI state after cancellation </summary>
+                // Resets UI state after cancellation
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     ReinitializeUI();
@@ -1222,7 +1214,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 ClientLogger.Log($"Fails to connect or handshake: {ex.Message}", ClientLogLevel.Error);
 
-                /// <summary> Displays error and resets UI to disconnected state </summary>
+                // Displays error and resets UI to disconnected state
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
@@ -1696,24 +1688,6 @@ namespace chat_client.MVVM.ViewModel
 
             if (isNewOrUpdatedKey)
             {
-                /// <summary>
-                /// Broadcasts the new key to all peers:
-                /// - Sends our local key to each peer (so they can encrypt for us).
-                /// - Sends each peer's key to the new sender (so it can encrypt for them).
-                /// This ensures symmetric distribution of keys across all clients.
-                /// </summary>
-                foreach (var peer in Users.Where(u => u.UID != LocalUser.UID && u.UID != senderUid))
-                {
-                    // Sends our local key to existing peers
-                    _ = _clientConn.SendPublicKeyToServerAsync(LocalUser.UID, LocalUser.PublicKeyDer!, peer.UID, CancellationToken.None);
-
-                    // Sends each peer's key to the new client
-                    if (EncryptionPipeline.KnownPublicKeys.TryGetValue(peer.UID, out var peerKey))
-                    {
-                        _ = _clientConn.SendPublicKeyToServerAsync(peer.UID, peerKey, senderUid, CancellationToken.None);
-                    }
-                }
-
                 /// <summary>
                 /// Re-evaluates encryption state after key distribution.
                 /// Ensures that EncryptionReady is only set when all peer keys are present.

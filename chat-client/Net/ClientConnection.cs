@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 28th, 2025</date>
+/// <date>December 30th, 2025</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -47,13 +47,6 @@ namespace chat_client.Net
         /// Reset to 0 during disconnect cleanup to allow fresh initialization.
         /// </summary>
         private int _encryptionInitOnce = 0;
-
-        /// <summary>
-        /// Indicates whether the local public key has already been sent to the server.
-        /// • Ensures idempotence: the key is transmitted only once after HandshakeAck.
-        /// • Prevents repeated key-send loops during reconnection or multiple ACK events.
-        /// </summary>
-        private bool _hasSentPublicKey = false;
 
         // Private backing PacketReader used internally (initialized in ConnectToServerAsync)
         private PacketReader? _packetReader;
@@ -190,7 +183,6 @@ namespace chat_client.Net
         private void CleanConnection()
         {
             /// <summary> Resets handshake and encryption flags for a fresh state </summary>
-            _hasSentPublicKey = false;
             _viewModel.ResetEncryptionPipelineAndUI();
             Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
@@ -654,20 +646,6 @@ namespace chat_client.Net
                                 /// <summary> Signals handshake completion </summary>
                                 _handshakeCompletionTcs?.TrySetResult(true);
                                 Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
-
-                                /// <summary>
-                                /// Sends public key once after ACK only if encryption was enabled at connect
-                                /// and there is at least one peer. Prevents unsolicited publish in solo.
-                                /// </summary>
-                                if (EncryptionHelper.IsEncryptionActive && !_hasSentPublicKey && _viewModel.Users.Count > 1)
-                                {
-                                    await SendPublicKeyToServerAsync(LocalUid, EncryptionHelper.PublicKeyDer, 
-                                        LocalUid, cancellationToken).ConfigureAwait(false);
-
-                                    _hasSentPublicKey = true;
-                                    ClientLogger.Log("Public key sent once after ACK (multi-client).", ClientLogLevel.Debug);
-                                }
-
                                 break;
 
                             case PacketOpCode.PlainMessage:

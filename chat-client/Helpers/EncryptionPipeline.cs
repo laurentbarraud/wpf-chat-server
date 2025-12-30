@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 28th, 2025</date>
+/// <date>December 30th, 2025</date>
 
 using chat_client.Net;
 using chat_client.MVVM.ViewModel;
@@ -40,11 +40,6 @@ namespace chat_client.Helpers
         /// Flag indicating if the pipeline is currently syncing keys
         /// </summary>
         private bool _isSyncingKeys;
-
-        /// <summary>
-        /// Flag to ensure we publish the local key only once
-        /// </summary>
-        private bool _localKeyPublished;
 
         /// <summary>
         /// Provides access to the active client connection for sending and receiving encryption data.
@@ -165,7 +160,6 @@ namespace chat_client.Helpers
 
             /// <summary> Clears peer keys and resets local publication state </summary>
             KnownPublicKeys.Clear();
-            _localKeyPublished = false;
 
             _viewModel.ResetEncryptionPipelineAndUI();
             
@@ -317,28 +311,6 @@ namespace chat_client.Helpers
             {
                 _viewModel.LocalUser.PrivateKeyDer = EncryptionHelper.PrivateKeyDer;
                 ClientLogger.Log("Materialized local private key from EncryptionHelper.", ClientLogLevel.Debug);
-            }
-
-            /// <summary>
-            /// Publishes the local public key once per session in multi-client mode.
-            /// Triggered only if the pipeline is ready, the key is present, and there are multiple users.
-            /// </summary>
-            if (_viewModel?.EncryptionPipeline?.IsEncryptionReady == true && !_localKeyPublished
-                && _viewModel.LocalUser.PublicKeyDer?.Length > 0  && _viewModel.Users.Count > 1)
-            {
-                bool sentPublicKeyToServer = await _clientConn.SendPublicKeyToServerAsync(_viewModel.LocalUser.UID,
-                _viewModel.LocalUser.PublicKeyDer ?? Array.Empty<byte>(), _viewModel.LocalUser.UID, 
-                cancellationToken).ConfigureAwait(false);
-
-                if (sentPublicKeyToServer)
-                {
-                    _localKeyPublished = true;
-                    ClientLogger.Log("InitializeEncryptionAsync: local public key published (multi-client).", ClientLogLevel.Debug);
-                }
-                else
-                {
-                    ClientLogger.Log("InitializeEncryptionAsync: local public key publication failed.", ClientLogLevel.Warn);
-                }
             }
 
             /// <summary> Injects the local key into KnownPublicKeys in solo mode. </summary>
