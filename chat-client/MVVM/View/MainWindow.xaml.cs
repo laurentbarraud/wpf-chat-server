@@ -8,15 +8,17 @@ using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
+using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
+
 
 
 namespace chat_client.MVVM.View
@@ -37,6 +39,19 @@ namespace chat_client.MVVM.View
         private int _emojiPanelHeight = 20;
 
         /// <summary>
+        /// Holds a reference to the internal ScrollViewer of the chat ListBox,
+        /// allowing reliable auto-scrolling when new messages are added.
+        /// </summary>
+        private ScrollViewer? _messagesScrollViewer;
+
+        /// <summary>
+        /// Indicates whether all persisted layout values (roster width and
+        /// input area height) should be restored after the first valid
+        /// layout pass of the window.
+        /// </summary>
+        private bool _pendingInitialRestore = true;
+
+        /// <summary>
         /// Stores the timestamp of the last Ctrl key press.
         /// Used for detecting double-press or timing-based shortcuts.
         /// </summary>
@@ -44,13 +59,6 @@ namespace chat_client.MVVM.View
 
         /// <summary>  Defines the minimum allowed height for the input area. </summary>
         private const double MinInputAreaHeight = 34;
-       
-        /// <summary>
-        /// Indicates whether all persisted layout values (roster width and
-        /// input area height) should be restored after the first valid
-        /// layout pass of the window.
-        /// </summary>
-        private bool _pendingInitialRestore = true;
 
         /// <summary> Used for horizontal scrolling animations (emoji panel auto‑scroll on hover). </summary>
         private readonly DispatcherTimer scrollTimer;
@@ -367,6 +375,43 @@ namespace chat_client.MVVM.View
             }
         }
 
+        /// <summary>
+        /// Tries to find a child element of type T somewhere inside the visual tree.
+        /// Gets the ScrollViewer hidden inside the ListBox template.
+        /// </summary>
+        private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            // Number of children inside this visual element
+            int childCount = VisualTreeHelper.GetChildrenCount(parent);
+
+            // Loops through all direct children
+            for (int childIndex = 0; childIndex < childCount; childIndex++)
+            {
+                // Gets the child at the current index
+                DependencyObject currentChild = VisualTreeHelper.GetChild(parent, childIndex);
+
+                // If the child is already the type we want, returns it
+                if (currentChild is T typedChild)
+                {
+                    return typedChild;
+                }
+
+                // Otherwise, try to search deeper inside this child
+                T? foundChild = FindVisualChild<T>(currentChild);
+
+                // If something was found deeper, returns it
+                if (foundChild != null)
+                {
+                    return foundChild;
+                }
+            }
+
+            // If nothing was found at all, returns null
+            return null;
+        }
+
+
+
         private void GrdMain_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             double totalWidth = GrdMain.ActualWidth;
@@ -524,6 +569,14 @@ namespace chat_client.MVVM.View
             }
         }
 
+        /// <summary> 
+        /// Captures the internal ScrollViewer of the chat ListBox once the visual tree 
+        /// is fully loaded, enabling direct scrolling to the bottom.
+        /// </summary>
+        private void lstReceivedMessages_Loaded(object sender, RoutedEventArgs e)
+        {
+            _messagesScrollViewer = FindVisualChild<ScrollViewer>(lstReceivedMessages);
+        }
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
             // If “minimize to tray” is enabled, cancel close and hide instead
@@ -596,15 +649,19 @@ namespace chat_client.MVVM.View
             }
         }
 
-        /// <summary>
-        /// Auto-scrolls the chat view when new messages are added to the collection.
+        /// <summary> 
+        /// Automatically scrolls the chat view to the latest message
+        /// whenever a new item is added to the collection. 
+        /// Uses the internal ScrollViewer to ensure reliable scrolling
+        /// even with custom ListBox templates.
         /// </summary>
         private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action != NotifyCollectionChangedAction.Add)
+            {
                 return;
+            }
 
-            // UI not ready yet
             if (lstReceivedMessages.Items.Count == 0)
             {
                 return;
@@ -617,11 +674,13 @@ namespace chat_client.MVVM.View
                 return;
             }
 
-            // Lets the UI update, then scrolls
+            // Waits for the UI to finish layout updates, then scrolls.
+            // BeginInvoke with Background priority runs after rendering,
+            // ensuring the ScrollViewer scrolls to the bottom once the new message appears.
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                lstReceivedMessages.ScrollIntoView(lstReceivedMessages.Items[lastIndex]);
-            }), System.Windows.Threading.DispatcherPriority.Background);
+                _messagesScrollViewer?.ScrollToEnd();
+            }), DispatcherPriority.Background);
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -530,6 +530,7 @@
             <ListView x:Name="lstReceivedMessages"
                       Grid.Row="0"
                       ItemsSource="{Binding Messages}"
+                      Loaded="lstReceivedMessages_Loaded"
                       Background="{DynamicResource BackgroundBrush}"
                       Foreground="{DynamicResource ForegroundBrush}"
                       VerticalAlignment="Stretch"
