@@ -1173,6 +1173,11 @@ namespace chat_client.MVVM.ViewModel
                         _clientConn.MarkHandshakeComplete(LocalUser.UID, LocalUser.PublicKeyDer);
                         ClientLogger.Log("Pipeline marked ready for session.", ClientLogLevel.Debug);
 
+                        // Resets encryption state for this new session
+                        EncryptionPipeline.KnownPublicKeys.Clear();
+                        EncryptionPipeline.IsEncryptionReady = false;
+                        await EncryptionPipeline.SyncKeysAsync(cancellationToken).ConfigureAwait(false);
+
                         // Initializes local encryption context
                         var encryptionInitOk = await EncryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
                         ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={encryptionInitOk}", ClientLogLevel.Debug);

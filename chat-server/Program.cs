@@ -40,18 +40,18 @@ namespace chat_server
         /// </summary>
         public static async Task Main(string[] args)
         {
-            // <summary> Initializes localization based on system language </summary>
+            // Initializes localization based on system language.
             string uiLang = CultureInfo.CurrentCulture.TwoLetterISOLanguageName.Equals("fr", StringComparison.OrdinalIgnoreCase) ? "fr" : "en";
             LocalizationManager.Initialize(uiLang);
 
-            // <summary> Ensures console supports UTF-8 output </summary>
+            // Ensures console supports UTF-8 output.
             Console.OutputEncoding = Encoding.UTF8;
 
-            // <summary> Cancellation token for accept loop and background tasks </summary>
+            // Cancellation token for accept loop and background tasks.
             _acceptCts = new CancellationTokenSource();
             CancellationToken token = _acceptCts.Token;
 
-            // <summary> Graceful Ctrl+C shutdown </summary>
+            // Graceful Ctrl+C shutdown.
             Console.CancelKeyPress += (s, e) => 
             { 
                 e.Cancel = true; _exitByCtrlC = true; 
@@ -59,7 +59,7 @@ namespace chat_server
                 _acceptCts.Cancel(); 
             };
 
-            // <summary> Graceful shutdown on process exit </summary>
+            // Graceful shutdown on process exit.
             AppDomain.CurrentDomain.ProcessExit += (s, e) => 
             { 
                 if (!_exitByCtrlC) 
@@ -68,7 +68,7 @@ namespace chat_server
                 } 
             };
 
-            // <summary> Display banner and prompt for port </summary>
+            // Display banner and prompt for port.
             DisplayBanner();
             int port = GetPortFromUser();
 
@@ -79,7 +79,7 @@ namespace chat_server
                 Listener.Start();
                 Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
 
-                // <summary> Accept loop — exits when Listener.Stop() is called or token is cancelled </summary>
+                // Accept loop — exits when Listener.Stop() is called or token is cancelled.
                 while (!token.IsCancellationRequested)
                 {
                     TcpClient tcpClient;
@@ -96,7 +96,7 @@ namespace chat_server
                         await Task.Delay(100, token).ConfigureAwait(false); continue; 
                     }
 
-                    // <summary> Handles accepted client on background task </summary>
+                    // Handles accepted client on background task.
                     _ = Task.Run(async () =>
                     {
                         ServerConnectionHandler? client = null;
@@ -104,12 +104,12 @@ namespace chat_server
                         {
                             var networkStream = tcpClient.GetStream();
 
-                            // <summary> Read 4-byte big-endian header </summary>
+                            // Read 4-byte big-endian header.
                             byte[] header = await PacketReader.ReadExactAsync(networkStream, 4, token).ConfigureAwait(false);
                             int payloadLength = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3];
                             if (payloadLength <= 0 || payloadLength > 65_536) { tcpClient.Close(); return; }
 
-                            // <summary> Reads payload and parse handshake </summary>
+                            // Reads payload and parse handshake.
                             byte[] payload = await PacketReader.ReadExactAsync(networkStream, payloadLength, token).ConfigureAwait(false);
                             using var memoryStream = new MemoryStream(payload);
                             var reader = new PacketReader(memoryStream);
@@ -122,18 +122,24 @@ namespace chat_server
                             string username = await reader.ReadStringAsync(token).ConfigureAwait(false);
                             Guid uid = await reader.ReadUidAsync(token).ConfigureAwait(false);
 
-                            // <summary> Reads and validates the public key from the handshake payload (always present in protocol) </summary>
+                            // Reads and validates the public key from the handshake payload (always present in protocol).
                             int publicKeyLength = await reader.ReadInt32NetworkOrderAsync(token).ConfigureAwait(false);
                             const int MaxPublicKeyLength = 65_536;
                             if (publicKeyLength < 0 || publicKeyLength > MaxPublicKeyLength) { tcpClient.Close(); return; }
 
                             byte[] publicKey = await PacketReader.ReadExactAsync(memoryStream, publicKeyLength, token).ConfigureAwait(false);
 
-                            // <summary> Initializes client after handshake with the raw public key (can be empty) </summary>
+                            // Initializes client after handshake with the raw public key (can be empty).
                             client = new ServerConnectionHandler(tcpClient);
                             client.InitializeAfterHandshake(username, uid, publicKey, token);
 
-                            // <summary> Adds client to roster and log localized connection </summary>
+                            // Removes any previous session using the same username
+                            lock (Users)
+                            {
+                                Users.RemoveAll(u => u.Username == username); 
+                            } 
+
+                            // Adds client to roster and log localized connection.
                             lock (Users) 
                             { 
                                 Users.Add(client); 
@@ -141,12 +147,12 @@ namespace chat_server
                             
                             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, username);
 
-                            // <summary> Sends HandshakeAck (framed) </summary>
+                            // Sends HandshakeAck (framed).
                             var ack = new PacketBuilder();
                             ack.WriteOpCode((byte)PacketOpCode.HandshakeAck);
                             await SendFramedAsync(client, ack.GetPacketBytes(), token).ConfigureAwait(false);
 
-                            // <summary> Broadcasts roster after ack so all clients get updated keys (empty keys included) </summary>
+                            // Broadcasts roster after ack so all clients get updated keys (empty keys included).
                             await BroadcastRosterAsync(token).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException) 
@@ -157,7 +163,7 @@ namespace chat_server
                     }, token);
                 }
 
-                // <summary> Graceful shutdown once loop exits </summary>
+                // Graceful shutdown once loop exits.
                 await ShutdownAsync(token).ConfigureAwait(false);
             }
             catch (Exception ex)
