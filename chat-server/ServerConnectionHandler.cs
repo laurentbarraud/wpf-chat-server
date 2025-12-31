@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 30th, 2025</date>
+/// <date>December 31th, 2025</date>
 
 using System;
 using System.Net.Sockets;
@@ -285,11 +285,9 @@ namespace chat_server
 
                             case PacketOpCode.PublicKeyRequest:
                                 {
-                                    /// <summary>
-                                    /// Handles a public-key request packet.
-                                    /// Reads requester and target UIDs, then relays the request to the target client.
-                                    /// This path is tolerant: if target not connected/established, logs and returns without fatal error.
-                                    /// </summary>
+                                    // Handles a public-key request packet.
+                                    // Reads requester and target UIDs, then relays the request to the target client.
+                                    // This path is tolerant: if target not connected/established, logs and returns without fatal error.
                                     var requestSender = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     var requestTarget = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
@@ -299,20 +297,16 @@ namespace chat_server
 
                             case PacketOpCode.PublicKeyResponse:
                                 {
-                                    /// <summary>
-                                    /// Reads origin UID, DER key, and requester UID from the packet.
-                                    /// • originUserKeyUid: owner of the public key being registered/updated
-                                    /// • publicKey: DER-encoded RSA public key (may be empty for "clear mode")
-                                    /// • publicKeyRequesterUid: target user who requested this key
-                                    /// </summary>
+                                    // Reads origin UID, DER key, and requester UID from the packet.
+                                    // • originUserKeyUid: owner of the public key being registered/updated
+                                    // • publicKey: DER-encoded RSA public key (may be empty for "clear mode")
+                                    // • publicKeyRequesterUid: target user who requested this key
                                     var requesterUserPublicKeyUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     var publicKey = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
                                     var publicKeyRequesterUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    /// <summary>
-                                    /// Updates the origin user's public key in the in-memory roster (if present).
-                                    /// This keeps the server-side snapshot consistent for subsequent broadcasts.
-                                    /// </summary>
+                                    // Updates the origin user's public key in the in-memory roster (if present).
+                                    // This keeps the server-side snapshot consistent for subsequent broadcasts.
                                     var requesterUser = Program.Users.FirstOrDefault(u => u.UID == requesterUserPublicKeyUid);
                                     
                                     if (requesterUser != null)
@@ -325,20 +319,13 @@ namespace chat_server
                                         ServerLogger.Log($"Origin user {requesterUserPublicKeyUid} not found in roster; proceeding to relay.", ServerLogLevel.Warn);
                                     }
 
-                                    /// <summary>
-                                    /// Relays origin's public key to the requester using the centralized helper.
-                                    /// Ensures the requester receives exactly one consistent packet.
-                                    /// </summary>
+                                    // Relays origin's public key to the requester using the centralized helper.
                                     await Program.RelayPublicKeyToUser(requesterUserPublicKeyUid, publicKey ?? Array.Empty<byte>(),
                                         publicKeyRequesterUid, cancellationToken).ConfigureAwait(false);
 
-                                    /// <summary>
-                                    /// Broadcasts the newly registered/updated key to all other peers.
-                                    /// Also sends each peer's existing key back to the origin user.
-                                    /// This ensures symmetric distribution so all clients can encrypt for one another.
-                                    /// </summary>
-                                    await Program.BroadcastNewPublicKeyAsync(publicKey ?? Array.Empty<byte>(),
-                                        cancellationToken).ConfigureAwait(false);
+                                    // Broadcasts the newly registered/updated key to all other peers.
+                                    await Program.BroadcastNewPublicKeyAsync(requesterUserPublicKeyUid, publicKey ?? Array.Empty<byte>(), cancellationToken);
+
                                     break;
                                 }
 

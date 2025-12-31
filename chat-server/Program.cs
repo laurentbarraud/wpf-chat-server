@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 30th, 2025</date>
+/// <date>December 31th, 2025</date>
 
 using System;
 using chat_server.Helpers;
@@ -390,59 +390,45 @@ namespace chat_server
         }
 
         /// <summary>
-        /// BroadcastNewPublicKeyAsync
-        /// Distributes the server's public key to all connected clients in a single operation.
-        /// Ensures protocol consistency so that every client has the correct key.
+        /// Distributes a user's public key to all connected clients using a unified,
+        /// protocol‑consistent PublicKeyResponse format:
+        /// [opcode=PublicKeyResponse][originUid][lenKey][keyBytes][requesterUid]
         /// </summary>
-        /// <param name="publicKey">The server public key bytes to distribute.</param>
-        /// <param name="cancellationToken">Cancellation token for the broadcast operation.</param>
-        public static async Task BroadcastNewPublicKeyAsync(byte[] publicKey, CancellationToken cancellationToken)
+        /// <param name="originUid">
+        /// The UID of the user whose public key is being broadcast.
+        /// </param>
+        /// <param name="publicKey">
+        /// The DER‑encoded RSA public key bytes to distribute.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// Cancellation token for the broadcast operation.
+        /// </param>
+        public static async Task BroadcastNewPublicKeyAsync(Guid originUid, byte[] publicKey, CancellationToken cancellationToken)
         {
-            /// <summary> Snapshots current users to avoid collection modification issues during iteration. </summary>
             var snapshotUsers = Users.ToList();
-
-            /// <summary> Pre-allocates task list sized to the snapshot for efficient awaits. </summary>
             var sendTasks = new List<Task>(snapshotUsers.Count);
 
             foreach (var target in snapshotUsers)
             {
                 if (!target.ClientSocket.Connected)
+                {
                     continue;
+                }
 
-                /// <summary>
-                /// Builds the packet:
-                /// [4-byte big-endian length][1-byte opcode: PublicKeyResponse][4-byte key length][key bytes]
-                /// Keeps the framing consistent with other server packets.
-                /// </summary>
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)PacketOpCode.PublicKeyResponse);
-
-                /// <summary>Writes the public key payload with an explicit length prefix. </summary>
-                /// <remarks>This allows variable key sizes.</remarks>
+                builder.WriteUid(originUid);
                 builder.WriteBytesWithLength(publicKey);
+                builder.WriteUid(target.UID);
 
                 byte[] payload = builder.GetPacketBytes();
 
-                ServerLogger.Log(
-                    $"PUBKEY_BROADCAST_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}",
-                    ServerLogLevel.Debug
-                );
-
-                /// <summary>
-                /// Per-target async send task with framed delivery and localized logging.
-                /// Ensures one failing client does not break the whole broadcast loop.
-                /// </summary>
                 var sendTask = Task.Run(async () =>
                 {
                     try
                     {
-                        /// <summary> Sends framed payload to the client's socket. </summary>
                         await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
                         ServerLogger.LogLocalized("PublicKeyRelaySuccess", ServerLogLevel.Debug, target.Username);
-                    }
-                    catch (OperationCanceledException)
-                    {
-
                     }
                     catch (Exception ex)
                     {
@@ -450,21 +436,15 @@ namespace chat_server
                     }
                 }, cancellationToken);
 
-                /// <summary> Track per-target task for a consolidated await at the end. </summary>
                 sendTasks.Add(sendTask);
             }
 
-            /// <summary>
-            /// Awaits all send tasks to complete the broadcast as a single operation,
-            /// keeping cancellation responsive.
-            /// </summary>
-            try
-            {
-                await Task.WhenAll(sendTasks).ConfigureAwait(false);
+            try 
+            { 
+                await Task.WhenAll(sendTasks).ConfigureAwait(false); 
             }
-            catch (OperationCanceledException)
-            {
-            }
+            catch (OperationCanceledException) 
+            { }
         }
 
         /// <summary>

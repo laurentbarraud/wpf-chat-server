@@ -610,8 +610,14 @@
                       VerticalAlignment="Bottom"
                       Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
 
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
                     <!-- Emoji toggle button -->
                     <Button x:Name="CmdEmojiPanel"
+                            Grid.Column="0"
                             Click="CmdEmojiPanel_Click"
                             Width="32"
                             Height="32"
@@ -629,9 +635,11 @@
 
                     <!-- Encryption icon -->
                     <Image x:Name="imgEncryptionStatus"
+                           Grid.Column="1"
                            Width="15"
                            Height="15"
                            VerticalAlignment="Center"
+                           Margin="2,0,0,0"
                            Style="{StaticResource EncryptionStatusIconStyle}"/>
 
                     <!-- Emoji popup -->
