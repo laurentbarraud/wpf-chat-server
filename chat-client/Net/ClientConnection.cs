@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 1st, 2026</date>
+/// <date>January 2nd, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -114,30 +114,6 @@ namespace chat_client.Net
         // Fired when the connection is being terminated.
         // Subscribers should reset their roster snapshot state.
         public event Action? ConnectionTerminated;
-
-        // A new user joined (opcode 1)
-        //   Parameters: uid, username, publicKey
-        public event Action<Guid, string, byte[]>? UserConnectedEvent;
-
-        // A plain-text message arrived (opcode 5)
-        //   Parameter: the fully formatted text
-        public event Action<string, string>? PlainMessageReceivedEvent;
-
-        /// Raised when the server delivers an encrypted message (opcode 11).
-        /// Parameters: sender GUID and raw ciphertext bytes
-        public event Action<Guid, byte[]>? EncryptedMessageReceivedEvent;
-
-        // A peer’s public key arrived (opcode 6)
-        //   Parameters: senderUid, publicKeyDer
-        public event Action<Guid, byte[]>? PublicKeyReceivedEvent;
-   
-        // A user disconnected (opcode 10)
-        //   Parameters: uid, username
-        public event Action<Guid, string>? UserDisconnectedEvent;
-
-        // Server-initiated disconnect (opcode 12)
-        //   No parameters
-        public event Action? DisconnectedByServerEvent;
 
         /// <summary>
         /// Initializes a new ClientConnection instance.
@@ -698,21 +674,15 @@ namespace chat_client.Net
                                         break;
                                     }
 
-                                    // Posts encrypted message reception to UI thread for centralized handling
+                                    // Forwards encrypted messages to the ViewModel
                                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                     {
-                                        // If encryption is disabled, ignores encrypted messages
-                                        if (!Settings.Default.UseEncryption)
-                                        {
-                                            ClientLogger.Log("Encrypted message ignored because encryption is OFF.", ClientLogLevel.Info);
-                                            return;
-                                        }
-
                                         _viewModel.OnEncryptedMessageReceived(encryptedSenderUid, cipherBytes);
                                     }));
 
                                     break;
                                 }
+
 
                             case PacketOpCode.PublicKeyRequest:
                                 {

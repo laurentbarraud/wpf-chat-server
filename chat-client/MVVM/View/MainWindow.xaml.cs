@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 1st, 2026</date>
+/// <date>January 2nd, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.View;
@@ -301,8 +301,8 @@ namespace chat_client.MVVM.View
 
                 if (success)
                 {
-                    // Clears the input box and refocuses it on success
-                    TxtMessageInputField.Text = "";
+                    // The TextBox will automatically empty thanks to the binding.
+                    MainViewModel.MessageToSend = "";
                     TxtMessageInputField.Focus();
                 }
                 else

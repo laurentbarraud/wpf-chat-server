@@ -1,7 +1,7 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 1st, 2026</date>
+/// <date>January 2nd, 2026</date>
 
 using System;
 using System.Windows;

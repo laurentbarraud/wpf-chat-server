@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 1st, 2026</date>
+/// <date>January 2nd, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -49,10 +49,13 @@ namespace chat_client.MVVM.ViewModel
         private string _appLanguage = Properties.Settings.Default.AppLanguageCode;
 
         /// <summary>
-        /// Backing field for the active client connection instance.
-        /// Manages the network session and exposes connection state.
+        /// Backing field for the active client connection.
+        /// Initialized immediately after establishing the TCP session and guaranteed
+        /// to be non-null before any roster or message handling occurs.
+        /// This follows the MVVM pattern where dependencies are assigned after
+        /// construction, and the null-forgiving initialization is intentional.
         /// </summary>
-        private ClientConnection _clientConn;
+        private ClientConnection _clientConn = null!;
 
         /// <summary>
         /// Holds the localized text displayed in the IP address field
@@ -212,8 +215,10 @@ namespace chat_client.MVVM.ViewModel
 
 
         /// <summary>
-        /// Gets the active client connection instance used by the ViewModel
-        /// to manage the network session and monitor connection state.
+        /// Gets the active client connection used by the ViewModel to manage the
+        /// network session and monitor connection state. The underlying field is
+        /// initialized right after establishing the TCP session and is guaranteed
+        /// to be non-null for the lifetime of the ViewModel.
         /// </summary>
         public ClientConnection ClientConn => _clientConn;
 
@@ -987,14 +992,6 @@ namespace chat_client.MVVM.ViewModel
             // Binds the connection to the pipeline
             _clientConn.EncryptionPipeline = EncryptionPipeline;
 
-            // Subscribes to client connection events
-            _clientConn.UserConnectedEvent += OnUserConnected;
-            _clientConn.PlainMessageReceivedEvent += OnPlainMessageReceived;
-            _clientConn.EncryptedMessageReceivedEvent += OnEncryptedMessageReceived;
-            _clientConn.PublicKeyReceivedEvent += OnPublicKeyReceived;
-            _clientConn.UserDisconnectedEvent += OnUserDisconnected;
-            _clientConn.DisconnectedByServerEvent += OnDisconnectedByServer;
-
             // Reloads user-scoped settings from disk to ensure the ViewModel
             // starts with the most recently saved values.
             Settings.Default.Reload();
@@ -1360,6 +1357,24 @@ namespace chat_client.MVVM.ViewModel
                 .Where(e => !_previousRosterSnapshot.Any(p => p.UserId == e.UserId))
                 .ToList();
 
+            // If encryption is enabled, request missing public keys for newly joined users
+            if (Settings.Default.UseEncryption)
+            {
+                foreach (var (userId, _, publicKeyDer) in joinedUsers)
+                {
+                    if (publicKeyDer != null && publicKeyDer.Length > 0)
+                    {
+                        _clientConn!.EncryptionPipeline!.KnownPublicKeys[userId] = publicKeyDer;
+                    }
+                    else
+                    {
+                        _ = _clientConn!.SendRequestToPeerForPublicKeyAsync(userId, CancellationToken.None);
+                    }
+                }
+
+                _clientConn!.EncryptionPipeline!.EvaluateEncryptionState();
+            }
+
             // Determine left users whose UserId existed in '_previousRosterSnapshot'
             // but does not exist in 'incomingUsers' anymore.
             // These represent users who have disconnected or left the room.
@@ -1535,6 +1550,17 @@ namespace chat_client.MVVM.ViewModel
             // Adds a user-visible notification in the history
             Messages.Add("# " + LocalizationManager.GetString("DisconnectedByServer") + " #");
         }
+
+        /// <summary>
+        /// Handles an incoming encrypted message from the network.
+        /// Always validates ciphertext, resolves the sender's display name,
+        /// and applies the correct behavior depending on the client's encryption state:
+        /// - If encryption is OFF, displays a localized warning instead of attempting decryption.
+        /// - If a private key is available, attempts RSA decryption and posts the plaintext to the UI.
+        /// - If decryption fails, logs the error and displays a fallback placeholder.
+        /// - If no private key exists, displays the raw ciphertext as a last-resort fallback.
+        /// All UI updates are dispatched to the main thread.
+        /// </summary>
 
         public void OnEncryptedMessageReceived(Guid senderUid, byte[] cipherBytes)
         {
