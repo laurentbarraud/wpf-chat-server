@@ -224,6 +224,15 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Please enable encryption to keep reading encrypted messages..
+        /// </summary>
+        public static string EncryptionRequired {
+            get {
+                return ResourceManager.GetString("EncryptionRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à You must be connected to the server to enable encryption..
         /// </summary>
         public static string EncryptionRequiresConnection {
@@ -386,7 +395,7 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.0 - dec. 2025 - Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.0 - Jan. 2026 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {

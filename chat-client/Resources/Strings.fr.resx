@@ -178,7 +178,7 @@
     <value>L’adresse IP est incorrecte. Laissez-la vide pour vous connecter localement.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.0 - déc. 2025 - Laurent Barraud </value>
+    <value> v1.0 - . janv. 2026 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>Ce logiciel open‑source est fourni dans l'espoir qu'il sera utile, mais sans garantie.</value>
@@ -320,5 +320,8 @@ depuis la gauche</value>
   </data>
   <data name="IPAddressWatermark" xml:space="preserve">
     <value>Adresse IP du serveur</value>
+  </data>
+  <data name="EncryptionRequired" xml:space="preserve">
+    <value>Veuillez activer le chiffrement pour continuer à lire les messages reçus.</value>
   </data>
 </root>

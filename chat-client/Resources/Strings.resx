@@ -178,7 +178,7 @@
     <value>The IP address is incorrect. Leave it blank to connect locally.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.0 - dec. 2025 - Laurent Barraud </value>
+    <value> v1.0 - Jan. 2026 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>This open-source software is distributed in the hope that it will be useful, but without any warranty.</value>
@@ -318,5 +318,8 @@ and connected users list</value>
   </data>
   <data name="IPAddressWatermark" xml:space="preserve">
     <value>Server IP address</value>
+  </data>
+  <data name="EncryptionRequired" xml:space="preserve">
+    <value>Please enable encryption to keep reading encrypted messages.</value>
   </data>
 </root>

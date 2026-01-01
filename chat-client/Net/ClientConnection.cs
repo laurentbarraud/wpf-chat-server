@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>December 31th, 2025</date>
+/// <date>January 1st, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -681,26 +681,33 @@ namespace chat_client.Net
                                 }
                             case PacketOpCode.EncryptedMessage:
                                 {
-                                    // Resets unexpected-opcode counter..
+                                    // Resets unexpected-opcode counter
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                    // Reads sender UID and discards recipient UID..
+                                    // Reads sender UID and discards recipient UID
                                     Guid encryptedSenderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    // Reads ciphertext payload..
+                                    // Reads ciphertext payload
                                     byte[] cipherBytes = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
 
-                                    // Validates ciphertext presence..
+                                    // Validates ciphertext presence
                                     if (cipherBytes == null || cipherBytes.Length == 0)
                                     {
                                         ClientLogger.Log("Encrypted payload empty; dropping.", ClientLogLevel.Warn);
                                         break;
                                     }
 
-                                    // Posts encrypted message reception to UI thread for centralized handling..
+                                    // Posts encrypted message reception to UI thread for centralized handling
                                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                     {
+                                        // If encryption is disabled, ignores encrypted messages
+                                        if (!Settings.Default.UseEncryption)
+                                        {
+                                            ClientLogger.Log("Encrypted message ignored because encryption is OFF.", ClientLogLevel.Info);
+                                            return;
+                                        }
+
                                         _viewModel.OnEncryptedMessageReceived(encryptedSenderUid, cipherBytes);
                                     }));
 
@@ -1130,18 +1137,18 @@ namespace chat_client.Net
         /// <returns>True if at least one packet was sent.</returns>
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
-            /// <summary> Validates input and local user presence. </summary>
+            // Validates input and local user presence.
             if (string.IsNullOrWhiteSpace(plainText) || _viewModel?.LocalUser == null)
                 return false;
 
             Guid senderUid = _viewModel.LocalUser.UID;
             
-            /// <summary> Collects all users except the sender as recipients. </summary>
+            // Collects all users except the sender as recipients.
             var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
             bool isEncryptionReady = (_viewModel?.EncryptionPipeline?.IsEncryptionReady == true);
             bool messageSent = false;
 
-            /// <summary> Multi-recipient mode. </summary>
+            // Multi-recipient mode.
             foreach (var recipient in recipients)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1149,14 +1156,14 @@ namespace chat_client.Net
 
                 if (!isEncryptionReady)
                 {
-                    /// <summary> Plain packet with sender UID and text. </summary>
+                    // Plain packet with sender UID and text.
                     plainPacket.WriteOpCode((byte)PacketOpCode.PlainMessage);
                     plainPacket.WriteUid(senderUid);
                     plainPacket.WriteString(plainText);
                 }
                 else if (KnownPublicKeys.TryGetValue(recipient.UID, out var pubKey) && pubKey?.Length > 0)
                 {
-                    /// <summary> Encrypt with recipient's public key. </summary>
+                    // Encrypt with recipient's public key.
                     var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, pubKey);
                     if (cipher == null || cipher.Length == 0) continue;
 
@@ -1175,10 +1182,8 @@ namespace chat_client.Net
                 messageSent = true;
             }
 
-            /// <summary>
-            /// Also send a self-copy encrypted with sender's own public key,
-            /// so local echo can be decrypted.
-            /// </summary>
+            // Also send a self-copy encrypted with sender's own public key,
+            // so local echo can be decrypted.
             if (isEncryptionReady && _viewModel?.LocalUser.PublicKeyDer?.Length > 0)
             {
                 var selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
@@ -1195,7 +1200,7 @@ namespace chat_client.Net
                 }
             }
 
-            /// <summary> Solo mode (loopback). </summary>
+            // Solo mode (loopback).
             if (recipients.Count == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
