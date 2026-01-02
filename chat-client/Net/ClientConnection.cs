@@ -636,12 +636,6 @@ namespace chat_client.Net
                                     // Reads sender UID and discards recipient placeholder.
                                     Guid senderUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    // Ignores echo of our own messages (prevents double display)
-                                    if (senderUid == viewModel.LocalUser.UID)
-                                    {
-                                        break;
-                                    }
-
                                     _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     string message = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 

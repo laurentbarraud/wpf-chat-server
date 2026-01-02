@@ -139,6 +139,12 @@ namespace chat_client.MVVM.ViewModel
         private string _messageInputFieldWatermarkText = "";
 
         /// <summary>
+        /// Backing field storing the current message being composed by the user 
+        /// before it is sent.
+        /// </summary>
+        private string _messageToSend = string.Empty;
+
+        /// <summary>
         /// Backing field storing the current computed width of the right panel.
         /// Updated whenever the window is resized.
         /// </summary>
@@ -686,12 +692,22 @@ namespace chat_client.MVVM.ViewModel
             }
         }
 
-
         /// <summary>
-        /// What the user types in the textbox on bottom right of the MainWindow
-        /// gets stored in this property (bound in XAML).
+        /// Gets or sets the message currently typed by the user. This value is bound
+        /// to the message input TextBox and is cleared automatically after a successful send.
         /// </summary>
-        public static string? MessageToSend { get; set; }
+        public string MessageToSend
+        {
+            get => _messageToSend;
+            set
+            {
+                if (_messageToSend != value)
+                {
+                    _messageToSend = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         /// <summary>
         /// Represents a dynamic data collections that provides notification
@@ -1747,57 +1763,6 @@ namespace chat_client.MVVM.ViewModel
 
             LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode);
             LoadLocalizedStrings();
-        }
-
-
-        /// <summary>
-        /// Handles a new user join event.
-        /// • Reads the provided UID, username, and public key DER bytes.
-        /// • Adds the user to the Users collection if not already present.
-        /// • Registers the user’s public key in the pipeline.
-        /// • Re-evaluates encryption readiness via the pipeline.
-        /// • Posts a system notice to the chat UI on the dispatcher thread.
-        /// </summary>
-        /// <param name="uid">The joining user’s unique identifier.</param>
-        /// <param name="username">The joining user’s display name.</param>
-        /// <param name="publicKey">The joining user’s RSA public key as DER bytes.</param>
-        public void OnUserConnected(Guid uid, string username, byte[] publicKey)
-        {
-            /// <summary> Prevents duplicates by checking existing UIDs </summary>
-            if (Users.Any(u => u.UID == uid))
-                return;
-
-            /// <summary> Builds the new user model </summary>
-            var user = new UserModel
-            {
-                UID = uid,
-                Username = username,
-                PublicKeyDer = publicKey
-            };
-
-            /// <summary> Performs all UI-bound updates on the dispatcher thread </summary>
-            Application.Current.Dispatcher.BeginInvoke(() =>
-            {
-                /// <summary> Adds the new user to the observable collection </summary>
-                Users.Add(user);
-
-                /// <summary> Updates expected client count and log the change </summary>
-                ExpectedClientCount = Users.Count;
-                ClientLogger.Log($"ExpectedClientCount updated — Total users: {ExpectedClientCount}", ClientLogLevel.Debug);
-
-                /// <summary> Registers the public key in the pipeline if not already known </summary>
-                if (!EncryptionPipeline.KnownPublicKeys.ContainsKey(uid))
-                {
-                    EncryptionPipeline.KnownPublicKeys[uid] = publicKey;
-                    ClientLogger.Log($"Public key registered for {username} — UID: {uid}", ClientLogLevel.Debug);
-                }
-
-                /// <summary> Re-evaluates encryption readiness via pipeline </summary>
-                EncryptionPipeline.EvaluateEncryptionState();
-
-                /// <summary> Posts a system notice to the chat window </summary>
-                Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
-            });
         }
 
         /// <summary>

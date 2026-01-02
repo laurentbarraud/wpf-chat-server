@@ -95,7 +95,7 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public AboutViewModel()
         {
-            AboutWindowTitle = LocalizationManager.GetString("AboutThisSoftware");
+            AboutWindowTitle = LocalizationManager.GetString("AboutThisSoftwareLabel");
             CliArgumentsText = LocalizationManager.GetString("CliArgumentsText");
             LicenceInfo = LocalizationManager.GetString("LicenceInfo");
             LicenceInfoResources = LocalizationManager.GetString("LicenceInfoResources");

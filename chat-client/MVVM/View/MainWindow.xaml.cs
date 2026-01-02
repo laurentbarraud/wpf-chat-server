@@ -102,9 +102,6 @@ namespace chat_client.MVVM.View
         /// </summary>
         public bool IsWindowWide => TxtMessageInputField.ActualWidth > 600 || WindowState == WindowState.Maximized;
 
-        public MainViewModel ViewModel => (MainViewModel)DataContext;
-
-
         /// <summary>
         /// Represents the tray menu item used to reopen the main application window.
         /// Typically bound to the system tray context menu for restoring visibility when minimized.
@@ -284,7 +281,7 @@ namespace chat_client.MVVM.View
         {
             // Prevents sending if the message is empty, the socket is not connected,
             // or the handshake/establishment is not yet complete.
-            if (string.IsNullOrEmpty(MainViewModel.MessageToSend) ||
+            if (string.IsNullOrEmpty(viewModel.MessageToSend) ||
                 viewModel.ClientConn?.IsConnected != true ||
                 viewModel.ClientConn?.IsEstablished != true)
             {
@@ -294,7 +291,7 @@ namespace chat_client.MVVM.View
 
             try
             {
-                string messageToSend = MainViewModel.MessageToSend;
+                string messageToSend = viewModel.MessageToSend;
 
                 // Awaits the unified send method; handles encryption internally if enabled.
                 bool success = await viewModel.ClientConn.SendMessageAsync(messageToSend, CancellationToken.None);
@@ -302,7 +299,7 @@ namespace chat_client.MVVM.View
                 if (success)
                 {
                     // The TextBox will automatically empty thanks to the binding.
-                    MainViewModel.MessageToSend = "";
+                    viewModel.MessageToSend = "";
                     TxtMessageInputField.Focus();
                 }
                 else
