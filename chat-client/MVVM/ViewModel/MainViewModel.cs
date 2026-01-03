@@ -1395,9 +1395,6 @@ namespace chat_client.MVVM.ViewModel
                         _ = _clientConn!.SendRequestToPeerForPublicKeyAsync(userId, CancellationToken.None);
                     }
                 }
-
-                // Re-evaluates encryption readiness after key updates
-                _clientConn!.EncryptionPipeline!.EvaluateEncryptionState();
             }
 
             // --- Notifications (joined users) ---
@@ -1662,92 +1659,79 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
         {
-            bool isNewOrUpdatedKey = false;
-
-            /// <summary>
-            /// Normalizes input: if null or empty, returns Array.Empty<byte>() 
-            /// to represent clear mode.
-            /// Ensures normalizedKey is always a valid byte[] (never null).
-            /// </summary>
-            var normalizedKey = (publicKeyDer == null || publicKeyDer.Length == 0)
+            // Normalizes: never store null
+            var publicKey = (publicKeyDer == null || publicKeyDer.Length == 0)
                 ? Array.Empty<byte>()
                 : publicKeyDer;
 
-            /// <summary>
-            /// Ignores self-echo: do not register our own key again.
-            /// </summary>
-            if (senderUid == LocalUser.UID)
+            // Ignores self-echo
+            if (senderUid == LocalUser.UID) 
+            { 
+                return;
+            }
+
+            bool KeyDictionnaryUpdated = false;
+
+            // Updates KnownPublicKeys safely
+            lock (EncryptionPipeline.KnownPublicKeys)
+            {
+                if (EncryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out var existingValue))
+                {
+                    // No-op if identical
+                    if (existingValue != null && existingValue.Length == publicKey.Length && existingValue.SequenceEqual(publicKey))
+                    {
+                        ClientLogger.Log($"Public key already known for {senderUid}.", ClientLogLevel.Debug);
+                    }
+                    else
+                    {
+                        EncryptionPipeline.KnownPublicKeys[senderUid] = publicKey;
+                        KeyDictionnaryUpdated = true;
+                        ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
+                    }
+                }
+                else
+                {
+                    EncryptionPipeline.KnownPublicKeys[senderUid] = publicKey;
+                    KeyDictionnaryUpdated = true;
+                    ClientLogger.Log($"Registered new public key for {senderUid}.", ClientLogLevel.Info);
+                }
+            }
+
+            // Nothing changed, so nothing to evaluate
+            if (!KeyDictionnaryUpdated)
             {
                 return;
             }
 
-            /// <summary>
-            /// Protects KnownPublicKeys dictionary with a lock to ensure thread safety.
-            /// Updates or registers the key depending on whether it already exists.
-            /// </summary>
+            // Don't evaluate until every peer key is in.
+            // Prevents early pipeline runs when a new user joins without a key.
+            bool allKeysPresent;
             lock (EncryptionPipeline.KnownPublicKeys)
             {
-                if (EncryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out var existingKey))
-                {
-                    /// <summary>
-                    /// Compares the existing DER-encoded key bytes with the new key.
-                    /// If they are identical, no update is performed.
-                    /// </summary>
-                    if (existingKey != null && existingKey.Length == normalizedKey.Length && existingKey.SequenceEqual(normalizedKey))
-                    {
-                        var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
-                                          ?? senderUid.ToString();
-                        ClientLogger.Log($"Duplicate public key for {displayName}; no change.", ClientLogLevel.Debug);
-                    }
-                    else
-                    {
-                        /// <summary>
-                        /// Updates the dictionary entry with the new DER-encoded key bytes.
-                        /// </summary>
-                        EncryptionPipeline.KnownPublicKeys[senderUid] = normalizedKey;
-                        isNewOrUpdatedKey = true;
-
-                        var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
-                                          ?? senderUid.ToString();
-                        ClientLogger.Log($"Updated public key for {displayName}.", ClientLogLevel.Info);
-                    }
-                }
-                else
-                {
-                    /// <summary>
-                    /// Registers a newly seen public key for this sender.
-                    /// </summary>
-                    EncryptionPipeline.KnownPublicKeys.Add(senderUid, normalizedKey);
-                    isNewOrUpdatedKey = true;
-
-                    var displayName = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
-                                      ?? senderUid.ToString();
-                    ClientLogger.Log($"Registered new public key for {displayName}.", ClientLogLevel.Info);
-                }
+                allKeysPresent = Users
+                    .Where(u => u.UID != LocalUser.UID)
+                    .All(u =>
+                        EncryptionPipeline.KnownPublicKeys.ContainsKey(u.UID) &&
+                        EncryptionPipeline.KnownPublicKeys[u.UID] != null &&
+                        EncryptionPipeline.KnownPublicKeys[u.UID].Length > 0
+                    );
             }
 
-            if (isNewOrUpdatedKey)
+            if (!allKeysPresent)
             {
-                /// <summary>
-                /// Re-evaluates encryption state after key distribution.
-                /// Ensures that EncryptionReady is only set when all peer keys are present.
-                /// </summary>
-                ReevaluateEncryptionStateFromConnection();
-
-                /// <summary>
-                /// Logs encryption readiness state after key update.
-                /// Helps diagnose whether all keys are present or still missing.
-                /// </summary>
-                if (EncryptionPipeline.IsEncryptionReady)
-                {
-                    ClientLogger.Log($"Encryption readiness confirmed after registering key for {senderUid}.", ClientLogLevel.Debug);
-                }
-                else
-                {
-                    ClientLogger.Log("Key registered/updated, but encryption not ready yet — waiting for remaining peers.", ClientLogLevel.Debug);
-                }
+                ClientLogger.Log("Skipping encryption evaluation — still missing peer keys.", ClientLogLevel.Debug);
+                return;
             }
+
+            // All keys available → safe to evaluate
+            ReevaluateEncryptionStateFromConnection();
+
+            if (EncryptionPipeline.IsEncryptionReady)
+                ClientLogger.Log($"Encryption ready after key update from {senderUid}.", ClientLogLevel.Debug);
+            else
+                ClientLogger.Log("Key updated but encryption not ready yet.", ClientLogLevel.Debug);
         }
+
 
         /// <summary>
         /// Reacts to AppLanguage changes by applying the new culture
