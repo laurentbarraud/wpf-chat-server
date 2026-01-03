@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 2nd, 2026</date>
+/// <date>January 3rd, 2026</date>
 
 using chat_client.Net;
 using chat_client.MVVM.ViewModel;
@@ -145,35 +145,37 @@ namespace chat_client.Helpers
         /// </summary>
         public void DisableEncryption()
         {
-            /// <summary> Cancels and disposes any active pipeline </summary>
-            try 
-            { 
-                _cts?.Cancel(); 
-            } 
+            // Avoids double-disable and duplicate logs
+            if (!Settings.Default.UseEncryption)
+            {
+                return;
+            }
+
+            try
+            {
+                _cts?.Cancel();
+            }
             catch (Exception ex)
-            { 
+            {
                 ClientLogger.Log($"DisableEncryption: CTS cancel error — {ex.Message}", ClientLogLevel.Debug);
             }
-            
+
             _cts?.Dispose();
             _cts = null;
 
-            /// <summary> Clears peer keys and resets local publication state </summary>
             KnownPublicKeys.Clear();
 
+            // Resets all encryption-related flags and updates the UI bindings
             _viewModel.ResetEncryptionPipelineAndUI();
-            
-            /// <summary> Persists disabled state in settings </summary>
+
             Settings.Default.UseEncryption = false;
-            
-            try 
-            { 
-                Settings.Default.Save(); 
-            } 
-            
+
+            try
+            {
+                Settings.Default.Save();
+            }
             catch { }
 
-            /// <summary> Logs the disable action for diagnostics </summary>
             ClientLogger.Log("Encryption disabled via EncryptionPipeline.DisableEncryption().", ClientLogLevel.Info);
         }
 

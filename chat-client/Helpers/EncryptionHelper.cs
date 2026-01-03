@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 2nd, 2026</date>
+/// <date>January 3rd, 2026</date>
 
 ///<summary>
 ///Technical note : 
@@ -42,9 +42,6 @@ namespace chat_client.Helpers
 
     public static class EncryptionHelper
     {
-        /// <summary>Indicates whether decryption is currently enabled.</summary>
-        public static bool IsEncryptionActive { get; private set; } = false;
-
         /// <summary>Holds the public key as a DER-encoded byte array for key exchange.</summary>
         public static byte[] PublicKeyDer { get; private set; }
 
@@ -80,7 +77,6 @@ namespace chat_client.Helpers
         /// </summary>
         public static void ClearLocalPrivateKey()
         {
-            IsEncryptionActive = false;
             Debug.WriteLine("[INFO] EncryptionHelper decryption disabled.");
         }
 

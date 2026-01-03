@@ -1,14 +1,12 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 2nd, 2026</date>
+/// <date>January 3rd, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
 using chat_client.MVVM.View;
 using chat_client.Net;
-using chat_protocol.Net;
-using chat_protocol.Net.IO;
 using chat_client.Properties;
 using System;
 using System.Collections.ObjectModel;
@@ -17,9 +15,9 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Data;
 
 
 namespace chat_client.MVVM.ViewModel
@@ -1333,131 +1331,132 @@ namespace chat_client.MVVM.ViewModel
         /// except for the local user or when notifications should be suppressed.
         /// </summary>
         /// <param name="rosterEntries">
-        /// The complete list of connected users as tuples of (UserId, Username, PublicKeyDer).
+        /// Full list of connected users (UserId, Username, PublicKeyDer).
         /// </param>
         public void DisplayRosterSnapshot(IEnumerable<(Guid UserId, string Username, byte[] PublicKeyDer)> rosterEntries)
         {
-            // Materializes incoming users snapshot
+            // Materialize snapshot (avoid multiple enumeration)
             var incomingUsers = rosterEntries
-                .Select(e => (e.UserId, e.Username, e.PublicKeyDer))
+                .Select(e => (UserId: e.UserId, Username: e.Username, PublicKeyDer: e.PublicKeyDer))
                 .ToList();
 
-            // Builds a fast lookup
-            var incomingUsersLookup = incomingUsers.ToDictionary(e => e.UserId, e => e);
+            // Converts the list into a dictionary keyed by UserId
+            // so we get constant‑time lookups when computing diffs(joined / left users).
+            // Avoids repeated O(n) scans, keeps things clean, faster,
+            // and reduces unnecessary LINQ with only a O(1) complexity.”
+            var incomingLookup = incomingUsers.ToDictionary(e => e.UserId);
 
-            // First snapshot: silent initialization
+            // --- First snapshot: silent initialization ---
+            // No notifications, no diff, just fill in the UI list.
             if (_isFirstRosterSnapshot)
             {
                 Users.Clear();
-
                 foreach (var usr in incomingUsers)
-                {
                     Users.Add(new UserModel
                     {
                         UID = usr.UserId,
                         Username = usr.Username,
-                        PublicKeyDer = usr.PublicKeyDer ?? Array.Empty<byte>()
+                        PublicKeyDer = usr.PublicKeyDer
                     });
-                }
 
+                // Cache snapshot for next diff
                 _previousRosterSnapshot = incomingUsers.Select(e => (e.UserId, e.Username)).ToList();
-                _isFirstRosterSnapshot = false; 
+                _isFirstRosterSnapshot = false;
                 _suppressRosterNotifications = false;
                 return;
             }
 
-            // Determines joined users whose UserId exists in 'incomingUsers'
-            // but does not exist in '_previousRosterSnapshot'.
-            // These represent newly connected users.
+            // --- Joined users collection ---
+            // Users present now but not in previous snapshot.
             var joinedUsers = incomingUsers
                 .Where(e => !_previousRosterSnapshot.Any(p => p.UserId == e.UserId))
                 .ToList();
 
-            // If encryption is enabled, request missing public keys for newly joined users
+            // --- Left users collection ---
+            // Users missing from the new snapshot.
+            var leftUsers = _previousRosterSnapshot
+                .Where(p => !incomingLookup.ContainsKey(p.UserId))
+                .ToList();
+
+            // --- Encryption: update keys for joined users ---
+            // If encryption is enabled, ensures we have keys for new peers.
             if (Settings.Default.UseEncryption)
             {
-                foreach (var (userId, _, publicKeyDer) in joinedUsers)
+                foreach (var (userId, _, key) in joinedUsers)
                 {
-                    if (publicKeyDer != null && publicKeyDer.Length > 0)
+                    if (key.Length > 0)
                     {
-                        _clientConn!.EncryptionPipeline!.KnownPublicKeys[userId] = publicKeyDer;
+                        // Key already provided in snapshot, we store it
+                        _clientConn!.EncryptionPipeline!.KnownPublicKeys[userId] = key;
                     }
                     else
                     {
+                        // No key available for this userId, so we request it explicitly
                         _ = _clientConn!.SendRequestToPeerForPublicKeyAsync(userId, CancellationToken.None);
                     }
                 }
 
+                // Re-evaluates encryption readiness after key updates
                 _clientConn!.EncryptionPipeline!.EvaluateEncryptionState();
             }
 
-            // Determine left users whose UserId existed in '_previousRosterSnapshot'
-            // but does not exist in 'incomingUsers' anymore.
-            // These represent users who have disconnected or left the room.
-            var leftUsers = _previousRosterSnapshot
-                .Where(p => !incomingUsersLookup.ContainsKey(p.UserId))
-                .ToList();
-
-            // Emits notifications for joined users (except local user)
+            // --- Notifications (joined users) ---
+            // Skips local user, manual disconnect, or suppressed notifications.
             foreach (var (userId, username, _) in joinedUsers)
             {
-                // Ignores notifications about the local user
-                if (userId == LocalUser.UID)
+                if (userId == LocalUser.UID) 
                 {
-                    continue;
+                    continue;                   // Don't notify about ourselves
                 }
 
-                // Ignores notifications if user manually disconnected
                 if (_userHasClickedOnDisconnect)
                 {
-                    continue;
+                    continue;                   // User manually disconnected, no noise
                 }
 
                 if (_suppressRosterNotifications)
                 {
-                    continue;
+                    continue;                   // Suppression flag active
                 }
 
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
             }
 
-            // Emits notifications for left users (except local user)
+            // --- Notifications (left users) ---
             foreach (var (userId, username) in leftUsers)
             {
                 if (userId == LocalUser.UID)
                 {
-                    continue;
+                    continue;                  // Ignores local user
                 }
 
-                if (_userHasClickedOnDisconnect)
-                {
-                    continue;
+                if (_userHasClickedOnDisconnect) 
+                { 
+                    continue;                  // No noise on manual disconnect
                 }
-
-                if (_suppressRosterNotifications)
+                if (_suppressRosterNotifications) 
                 {
-                    continue;
+                    continue;                  // Suppression flag active
                 }
 
                 Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
             }
 
-            // Updates Users list
+            // --- Updates Users list ---
+            // Full replace to avoid stale entries
             Users.Clear();
-
             foreach (var usr in incomingUsers)
-            {
                 Users.Add(new UserModel
                 {
                     UID = usr.UserId,
                     Username = usr.Username,
-                    PublicKeyDer = usr.PublicKeyDer ?? Array.Empty<byte>()
+                    PublicKeyDer = usr.PublicKeyDer
                 });
-            }
 
-            // Saves snapshot
-            _previousRosterSnapshot = incomingUsers.Select(usr => (usr.UserId, usr.Username)).ToList();
-
+            // --- Saves snapshot ---
+            // Cache for next diff cycle.
+            _previousRosterSnapshot = incomingUsers.Select(e => (e.UserId, e.Username)).ToList();
+            
             _suppressRosterNotifications = false;
         }
 

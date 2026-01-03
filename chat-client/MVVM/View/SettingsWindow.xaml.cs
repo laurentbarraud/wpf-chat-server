@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 2nd, 2026</date>
+/// <date>January 3rd, 2026</date>
 
 using chat_client.Helpers;                   // For EncryptionHelper, ClientLogger
 using chat_client.MVVM.ViewModel;            // For SettingsViewModel
