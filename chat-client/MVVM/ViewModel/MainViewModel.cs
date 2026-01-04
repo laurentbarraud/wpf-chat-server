@@ -112,9 +112,9 @@ namespace chat_client.MVVM.ViewModel
         private bool _isDarkTheme = Settings.Default.AppTheme == "dark";
 
         /// <summary>
-        /// Indicates whether the next roster snapshot is the very first update
-        /// received after connecting. 
-        /// Suppresses join/leave notifications on first load.
+        /// Indicates whether the next roster snapshot is the first update
+        /// received after connecting. Used to suppress join/leave notifications
+        /// and to detect whether the roster is stable for solo-mode encryption.
         /// </summary>
         private bool _isFirstRosterSnapshot = true;
 
@@ -523,6 +523,12 @@ namespace chat_client.MVVM.ViewModel
                 ThemeManager.ApplyTheme(value);
             }
         }
+
+        /// <summary>
+        /// Exposes whether the initial roster snapshot has already been processed.
+        /// True only until the first roster update is received.
+        /// </summary>
+        public bool IsFirstRosterSnapshot => _isFirstRosterSnapshot;
 
         /// <summary>
         /// Represents the currently authenticated user.

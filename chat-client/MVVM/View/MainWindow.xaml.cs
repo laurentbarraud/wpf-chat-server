@@ -316,15 +316,28 @@ namespace chat_client.MVVM.View
                 viewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
             }
         }
-        
+
         /// <summary>
         /// Toggles the SettingsWindow visibility:
         /// - If an instance is already open, it closes it.
         /// - If no instance is open, it creates and shows a new one bound to the current MainViewModel.
+        /// - CTRL + Click opens AboutWindow directly.
         /// This prevents multiple SettingsWindow instances from being opened simultaneously.
         /// </summary>
         private void CmdSettings_Click(object sender, RoutedEventArgs e)
         {
+            // CTRL is hold: opens AboutWindow
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                var about = new AboutWindow
+                {
+                    Owner = this
+                };
+                about.ShowDialog();
+                return;
+            }
+
+            // Normal behavior: toggles SettingsWindow
             var existingSettingsWindow = Application.Current.Windows
                 .OfType<SettingsWindow>()
                 .FirstOrDefault();
@@ -335,14 +348,8 @@ namespace chat_client.MVVM.View
                 return;
             }
 
-            /// <summary>Creates and shows a new SettingsWindow, passing the current MainViewModel via the ViewModel property</summary>
             var settings = new SettingsWindow(viewModel)
             {
-                /// <summary>
-                /// Sets the owner of the SettingsWindow to the MainWindow instance.
-                /// This ensures the SettingsWindow stays on top of the main window,
-                /// and allows modal behavior such as centering and minimizing together.
-                /// </summary>
                 Owner = this
             };
             settings.Show();

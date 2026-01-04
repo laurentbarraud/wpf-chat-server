@@ -465,7 +465,7 @@
                         </ToggleButton.Template>
                     </ToggleButton>
 
-                    <!-- Settings button (right side, before font size button) -->
+                    <!-- Settings button -->
                     <Button x:Name="CmdSettings"
                             Grid.Column="1"
                             Width="32"

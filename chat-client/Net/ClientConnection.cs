@@ -303,6 +303,13 @@ namespace chat_client.Net
                 // Completes handshake and delegates pipeline readiness.
                 MarkHandshakeComplete(LocalUid, LocalPublicKey);
 
+                // If encryption is enabled at startup, initializes the encryption pipeline now
+                // so that the public key is published just like when the user toggles it manually.
+                if (Properties.Settings.Default.UseEncryption && EncryptionPipeline != null) 
+                { 
+                    await EncryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false); 
+                } 
+
                 // Notifies subscribers that the connection is established.
                 ConnectionEstablished?.Invoke();
 
