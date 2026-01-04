@@ -17,7 +17,6 @@
         StateChanged="MainWindow_StateChanged" 
         Closing="MainWindow_Closing" 
         PreviewKeyDown="MainWindow_PreviewKeyDown" 
-        Loaded="MainWindow_Loaded"
         WindowStartupLocation="CenterScreen" 
         Icon="/Resources/chat-client-icon.ico" 
         TabIndex="12" LayoutUpdated="Window_LayoutUpdated" 

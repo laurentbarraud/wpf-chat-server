@@ -1025,18 +1025,14 @@ namespace chat_client.MVVM.ViewModel
             // Creates ThemeTogglandCommand, which is bound to the UI toggle button.
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
-                /// <summary>
-                /// Evaluates the toggle state parameter. 
-                /// If true, dark theme is selected; otherwise, light theme is applied.
-                /// </summary>
+                // Evaluates the toggle state parameter. 
+                // If true, dark theme is selected; otherwise, light theme is applied.
                 bool isDarkThemeSelected = param is bool toggleState && toggleState;
-                /// <remarks>
-                /// "param is bool toggleState" is a pattern matching (introduced in C# 7).
-                /// It tests if param is of type bool.
-                /// - if yes, it assigns the param value to a new local variable toggleState (of type bool).
-                /// - if not, the expression is false and toggleState is not initialized.
-                /// "&& toggleState" ensures "toggleState" is only evaluated if the type check succeeds.
-                /// </remarks>
+                // "param is bool toggleState" is a pattern matching (introduced in C# 7).
+                // It tests if param is of type bool.
+                // - if yes, it assigns the param value to a new local variable toggleState (of type bool).
+                // - if not, the expression is false and toggleState is not initialized.
+                // "&& toggleState" ensures "toggleState" is only evaluated if the type check succeeds.
 
                 Settings.Default.AppTheme = isDarkThemeSelected ? "dark" : "light";
                 Settings.Default.Save();

@@ -37,10 +37,19 @@ namespace chat_client.MVVM.View
         private int _emojiPanelHeight = 20;
 
         /// <summary>
+        /// Stores the timestamp of the last Ctrl key press.
+        /// Used for detecting double-press or timing-based shortcuts.
+        /// </summary>
+        private DateTime _lastCtrlPress = DateTime.MinValue;
+
+        /// <summary>
         /// Holds a reference to the internal ScrollViewer of the chat ListBox,
         /// allowing reliable auto-scrolling when new messages are added.
         /// </summary>
         private ScrollViewer? _messagesScrollViewer;
+
+        /// <summary>  Defines the minimum allowed height for the input area. </summary>
+        private const double _MIN_INPUT_AREA_HEIGHT = 34;
 
         /// <summary>
         /// Indicates whether all persisted layout values (roster width and
@@ -49,20 +58,11 @@ namespace chat_client.MVVM.View
         /// </summary>
         private bool _pendingInitialRestore = true;
 
-        /// <summary>
-        /// Stores the timestamp of the last Ctrl key press.
-        /// Used for detecting double-press or timing-based shortcuts.
-        /// </summary>
-        private DateTime lastCtrlPress = DateTime.MinValue;
-
-        /// <summary>  Defines the minimum allowed height for the input area. </summary>
-        private const double MinInputAreaHeight = 34;
+        /// <summary> Current scroll direction: -1 = scroll left, 1 = scroll right, 0 = idle. </summary>
+        private int _scrollDirection = 0;
 
         /// <summary> Used for horizontal scrolling animations (emoji panel auto‑scroll on hover). </summary>
         private readonly DispatcherTimer scrollTimer;
-
-        /// <summary> Current scroll direction: -1 = scroll left, 1 = scroll right, 0 = idle. </summary>
-        private int scrollDirection = 0;
 
         /// <summary> Tray icon variable </summary>
         private TaskbarIcon trayIcon;
@@ -248,7 +248,7 @@ namespace chat_client.MVVM.View
 
         private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
         {
-            scrollDirection = -1;
+            _scrollDirection = -1;
             scrollTimer.Start();
         }
 
@@ -259,7 +259,7 @@ namespace chat_client.MVVM.View
 
         private void CmdScrollRight_MouseEnter(object sender, MouseEventArgs e)
         {
-            scrollDirection = 1;
+            _scrollDirection = 1;
             scrollTimer.Start();
         }
 
@@ -485,9 +485,9 @@ namespace chat_client.MVVM.View
         { 
             double actualHeight = GrdBottom.ActualHeight;
 
-            if (actualHeight < MinInputAreaHeight)
+            if (actualHeight < _MIN_INPUT_AREA_HEIGHT)
             {
-                actualHeight = MinInputAreaHeight;
+                actualHeight = _MIN_INPUT_AREA_HEIGHT;
             }
 
             Settings.Default.InputAreaHeight = actualHeight; 
@@ -582,23 +582,7 @@ namespace chat_client.MVVM.View
                 return;
             }
         }
-
-        /// <summary> 
-        /// Performs initial UI setup (hides the emoji popup). 
-        /// </summary>
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            popupEmoji.Visibility = Visibility.Collapsed;
-
-            double savedHeight = Properties.Settings.Default.InputAreaHeight;
-
-            // If saved height is invalid, clamp it
-            if (double.IsNaN(savedHeight) || savedHeight < MinInputAreaHeight)
-            {
-                savedHeight = MinInputAreaHeight;
-            }
-        }
-        
+       
         /// <summary>
         /// Handles global key press events to trigger tray reduction behavior
         /// and debug console activation.
@@ -624,11 +608,11 @@ namespace chat_client.MVVM.View
             if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
             {
                 var now = DateTime.Now;
-                if ((now - lastCtrlPress).TotalMilliseconds < 1000)
+                if ((now - _lastCtrlPress).TotalMilliseconds < 1000)
                 {
                     ReduceToTray();
                 }
-                lastCtrlPress = now;
+                _lastCtrlPress = now;
             }
         }
 
@@ -678,6 +662,25 @@ namespace chat_client.MVVM.View
             }), DispatcherPriority.Background);
         }
 
+        /// <summary>
+        /// Handles keyboard shortcuts.
+        /// </summary>
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        {
+            base.OnPreviewKeyDown(e);
+
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T)
+            {
+                // Flips toggle by triggering animation.
+                ThemeToggle.IsChecked = !ThemeToggle.IsChecked;
+
+                ThemeToggle.Command?.Execute(ThemeToggle.IsChecked ?? false);
+
+                // Prevents further processing of this key event.
+                e.Handled = true;
+            }
+        }
+
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -722,12 +725,12 @@ namespace chat_client.MVVM.View
         /// <param name="e">Event arguments (never null).</param>
         private void ScrollTimer_Tick(object? sender, EventArgs e)
         {
-            if (scrollDirection == -1)
+            if (_scrollDirection == -1)
             {
                 // Scroll left
                 emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset - 20);
             }
-            else if (scrollDirection == 1)
+            else if (_scrollDirection == 1)
             {
                 // Scroll right
                 emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset + 20);
@@ -964,9 +967,9 @@ namespace chat_client.MVVM.View
 
             // Restores bottom input area height
             double savedHeight = Settings.Default.InputAreaHeight;
-            if (double.IsNaN(savedHeight) || savedHeight < MinInputAreaHeight)
+            if (double.IsNaN(savedHeight) || savedHeight < _MIN_INPUT_AREA_HEIGHT)
             {
-                savedHeight = MinInputAreaHeight;
+                savedHeight = _MIN_INPUT_AREA_HEIGHT;
             }
 
             RowBottomRight.Height = new GridLength(savedHeight, GridUnitType.Pixel);

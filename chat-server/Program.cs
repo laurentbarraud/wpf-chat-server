@@ -122,7 +122,7 @@ namespace chat_server
                             string username = await reader.ReadStringAsync(token).ConfigureAwait(false);
                             Guid uid = await reader.ReadUidAsync(token).ConfigureAwait(false);
 
-                            // Reads and validates the public key from the handshake payload (always present in protocol).
+                            // Reads and validates the public key from the handshake payload.
                             int publicKeyLength = await reader.ReadInt32NetworkOrderAsync(token).ConfigureAwait(false);
                             const int MaxPublicKeyLength = 65_536;
                             if (publicKeyLength < 0 || publicKeyLength > MaxPublicKeyLength) { tcpClient.Close(); return; }
@@ -133,7 +133,7 @@ namespace chat_server
                             client = new ServerConnectionHandler(tcpClient);
                             client.InitializeAfterHandshake(username, uid, publicKey, token);
 
-                            // Removes any previous session using the same username
+                            // Removes any previous session using the same username.
                             lock (Users)
                             {
                                 Users.RemoveAll(u => u.Username == username); 
@@ -147,12 +147,12 @@ namespace chat_server
                             
                             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, username);
 
-                            // Sends HandshakeAck (framed).
+                            // Sends framed HandshakeAck.
                             var ack = new PacketBuilder();
                             ack.WriteOpCode((byte)PacketOpCode.HandshakeAck);
                             await SendFramedAsync(client, ack.GetPacketBytes(), token).ConfigureAwait(false);
 
-                            // Broadcasts roster after ack so all clients get updated keys (empty keys included).
+                            // Broadcasts roster after ack, so all clients get updated keys (empty keys included).
                             await BroadcastRosterAsync(token).ConfigureAwait(false);
                         }
                         catch (OperationCanceledException) 
@@ -238,7 +238,7 @@ namespace chat_server
         }
 
         /// <summary>
-        /// • Builds and sends a framed ForceDisconnectClient packet to every connected client  
+        /// Builds and sends a framed ForceDisconnectClient packet to every connected client.  
         /// • Packet structure: [4-byte length][1-byte opcode][16-byte target UID]  
         /// • Forces each client to call its Disconnect sequence upon decoding  
         /// </summary>
@@ -290,7 +290,7 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Broadcasts the full roster of connected users to every client:
+        /// Broadcasts the full roster of connected users to every client.
         /// • Snapshots current users to avoid concurrent modification.
         /// • Builds a RosterBroadcast packet containing per-user: UID, username, and raw DER public key (length-prefixed).
         /// • Frames each packet with a 4-byte length prefix for wire transport.
@@ -298,14 +298,14 @@ namespace chat_server
         /// </summary>
         public static async Task BroadcastRosterAsync(CancellationToken cancellationToken = default)
         {
-            ///<summary> Snapshots current users <summary>
+            // Snapshots current users list to avoid collection-modification issues.
             var snapshotUsers = Users.ToList();
 
-            /// <summary> Builds the roster payload <summary>
+            // Builds the roster payload.
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)PacketOpCode.RosterBroadcast);
 
-            /// <summary> Writes roster count as 4-byte big-endian Int32 </summary>
+            // Writes roster count as 4-byte big-endian Int32.
             builder.WriteInt32NetworkOrder(snapshotUsers.Count);
 
             foreach (var target in snapshotUsers)
@@ -318,10 +318,10 @@ namespace chat_server
 
             byte[] payload = builder.GetPacketBytes();
 
-            // Shows what the builder returned before sending
+            // Shows what the builder returned before sending.
             ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
-            /// <summary> Launches send tasks for all recipients </summary>
+            // Launches send tasks for all recipients.
             var sendTasks = new List<Task>(snapshotUsers.Count);
             foreach (var recipient in snapshotUsers)
             {
@@ -334,11 +334,10 @@ namespace chat_server
                             ServerLogger.LogLocalized("RosterSendSkippedNotConnected", ServerLogLevel.Debug, recipient.Username);
                             return;
                         }
-                        /// <summary>
-                        /// Sends the framed payload to the recipient, awaiting completion 
-                        /// so the per-connection semaphore enforces ordered, non-interleaved writes
-                        /// and any send errors or cancellation are observed.
-                        /// </summary>
+                        
+                        // Sends the framed payload to the recipient, awaiting completion 
+                        // so the per-connection semaphore enforces ordered, non-interleaved writes
+                        // and any send errors or cancellation are observed.
                         await SendFramedAsync(recipient, payload, cancellationToken).ConfigureAwait(false);
                         ServerLogger.LogLocalized("RosterSendSuccess", ServerLogLevel.Debug, recipient.Username);
                     }
@@ -354,7 +353,7 @@ namespace chat_server
                 sendTasks.Add(task);
             }
 
-            /// <summary> Awaits all sends. Use WhenAll so one failure doesn't cancel others. </summary>
+            // Awaits all sends. Use WhenAll so one failure doesn't cancel others.
             try
             {
                 await Task.WhenAll(sendTasks).ConfigureAwait(false);
@@ -402,6 +401,7 @@ namespace chat_server
                 {
                     try
                     {
+                        // Sends framed payload to socket
                         await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
                         ServerLogger.LogLocalized("PublicKeyRelaySuccess", ServerLogLevel.Debug, target.Username);
                     }
@@ -435,7 +435,7 @@ namespace chat_server
         /// <param name="senderUid">Unique identifier of the message sender.</param>
         public static async Task BroadcastPlainMessage(string messageText, Guid senderUid, CancellationToken cancellationToken)
         {
-            // Snapshots current users
+            // Snapshots current users to avoid collection-modification issues.
             var snapshotUsers = Users.ToList();
 
             var sendTasks = new List<Task>(snapshotUsers.Count);
@@ -445,7 +445,7 @@ namespace chat_server
                 if (!target.ClientSocket.Connected)
                     continue;
 
-                /// <summary> Builds the packet </summary>
+                // Builds the packet
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)PacketOpCode.PlainMessage);
                 builder.WriteUid(senderUid);     // sender’s UID
@@ -461,7 +461,7 @@ namespace chat_server
                 {
                     try
                     {
-                        /// <summary> Sends framed payload to socket </summary>
+                        // Sends framed payload to socket
                         await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
                         ServerLogger.LogLocalized("MessageRelaySuccess", ServerLogLevel.Debug, target.Username);
                     }
@@ -475,11 +475,11 @@ namespace chat_server
                     }
                 }, cancellationToken);
 
-                /// <summary> Tracks task for later await </summary>
+                // Tracks task for later await
                 sendTasks.Add(sendTask);
             }
 
-            /// <summary> Waits all sends </summary>
+            // Waits all sends
             try
             {
                 await Task.WhenAll(sendTasks).ConfigureAwait(false);
@@ -574,9 +574,7 @@ namespace chat_server
         {
             var recipient = Users.FirstOrDefault(u => u.UID == recipientUid);
 
-            /// <summary>
-            /// Checks that recipient exists and that socket is connected
-            /// </summary>
+            // Checks that recipient exists and that socket is connected
             if (recipient?.ClientSocket == null || recipient.ClientSocket.Connected != true)
             {
                 ServerLogger.LogLocalized("EncryptedMessageRelayFailed", ServerLogLevel.Warn,
@@ -584,9 +582,7 @@ namespace chat_server
                 return;
             }
 
-            /// <summary>
-            /// Ensure recipient session is established before relaying
-            /// </summary>
+            // Ensures recipient session is established before relaying
             if (!recipient.IsEstablished)
             {
                 ServerLogger.LogLocalized("EncryptedMessageRelayFailed", ServerLogLevel.Warn,
@@ -594,9 +590,7 @@ namespace chat_server
                 return;
             }
 
-            /// <summary>
-            /// Validates ciphertext presence
-            /// </summary>
+            // Validates ciphertext presence
             if (ciphertext == null || ciphertext.Length == 0)
             {
                 ServerLogger.LogLocalized("ErrorEmptyCiphertext", ServerLogLevel.Warn,
@@ -604,10 +598,8 @@ namespace chat_server
                 return;
             }
 
-            /// <summary>
-            /// Builds encrypted-message packet: 
-            /// opcode + sender UID + recipient UID + ciphertext
-            /// </summary>
+            // Builds encrypted-message packet: 
+            // opcode + sender UID + recipient UID + ciphertext
             var encMsgPacket = new PacketBuilder();
             encMsgPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
             encMsgPacket.WriteUid(senderUid);
@@ -618,7 +610,7 @@ namespace chat_server
 
             try
             {
-                /// <summary> Sends framed message packet </summary>
+                // Sends framed message packet.
                 await SendFramedAsync(recipient, payloadInBytes, cancellationToken).ConfigureAwait(false);
                 ServerLogger.LogLocalized("EncryptedMessageRelaySuccess", ServerLogLevel.Debug, recipient.Username);
             }
@@ -633,7 +625,6 @@ namespace chat_server
             }
         }
 
-
         /// <summary>
         /// Relays a public key request from one client to another specific client.
         /// Constructs a framed packet containing:
@@ -645,39 +636,41 @@ namespace chat_server
         /// </summary>
         public static async Task RelayPublicKeyRequest(Guid requesterUid, Guid targetUid, CancellationToken cancellationToken)
         {
-            /// <summary> Takes a snapshot of connected users and locates the target by UID. </summary>
+            // Takes a snapshot of connected users and locates the target by UID.
             var snapshotUsers = Users.ToList();
             var target = snapshotUsers.FirstOrDefault(u => u.UID == targetUid);
 
-            /// <summary> Aborts if target socket is not connected. </summary>
+            // Aborts if target socket is not connected.
             if (target?.ClientSocket?.Connected != true)
-                return;
-
-            /// <summary> Aborts if target user session is not yet established. </summary>
-            if (!target.IsEstablished)
             {
-                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed",
-                    ServerLogLevel.Warn, target?.Username ?? targetUid.ToString(), "Target not established");
                 return;
             }
 
-            /// <summary> Builds the packet with opcode, requester UID, and target UID. </summary>
+            // Aborts if target user session is not yet established.
+            if (!target.IsEstablished)
+            {
+                ServerLogger.LogLocalized("PublicKeyRequestRelayFailed", ServerLogLevel.Warn, 
+                    target?.Username ?? targetUid.ToString(), "Target not established");
+                return;
+            }
+
+            // Builds the packet with opcode, requester UID, and target UID.
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)PacketOpCode.PublicKeyRequest);
 
-            /// <summary> First the UID of the target (the one who owns the key) </summary>
+            // First the UID of the target (the one who owns the key)
             builder.WriteUid(targetUid);
 
-            /// <summary> Then the UID of the requester (the one who requests the key) </summary>
+            // Then the UID of the requester (the one who requests the key).
             builder.WriteUid(requesterUid);
 
-            /// <summary> Serializes packet to bytes and logs debug prefix. </summary>
+            // Serializes packet to bytes and logs debug prefix.
             byte[] payload = builder.GetPacketBytes();
             ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
 
             try
             {
-                /// <summary> Sends the framed packet to the target client. </summary>
+                // Sends the framed packet to the target client.
                 await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
                 ServerLogger.LogLocalized("PublicKeyRequestRelaySuccess", ServerLogLevel.Debug, target.Username);
             }
@@ -697,11 +690,11 @@ namespace chat_server
         public static async Task RelayPublicKeyToUser(Guid originUid, byte[] publicKey, Guid requesterUid,
             CancellationToken cancellationToken)
         {
-            /// <summary> Snapshots user list to avoid collection-modification issues. </summary>
+            // Snapshots user list to avoid collection-modification issues.
             var snapshotUsers = Users.ToList();
             var target = snapshotUsers.FirstOrDefault(usr => usr.UID == requesterUid);
 
-            /// <summary> Validates requester connection. </summary>
+            // Validates requester connection.
             if (target == null || target.ClientSocket?.Connected != true)
             {
                 ServerLogger.LogLocalized("PublicKeyResponseRelayFailed", ServerLogLevel.Warn,
@@ -709,7 +702,7 @@ namespace chat_server
                 return;
             }
 
-            /// <summary> Ensures requester session is established. </summary>
+            // Ensures requester session is established.
             if (!target.IsEstablished)
             {
                 ServerLogger.LogLocalized("PublicKeyResponseRelayFailed",
@@ -717,14 +710,14 @@ namespace chat_server
                 return;
             }
 
-            /// <summary> Builds packet with origin UID, key, and requester UID. </summary>
+            // Builds packet with origin UID, key, and requester UID.
             var builder = new PacketBuilder();
             builder.WriteOpCode((byte)PacketOpCode.PublicKeyResponse);
             builder.WriteUid(originUid);
             builder.WriteBytesWithLength(publicKey ?? Array.Empty<byte>()); 
             builder.WriteUid(requesterUid);
 
-            /// <summary> Serializes packet to byte array. </summary>
+            // Serializes packet to byte array.
             byte[] payload = builder.GetPacketBytes();
             ServerLogger.Log(
                 $"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}",
@@ -732,17 +725,16 @@ namespace chat_server
 
             try
             {
-                /// <summary> Sends packet asynchronously to requester. </summary>
+                // Sends packet asynchronously to requester.
                 await SendFramedAsync(target, payload, cancellationToken).ConfigureAwait(false);
                 ServerLogger.LogLocalized("PublicKeyResponseRelaySuccess", ServerLogLevel.Debug, target.Username);
             }
             catch (OperationCanceledException)
             {
-                /// <summary> Expected cancellation during shutdown. </summary>
+                // Expected cancellation during shutdown.
             }
             catch (Exception ex)
             {
-                /// <summary> Logs any unexpected send failure. </summary>
                 ServerLogger.LogLocalized("PublicKeyResponseRelayFailed", ServerLogLevel.Warn, target.Username, ex.Message);
             }
         }
@@ -765,10 +757,10 @@ namespace chat_server
                 throw new ArgumentNullException(nameof(payload));
             }
 
-            /// <summary> Ensures a SemaphoreSlim exists for this recipient, creating it only once in a thread-safe way. </summary> 
+            // Ensures a SemaphoreSlim exists for this recipient, creating it only once in a thread-safe way. 
             var sem = _sendSemaphores.GetOrAdd(recipient.UID, _ => new SemaphoreSlim(1, 1));
 
-            /// <summary>Waits to enter the semaphore for this recipient, ensuring only one send at a time per user. </summary>
+            // Waits to enter the semaphore for this recipient, ensuring only one send at a time per user.
             await sem.WaitAsync(cancellationToken).ConfigureAwait(false);
 
             try
@@ -781,10 +773,8 @@ namespace chat_server
                     throw new IOException("Recipient NetworkStream is unavailable or socket not connected.");
                 }
 
-                /// <summary>
-                /// Builds the 4-byte length prefix explicitly in big-endian (network order).
-                /// This avoids BitConverter endianness issues and guarantees consistent framing.
-                /// </summary>
+                // Builds the 4-byte length prefix explicitly in big-endian (network order).
+                // This avoids BitConverter endianness issues and guarantees consistent framing.
                 int payloadLength = payload.Length;
                 byte[] headerByte = new byte[4];
                 headerByte[0] = (byte)(payloadLength >> 24);
@@ -795,10 +785,9 @@ namespace chat_server
                 ServerLogger.Log($"OUTGOING_FRAME_HEADER={BitConverter.ToString(headerByte)} LEN={payload.Length}", ServerLogLevel.Debug);
                 ServerLogger.Log($"BUILT_PAYLOAD_LEN={payload.Length}", ServerLogLevel.Debug);
 
-                /// <summary> Logs prefix of payload for quick visual checksum (first 16 bytes or full if smaller) </summary>
                 int prefixLength = Math.Min(16, payload.Length);
 
-                /// <summary> If a prefix length is defined, copy that slice of the payload and log it in hex for debugging. </summary>
+                // If a prefix length is defined, copy that slice of the payload and log it in hex for debugging.
                 if (prefixLength > 0)
                 {
                     var prefixBytes = new byte[prefixLength];
@@ -808,16 +797,16 @@ namespace chat_server
 
                 try
                 {
-                    /// <summary>Write header first, then payload to the network stream (async). </summary>
+                    // Writes header first, then payload to the network stream (async).
                     await networkStream.WriteAsync(headerByte, 0, headerByte.Length, cancellationToken).ConfigureAwait(false);
 
-                    /// <summary> If payload exists, write it after the header.</summary>
+                    // If payload exists, write it after the header.
                     if (payload.Length > 0)
                     {
                         await networkStream.WriteAsync(payload, 0, payload.Length, cancellationToken).ConfigureAwait(false);
                     }
 
-                    /// <summary> Flush stream to ensure all bytes are sent immediately. </summary>
+                    // Flushes stream to ensure all bytes are sent immediately.
                     await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
                 }
                 catch (IOException ioEx)
@@ -828,7 +817,7 @@ namespace chat_server
             }
             finally
             {
-                /// <summary> Release semaphore so other send operations can proceed. </summary>
+                // Releases semaphore so other send operations can proceed.
                 sem.Release();
             }
         }
