@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 3rd, 2026</date>
+/// <date>January 4th, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
@@ -620,6 +620,7 @@ namespace chat_client.Net
                                     }));
                                     break;
                                 }
+
                             case PacketOpCode.HandshakeAck:
                                 {
                                     // Signals handshake completion.

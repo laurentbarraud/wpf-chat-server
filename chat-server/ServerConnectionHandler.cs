@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 3rd, 2026</date>
+/// <date>January 4th, 2026</date>
 
 using System;
 using System.Net.Sockets;
@@ -107,9 +107,10 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Executes the final cleanup sequence for this specific client connection,
+        /// Performs final cleanup sequence for this client,
         /// ensuring it runs exactly once even if multiple threads detect the disconnection.
-        /// This method atomically marks the connection as closed.
+        /// This method atomically marks the connection as closed, removes the user from the roster
+        /// and broadcasts DisconnectNotify.
         /// </summary>
         /// <remarks>
         /// Interlocked.CompareExchange is used to guarantee that only the first caller
@@ -117,37 +118,59 @@ namespace chat_server
         /// • ref _cleanupState — the cleanup flag passed by reference.
         /// • 1 — the value to assign if the current value matches the expected one.
         /// • 0 — the expected value; cleanup proceeds only if the flag was still 0.
-        /// The return value is the previous state. If it was not 0, another thread has
-        /// already executed cleanup, and the method exits immediately.
+        /// The return value is the previous state. 
+        /// If it was not 0, another thread has already executed cleanup, and the method exits immediately.
         /// This prevents duplicate socket closes, duplicate user removals, etc.
         /// </remarks>
         private void CleanupAfterDisconnect()
         {
-            // Ensures cleanup runs only once
             if (Interlocked.CompareExchange(ref _cleanupState, 1, 0) != 0)
+            {
                 return;
+            }
 
             try
             {
-                var user = Program.Users.FirstOrDefault(usr => usr.UID == UID);
+                ServerConnectionHandler? myConnectionHandler;
 
-                if (user != null)
+                // Removes myConnectionHandler exactly once
+                lock (Program.Users)
                 {
-                    lock (Program.Users)
-                    {
-                        Program.Users.Remove(user);
-                    }
+                    // LINQ FirstOrDefault request:
+                    // Iterates over Program.Users and return the first element
+                    // where the lambda (c => c.UID == UID) is true. 
+                    // If no match exists, returns null.
+                    // In plain English:
+                    //   "Look through Program.Users and give me the user whose UID equals my UID."
+                    myConnectionHandler = Program.Users.FirstOrDefault(u => u.UID == UID);
 
-                    _ = Program.BroadcastDisconnectNotify(user.UID, CancellationToken.None);
+                    if (myConnectionHandler != null)
+                    {
+                        Program.Users.Remove(myConnectionHandler);
+                    }
                 }
 
-                ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Info, Username ?? UID.ToString());
+                if (myConnectionHandler != null)
+                {
+                    string username = string.IsNullOrWhiteSpace(myConnectionHandler.Username)
+                        ? "(unknown)"
+                        : myConnectionHandler.Username;
+
+                    _ = Program.BroadcastDisconnectNotify(myConnectionHandler.UID, username, CancellationToken.None);
+
+                    ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Info, username);
+                }
+                else
+                {
+                    ServerLogger.LogLocalized("ClientRemoved", ServerLogLevel.Info, Username ?? UID.ToString());
+                }
             }
             catch (Exception ex)
             {
                 ServerLogger.LogLocalized("CleanupFailed", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
             }
         }
+
 
         /// <summary>
         /// Finalizes a connection after an async handshake has been validated by the accept loop.
@@ -371,7 +394,8 @@ namespace chat_server
                                     var disconnectedUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     if (Interlocked.CompareExchange(ref _disconnectNotifySent, 1, 0) == 0)
                                     {
-                                        await Program.BroadcastDisconnectNotify(disconnectedUid, cancellationToken).ConfigureAwait(false);
+                                        await Program.BroadcastDisconnectNotify(disconnectedUid, Username, 
+                                            cancellationToken).ConfigureAwait(false);
                                     }
                                     else
                                     {

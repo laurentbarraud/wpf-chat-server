@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 3rd, 2026</date>
+/// <date>January 4th, 2026</date>
 
 using System;
 using chat_server.Helpers;
@@ -174,96 +174,65 @@ namespace chat_server
         }
 
         /// <summary>
-        /// Removes the specified user from the server roster
-        /// and broadcasts a framed DisconnectNotify packet to all remaining clients.
-        /// Packet layout:
-        ///   [4-byte big-endian length prefix]
-        ///   [1-byte opcode: DisconnectNotify]
-        ///   [16-byte UID of the disconnected user]
-        ///   [4-byte string length][UTF-8 bytes of username]
+        /// Broadcasts a DisconnectNotify to all remaining clients.
+        /// Does not modify the Users list; caller must remove the user beforehand.
         /// </summary>
-        /// <param name="disconnectedUserId">UID of the client who disconnected.</param>
-        public static async Task BroadcastDisconnectNotify(Guid disconnectedUserId, CancellationToken cancellationToken)
+        public static async Task BroadcastDisconnectNotify(
+            Guid disconnectedUserId,
+            string username,
+            CancellationToken cancellationToken)
         {
-            // Uses the provided Guid directly
-            Guid disconnectedGuid = disconnectedUserId;
-
-            /// <summary>
-            /// FirstOrDefault returns a nullable Client if no match is found
-            /// </summary>
-            ServerConnectionHandler? goneUser = Users.FirstOrDefault(u => u.UID == disconnectedGuid);
-            
-            /// <summary>
-            /// Safely guards the removal logic
-            /// </summary>
-            if (goneUser is not null)
-            {
-                lock (Users)
-                {
-                    Users.Remove(goneUser);
-                }
+            // Fallback username
+            if (string.IsNullOrWhiteSpace(username))
+            { 
+                username = "(unknown)";
             }
 
-            // Snapshots current users
-            var snapshotUsers = Users.ToList();
+            // Snapshot current users
+            List<ServerConnectionHandler> snapshot;
+            lock (Users)
+            {
+                snapshot = Users.ToList();
+            }
 
-            // Chooses a safe username fallback:
-            // uses disconnected GUID string when username is unavailable
-            string username = string.IsNullOrWhiteSpace(goneUser?.Username)
-                            ? "(unknown)"
-                            : goneUser.Username;
-
-            /// <summary>
-            /// Builds the framed DisconnectNotify for each remaining client
-            /// and sends it if their socket is connected.
-            /// </summary>
             var sendTasks = new List<Task>();
 
-            foreach (var listener in snapshotUsers)
+            foreach (var usr in snapshot)
             {
-                if (!listener.ClientSocket.Connected)
+                if (!usr.ClientSocket.Connected)
                 {
                     continue;
                 }
 
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)PacketOpCode.DisconnectNotify);
-                builder.WriteUid(disconnectedGuid);
+                builder.WriteUid(disconnectedUserId);
                 builder.WriteString(username);
 
                 byte[] payload = builder.GetPacketBytes();
 
-                // Shows what the builder returned before sending
-                ServerLogger.Log($"BUILDER_RETURNS_LEN={payload.Length} PREFIX={BitConverter.ToString(payload.Take(Math.Min(24, payload.Length)).ToArray())}", ServerLogLevel.Debug);
-
-                // Creates a per-listener task that performs the send and preserves existing logging.
-                var sendTask = Task.Run(async () =>
+                var task = Task.Run(async () =>
                 {
                     try
                     {
-                        await SendFramedAsync(listener, payload, cancellationToken).ConfigureAwait(false);
-                        ServerLogger.LogLocalized("DisconnectNotifySuccess", ServerLogLevel.Debug,
-                            listener.Username);
+                        await SendFramedAsync(usr, payload, cancellationToken).ConfigureAwait(false);
+                        ServerLogger.LogLocalized("DisconnectNotifySuccess", ServerLogLevel.Debug, usr.Username);
                     }
                     catch (Exception ex)
                     {
-                        ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn,
-                            listener.Username, ex.Message);
+                        ServerLogger.LogLocalized("DisconnectNotifyFailed", ServerLogLevel.Warn, usr.Username, ex.Message);
                     }
                 }, cancellationToken);
 
-                sendTasks.Add(sendTask);
+                sendTasks.Add(task);
             }
 
-            // Awaits all sends; if cancellation requested this will observe it via the token passed to each send.
-            try
-            {
-                await Task.WhenAll(sendTasks).ConfigureAwait(false);
+            try 
+            { 
+                await Task.WhenAll(sendTasks).ConfigureAwait(false); 
             }
-            catch (OperationCanceledException)
-            {
-                
-            }
+            catch (OperationCanceledException) 
+            { }
 
             ServerLogger.LogLocalized("UserDisconnected", ServerLogLevel.Info, username);
         }

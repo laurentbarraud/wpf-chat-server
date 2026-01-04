@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 3rd, 2026</date>
+/// <date>January 4th, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -1177,13 +1177,6 @@ namespace chat_client.MVVM.ViewModel
                             throw new InvalidOperationException("Public key not initialized");
                         }
 
-                        // Synchronizes the local public key with ClientConnection
-                        _clientConn.LocalPublicKey = LocalUser.PublicKeyDer;
-
-                        // Delegates handshake completion and pipeline readiness
-                        _clientConn.MarkHandshakeComplete(LocalUser.UID, LocalUser.PublicKeyDer);
-                        ClientLogger.Log("Pipeline marked ready for session.", ClientLogLevel.Debug);
-
                         // Resets encryption state for this new session
                         EncryptionPipeline.KnownPublicKeys.Clear();
                         EncryptionPipeline.IsEncryptionReady = false;
@@ -1380,20 +1373,31 @@ namespace chat_client.MVVM.ViewModel
 
             // --- Encryption: update keys for joined users ---
             // If encryption is enabled, ensures we have keys for new peers.
-            if (Settings.Default.UseEncryption)
+            if (Settings.Default.UseEncryption && _clientConn != null && _clientConn.EncryptionPipeline != null)
             {
-                foreach (var (userId, _, key) in joinedUsers)
+                lock (_clientConn.EncryptionPipeline.KnownPublicKeys)
                 {
-                    if (key.Length > 0)
+                    foreach (var (userId, _, key) in joinedUsers)
                     {
-                        // Key already provided in snapshot, we store it
-                        _clientConn!.EncryptionPipeline!.KnownPublicKeys[userId] = key;
+                        if (key.Length > 0)
+                        {
+                            // Key already provided in snapshot, we store it
+                            _clientConn.EncryptionPipeline.KnownPublicKeys[userId] = key;
+                        }
+                        else
+                        {
+                            // No key available for this userId, so we request it explicitly
+                            _ = _clientConn.SendRequestToPeerForPublicKeyAsync(userId, CancellationToken.None);
+                        }
                     }
-                    else
-                    {
-                        // No key available for this userId, so we request it explicitly
-                        _ = _clientConn!.SendRequestToPeerForPublicKeyAsync(userId, CancellationToken.None);
-                    }
+                }
+            }
+            else
+            {
+                // Pipeline not ready yet: lets SyncKeysAsync/OnPublicKeyReceived handle keys later.
+                if (Settings.Default.UseEncryption)
+                {
+                    ClientLogger.Log("DisplayRosterSnapshot: pipeline not ready yet; deferring key injection.", ClientLogLevel.Debug);
                 }
             }
 
@@ -1659,56 +1663,66 @@ namespace chat_client.MVVM.ViewModel
         /// </summary>
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
         {
-            // Normalizes: never store null
+            // Pipeline must be initialized to process keys.
+            if (EncryptionPipeline == null)
+            {
+                ClientLogger.Log("OnPublicKeyReceived: pipeline not initialized yet; ignoring key.",
+                    ClientLogLevel.Debug);
+                return;
+            }
+
+            // Normalizes: never store null.
             var publicKey = (publicKeyDer == null || publicKeyDer.Length == 0)
                 ? Array.Empty<byte>()
                 : publicKeyDer;
 
-            // Ignores self-echo
-            if (senderUid == LocalUser.UID) 
-            { 
+            // Ignores self-echo.
+            if (senderUid == LocalUser.UID)
+            {
                 return;
             }
 
-            bool KeyDictionnaryUpdated = false;
+            bool keyDictionaryUpdated = false;
 
-            // Updates KnownPublicKeys safely
+            // Updates KnownPublicKeys safely.
             lock (EncryptionPipeline.KnownPublicKeys)
             {
                 if (EncryptionPipeline.KnownPublicKeys.TryGetValue(senderUid, out var existingValue))
                 {
-                    // No-op if identical
-                    if (existingValue != null && existingValue.Length == publicKey.Length && existingValue.SequenceEqual(publicKey))
+                    // No-op if identical.
+                    if (existingValue != null && existingValue.Length == publicKey.Length &&
+                        existingValue.SequenceEqual(publicKey))
                     {
                         ClientLogger.Log($"Public key already known for {senderUid}.", ClientLogLevel.Debug);
                     }
                     else
                     {
                         EncryptionPipeline.KnownPublicKeys[senderUid] = publicKey;
-                        KeyDictionnaryUpdated = true;
+                        keyDictionaryUpdated = true;
                         ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
                     }
                 }
                 else
                 {
                     EncryptionPipeline.KnownPublicKeys[senderUid] = publicKey;
-                    KeyDictionnaryUpdated = true;
+                    keyDictionaryUpdated = true;
                     ClientLogger.Log($"Registered new public key for {senderUid}.", ClientLogLevel.Info);
                 }
             }
 
-            // Nothing changed, so nothing to evaluate
-            if (!KeyDictionnaryUpdated)
+            // Nothing changed, so nothing to evaluate.
+            if (!keyDictionaryUpdated)
             {
                 return;
             }
 
             // Don't evaluate until every peer key is in.
             // Prevents early pipeline runs when a new user joins without a key.
-            bool allKeysPresent;
+            bool allPeerKeysPresent;
+            
             lock (EncryptionPipeline.KnownPublicKeys)
             {
-                allKeysPresent = Users
+                allPeerKeysPresent = Users
                     .Where(u => u.UID != LocalUser.UID)
                     .All(u =>
                         EncryptionPipeline.KnownPublicKeys.ContainsKey(u.UID) &&
@@ -1717,21 +1731,26 @@ namespace chat_client.MVVM.ViewModel
                     );
             }
 
-            if (!allKeysPresent)
+            if (!allPeerKeysPresent)
             {
-                ClientLogger.Log("Skipping encryption evaluation — still missing peer keys.", ClientLogLevel.Debug);
+                ClientLogger.Log("Skipping encryption evaluation — still missing peer keys.",
+                    ClientLogLevel.Debug);
                 return;
             }
 
-            // All keys available → safe to evaluate
+            // All keys available, safe to evaluate.
             ReevaluateEncryptionStateFromConnection();
 
             if (EncryptionPipeline.IsEncryptionReady)
-                ClientLogger.Log($"Encryption ready after key update from {senderUid}.", ClientLogLevel.Debug);
+            {
+                ClientLogger.Log($"Encryption ready after key update from {senderUid}.",
+                    ClientLogLevel.Debug);
+            }
             else
+            {
                 ClientLogger.Log("Key updated but encryption not ready yet.", ClientLogLevel.Debug);
+            }
         }
-
 
         /// <summary>
         /// Reacts to AppLanguage changes by applying the new culture
