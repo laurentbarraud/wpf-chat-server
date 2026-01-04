@@ -7,9 +7,12 @@ using chat_client.Helpers;
 using chat_client.MVVM.ViewModel;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.VisualBasic.ApplicationServices;
+using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -667,25 +670,6 @@ namespace chat_client.MVVM.View
             {
                 _messagesScrollViewer?.ScrollToEnd();
             }), DispatcherPriority.Background);
-        }
-
-        /// <summary>
-        /// Handles keyboard shortcuts.
-        /// </summary>
-        protected override void OnPreviewKeyDown(KeyEventArgs e)
-        {
-            base.OnPreviewKeyDown(e);
-
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T)
-            {
-                // Flips toggle by triggering animation.
-                ThemeToggle.IsChecked = !ThemeToggle.IsChecked;
-
-                ThemeToggle.Command?.Execute(ThemeToggle.IsChecked ?? false);
-
-                // Prevents further processing of this key event.
-                e.Handled = true;
-            }
         }
 
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

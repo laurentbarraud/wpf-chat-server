@@ -1,4 +1,4 @@
-﻿/// <file>App.xaml.cs</fil
+﻿/// <file>App.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
 /// <date>January 4th, 2026</date>
@@ -6,55 +6,79 @@
 using chat_client.Helpers;
 using chat_client.Properties;
 using chat_client.MVVM.View;
+using chat_client.MVVM.ViewModel;
 using System;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Windows;
+using System.Windows.Input;
 
 namespace chat_client
 {
     public partial class App : Application
     {
+        /// <summary>
+        /// Application startup entry point.
+        /// 
+        /// Responsibilities:
+        /// • Parses command-line arguments
+        /// • Applies startup configuration flags
+        /// • Initializes culture and localization
+        /// • Creates and displays the main window
+        /// • Registers global keyboard shortcuts for all windows
+        /// • Optionally opens the debug console depending on build mode and flags
+        /// 
+        /// This method runs before any window is shown and prepares the
+        /// application environment for the entire session.
+        /// </summary>
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // Gathers all args - skip(1) skips exe path
+            // Collects all command-line arguments (skipping the executable path)
             string[] args = Environment.GetCommandLineArgs().Skip(1).ToArray();
 
-            // Checks for any debug flag
+            // Detects debug/console flags
             bool debugMode = args.Any(arg =>
                 arg.Equals("--debug", StringComparison.OrdinalIgnoreCase) ||
-                arg.Equals("--console", StringComparison.OrdinalIgnoreCase) || 
+                arg.Equals("--console", StringComparison.OrdinalIgnoreCase) ||
                 arg.Equals("-d", StringComparison.OrdinalIgnoreCase) ||
                 arg.Equals("-c", StringComparison.OrdinalIgnoreCase));
 
-            // Applies all other flags (help, about, theme, encryption…)
+            // Applies all other startup flags
             StartupConfigurator.ApplyStartupArguments(args);
 
-            // Culture & localization
-            string language = Settings.Default.AppLanguageCode ?? "en";
-            var culture = new CultureInfo(language);
-            Thread.CurrentThread.CurrentCulture = culture;
-            Thread.CurrentThread.CurrentUICulture = culture;
-            CultureInfo.DefaultThreadCurrentCulture = culture;
-            CultureInfo.DefaultThreadCurrentUICulture = culture;
-            LocalizationManager.InitializeLocalization(language);
+            // Culture & localization setup
+            string languageCodeSaved = Settings.Default.AppLanguageCode ?? "en";
+            var cultureToApply = new CultureInfo(languageCodeSaved);
 
-            // Creates and shows the main window
+            Thread.CurrentThread.CurrentCulture = cultureToApply;
+            Thread.CurrentThread.CurrentUICulture = cultureToApply;
+            CultureInfo.DefaultThreadCurrentCulture = cultureToApply;
+            CultureInfo.DefaultThreadCurrentUICulture = cultureToApply;
+
+            LocalizationManager.InitializeLocalization(languageCodeSaved);
+
+            // Creates and displays the main window
             var mainWindow = new MainWindow();
             Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
 
-            // Opens console + enables debug logging
+            // Registers global keyboard shortcuts for all windows
+            EventManager.RegisterClassHandler(
+                typeof(Window),
+                Keyboard.PreviewKeyDownEvent,
+                new KeyEventHandler(GlobalShortcutHandler));
+
+            // Debug console handling
 #if DEBUG
-            // Debug build: always open console when run under Visual Studio
+            // Debug build: always show console when running under Visual Studio
             ClientLogger.IsDebugEnabled = true;
             ConsoleManager.Show();
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 #else
-            // Release build: open console only if flag was passed
+            // Release build: show console only if explicitly requested
             if (debugMode)
             {
                 ClientLogger.IsDebugEnabled = true;
@@ -63,7 +87,63 @@ namespace chat_client
             }
 #endif
         }
+
+        /// <summary>
+        /// Global keyboard shortcut handler.
+        /// This ensures that shortcuts work even when secondary windows
+        /// (such as the Settings window) are focused.
+        /// </summary>
+        private void GlobalShortcutHandler(object sender, KeyEventArgs e)
+        {
+            // Theme toggle
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T)
+            {
+                if (Application.Current.MainWindow is MainWindow mainWindow)
+                {
+                    mainWindow.ThemeToggle.IsChecked = !mainWindow.ThemeToggle.IsChecked;
+                    mainWindow.ThemeToggle.Command?.Execute(mainWindow.ThemeToggle.IsChecked ?? false);
+                }
+
+                // Marks event as handled to prevent further processing
+                e.Handled = true;
+                return;
+            }
+
+            // Encryption toggle
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.E)
+            {
+                if (Application.Current.MainWindow?.DataContext is MainViewModel vm)
+                {
+                    vm.UseEncryption = !vm.UseEncryption;
+                }
+
+                e.Handled = true;
+                return;
+            }
+
+            // Minimize window
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.M)
+            {
+                Application.Current.MainWindow.WindowState = WindowState.Minimized;
+                e.Handled = true;
+                return;
+            }
+
+            // Minimize window
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.R)
+            {
+                Application.Current.MainWindow.WindowState = WindowState.Minimized;
+                e.Handled = true;
+                return;
+            }
+
+            // Closes main window
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.W)
+            {
+                Application.Current.MainWindow.Close();
+                e.Handled = true;
+                return;
+            }
+        }
     }
 }
-
-

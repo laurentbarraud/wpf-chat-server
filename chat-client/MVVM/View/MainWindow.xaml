@@ -67,23 +67,42 @@
 
         <!-- Lock drop animation -->
         <Storyboard x:Key="LockDropAnim">
-            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                             From="200" To="0"
-                             Duration="0:0:1.4"
-                             AccelerationRatio="0.2"
-                             DecelerationRatio="0.8"/>
 
+            <!-- Slight vertical offset to simulate coming from above -->
+            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                     From="-40" To="0"
+                     Duration="0:0:1.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <!-- Scale: simulate depth -->
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                             From="1.3" To="1"
-                             Duration="0:0:1.4"
-                             AccelerationRatio="0.2"
-                             DecelerationRatio="0.8"/>
+                     From="14.0" To="1.0"
+                     Duration="0:0:1.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
 
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                             From="1.3" To="1"
-                             Duration="0:0:1.4"
-                             AccelerationRatio="0.2"
-                             DecelerationRatio="0.8"/>
+                     From="14.0" To="1.0"
+                     Duration="0:0:1.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <!-- Opacity: faint when far away, solid when it lands -->
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                     From="0.001" To="1.00"
+                     Duration="0:0:1.3">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
         </Storyboard>
 
         <!-- Encryption icon style -->

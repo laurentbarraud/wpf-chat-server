@@ -861,16 +861,17 @@ namespace chat_client.MVVM.ViewModel
             set
             {
                 if (Settings.Default.UseEncryption == value)
+                {
                     return;
+                }
 
-                /// <summary> Persists new preference immediately </summary>
                 Settings.Default.UseEncryption = value;
                 Settings.Default.Save();
 
-                /// <summary> Notifies UI bindings </summary>
+                // Notifies UI bindings
                 OnPropertyChanged();
 
-                /// <summary> Atomically trigger the pipeline toggle via ViewModel </summary>
+                // Atomically trigger the pipeline toggle via ViewModel.
                 ToggleEncryption(value);
             }
         }
@@ -1898,34 +1899,31 @@ namespace chat_client.MVVM.ViewModel
         /// <param name="enableEncryption">True to enable encryption, false to disable.</param>
         public void ToggleEncryption(bool enableEncryption)
         {
-            /// <summary> Stores the previous encryption setting for rollback if needed. </summary>
+            // Stores the previous encryption setting for rollback if needed.
             bool previousValue = Settings.Default.UseEncryption;
 
-            /// <summary> Persists the new preference immediately. </summary>
             Settings.Default.UseEncryption = enableEncryption;
             Settings.Default.Save();
 
-            /// <summary> If not connected or no LocalUser, just persists the setting silently. </summary>
+            // If not connected or no LocalUser, just persists the setting silently.
             if (LocalUser == null || !IsConnected)
             {
                 OnPropertyChanged(nameof(UseEncryption));
                 return;
             }
 
-            /// <summary> Clears any existing key material before proceeding. </summary>
+            // Clears any existing key material before proceeding.
             EncryptionPipeline.KnownPublicKeys.Clear();
 
             bool pipelineSucceeded;
 
             if (enableEncryption)
             {
-                /// <summary> Notifies UI immediately when enabling encryption. </summary>
+                // Notifies UI immediately when enabling encryption.
                 OnPropertyChanged(nameof(UseEncryption));
 
-                /// <summary>
                 /// Fire-and-forget: start pipeline in background without blocking UI.
                 /// Any errors are logged inside the pipeline; session remains alive.
-                /// </summary>
                 _ = Task.Run(async () =>
                 {
                     bool encryptionInitOk = await EncryptionPipeline.InitializeEncryptionAsync(CancellationToken.None).ConfigureAwait(false);
@@ -1941,17 +1939,17 @@ namespace chat_client.MVVM.ViewModel
                 pipelineSucceeded = true; // optimistic; background task logs actual result
             }
             
-            /// <summary> When disabling encryption </summary>
+            // When disabling encryption
             else
             {
                 EncryptionPipeline.DisableEncryption();
                 pipelineSucceeded = true;
             }
 
-            /// <summary> if pipeline failed synchronously </summary>
+            // If pipeline failed
             if (!pipelineSucceeded)
             {
-                /// <summary> Rolls back setting </summary>
+                // Rolls back setting.
                 ClientLogger.Log($"Encryption pipeline {(enableEncryption ? "init" : "teardown")} failed – rolling back.", ClientLogLevel.Error);
                 Settings.Default.UseEncryption = previousValue;
                 Settings.Default.Save();
@@ -1959,7 +1957,6 @@ namespace chat_client.MVVM.ViewModel
             }
             else
             {
-                /// <summary> Logs final success message for enable/disable operation. </summary>
                 ClientLogger.Log(enableEncryption ? "Encryption enable requested." : "Encryption disabled successfully.", ClientLogLevel.Info);
             }
         }
