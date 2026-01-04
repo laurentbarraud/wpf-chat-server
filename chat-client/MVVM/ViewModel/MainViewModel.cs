@@ -194,24 +194,24 @@ namespace chat_client.MVVM.ViewModel
             set
             {
                 if (_appLanguage == value)
-                {
                     return;
-                }
+
                 _appLanguage = value;
 
                 // Persists the new language choice
                 Properties.Settings.Default.AppLanguageCode = value;
                 Properties.Settings.Default.Save();
 
-                OnPropertyChanged(nameof(AppLanguage));  // Notifies UI of AppLanguage change
+                OnPropertyChanged(nameof(AppLanguage));
 
-                // Reloads localization resources and refresh all UI labels
+                // Reloads localization resources
                 LocalizationManager.InitializeLocalization(value);
 
-                InitializeWatermarkResources();
+                // Refreshes localized DisplayName for each language option
+                RefreshLanguageOptions();
 
-                // Refreshes ComboBox items so each DisplayName re‐localizes
-                OnPropertyChanged(nameof(SupportedLanguages));
+                // Updates watermark images
+                InitializeWatermarkResources();
             }
         }
 
@@ -751,16 +751,6 @@ namespace chat_client.MVVM.ViewModel
         public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>
-        /// Collection of languages for the ComboBox (ISO code + localized name).
-        /// </summary>
-        public ObservableCollection<LanguageOptions> SupportedLanguages { get; }
-            = new ObservableCollection<LanguageOptions>
-            {
-                new LanguageOptions("en"),
-                new LanguageOptions("fr")
-            };
-
-        /// <summary>
         /// Determines whether the application should minimize to the system tray.
         /// </summary>
         public bool ReduceToTray
@@ -827,6 +817,18 @@ namespace chat_client.MVVM.ViewModel
         }
 
         public static string SettingsToolTip => LocalizationManager.GetString("SettingsToolTip");
+
+
+        /// <summary>
+        /// Collection of languages for the ComboBox (ISO code + localized name).
+        /// </summary>
+        public ObservableCollection<LanguageOptions> SupportedLanguages { get; }
+            = new ObservableCollection<LanguageOptions>
+            {
+                new LanguageOptions("en"),
+                new LanguageOptions("fr")
+            };
+
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -1806,6 +1808,18 @@ namespace chat_client.MVVM.ViewModel
 
             // Ensures UI bindings refresh for IsEncryptionReady
             OnPropertyChanged(nameof(EncryptionPipeline.IsEncryptionReady));
+        }
+
+        /// <summary>
+        /// Notifies each LanguageOptions item that the UI culture has changed,
+        /// so DisplayName is refreshed without rebuilding the collection.
+        /// </summary>
+        public void RefreshLanguageOptions()
+        {
+            foreach (var language in SupportedLanguages)
+            {
+                language.NotifyCultureChanged();
+            }
         }
 
         /// <summary>

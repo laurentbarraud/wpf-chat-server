@@ -3,14 +3,14 @@
 /// <version>1.0</version>
 /// <date>January 4th, 2026</date>
 
+using chat_client.MVVM.View;
+using chat_client.MVVM.ViewModel;
 using System;
-using System.Resources;
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
-using System.Diagnostics;
-using System.Threading;
+using System.Resources;
 using System.Windows;
-using chat_client.MVVM.View;
 
 namespace chat_client.Helpers
 {
@@ -99,16 +99,24 @@ namespace chat_client.Helpers
             Thread.CurrentThread.CurrentUICulture = CurrentCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CurrentCulture;
 
-            /// <summary> Resets ResourceManager in case satellite assemblies are now loaded </summary>
+            // Resets ResourceManager in case satellite assemblies are now loaded
             ResourceManager = new ResourceManager("chat_client.Resources.Strings", Assembly.GetExecutingAssembly());
 
-            ///<summary> Updates watermark images </summary>
+            // Updates watermark images
             foreach (Window window in Application.Current.Windows)
             {
                 if (window is MainWindow mainWindow)
                     mainWindow.ApplyWatermarks();
             }
 
+            foreach (Window window in Application.Current.Windows)
+            {
+                if (window is MainWindow mainWindow)
+                {
+                    mainWindow.ApplyWatermarks();
+                    mainWindow.viewModel.RefreshLanguageOptions();
+                }
+            }
         }
     }
 }

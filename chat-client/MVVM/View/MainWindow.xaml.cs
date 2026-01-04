@@ -4,7 +4,6 @@
 /// <date>January 4th, 2026</date>
 
 using chat_client.Helpers;
-using chat_client.MVVM.View;
 using chat_client.MVVM.ViewModel;
 using chat_client.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -18,7 +17,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-
 
 
 namespace chat_client.MVVM.View
