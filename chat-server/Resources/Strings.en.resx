@@ -118,10 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="ClientConnected" xml:space="preserve">
-    <value>Client connected successfully.</value>
-  </data>
-  <data name="MessageReceived" xml:space="preserve">
-    <value>Message received from {0} :</value>
+    <value>Client {0} connected successfully.</value>
   </data>
   <data name="ServerStartFailed" xml:space="preserve">
     <value>Failed to start server on port {0} : {1}</value>
@@ -169,7 +166,7 @@
     <value>Unhandled error in packet processing loop.</value>
   </data>
   <data name="ClientRemoved" xml:space="preserve">
-    <value>Client '{0}' removed</value>
+    <value>Client {0} removed</value>
   </data>
   <data name="RosterSendFailed" xml:space="preserve">
     <value>Failed to send roster to '{0}': {1}</value>
@@ -180,10 +177,10 @@
   <data name="UserDisconnected" xml:space="preserve">
     <value>User '{0}' disconnected</value>
   </data>
-  <data name="PlainMessageBroadcast" xml:space="preserve">
+  <data name="MessageBroadcast" xml:space="preserve">
     <value>Broadcasted message from '{0}'</value>
   </data>
-  <data name="PlainMessageSendFailed" xml:space="preserve">
+  <data name="MessageSendFailed" xml:space="preserve">
     <value>Failed to send message to '{0}': {1}</value>
   </data>
   <data name="UnexpectedOpcode" xml:space="preserve">
@@ -291,8 +288,8 @@
   <data name="ConnectionClosingDueToError" xml:space="preserve">
     <value>Closing connection due to an error.</value>
   </data>
-  <data name="PlainMessageReceived" xml:space="preserve">
-    <value>Plain message received — {0}</value>
+  <data name="MessageReceived" xml:space="preserve">
+    <value>Plain message received from {0}</value>
   </data>
   <data name="ForceDisconnectReceived" xml:space="preserve">
     <value>Force-disconnect command received for this client.</value>
@@ -319,6 +316,9 @@
     <value>The encrypted message payload is empty (UID={0}, Recipient={1}).</value>
   </data>
   <data name="EncryptedMessageReceived" xml:space="preserve">
-    <value>Encrypted message received from {0} — Len={1}</value>
+    <value>Encrypted message received from {0} for {1}</value>
+  </data>
+  <data name="PublicKeyResponseRelayFailed" xml:space="preserve">
+    <value>Public key response relay failed.</value>
   </data>
 </root>

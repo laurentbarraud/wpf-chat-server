@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 4th, 2026</date>
+/// <date>January 5th, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.MVVM.Model;
@@ -1349,13 +1349,46 @@ namespace chat_client.MVVM.ViewModel
             if (_isFirstRosterSnapshot)
             {
                 Users.Clear();
+
+                // Goes through every user in the roster snapshot and adds them
+                // to our local Users list.
+                // Each entry becomes a UserModel with ID, name, and public key.
                 foreach (var usr in incomingUsers)
+                {
                     Users.Add(new UserModel
                     {
                         UID = usr.UserId,
                         Username = usr.Username,
                         PublicKeyDer = usr.PublicKeyDer
                     });
+                }
+
+                // If encryption is enabled and the pipeline is available
+                if (Settings.Default.UseEncryption && _clientConn != null && _clientConn.EncryptionPipeline != null)
+                {
+                    lock (_clientConn.EncryptionPipeline.KnownPublicKeys)
+                    {
+                        foreach (var usr in incomingUsers)
+                        {
+                            // Skips local user; we don't need to store our own public key in the peer map.
+                            if (LocalUser != null && usr.UserId == LocalUser.UID)
+                            {
+                                continue;
+                            }
+
+                            if (usr.PublicKeyDer != null && usr.PublicKeyDer.Length > 0)
+                            {
+                                // Snapshot already contains the peer's key, so we store it.
+                                _clientConn.EncryptionPipeline.KnownPublicKeys[usr.UserId] = usr.PublicKeyDer;
+                            }
+                            else
+                            {
+                                // No key provided in snapshot, we explicitly request it.
+                                _ = _clientConn.SendRequestToPeerForPublicKeyAsync(usr.UserId, CancellationToken.None);
+                            }
+                        }
+                    }
+                }
 
                 // Cache snapshot for next diff
                 _previousRosterSnapshot = incomingUsers.Select(e => (e.UserId, e.Username)).ToList();
@@ -1376,33 +1409,38 @@ namespace chat_client.MVVM.ViewModel
                 .Where(p => !incomingLookup.ContainsKey(p.UserId))
                 .ToList();
 
-            // --- Encryption: update keys for joined users ---
-            // If encryption is enabled, ensures we have keys for new peers.
+            // --- Encryption: update keys for peers present in this snapshot ---
+            // If encryption is enabled, ensures we have keys for all non-local peers.
             if (Settings.Default.UseEncryption && _clientConn != null && _clientConn.EncryptionPipeline != null)
             {
                 lock (_clientConn.EncryptionPipeline.KnownPublicKeys)
                 {
-                    foreach (var (userId, _, key) in joinedUsers)
+                    foreach (var usr in incomingUsers)
                     {
-                        if (key.Length > 0)
+                        if (LocalUser != null && usr.UserId == LocalUser.UID)
                         {
-                            // Key already provided in snapshot, we store it
-                            _clientConn.EncryptionPipeline.KnownPublicKeys[userId] = key;
+                            continue; // skips local user
+                        }
+
+                        if (usr.PublicKeyDer != null && usr.PublicKeyDer.Length > 0)
+                        {
+                            // Key already provided in snapshot, we store or refresh it.
+                            _clientConn.EncryptionPipeline.KnownPublicKeys[usr.UserId] = usr.PublicKeyDer;
                         }
                         else
                         {
-                            // No key available for this userId, so we request it explicitly
-                            _ = _clientConn.SendRequestToPeerForPublicKeyAsync(userId, CancellationToken.None);
+                            // No key available for this userId, so we request it explicitly.
+                            _ = _clientConn.SendRequestToPeerForPublicKeyAsync(usr.UserId, CancellationToken.None);
                         }
                     }
                 }
             }
             else
             {
-                // Pipeline not ready yet: lets SyncKeysAsync/OnPublicKeyReceived handle keys later.
+                // Pipeline not available yet: keys will be handled later.
                 if (Settings.Default.UseEncryption)
                 {
-                    ClientLogger.Log("DisplayRosterSnapshot: pipeline not ready yet; deferring key injection.", ClientLogLevel.Debug);
+                    ClientLogger.Log("DisplayRosterSnapshot: encryption enabled but pipeline not available; deferring key injection.", ClientLogLevel.Debug);
                 }
             }
 
@@ -1410,7 +1448,7 @@ namespace chat_client.MVVM.ViewModel
             // Skips local user, manual disconnect, or suppressed notifications.
             foreach (var (userId, username, _) in joinedUsers)
             {
-                if (userId == LocalUser.UID) 
+                if (LocalUser != null && userId == LocalUser.UID)
                 {
                     continue;                   // Don't notify about ourselves
                 }
@@ -1431,16 +1469,16 @@ namespace chat_client.MVVM.ViewModel
             // --- Notifications (left users) ---
             foreach (var (userId, username) in leftUsers)
             {
-                if (userId == LocalUser.UID)
+                if (LocalUser != null && userId == LocalUser.UID)
                 {
                     continue;                  // Ignores local user
                 }
 
-                if (_userHasClickedOnDisconnect) 
-                { 
+                if (_userHasClickedOnDisconnect)
+                {
                     continue;                  // No noise on manual disconnect
                 }
-                if (_suppressRosterNotifications) 
+                if (_suppressRosterNotifications)
                 {
                     continue;                  // Suppression flag active
                 }
@@ -1462,7 +1500,7 @@ namespace chat_client.MVVM.ViewModel
             // --- Saves snapshot ---
             // Cache for next diff cycle.
             _previousRosterSnapshot = incomingUsers.Select(e => (e.UserId, e.Username)).ToList();
-            
+
             _suppressRosterNotifications = false;
         }
 
@@ -1598,7 +1636,7 @@ namespace chat_client.MVVM.ViewModel
             {
                 Application.Current.Dispatcher.BeginInvoke(() =>
                 {
-                    Messages.Add(LocalizationManager.GetString("EnableEncryptionToReadMessages"));
+                    Messages.Add(LocalizationManager.GetString("EnableEncryptionToKeepReadingMessages"));
                 });
                 return;
             }

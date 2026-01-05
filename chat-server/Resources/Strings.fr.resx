@@ -118,10 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="ClientConnected" xml:space="preserve">
-    <value>Client connecté avec succès.</value>
-  </data>
-  <data name="MessageReceived" xml:space="preserve">
-    <value>Message reçu de {0} :</value>
+    <value>Client {0} connecté avec succès.</value>
   </data>
   <data name="ServerStartFailed" xml:space="preserve">
     <value>Échec du démarrage du serveur sur le port {0} : {1}</value>
@@ -169,7 +166,7 @@
     <value>Erreur non gérée dans la boucle de traitement des trames.</value>
   </data>
   <data name="ClientRemoved" xml:space="preserve">
-    <value>Client '{0}' supprimé</value>
+    <value>Client {0} supprimé</value>
   </data>
   <data name="RosterSendFailed" xml:space="preserve">
     <value>Échec de l’envoi de la liste de contacts à '{0}' : {1}</value>
@@ -180,10 +177,10 @@
   <data name="UserDisconnected" xml:space="preserve">
     <value>Utilisateur '{0}' déconnecté</value>
   </data>
-  <data name="PlainMessageBroadcast" xml:space="preserve">
+  <data name="MessageBroadcast" xml:space="preserve">
     <value>Message diffusé de '{0}'</value>
   </data>
-  <data name="PlainMessageSendFailed" xml:space="preserve">
+  <data name="MessageSendFailed" xml:space="preserve">
     <value>Échec de l’envoi du message à '{0}' : {1}</value>
   </data>
   <data name="UnexpectedOpcode" xml:space="preserve">
@@ -291,8 +288,8 @@
   <data name="ConnectionClosingDueToError" xml:space="preserve">
     <value>Fermeture de la connexion en raison d'une erreur.</value>
   </data>
-  <data name="PlainMessageReceived" xml:space="preserve">
-    <value>Message clair reçu — {0}</value>
+  <data name="MessageReceived" xml:space="preserve">
+    <value>Message clair reçu de {0}</value>
   </data>
   <data name="ForceDisconnectReceived" xml:space="preserve">
     <value>Commande de déconnexion forcée reçue pour ce client.</value>
@@ -319,6 +316,9 @@
     <value>Le message chiffré reçu est vide (UID={0}, Destinataire={1}).</value>
   </data>
   <data name="EncryptedMessageReceived" xml:space="preserve">
-    <value>Message chiffré reçu de {0} — Longueur={1}</value>
+    <value>Message chiffré reçu de {0} pour {1}</value>
+  </data>
+  <data name="PublicKeyResponseRelayFailed" xml:space="preserve">
+    <value>Echec du relai de la clé publique en réponse.</value>
   </data>
 </root>

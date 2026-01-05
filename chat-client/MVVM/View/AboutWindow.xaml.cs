@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 4th, 2026</date>
+/// <date>January 5th, 2026</date>
 
 using chat_client.Helpers;
 using System;

@@ -1,7 +1,7 @@
 ﻿/// <file>App.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 4th, 2026</date>
+/// <date>January 5th, 2026</date>
 
 using chat_client.Helpers;
 using chat_client.Properties;
@@ -112,9 +112,9 @@ namespace chat_client
             // Encryption toggle
             if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.E)
             {
-                if (Application.Current.MainWindow?.DataContext is MainViewModel vm)
+                if (Application.Current.MainWindow?.DataContext is MainViewModel viewModel)
                 {
-                    vm.UseEncryption = !vm.UseEncryption;
+                    viewModel.UseEncryption = !viewModel.UseEncryption;
                 }
 
                 e.Handled = true;

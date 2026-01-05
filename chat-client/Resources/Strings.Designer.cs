@@ -215,29 +215,20 @@ namespace chat_client.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Please enable encryption to keep reading encrypted messages..
+        /// </summary>
+        public static string EnableEncryptionToKeepReadingMessages {
+            get {
+                return ResourceManager.GetString("EnableEncryptionToKeepReadingMessages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Message encryption enabled..
         /// </summary>
         public static string EncryptionEnabledToolTip {
             get {
                 return ResourceManager.GetString("EncryptionEnabledToolTip", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à Please enable encryption to keep reading encrypted messages..
-        /// </summary>
-        public static string EncryptionRequired {
-            get {
-                return ResourceManager.GetString("EncryptionRequired", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à You must be connected to the server to enable encryption..
-        /// </summary>
-        public static string EncryptionRequiresConnection {
-            get {
-                return ResourceManager.GetString("EncryptionRequiresConnection", resourceCulture);
             }
         }
         

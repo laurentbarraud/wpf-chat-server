@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 4th, 2026</date>
+/// <date>January 5th, 2026</date>
 
 using chat_client.Net;
 using chat_client.MVVM.ViewModel;
@@ -112,11 +112,6 @@ namespace chat_client.Helpers
         public byte[] PublicKeyDer { get; set; }
 
         /// <summary>
-        /// Raised whenever IsEncryptionReady or IsSyncingKeys changes.
-        /// </summary>
-        public event EventHandler? StateChanged;
-
-        /// <summary>
         /// Creates a new EncryptionPipeline.
         /// Requires a MainViewModel, a ClientConnection for network operations,
         /// and one callback to run code on the UI thread.
@@ -163,11 +158,15 @@ namespace chat_client.Helpers
             _cts?.Dispose();
             _cts = null;
 
+            // Clears all known public keys
             KnownPublicKeys.Clear();
 
-            // Resets all encryption-related flags and updates the UI bindings
+            IsEncryptionReady = false;
+
+            // Resets UI bindings
             _viewModel.ResetEncryptionPipelineAndUI();
 
+            // Updates setting
             Settings.Default.UseEncryption = false;
 
             try
@@ -179,10 +178,11 @@ namespace chat_client.Helpers
             ClientLogger.Log("Encryption disabled via EncryptionPipeline.DisableEncryption().", ClientLogLevel.Info);
         }
 
+
         public bool EvaluateEncryptionState()
         {
             // Default: not ready
-            bool ready = false;
+            bool isEncReady = false;
 
             // Encryption disabled or local user not ready: bails out
             if (!Settings.Default.UseEncryption || _viewModel.LocalUser == null)
@@ -198,12 +198,12 @@ namespace chat_client.Helpers
 
                 if (localKey?.Length > 0 || helperKey?.Length > 0)
                 {
-                    ClientLogger.Log("EvalEnc: solo mode → ready.", ClientLogLevel.Info);
-                    ready = true;
+                    ClientLogger.Log("EvalEnc: solo mode detected, encryption ready.", ClientLogLevel.Info);
+                    isEncReady = true;
                 }
                 else
                 {
-                    ClientLogger.Log("EvalEnc: solo mode but no local key.", ClientLogLevel.Warn);
+                    ClientLogger.Log("EvalEnc: solo mode detected, but no local key defined.", ClientLogLevel.Warn);
                 }
             }
             // Multi-user mode: all peers must have valid keys
@@ -219,7 +219,7 @@ namespace chat_client.Helpers
 
                 lock (KnownPublicKeys)
                 {
-                    // Missing = peers not present OR peers with empty keys
+                    // Missing = peers not present or peers with empty keys
                     missingKeys = peerUids
                         .Where(uid => !KnownPublicKeys.ContainsKey(uid) ||
                                       KnownPublicKeys[uid] == null ||
@@ -230,7 +230,7 @@ namespace chat_client.Helpers
                 if (missingKeys.Count == 0)
                 {
                     ClientLogger.Log("EvalEnc: all peer keys present → ready.", ClientLogLevel.Info);
-                    ready = true;
+                    isEncReady = true;
                 }
                 else
                 {
@@ -241,12 +241,12 @@ namespace chat_client.Helpers
             // Updates UI flags on dispatcher
             _uiDispatcherInvoke(() =>
             {
-                SetEncryptionReady(ready);
-                SetSyncing(!ready);
+                SetEncryptionReady(isEncReady);
+                SetSyncing(!isEncReady);
             });
 
-            ClientLogger.Log($"EvalEnc: final Ready={ready}", ClientLogLevel.Debug);
-            return ready;
+            ClientLogger.Log($"EvalEnc: final Ready={isEncReady}", ClientLogLevel.Debug);
+            return isEncReady;
         }
 
         /// <summary>
@@ -319,27 +319,27 @@ namespace chat_client.Helpers
         /// Marks the pipeline ready for encryption/decryption after handshake.
         /// Updates LocalUser and KnownPublicKeys with the provided public key.
         /// </summary>
-        public void MarkReadyForSession(Guid uid, byte[] publicKeyDer)
+        public void MarkReadyForSession(Guid uid, byte[] publicKeyProvided)
         {
-            /// <summary> Validates that a non-empty public key is provided </summary>
-            if (publicKeyDer == null || publicKeyDer.Length == 0)
+            // Validates that a non-empty public key is provided
+            if (publicKeyProvided == null || publicKeyProvided.Length == 0)
                 throw new InvalidOperationException("Public key not initialized");
 
-            /// <summary> Updates LocalUser with the handshake key </summary>
-            _viewModel.LocalUser.PublicKeyDer = publicKeyDer;
+            // Updates LocalUser with the handshake key
+            _viewModel.LocalUser.PublicKeyDer = publicKeyProvided;
 
-            /// <summary> Injects the key into KnownPublicKeys for consistency </summary>
+            // Injects the key into KnownPublicKeys for consistency
             lock (KnownPublicKeys)
             {
-                KnownPublicKeys[uid] = publicKeyDer;
+                KnownPublicKeys[uid] = publicKeyProvided;
             }
 
-            /// <summary> Marks encryption as ready </summary>
+            // Marks encryption as ready
             IsEncryptionReady = true;
 
-            /// <summary> Logs handshake completion with key length </summary>
+            // Logs handshake completion with key length
             ClientLogger.Log(
-                $"MarkReadyForSession — UID={uid}, PublicKeyLen={publicKeyDer.Length}",
+                $"MarkReadyForSession — UID={uid}, PublicKeyLen={publicKeyProvided.Length}",
                 ClientLogLevel.Debug
             );
         }
@@ -347,29 +347,27 @@ namespace chat_client.Helpers
         /// <summary>
         /// Sets the encryption ready flag and notifies listeners if changed.
         /// </summary>
-        public void SetEncryptionReady(bool ready)
+        public void SetEncryptionReady(bool isEncReady)
         {
-            if (IsEncryptionReady == ready)
+            if (IsEncryptionReady == isEncReady)
             {
                 return;
             }
 
-            IsEncryptionReady = ready;
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            IsEncryptionReady = isEncReady;
         }
 
         /// <summary>
         /// Sets the syncing flag and notifies listeners if changed.
         /// </summary>
-        public void SetSyncing(bool syncing)
+        public void SetSyncing(bool isSyncing)
         {
-            if (IsSyncingKeys == syncing) 
+            if (IsSyncingKeys == isSyncing) 
             {
                 return;
             }
 
-            IsSyncingKeys = syncing;
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            IsSyncingKeys = isSyncing;
         }
 
         /// <summary>

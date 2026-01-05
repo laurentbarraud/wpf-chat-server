@@ -117,9 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AboutThisSoftwareLabel" xml:space="preserve">
-    <value>About this software</value>
-  </data>
   <data name="AppLanguageLabel" xml:space="preserve">
     <value>Application language</value>
   </data>
@@ -149,9 +146,6 @@
   </data>
   <data name="EncryptionEnabledToolTip" xml:space="preserve">
     <value>Message encryption is enabled.</value>
-  </data>
-  <data name="EncryptionRequiresConnection" xml:space="preserve">
-    <value>You must be connected to the server to enable encryption.</value>
   </data>
   <data name="Error" xml:space="preserve">
     <value>Error</value>
@@ -320,7 +314,10 @@ and connected users list</value>
   <data name="IPAddressWatermark" xml:space="preserve">
     <value>Server IP address</value>
   </data>
-  <data name="EncryptionRequired" xml:space="preserve">
+  <data name="EnableEncryptionToKeepReadingMessages" xml:space="preserve">
     <value>Please enable encryption to keep reading incoming messages.</value>
+  </data>
+  <data name="AboutThisSoftwareLabel" xml:space="preserve">
+    <value>About this software</value>
   </data>
 </root>

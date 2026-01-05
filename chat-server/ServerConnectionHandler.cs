@@ -1,13 +1,14 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 4th, 2026</date>
+/// <date>January 5th, 2026</date>
 
+using chat_protocol.Net;
+using chat_protocol.Net.IO;
+using chat_server.Helpers;
 using System;
 using System.Net.Sockets;
-using chat_server.Helpers;
-using chat_protocol.Net.IO;
-using chat_protocol.Net;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace chat_server
 {
@@ -357,8 +358,7 @@ namespace chat_server
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     string text = await bodyReader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 
-                                    // Safe: resource expects a single argument
-                                    ServerLogger.LogLocalized("PlainMessageReceived", ServerLogLevel.Info, Username, text);
+                                    ServerLogger.LogLocalized("MessageReceived", ServerLogLevel.Info, Username, text);
 
                                     await Program.BroadcastPlainMessage(text, senderUid, cancellationToken).ConfigureAwait(false);
                                     break;
@@ -366,23 +366,25 @@ namespace chat_server
 
                             case PacketOpCode.EncryptedMessage:
                                 {
-                                    /// <summary> Reads sender UID, recipient UID, and ciphertext. </summary>
+                                    // Reads sender UID, recipient UID, and ciphertext.
                                     Guid senderUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     Guid recipientUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     byte[] ciphertext = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
 
-                                    /// <summary> Validates ciphertext presence. </summary>
+                                    // Validates ciphertext presence.
                                     if (ciphertext == null || ciphertext.Length == 0)
                                     {
                                         ServerLogger.LogLocalized("EncryptedPayloadEmpty", ServerLogLevel.Warn, Username);
                                         break;
                                     }
 
-                                    ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, Username, ciphertext.Length.ToString());
+                                    // Resolves sender/recipient names from Program.Users, fallbacks to UID then "Unknown user"
+                                    string senderDisplayName = Program.Users.FirstOrDefault(u => u.UID == senderUid)?.Username ?? senderUid.ToString() ?? "Unknown user";
+                                    string recipientDisplayName = Program.Users.FirstOrDefault(u => u.UID == recipientUid)?.Username ?? recipientUid.ToString() ?? "Unknown user";
 
-                                    /// <summary>
-                                    /// Relay only to the intended recipient
-                                    /// </summary>
+                                    ServerLogger.LogLocalized("EncryptedMessageReceived", ServerLogLevel.Info, senderDisplayName, recipientDisplayName);
+
+                                    // Relays only to the intended recipient
                                     await Program.RelayEncryptedMessageToAUser(ciphertext, senderUid, recipientUid, cancellationToken)
                                         .ConfigureAwait(false);
 
@@ -405,8 +407,10 @@ namespace chat_server
                                 }
 
                             case PacketOpCode.Handshake:
-                                ServerLogger.LogLocalized("UnexpectedHandshake", ServerLogLevel.Warn, Username);
-                                break;
+                                {
+                                    ServerLogger.LogLocalized("UnexpectedHandshake", ServerLogLevel.Warn, Username);
+                                    break;
+                                }
 
                             case PacketOpCode.ForceDisconnectClient:
                                 {
