@@ -296,15 +296,6 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Unable to open system informations :.
-        /// </summary>
-        public static string ErrorOpeningSystemInfo {
-            get {
-                return ResourceManager.GetString("ErrorOpeningSystemInfo", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Recherche une chaîne localisée semblable à Plaintext must not be empty..
         /// </summary>
         public static string ErrorPlaintextEmpty {

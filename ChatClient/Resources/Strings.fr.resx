@@ -292,9 +292,6 @@ Exemple :
   <data name="ServerPrefix" xml:space="preserve">
     <value># - Serveur:</value>
   </data>
-  <data name="ErrorOpeningSystemInfo" xml:space="preserve">
-    <value>Impossible d'ouvrir les informations système :</value>
-  </data>
   <data name="DisplayFontSizeLabel" xml:space="preserve">
     <value>Taille du texte des conversations
 et de la liste des utilisateurs</value>

@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 6th, 2026</date>
+/// <date>January 7th, 2026</date>
 
 using System;
 using ChatServer.Helpers;
@@ -36,7 +36,7 @@ namespace ChatServer
         private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _sendSemaphores = new ConcurrentDictionary<Guid, SemaphoreSlim>();
 
         /// <summary>
-        /// Entry point — server accept loop with simplified handshake.
+        /// Entry point — server accept loop with handshake.
         /// </summary>
         public static async Task Main(string[] args)
         {
@@ -137,7 +137,13 @@ namespace ChatServer
                             lock (Users)
                             {
                                 Users.RemoveAll(u => u.Username == username); 
-                            } 
+                            }
+
+                            // Removes any previous session using the same UID.
+                            lock (Users) 
+                            { 
+                                Users.RemoveAll(u => u.UID == uid); 
+                            }
 
                             // Adds client to roster and log localized connection.
                             lock (Users) 
