@@ -1,0 +1,484 @@
+﻿<Window x:Name="SettingsWindow1"
+    x:Class="ChatClient.MVVM.View.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
+    xmlns:helpers="clr-namespace:ChatClient.Helpers"
+    Title="Settings"
+    Height="440" Width="498"
+    ShowInTaskbar="False"
+    ResizeMode="NoResize"
+    WindowStartupLocation="CenterScreen"
+    Background="{DynamicResource BackgroundBrush}"
+    TabIndex="12"
+    MinHeight="300"
+    MinWidth="438">
+
+    <Window.Resources>
+        
+        <!-- Custom style for the "Use Custom TCP Port" toggle -->
+        <Style x:Key="CustomPortToggleStyle" TargetType="{x:Type ToggleButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                        <Grid>
+                            <Border x:Name="SwitchBackground"
+                                CornerRadius="16"
+                                Background="{DynamicResource BackgroundBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
+                                BorderThickness="1" />
+
+                            <Grid x:Name="ThumbContainer"
+                              Width="30" Height="30"
+                              VerticalAlignment="Center"
+                              Margin="2,2,28,2">
+                                <Ellipse Fill="{DynamicResource AccentBrush}" />
+                                <Image x:Name="SwitchIcon"
+                                   Width="16" Height="16"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                            </Grid>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/port-setting.png" />
+                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
+                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Common toggle style -->
+        <Style x:Key="ToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="54"/>
+            <Setter Property="Height" Value="27"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <!-- Background track -->
+                            <Border x:Name="Track"
+                            CornerRadius="14"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource PrimaryBrush}"
+                            BorderThickness="1"/>
+
+                            <!-- Thumb -->
+                            <Border x:Name="Thumb"
+                            Width="22" Height="22"
+                            CornerRadius="11"
+                            Background="{DynamicResource PrimaryBrush}"
+                            HorizontalAlignment="Left"
+                            Margin="3,0,0,0"/>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <!-- Checked -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background"
+                                Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Thumb" Property="Background"
+                                Value="#779498"/>
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment"
+                                Value="Right"/>
+                                <Setter TargetName="Thumb" Property="Margin"
+                                Value="0,0,3,0"/>
+                            </Trigger>
+
+                            <!-- Disabled -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Track" Property="Opacity" Value="0.4"/>
+                                <Setter TargetName="Thumb" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="{DynamicResource BackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="28"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Display zone -->
+                            <Border Grid.Column="0"
+                                    Background="{TemplateBinding Background}"
+                                    Padding="6,3">
+                                <ContentPresenter
+                                    x:Name="ContentSite"
+                                    Content="{TemplateBinding SelectionBoxItem}"
+                                    ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Left"/>
+                            </Border>
+
+                            <!-- Arrow button -->
+                            <ToggleButton Grid.Column="1"
+                                          x:Name="ToggleButton"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="0"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press">
+                                <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                      Fill="{TemplateBinding Foreground}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                            </ToggleButton>
+
+                            <!-- Popup -->
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border Background="{DynamicResource BackgroundBrush}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="1"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                                    <ItemsPresenter Margin="4,2"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Overrides the default theme’s RelativeSource binding for these properties -->
+        <Style TargetType="{x:Type ComboBoxItem}">
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment"   Value="Center" />
+        </Style>
+
+        <!-- Converts bool to Visibility (true: Visible, false: Hidden) -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+    </Window.Resources>
+
+    <!-- Main Grid -->
+    <Grid Margin="0,0,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <!-- Settings -->
+            <RowDefinition Height="Auto"/>
+            <!-- Validate button -->
+            <RowDefinition Height="Auto"/>
+            <!-- About link -->
+        </Grid.RowDefinitions>
+
+        <!-- Central settings grid -->
+        <Grid Grid.Row="0"
+          Margin="0,21,0,10"
+          HorizontalAlignment="Center">
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <!-- Toggles -->
+                <RowDefinition Height="Auto"/>
+                <!-- Separator -->
+                <RowDefinition Height="Auto"/>
+                <!-- Sliders -->
+                <RowDefinition Height="Auto"/>
+                <!-- Separator -->
+                <RowDefinition Height="Auto"/>
+                <!-- Language -->
+            </Grid.RowDefinitions>
+
+            <!-- Port number field -->
+            <Grid Grid.Row="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- TCP Port -->
+                <Image Grid.Row="0" Grid.Column="0"
+                   Width="26" Height="26"
+                   Source="/Resources/port-setting.png"
+                   VerticalAlignment="Center"/>
+
+                <Label x:Name="UseTcpPortLabel" Grid.Row="0" Grid.Column="1"
+                       Content="{Binding UseTcpPortLabel}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,40,10"
+                       Foreground="{DynamicResource ForegroundBrush}" />
+
+                <TextBox x:Name="TxtPort"
+                     Grid.Row="0" Grid.Column="2"
+                     Width="80"
+                     HorizontalContentAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     Margin="0,0,0,5"
+                     Text="{Binding PortNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Foreground="{DynamicResource ForegroundBrush}"
+                     Background="{DynamicResource BackgroundBrush}"
+                     BorderBrush="{DynamicResource AccentBrush}"
+                     BorderThickness="1"
+                     TextChanged="TxtPort_TextChanged" Panel.ZIndex="-19" TabIndex="0"/>
+
+                <Image x:Name="ImgPortStatus"
+                   Grid.Row="0" Grid.Column="3"
+                   Source="/Resources/validate.png"
+                   Width="18" Height="18"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Center"
+                   Margin="8,0,0,5"
+                   Visibility="Collapsed"/>
+
+                <!-- Toggles buttons -->
+                <!-- Reduce To Tray -->
+                <Image Grid.Row="1" Grid.Column="0"
+                   Width="26" Height="26"
+                   Source="/Resources/reduce-to-tray-calc-icon.png"
+                   VerticalAlignment="Center"/>
+
+                <Label x:Name="ReduceToTrayLabel" Grid.Row="1" Grid.Column="1"
+                           Content="{Binding ReduceToTrayLabel}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,0,5"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+
+                <ToggleButton Grid.Row="1" Grid.Column="2"
+                          Style="{StaticResource ToggleStyle}"
+                          IsChecked="{Binding ReduceToTray, Mode=TwoWay}"
+                          Width="60" Height="30"
+                          Margin="0,0,0,5" TabIndex="1"/>
+
+                <!-- Use Encryption -->
+                <Image Grid.Row="2" Grid.Column="0"
+                   Width="26" Height="26"
+                   Source="/Resources/encrypted.png"
+                   VerticalAlignment="Center"/>
+
+                <Label x:Name="UseEncryptionLabel" Grid.Row="2" Grid.Column="1"
+                           Content="{Binding UseEncryptionLabel}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,0,5"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+
+                <ToggleButton Grid.Row="2" Grid.Column="2"
+                          Style="{StaticResource ToggleStyle}"
+                          IsChecked="{Binding UseEncryption, Mode=TwoWay}"
+                          Width="60" Height="30"
+                          Margin="0,0,0,5" TabIndex="2"/>
+            </Grid>
+
+            <!-- Separator -->
+            <Border Grid.Row="1"
+                Height="1"
+                Margin="0,8,0,12"
+                Background="LightGray"
+                Opacity="0.4"/>
+
+            <!-- Sliders -->
+            <Grid Grid.Row="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <!-- Font size -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Width -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Offset -->
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- MessageFontSize -->
+                <Image Grid.Row="0" Grid.Column="0"
+                   Width="26" Height="26"
+                   Source="/Resources/font-size.png"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+
+                <Label x:Name="DisplayFontSizeLabel" Grid.Row="0" Grid.Column="1"
+                           Content="{Binding DisplayFontSizeLabel}"
+                           Margin="0,0,0,5"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+
+                <Slider Grid.Row="0" Grid.Column="2"
+                    Minimum="{Binding MinDisplayFontSize}" 
+                    Maximum="{Binding MaxDisplayFontSize}" 
+                    Value="{Binding DisplayFontSize, Mode=TwoWay}"
+                    TickFrequency="1" IsSnapToTickEnabled="True"
+                    Width="180"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Margin="0,0,0,5" TabIndex="3"/>
+
+                <!-- MessageInputFieldWidth -->
+                <Image Grid.Row="1" Grid.Column="0"
+                   Width="26" Height="26"
+                   Source="/Resources/message-input-field-width.png"/>
+
+                <Label x:Name="MessageInputFieldWidthLabel" Grid.Row="1" Grid.Column="1"
+                           Content="{Binding MessageInputFieldWidthLabel}"
+                           Margin="0,0,0,1"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+
+                <Slider Grid.Row="1" Grid.Column="2"
+                    Minimum="1" 
+                    Maximum="100"
+                    Value="{Binding MessageInputFieldWidthPercent, Mode=TwoWay}"
+                    TickFrequency="10" IsSnapToTickEnabled="True"
+                    Width="180"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Margin="0,0,0,5" TabIndex="4"/>
+
+                <!-- MessageInputFieldLeftOffset -->
+                <Image Grid.Row="2" Grid.Column="0"
+                       Width="26" 
+                       Height="26"
+                       Source="/Resources/message-input-field-left-offset.png"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+                <Label x:Name="MessageInputFieldLeftOffsetLabel" Grid.Row="2" Grid.Column="1"
+                           Content="{Binding MessageInputFieldLeftOffsetLabel}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,0,5"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+
+                <Slider Grid.Row="2" Grid.Column="2"
+                        Minimum="0" Maximum="100"
+                        Value="{Binding MessageInputFieldLeftOffsetPercent, Mode=TwoWay}"
+                        TickFrequency="5" IsSnapToTickEnabled="True"
+                        Width="180"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,1" TabIndex="5"/>
+            </Grid>
+            <!-- Separator -->
+            <Border Grid.Row="3"
+                    Height="1"
+                    Margin="0,8,0,12"
+                    Background="LightGray"
+                    Opacity="0.4"/>
+
+            <!-- Language -->
+            <Grid Grid.Row="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Image Grid.Row="0" Grid.Column="0"
+                           Width="26" Height="26"
+                           Source="/Resources/app-language-selection.png"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+
+                <Label x:Name="AppLanguageLabel" Grid.Row="0" Grid.Column="1"
+                           Content="{Binding AppLanguageLabel}"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           Margin="0,0,0,5"
+                           Foreground="{DynamicResource ForegroundBrush}" />
+
+                <ComboBox x:Name="AppLanguageComboBox"
+                              Grid.Row="0" Grid.Column="2"
+                              Width="140"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Margin="0,0,0,5"
+                              ItemsSource="{Binding SupportedLanguages}"
+                              SelectedValuePath="LanguageCode"
+                              SelectedValue="{Binding AppLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              TextSearch.TextPath="DisplayName">
+
+                    <ComboBox.ItemContainerStyle>
+                        <Style TargetType="{x:Type ComboBoxItem}">
+                            <Setter Property="Background" Value="{DynamicResource BackgroundBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                            <Setter Property="Padding" Value="4,2" />
+                            <Setter Property="HorizontalContentAlignment" Value="Left" />
+                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ComboBox.ItemContainerStyle>
+
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding FlagPath}"
+                                   Width="20"
+                                   Height="15"
+                                   Margin="0,0,5,0" />
+                                <TextBlock Text="{Binding DisplayName}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
+        </Grid>
+
+        <!-- Validate button -->
+        <Button Grid.Row="1"
+            Width="60"
+            Height="32"
+            Background="{DynamicResource AccentBrush}"
+            Click="CmdValidate_Click"
+            TabIndex="6"
+            Margin="0,2,0,8"
+            HorizontalAlignment="Center">
+            <Image Source="/Resources/validate.png" Stretch="Uniform"/>
+        </Button>
+
+        <!-- About link -->
+        <Label Grid.Row="2"
+           x:Name="AboutLabel"
+           Content="{Binding AboutThisSoftwareLabel}"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Bottom"
+           Margin="0,0,0,2"
+           Foreground="{DynamicResource ForegroundBrush}"
+           Cursor="Hand"
+           MouseDown="AboutLabel_MouseDown"/>
+    </Grid>
+    <!-- Main Grid End -->
+</Window>
