@@ -178,13 +178,20 @@ namespace ChatClient.Helpers
             ClientLogger.Log("Encryption disabled via EncryptionPipeline.DisableEncryption().", ClientLogLevel.Info);
         }
 
+        /// <summary>
+        /// Evaluates whether end‑to‑end encryption can be considered ready.
+        /// In solo mode, readiness requires only the local public key.
+        /// In multi‑user mode, all peers must have valid public keys present in KnownPublicKeys.
+        /// The method also adds missing peer keys from the current roster snapshot,
+        /// updates UI flags accordingly, and returns the final readiness state.
+        /// </summary>
 
         public bool EvaluateEncryptionState()
         {
             // Default: not ready
             bool isEncReady = false;
 
-            // Encryption disabled or local user not ready: bails out
+            // Encryption disabled or local user not ready: stops here
             if (!Settings.Default.UseEncryption || _viewModel.LocalUser == null)
             {
                 ClientLogger.Log("EvalEnc: encryption disabled or local user missing.", ClientLogLevel.Info);
@@ -206,7 +213,7 @@ namespace ChatClient.Helpers
                     ClientLogger.Log("EvalEnc: solo mode detected, but no local key defined.", ClientLogLevel.Warn);
                 }
             }
-            // Multi-user mode: all peers must have valid keys
+            // Multi-user mode: all peers must have valid public keys
             else
             {
                 // Collects all peer UIDs except ourselves
@@ -215,26 +222,44 @@ namespace ChatClient.Helpers
                     .Select(u => u.UID)
                     .ToList();
 
-                List<Guid> missingKeys;
+                List<Guid> missingPublicKeys;
 
                 lock (KnownPublicKeys)
                 {
+                    // Copy public keys from the roster into KnownPublicKeys
+                    // if they are already available in the snapshot.
+                    foreach (var user in _viewModel.Users)
+                    {
+                        // Skips ourselves
+                        if (user.UID == _viewModel.LocalUser.UID)
+                        {
+                            continue; 
+                        }
+
+                        // Adds the key if present and not already known
+                        if (user.PublicKeyDer != null && user.PublicKeyDer.Length > 0 &&
+                            !KnownPublicKeys.ContainsKey(user.UID))
+                        {
+                            KnownPublicKeys[user.UID] = user.PublicKeyDer;
+                        }
+                    }
+
                     // Missing = peers not present or peers with empty keys
-                    missingKeys = peerUids
+                    missingPublicKeys = peerUids
                         .Where(uid => !KnownPublicKeys.ContainsKey(uid) ||
                                       KnownPublicKeys[uid] == null ||
                                       KnownPublicKeys[uid].Length == 0)
                         .ToList();
                 }
 
-                if (missingKeys.Count == 0)
+                if (missingPublicKeys.Count == 0)
                 {
-                    ClientLogger.Log("EvalEnc: all peer keys present → ready.", ClientLogLevel.Info);
+                    ClientLogger.Log("EvalEnc: all peer keys present -> ready.", ClientLogLevel.Info);
                     isEncReady = true;
                 }
                 else
                 {
-                    ClientLogger.Log($"EvalEnc: missing peer keys → {string.Join(", ", missingKeys)}", ClientLogLevel.Debug);
+                    ClientLogger.Log($"EvalEnc: missing peer keys -> {string.Join(", ", missingPublicKeys)}", ClientLogLevel.Debug);
                 }
             }
 
