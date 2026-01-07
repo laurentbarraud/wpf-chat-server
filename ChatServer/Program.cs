@@ -130,27 +130,16 @@ namespace ChatServer
                             byte[] publicKey = await PacketReader.ReadExactAsync(memoryStream, publicKeyLength, token).ConfigureAwait(false);
 
                             // Initializes client after handshake with the raw public key (can be empty).
-                            client = new ServerConnectionHandler(tcpClient);
-                            client.InitializeAfterHandshake(username, uid, publicKey, token);
-
-                            // Removes any previous session using the same username.
-                            lock (Users)
-                            {
-                                Users.RemoveAll(u => u.Username == username); 
-                            }
-
-                            // Removes any previous session using the same UID.
+                            client = new ServerConnectionHandler(tcpClient); 
+                            client.InitializeAfterHandshake(username, uid, publicKey, token); 
+                            
                             lock (Users) 
                             { 
                                 Users.RemoveAll(u => u.UID == uid); 
-                            }
-
-                            // Adds client to roster and log localized connection.
-                            lock (Users) 
-                            { 
+                                Users.RemoveAll(u => u.Username == username); 
                                 Users.Add(client); 
                             }
-                            
+
                             ServerLogger.LogLocalized("ClientConnected", ServerLogLevel.Info, username);
 
                             // Sends framed HandshakeAck.

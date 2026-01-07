@@ -8,7 +8,6 @@ using ChatProtocol.Net.IO;
 using ChatServer.Helpers;
 using System;
 using System.Net.Sockets;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace ChatServer
 {
@@ -27,7 +26,7 @@ namespace ChatServer
         /// <summary>
         /// The unique identifier for this connection/client.
         /// </summary>
-        public Guid UID { get; private set; }
+        public Guid UID { get; private set; } = Guid.Empty;
 
         /// <summary>
         /// Underlying TcpClient representing the remote socket.
@@ -99,9 +98,6 @@ namespace ChatServer
             // Validates and assign the TcpClient reference.
             ClientSocket = client ?? throw new ArgumentNullException(nameof(client));
 
-            // Assigns a provisional UID; final UID may be set after the asynchronous handshake.
-            UID = Guid.NewGuid();
-
             // Creates a PacketReader over the underlying network stream for framed reads.
             // PacketReader is async-first.
             packetReader = new PacketReader(ClientSocket.GetStream());
@@ -171,7 +167,6 @@ namespace ChatServer
                 ServerLogger.LogLocalized("CleanupFailed", ServerLogLevel.Warn, Username ?? UID.ToString(), ex.Message);
             }
         }
-
 
         /// <summary>
         /// Finalizes a connection after an async handshake has been validated by the accept loop.
