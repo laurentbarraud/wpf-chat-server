@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 7th, 2026</date>
+/// <date>January 8th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -687,30 +687,31 @@ namespace ChatClient.Net
                                     break;
                                 }
 
-
                             case PacketOpCode.PublicKeyRequest:
                                 {
-                                    Guid first = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    Guid second = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    // Reads the UID of the key owner (target) and the UID of the requester.
+                                    Guid targetUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
+                                    Guid requesterUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    // Compares with LocalUid (network identity)
-                                    Guid requesterUid = (first == LocalUid) ? second : first;
+                                    // Ignores the request if this client is not the key owner.
+                                    if (targetUid != LocalUid)
+                                    {
+                                        break;
+                                    }
 
+                                    // Resolves the local public key from ViewModel or fallback
                                     var localKey = viewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
 
+                                    // Sends our public key back to the requester if available.
                                     if (localKey?.Length > 0)
                                     {
-                                        // Sends our public key using LocalUid as network identity
-                                        await SendPublicKeyToServerAsync(LocalUid, localKey,
-                                            requesterUid, cancellationToken).ConfigureAwait(false);
-                                    }
-                                    else
-                                    {
-                                        ClientLogger.Log("PublicKeyRequest ignored (no local key available).", ClientLogLevel.Debug);
+                                        await SendPublicKeyToServerAsync(LocalUid, localKey, requesterUid, 
+                                            cancellationToken).ConfigureAwait(false);
                                     }
 
                                     break;
                                 }
+
 
                             case PacketOpCode.PublicKeyResponse:
                                 {
@@ -739,10 +740,10 @@ namespace ChatClient.Net
                                             KnownPublicKeys[originUid] = publickeyDer;
                                         }
 
-                                        // Invokes the ViewModel handler to process the new key..
+                                        // Invokes the ViewModel handler to process the new key.
                                         viewModel.OnPublicKeyReceived(originUid, publickeyDer);
 
-                                        // Logs the registration or update of the public key for traceability..
+                                        // Logs the registration or update of the public key for traceability.
                                         ClientLogger.Log($"Registered/updated public key for {originUid}", ClientLogLevel.Info);
                                     });
 
