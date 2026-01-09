@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 8th, 2026</date>
+/// <date>January 9th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -848,9 +848,6 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public ICommand ThemeToggleCommand { get; }
 
-        public static string TrayOpenLabel => LocalizationManager.GetString("TrayOpenLabel");
-        public static string TrayQuitLabel => LocalizationManager.GetString("TrayQuitLabel");
-
         /// <summary>
         /// Proxy-property: gets or sets the application setting
         /// indicating whether encryption is enabled.
@@ -1009,7 +1006,7 @@ namespace ChatClient.MVVM.ViewModel
             EncryptionPipeline.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(EncryptionPipeline.IsEncryptionReady))
-                    OnPropertyChanged(nameof(IsEncryptionReady)); // Relay for UI
+                    OnPropertyChanged(nameof(IsEncryptionReady));
             };
 
             // Binds the connection to the pipeline
@@ -1029,25 +1026,29 @@ namespace ChatClient.MVVM.ViewModel
                 () => true
             );
 
-            // Creates ThemeTogglandCommand, which is bound to the UI toggle button.
+            // Creates ThemeToggleCommand (bound to ToggleButton)
             ThemeToggleCommand = new RelayCommands<object>(param =>
             {
-                // Evaluates the toggle state parameter. 
-                // If true, dark theme is selected; otherwise, light theme is applied.
+                // Reads toggle state from UI; true = dark, false = light
                 bool isDarkThemeSelected = param is bool toggleState && toggleState;
-                // "param is bool toggleState" is a pattern matching (introduced in C# 7).
-                // It tests if param is of type bool.
-                // - if yes, it assigns the param value to a new local variable toggleState (of type bool).
-                // - if not, the expression is false and toggleState is not initialized.
-                // "&& toggleState" ensures "toggleState" is only evaluated if the type check succeeds.
+
+                // Pattern matching (introduced in C# 7):
+                // checks type and extracts bool in one step.
+                // toggleState only exists inside the expression.
+                // Command must rely on UI param, not stored settings.
 
                 Settings.Default.AppTheme = isDarkThemeSelected ? "dark" : "light";
                 Settings.Default.Save();
 
+                // Apply theme immediately
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
             LoadLocalizedStrings();
+
+            // Retrieve the active instance: this is the standard WPF way to access the main window.
+            var mainWindow = Application.Current.MainWindow as MainWindow;
+            mainWindow?.ApplyTrayMenuLocalization();
 
             int savedDisplayFontSize = Properties.Settings.Default.DisplayFontSize;
 
@@ -1552,10 +1553,6 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(ScrollLeftToolTip));
             OnPropertyChanged(nameof(ScrollRightToolTip));
             OnPropertyChanged(nameof(SettingsToolTip));
-
-            // Tray menu
-            OnPropertyChanged(nameof(TrayOpenLabel));
-            OnPropertyChanged(nameof(TrayQuitLabel));
 
             // Settings window labels
             OnPropertyChanged(nameof(UseTcpPortLabel));

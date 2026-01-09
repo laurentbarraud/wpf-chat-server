@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 8th, 2026</date>
+/// <date>January 9th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -167,17 +167,27 @@ namespace ChatClient.MVVM.View
             TxtUsername.Focus();
         }
 
-        /// <summary>
-        /// Rebuilds the tray icon context menu using the currently selected language.
-        /// Ensures all menu items are localized and reattached to the tray icon.
-        /// Safe to call only after tray icon has been initialized.
-        /// </summary>
-        public void ApplyTrayMenuLocalization()
+        /// <summary> 
+        /// Rebuilds and reattaches the tray icon context menu using the current language. 
+        /// Safe to call multiple times and does not depend on initialization order. 
+        /// Ensures the right-click handler is always attached. 
+        /// </summary> 
+        public void ApplyTrayMenuLocalization() 
         {
-            if (trayIcon == null)
+            // Retrieve the tray icon resource safely
+            if (TryFindResource("TrayIcon") is not TaskbarIcon icon)
+            {
                 return;
+            } 
+            
+            trayIcon = icon; 
 
-            trayIcon.ContextMenu = BuildLocalizedTrayMenu();
+            // Rebuilds the context menu to apply localization
+            trayIcon.ContextMenu = BuildLocalizedTrayMenu(); 
+            
+            // Reattaches the right-click handler to ensure the menu opens correctly
+            trayIcon.TrayRightMouseUp -= TrayIcon_RightClickHandler; 
+            trayIcon.TrayRightMouseUp += TrayIcon_RightClickHandler; 
         }
 
         /// <summary>
@@ -223,13 +233,13 @@ namespace ChatClient.MVVM.View
 
             TrayMenuOpen = new MenuItem
             {
-                Header = LocalizationManager.GetString("TrayOpen")
+                Header = LocalizationManager.GetString("TrayOpenLabel")
             };
             TrayMenuOpen.Click += TrayMenu_Open_Click;
 
             TrayMenuQuit = new MenuItem
             {
-                Header = LocalizationManager.GetString("TrayQuit")
+                Header = LocalizationManager.GetString("TrayQuitLabel")
             };
             TrayMenuQuit.Click += TrayMenu_Quit_Click;
 
@@ -358,12 +368,23 @@ namespace ChatClient.MVVM.View
             settings.Show();
         }
 
+        /// <summary>
+        /// Safely disposes the tray icon if it exists, preventing ghost icons
+        /// in the system tray after the application exits.
+        /// </summary>
         public void DisposeTrayIcon()
         {
-            var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
-            if (trayIcon != null)
+            try
             {
-                trayIcon.Dispose();
+                // Retrieves the tray icon resource safely
+                if (TryFindResource("TrayIcon") is TaskbarIcon trayIcon)
+                {
+                    trayIcon.Dispose();
+                }
+            }
+            catch
+            {
+                // Swallow exceptions silently – disposing the tray icon must never crash the app
             }
         }
 
@@ -553,24 +574,21 @@ namespace ChatClient.MVVM.View
         /// </summary>
         public void InitializeTrayIcon()
         {
-            // Safely retrieve the tray icon resource and assign it if valid
-            if (TryFindResource("TrayIcon") is TaskbarIcon icon)
+            // Safely retrieves the tray icon resource and assigns it if valid
+            if (TryFindResource("TrayIcon") is TaskbarIcon taskBarIcon)
             {
-                trayIcon = icon;
+                trayIcon = taskBarIcon;
 
-                // Attach context menu only if not already set
-                if (trayIcon.ContextMenu == null)
+                // Attaches context menu             
+                trayIcon.ContextMenu = BuildLocalizedTrayMenu();
+
+                // Displays context menu on right-click
+                trayIcon.TrayRightMouseUp += (s, e) =>
                 {
-                    trayIcon.ContextMenu = BuildLocalizedTrayMenu();
-
-                    // Display context menu on right-click
-                    trayIcon.TrayRightMouseUp += (s, e) =>
-                    {
-                        trayIcon.ContextMenu.PlacementTarget = this;
-                        trayIcon.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-                        trayIcon.ContextMenu.IsOpen = true;
-                    };
-                }
+                    trayIcon.ContextMenu.PlacementTarget = this;
+                    trayIcon.ContextMenu.Placement = PlacementMode.MousePoint;
+                    trayIcon.ContextMenu.IsOpen = true;
+                };
             }
         }
 
@@ -584,15 +602,18 @@ namespace ChatClient.MVVM.View
         }
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
-            // If “minimize to tray” is enabled, cancel close and hide instead
+            // If “minimize to tray” parameter is enabled, cancels close and hides instead
             if (Properties.Settings.Default.ReduceToTray)
             {
                 e.Cancel = true;
                 ReduceToTray();
                 return;
             }
+
+            // Cleans up tray icon resources on application exit
+            DisposeTrayIcon();
         }
-       
+
         /// <summary>
         /// Handles global key press events to trigger tray reduction behavior
         /// and debug console activation.
@@ -754,10 +775,28 @@ namespace ChatClient.MVVM.View
             ApplyWatermarks();
         }
 
+        /// <summary> 
+        /// Handles right-click on the tray icon by opening the localized context menu 
+        /// at the current mouse position.
+        /// </summary> 
+        private void TrayIcon_RightClickHandler(object sender, RoutedEventArgs e) 
+        {
+            if (trayIcon?.ContextMenu == null)
+            {
+                return;
+            }
+            
+            trayIcon.ContextMenu.PlacementTarget = this; 
+            trayIcon.ContextMenu.Placement = PlacementMode.MousePoint; 
+            trayIcon.ContextMenu.IsOpen = true; 
+        }
+
         public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
         {
-            if (Application.Current.MainWindow is MainWindow mw)
-                mw.TrayMenu_Open_Click(sender, e);
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.TrayMenu_Open_Click(sender, e);
+            }
         }
 
         /// <summary>

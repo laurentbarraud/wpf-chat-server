@@ -546,16 +546,18 @@ namespace ChatClient.Resources {
                 return ResourceManager.GetString("SettingsToolTip", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Open.
         /// </summary>
-        public static string TrayOpenLabel {
-            get {
+        public static string TrayOpenLabel
+        {
+            get
+            {
                 return ResourceManager.GetString("TrayOpenLabel", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Quit.
         /// </summary>

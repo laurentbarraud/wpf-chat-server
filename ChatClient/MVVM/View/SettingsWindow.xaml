@@ -459,10 +459,12 @@
 
         <!-- Validate button -->
         <Button Grid.Row="1"
+            Background="{DynamicResource AccentBrush}"
+            IsDefault="True"
+            IsCancel="True"
+            Click="CmdValidate_Click"
             Width="60"
             Height="32"
-            Background="{DynamicResource AccentBrush}"
-            Click="CmdValidate_Click"
             TabIndex="6"
             Margin="0,2,0,8"
             HorizontalAlignment="Center">

@@ -70,7 +70,7 @@
 
             <!-- Slight vertical offset to simulate coming from above -->
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
-                     From="-40" To="0"
+                     From="-5" To="0"
                      Duration="0:0:1.3">
                 <DoubleAnimation.EasingFunction>
                     <CubicEase EasingMode="EaseOut"/>
@@ -79,7 +79,7 @@
 
             <!-- Scale: simulate depth -->
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
-                     From="14.0" To="1.0"
+                     From="1.8" To="1.0"
                      Duration="0:0:1.3">
                 <DoubleAnimation.EasingFunction>
                     <CubicEase EasingMode="EaseOut"/>
@@ -87,7 +87,7 @@
             </DoubleAnimation>
 
             <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
-                     From="14.0" To="1.0"
+                     From="1.8" To="1.0"
                      Duration="0:0:1.3">
                 <DoubleAnimation.EasingFunction>
                     <CubicEase EasingMode="EaseOut"/>
@@ -97,7 +97,7 @@
             <!-- Opacity: faint when far away, solid when it lands -->
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
                      From="0.001" To="1.00"
-                     Duration="0:0:1.3">
+                     Duration="0:0:1.0">
                 <DoubleAnimation.EasingFunction>
                     <QuadraticEase EasingMode="EaseOut"/>
                 </DoubleAnimation.EasingFunction>
@@ -584,7 +584,7 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <!-- Row 1 : Horizontal Splitter -->
+            <!-- Row 1 : Horizontal splitter separating the message list and the bottom input area -->
             <GridSplitter Grid.Row="1"
                           PreviewMouseMove="HorizontalSplitter_PreviewMouseMove"
                           DragDelta="HorizontalSplitter_DragDelta"
@@ -594,26 +594,50 @@
                           VerticalAlignment="Center"
                           ResizeDirection="Rows"
                           ResizeBehavior="PreviousAndNext"
-                          Background="Transparent" 
+                          Background="Transparent"
                           ShowsPreview="False">
+
+                <!-- Custom template to show a subtle highlight on hover -->
                 <GridSplitter.Template>
                     <ControlTemplate TargetType="GridSplitter">
                         <Border x:Name="Grip"
                                 Background="Transparent"/>
                         <ControlTemplate.Triggers>
+                            <!-- Highlight the splitter only when the mouse is over it -->
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Grip" Property="Background" Value="#1A777777"/>
+                                <Setter TargetName="Grip"
+                                        Property="Background"
+                                        Value="#1A777777"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </GridSplitter.Template>
+
+                <!-- Disables the splitter entirely when disconnected -->
+                <GridSplitter.Style>
+                    <Style TargetType="GridSplitter">
+                        <Setter Property="Opacity" Value="1"/>
+                        <Setter Property="IsHitTestVisible" Value="True"/>
+
+                        <Style.Triggers>
+                            <!-- When not connected: splitter becomes invisible and non-interactive -->
+                            <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                <Setter Property="Opacity" Value="0"/>
+                                <Setter Property="IsHitTestVisible" Value="False"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </GridSplitter.Style>
             </GridSplitter>
 
-            <!-- Row 2 : Bottom block (emoji bar + input field) -->
+            <!-- Row 2 : Bottom block (emoji bar + input field) 
+            This entire section is hidden when the user is not connected. -->
             <Grid Grid.Row="2"
                   x:Name="GrdBottom"
                   MinHeight="34"
-                  VerticalAlignment="Stretch">
+                  VerticalAlignment="Stretch"
+                  Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
+                
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <!-- Emoji bar -->
@@ -626,8 +650,7 @@
                       Grid.Row="0"
                       Height="Auto"
                       HorizontalAlignment="Left"
-                      VerticalAlignment="Bottom"
-                      Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
+                      VerticalAlignment="Bottom">
 
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -807,8 +830,7 @@
                       Grid.Row="1"
                       MinHeight="34"
                       VerticalAlignment="Stretch"
-                      Margin="0"
-                      Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
+                      Margin="0">
 
                     <Border x:Name="BrdMessageInputField"
                             Width="{Binding MessageInputFieldWidth}"
