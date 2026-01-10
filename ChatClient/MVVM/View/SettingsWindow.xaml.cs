@@ -1,12 +1,11 @@
-﻿/// <file>SettingsWindow.cs</file>
+﻿/// <file>SettingsWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 10th, 2026</date>
+/// <date>January 11th, 2026</date>
 
 using ChatClient.Helpers;                   // For EncryptionHelper, ClientLogger
-using ChatClient.MVVM.ViewModel;            // For SettingsViewModel
+using ChatClient.MVVM.ViewModel;   
 using ChatClient.Properties;
-using ChatClient.MVVM.View;                 // For AboutWindow
 using Hardcodet.Wpf.TaskbarNotification;     // For TaskbarIcon
 using System;
 using System.ComponentModel;                 // For PropertyChangedEventArgs

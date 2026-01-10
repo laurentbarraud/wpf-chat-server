@@ -1,0 +1,48 @@
+﻿<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
+    xmlns:helpers="clr-namespace:ChatClient.Helpers"
+    xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Name="MonitorWindow1"
+    x:Class="ChatClient.MVVM.View.MonitorWindow"
+    Title="Public Keys Monitor"
+    Height="440" Width="498"
+    ShowInTaskbar="False"
+    ResizeMode="NoResize"
+    WindowStartupLocation="CenterScreen"
+    Background="{DynamicResource BackgroundBrush}"
+    Icon="/Resources/PublicKeyMonitor-icon.ico"
+    TabIndex="12"
+    MinHeight="300"
+    MinWidth="438">
+
+    <!-- Main Grid -->
+    <Grid Margin="0,0,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <!-- Settings -->
+            <RowDefinition Height="Auto"/>
+            <!-- Validate button -->
+            <RowDefinition Height="Auto"/>
+            <!-- About link -->
+        </Grid.RowDefinitions>
+
+        <DataGrid av:ItemsSource="{av:SampleData ItemCount=5}"/>
+
+        <!-- Validate button -->
+        <Button Grid.Row="1"
+            Background="{DynamicResource AccentBrush}"
+            IsDefault="True"
+            IsCancel="True"
+            Click="CmdValidate_Click"
+            Width="60"
+            Height="32"
+            TabIndex="6"
+            Margin="0,2,0,8"
+            HorizontalAlignment="Center">
+            <Image Source="/Resources/validate.png" Stretch="Uniform"/>
+        </Button>
+
+    </Grid>
+    <!-- Main Grid End -->
+</Window>

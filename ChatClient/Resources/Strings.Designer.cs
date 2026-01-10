@@ -440,6 +440,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Public Keys Monitor.
+        /// </summary>
+        public static string MonitorWindowTitle {
+            get {
+                return ResourceManager.GetString("MonitorWindowTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Port number is not valid..
         /// </summary>
         public static string PortNumberInvalid {
@@ -546,18 +555,16 @@ namespace ChatClient.Resources {
                 return ResourceManager.GetString("SettingsToolTip", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Open.
         /// </summary>
-        public static string TrayOpenLabel
-        {
-            get
-            {
+        public static string TrayOpenLabel {
+            get {
                 return ResourceManager.GetString("TrayOpenLabel", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Quit.
         /// </summary>

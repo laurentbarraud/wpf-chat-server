@@ -318,4 +318,7 @@ depuis la gauche</value>
   <data name="AboutThisSoftwareLabel" xml:space="preserve">
     <value>A propos de ce logiciel</value>
   </data>
+  <data name="MonitorWindowTitle" xml:space="preserve">
+    <value>Moniteur de clés publiques</value>
+  </data>
 </root>

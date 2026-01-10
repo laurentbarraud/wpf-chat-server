@@ -317,4 +317,7 @@ and connected users list</value>
   <data name="AboutThisSoftwareLabel" xml:space="preserve">
     <value>About this software</value>
   </data>
+  <data name="MonitorWindowTitle" xml:space="preserve">
+    <value>Public Keys Monitor</value>
+  </data>
 </root>
