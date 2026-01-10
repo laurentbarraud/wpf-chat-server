@@ -34,6 +34,8 @@
     <None Remove="Resources\message-input-field-left-offset.png" />
     <None Remove="Resources\moon.png" />
     <None Remove="Resources\port-setting.png" />
+    <None Remove="Resources\PublicKeyMonitor.png" />
+    <None Remove="Resources\PullMissingPublicKey.png" />
     <None Remove="Resources\reddot.png" />
     <None Remove="Resources\reduce-to-tray-calc-icon.png" />
     <None Remove="Resources\right-arrow.png" />
@@ -41,6 +43,10 @@
     <None Remove="Resources\settings.png" />
     <None Remove="Resources\sun.png" />
     <None Remove="Resources\validate.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\PullMissingPublicKey.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -59,6 +65,7 @@
     <Resource Include="Resources\message-input-field-left-offset.png" />
     <Resource Include="Resources\message-input-field-width.png" />
     <Resource Include="Resources\app-language-selection.png" />
+    <Resource Include="Resources\PublicKeyMonitor.png" />
     <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />
