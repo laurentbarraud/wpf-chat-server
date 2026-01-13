@@ -530,6 +530,13 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public bool IsFirstRosterSnapshot => _isFirstRosterSnapshot;
 
+        /// <summary> 
+        /// Raised whenever the application language changes. 
+        /// ViewModels that expose localized properties can subscribe to 
+        /// this event to refresh their UI strings in real time.
+        /// </summary>
+        public event EventHandler? LanguageChanged;
+
         /// <summary>
         /// Represents the currently authenticated user.
         /// Is initialized to an empty User instance to satisfy non-nullable requirements.
@@ -1569,6 +1576,9 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(CurrentIPDisplay));
 
             InitializeWatermarkBrush();
+
+            // Notifies any subscribers that the language has changed
+            LanguageChanged?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>

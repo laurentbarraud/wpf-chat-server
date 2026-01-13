@@ -12,8 +12,11 @@
                 <ResourceDictionary Source="Themes/LightTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Global BooleanToVisibilityConverter -->
+            <!-- Built-in WPF converter -->
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+            <!-- Custom converter -->
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
             <!-- Converts a left-offset (double) into a Margin applied on the left side. -->
             <conv:LeftOffsetToMarginConverter x:Key="LeftOffsetToMarginConverter" />

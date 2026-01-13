@@ -29,6 +29,11 @@ namespace ChatClient.MVVM.Model
         /// </summary>
         public bool IsValid => !string.IsNullOrWhiteSpace(KeyExcerpt);
 
+        /// <summary> 
+        /// Indicates whether this entry represents the local client's own key. 
+        /// </summary> 
+        public bool IsLocal { get; set; }
+
         /// <summary>
         /// Localized status text injected by the ViewModel.
         /// </summary>

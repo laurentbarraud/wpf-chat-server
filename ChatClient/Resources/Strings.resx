@@ -322,4 +322,10 @@ and connected users list</value>
   <data name="ValidKey" xml:space="preserve">
     <value>Valid key</value>
   </data>
+  <data name="EnableEncryptionToSeePublicKeysState" xml:space="preserve">
+    <value>Please enable message encryption to see public keys state.</value>
+  </data>
+  <data name="NotConnected" xml:space="preserve">
+    <value>Please login to see public keys state.</value>
+  </data>
 </root>

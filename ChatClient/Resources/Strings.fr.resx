@@ -324,4 +324,10 @@ depuis la gauche</value>
   <data name="ValidKey" xml:space="preserve">
     <value>Clé valide</value>
   </data>
+  <data name="EnableEncryptionToSeePublicKeysState" xml:space="preserve">
+    <value>Veuillez activer le chiffrement des messages pour voir l’état des clés publiques.</value>
+  </data>
+  <data name="NotConnected" xml:space="preserve">
+    <value>Veuillez vous connecter pour voir l'état des clés publiques.</value>
+  </data>
 </root>

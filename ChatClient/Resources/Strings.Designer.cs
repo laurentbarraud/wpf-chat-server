@@ -224,6 +224,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Please enable message encryption to see public keys state..
+        /// </summary>
+        public static string EnableEncryptionToSeePublicKeysState {
+            get {
+                return ResourceManager.GetString("EnableEncryptionToSeePublicKeysState", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Message encryption enabled..
         /// </summary>
         public static string EncryptionEnabledToolTip {
@@ -445,6 +454,15 @@ namespace ChatClient.Resources {
         public static string MonitorWindowTitle {
             get {
                 return ResourceManager.GetString("MonitorWindowTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Please login to see public keys state..
+        /// </summary>
+        public static string NotConnected {
+            get {
+                return ResourceManager.GetString("NotConnected", resourceCulture);
             }
         }
         
