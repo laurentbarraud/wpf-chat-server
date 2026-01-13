@@ -319,4 +319,7 @@ and connected users list</value>
   <data name="MonitorWindowTitle" xml:space="preserve">
     <value>Public Keys Monitor</value>
   </data>
+  <data name="ValidKey" xml:space="preserve">
+    <value>Valid key</value>
+  </data>
 </root>

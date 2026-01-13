@@ -11,10 +11,10 @@
     ResizeMode="NoResize"
     WindowStartupLocation="CenterScreen"
     Background="{DynamicResource BackgroundBrush}"
-    Icon="/Resources/PublicKeyMonitor-icon.ico"
+    Icon="/Resources/monitor-icon.ico"
     TabIndex="12"
     MinHeight="300"
-    MinWidth="438">
+    MinWidth="438" Loaded="MonitorWindow1_Loaded">
 
     <!-- Main Grid -->
     <Grid Margin="0,0,0,0">
@@ -27,7 +27,122 @@
             <!-- About link -->
         </Grid.RowDefinitions>
 
-        <DataGrid av:ItemsSource="{av:SampleData ItemCount=5}"/>
+        <!-- Public Keys DataGrid -->
+        <DataGrid Grid.Row="0"
+                  ItemsSource="{Binding KnownPublicKeysView}"
+                  ColumnWidth="*"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  CanUserResizeRows="False"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="False"
+                  Background="{DynamicResource BackgroundBrush}"
+                  Foreground="{DynamicResource ForegroundBrush}"
+                  BorderThickness="0"
+                  RowHeaderWidth="0"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow"
+                  IsReadOnly="True">
+
+            <DataGrid.Columns>
+
+                <!-- COLUMN 1 : Username -->
+                <DataGridTextColumn Header="Utilisateur"
+                            Binding="{Binding Username}"
+                            Width="SizeToCells" />
+
+                <!-- COLUMN 2 : Key excerpt -->
+                <DataGridTemplateColumn Header="Extrait de clé" Width="SizeToCells">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding KeyExcerpt}"
+                               Foreground="#82AFBD"
+                               FontFamily="Consolas"
+                               VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- COLUMN 3 : Status (text and icon) -->
+                <DataGridTemplateColumn Header="Statut" Width="SizeToCells">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+
+                            <!-- Horizontal layout for text + icon -->
+                            <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+
+                                <!-- Status text -->
+                                <TextBlock Text="{Binding StatusText}"
+                                   Foreground="{DynamicResource ForegroundBrush}"
+                                   VerticalAlignment="Center"/>
+
+                                <!-- Status icon -->
+                                <Image Width="16" Height="16"
+                                        VerticalAlignment="Center">
+                                    <Image.Style>
+                                        <Style TargetType="Image">
+                                            <!-- Default = red dot -->
+                                            <Setter Property="Source" Value="/Resources/redcross.png"/>
+                                            <Style.Triggers>
+                                                <!-- If valid, show green check -->
+                                                <DataTrigger Binding="{Binding IsValid}" Value="True">
+                                                    <Setter Property="Source" Value="/Resources/validate.png"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Image.Style>
+                                </Image>
+
+                            </StackPanel>
+
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- COLUMN 4 : Action button, visible only if IsValid == false -->
+                <DataGridTemplateColumn Header="" Width="SizeToCells">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+
+                            <Button Width="24" Height="24"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <!-- Hidden by default -->
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+
+                                        <!-- Default icon -->
+                                        <Setter Property="Content">
+                                            <Setter.Value>
+                                                <Image Source="/Resources/PullMissingPublicKey.png"
+                                               Width="24" Height="24"/>
+                                            </Setter.Value>
+                                        </Setter>
+
+                                        <!-- Show only if key is missing/invalid -->
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsValid}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+
+                            </Button>
+
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+            </DataGrid.Columns>
+        </DataGrid>
 
         <!-- Validate button -->
         <Button Grid.Row="1"

@@ -1,11 +1,11 @@
 ﻿/// <file>MonitorWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 11th, 2026</date>
+/// <date>January 13th, 2026</date>
 
-using System;
 using ChatClient.MVVM.ViewModel;             // For MonitorViewModel
-using System.ComponentModel;                 // For PropertyChangedEventArgs
+using ChatClient.Net;
+using System;
 using System.Windows;
 
 namespace ChatClient.MVVM.View
@@ -15,32 +15,33 @@ namespace ChatClient.MVVM.View
     /// Allows users to display live-refreshing information about public keys
     /// and to request each missing public key from peers.
     /// </summary>
-    public partial class MonitorWindow
+    public partial class MonitorWindow : Window
     {
         private readonly MonitorViewModel _monitorViewModel;
 
-        public MonitorWindow(MonitorViewModel monitorViewModel)
+        /// <summary> 
+        /// Initializes the window and assigns its ViewModel. 
+        /// Retrieves the MainViewModel from the application's main window 
+        /// and injects it into the MonitorViewModel before setting the DataContext.
+        /// </summary>
+        public MonitorWindow()
         {
             InitializeComponent();
 
-            _monitorViewModel = monitorViewModel;
+            var mainViewModel = Application.Current.MainWindow.DataContext as MainViewModel;
+
+            _monitorViewModel = new MonitorViewModel(mainViewModel!);
             DataContext = _monitorViewModel;
-
-            // Listens to ViewModel property changes (language, tray behavior, etc.)
-            _monitorViewModel.PropertyChanged += MonitorViewModel_PropertyChanged;
-        }
-
-        /// <summary>
-        /// Handles property change notifications from MonitorViewModel.
-        /// </summary>
-        private void MonitorViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            
         }
 
         private void CmdValidate_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void MonitorWindow1_Loaded(object sender, RoutedEventArgs e)
+        {
+            _monitorViewModel.RefreshFromDictionary(ClientConnection.GetKnownPublicKeys());
         }
     }
 }

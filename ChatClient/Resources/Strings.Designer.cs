@@ -600,5 +600,14 @@ namespace ChatClient.Resources {
                 return ResourceManager.GetString("UseTcpPortLabel", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Valid key.
+        /// </summary>
+        public static string ValidKey {
+            get {
+                return ResourceManager.GetString("ValidKey", resourceCulture);
+            }
+        }
     }
 }

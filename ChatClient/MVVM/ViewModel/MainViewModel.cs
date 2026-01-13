@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 11th, 2026</date>
+/// <date>January 13th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -1906,6 +1906,14 @@ namespace ChatClient.MVVM.ViewModel
 
             OnPropertyChanged(nameof(EncryptionPipeline.IsEncryptionReady));
             OnPropertyChanged(nameof(UseEncryption));
+        }
+
+        /// <summary>
+        /// Returns the username for the given UID, or the UID string if no match is found.
+        /// </summary>
+        public string ResolveUsername(Guid uid) 
+        { 
+            return Users.FirstOrDefault(u => u.UID == uid)?.Username ?? uid.ToString(); 
         }
 
         /// <summary>

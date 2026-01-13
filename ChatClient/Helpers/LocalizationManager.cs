@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 11th, 2026</date>
+/// <date>January 13th, 2026</date>
 
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
@@ -114,7 +114,9 @@ namespace ChatClient.Helpers
                 if (window is MainWindow mainWindow)
                 {
                     mainWindow.ApplyWatermarks();
-                    mainWindow.viewModel.RefreshLanguageOptions();
+
+                    // In WPF, the ViewModel is almost always accessible via: mainWindow.DataContext
+                    (mainWindow.DataContext as MainViewModel)?.RefreshLanguageOptions();
                 }
             }
         }

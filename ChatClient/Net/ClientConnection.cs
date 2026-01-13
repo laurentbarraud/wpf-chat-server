@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 11th, 2026</date>
+/// <date>January 13th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -62,9 +62,9 @@ namespace ChatClient.Net
         private TcpClient _tcpClient;
 
         /// <summary>
-        /// Reference to the main ViewModel (set at connection init)
+        /// Reference to the main ViewModel (always non-null).
         /// </summary>
-        private readonly MainViewModel _viewModel;
+        private static MainViewModel _viewModel = new MainViewModel();
 
         /// <summary>
         /// Callback used to run actions on the UI thread, ensuring safe property updates.
@@ -73,9 +73,6 @@ namespace ChatClient.Net
 
         // Single-writer guard for this connection instance; kept readonly for the connection lifetime.
         private readonly SemaphoreSlim _writeLock = new SemaphoreSlim(1, 1);
-
-        // Dictionary of known public keys for peers (UID → DER key)
-        private readonly Dictionary<Guid, byte[]> KnownPublicKeys = new Dictionary<Guid, byte[]>();
 
         // PUBLIC PROPERTIES
 
@@ -97,6 +94,9 @@ namespace ChatClient.Net
         /// </summary>
         public bool IsSyncingKeys { get; private set; }
 
+        // Dictionary of known public keys for peers (UID and public key, in DER format)
+        public static readonly Dictionary<Guid, byte[]> KnownPublicKeys = new Dictionary<Guid, byte[]>();
+
         /// <summary> Gets the UID assigned to the local user </summary>
         public Guid LocalUid { get; private set; }
 
@@ -114,34 +114,27 @@ namespace ChatClient.Net
         // Fired when the connection is being terminated.
         // Subscribers should reset their roster snapshot state.
         public event Action? ConnectionTerminated;
-
+        
         /// <summary>
         /// Initializes a new ClientConnection instance.
-        /// Sets up the underlying TCP client, resets local identifiers,
-        /// prepares key storage, and stores the UI dispatcher dependency provided by MainViewModel.
+        /// Provides a callback that ensures the given action is executed on the UI thread,
+        /// allowing ClientConnection to update UI-bound data safely from background threads.
         /// </summary>
         /// <param name="uiDispatcherInvoke">UI dispatcher callback provided by MainViewModel.</param>
+        /// <param name="viewModel">Main ViewModel instance bound to the application.</param>
         public ClientConnection(Action<Action> uiDispatcherInvoke, MainViewModel viewModel)
         {
-            /// <summary> Creates the underlying TCP client used for communication </summary>
             _tcpClient = new TcpClient();
-
-            /// <summary> Resets local identifiers for a fresh session </summary>
             LocalUid = Guid.Empty;
-
-            /// <summary> Initializes local public key storage as empty </summary>
             LocalPublicKey = Array.Empty<byte>();
-
-            /// <summary> Initializes dictionary of known public keys for peers </summary>
-            KnownPublicKeys = new Dictionary<Guid, byte[]>();
-
-            /// <summary> Stores the UI dispatcher callback passed from MainViewModel </summary>
+            
             _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
 
-            /// <summary> Captures reference to the main ViewModel for later use </summary>
-            _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+            // Resolves the ViewModel from the injected parameter,
+            // then the MainWindow DataContext or the existing static fallback
+            _viewModel = viewModel ?? Application.Current?.MainWindow?.DataContext as MainViewModel ?? _viewModel
+                ?? throw new InvalidOperationException("MainViewModel is required.");
 
-            /// <summary> Initializes encryption state flags </summary>
             _viewModel.ResetEncryptionPipelineAndUI();
             IsSyncingKeys = false;
         }
@@ -432,30 +425,14 @@ namespace ChatClient.Net
             return Task.CompletedTask;
         }
 
-        /// <summary> 
-        /// Returns all known public RSA keys for connected users. 
-        /// Filters out users with empty UID or missing public key bytes 
-        /// and returns a Dictionary keyed by Guid with DER byte[] values. 
-        /// A Dictionary is a collection of key/value pairs that allows 
-        /// fast lookup of a value by its unique key; 
-        /// here the key is the user’s Guid and the value is the user’s 
-        /// public key in DER format.
-        /// Using a Dictionary makes it efficient to find a specific user’s
-        /// public key when encrypting a message or verifying signatures.
+        /// <summary>
+        /// Returns a safe copy of the internally stored public key dictionary.
+        /// This prevents external callers from modifying the original collection
+        /// while still providing read access to the current known public keys.
         /// </summary>
-
-        public static Dictionary<Guid, byte[]> GetAllKnownPublicKeys(MainViewModel viewModel)
+        public static Dictionary<Guid, byte[]> GetKnownPublicKeys()
         {
-            // Returns an empty dictionary if viewModel or Users list is null
-            if (viewModel?.Users == null)
-                return new Dictionary<Guid, byte[]>();
-
-            return viewModel.Users
-                // Uses lambdas functions : short parameter names like usr are generic.
-                // This filters out users with uninitialized UID or empty public key.
-                .Where(usr => usr.UID != Guid.Empty && usr.PublicKeyDer != null && usr.PublicKeyDer.Length > 0)
-                // Project to Guid -> byte[] dictionary
-                .ToDictionary(usr => usr.UID, usr => usr.PublicKeyDer!);
+            return new Dictionary<Guid, byte[]>(KnownPublicKeys);
         }
 
         /// <summary>

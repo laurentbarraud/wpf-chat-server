@@ -32,11 +32,9 @@
     <None Remove="Resources\font-size.png" />
     <None Remove="Resources\left-arrow.png" />
     <None Remove="Resources\message-input-field-left-offset.png" />
+    <None Remove="Resources\monitor-icon.ico" />
     <None Remove="Resources\moon.png" />
     <None Remove="Resources\port-setting.png" />
-    <None Remove="Resources\PublicKeyMonitor.png" />
-    <None Remove="Resources\PullMissingPublicKey.png" />
-    <None Remove="Resources\reddot.png" />
     <None Remove="Resources\reduce-to-tray-calc-icon.png" />
     <None Remove="Resources\right-arrow.png" />
     <None Remove="Resources\send.png" />
@@ -46,7 +44,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Resources\PullMissingPublicKey.png" />
+    <Resource Include="Resources\monitor-icon.ico" />
+    <Resource Include="Resources\pull-missing-public-key.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -65,7 +64,7 @@
     <Resource Include="Resources\message-input-field-left-offset.png" />
     <Resource Include="Resources\message-input-field-width.png" />
     <Resource Include="Resources\app-language-selection.png" />
-    <Resource Include="Resources\PublicKeyMonitor.png" />
+    <Resource Include="Resources\monitor.png" />
     <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />
@@ -73,7 +72,7 @@
     <Resource Include="Resources\left-arrow.png" />
     <Resource Include="Resources\moon.png" />
     <Resource Include="Resources\port-setting.png" />
-    <Resource Include="Resources\reddot.png" />
+    <Resource Include="Resources\redcross.png" />
     <Resource Include="Resources\reduce-to-tray-calc-icon.png" />
     <Resource Include="Resources\right-arrow.png" />
     <Resource Include="Resources\send.png">

@@ -1,24 +1,22 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 11th, 2026</date>
+/// <date>January 13th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
-using Microsoft.VisualBasic.ApplicationServices;
-using Microsoft.VisualBasic.Logging;
 using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 
@@ -152,6 +150,12 @@ namespace ChatClient.MVVM.View
             string storedLanguageCode = Settings.Default.AppLanguageCode;
             LocalizationManager.InitializeLocalization(storedLanguageCode);
 
+            #if DEBUG 
+            CmdMonitor.Visibility = Visibility.Visible; 
+            #else 
+            CmdMonitor.Visibility = Visibility.Collapsed; 
+            #endif
+
             // Synchronizes theme toggle with saved preference
             ThemeToggle.IsChecked = Settings.Default.AppTheme?.ToLower() == "dark";
 
@@ -259,6 +263,26 @@ namespace ChatClient.MVVM.View
             popupEmoji.IsOpen = true;
         }
 
+        private void CmdMonitor_Click(object sender, RoutedEventArgs e)
+        {
+            var existingMonitorWindow = Application.Current.Windows
+                .OfType <MonitorWindow>()
+                .FirstOrDefault();
+
+            if (existingMonitorWindow != null)
+            {
+                existingMonitorWindow.Close();
+                return;
+            }
+
+            var monitor = new MonitorWindow()
+            {
+                Owner = this
+            };
+
+            monitor.Show();
+        }
+
         private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
         {
             _scrollDirection = -1;
@@ -334,19 +358,15 @@ namespace ChatClient.MVVM.View
         /// Toggles the SettingsWindow visibility:
         /// - If an instance is already open, it closes it.
         /// - If no instance is open, it creates and shows a new one bound to the current MainViewModel.
-        /// - CTRL + Click opens AboutWindow directly.
+        /// - CTRL + Click opens the internal monitor tool instead of Settings.
         /// This prevents multiple SettingsWindow instances from being opened simultaneously.
         /// </summary>
         private void CmdSettings_Click(object sender, RoutedEventArgs e)
         {
-            // CTRL is hold: opens AboutWindow
+            // CTRL is held: open the internal monitor tool
             if (Keyboard.Modifiers == ModifierKeys.Control)
             {
-                var about = new AboutWindow
-                {
-                    Owner = this
-                };
-                about.ShowDialog();
+                CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 return;
             }
 
@@ -435,8 +455,6 @@ namespace ChatClient.MVVM.View
             // If nothing was found at all, returns null
             return null;
         }
-
-
 
         private void GrdMain_SizeChanged(object sender, SizeChangedEventArgs e)
         {
@@ -615,20 +633,41 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
-        /// Handles global key press events to trigger tray reduction behavior
-        /// and debug console activation.
-        /// Supports Escape key, double Ctrl press within one second,
-        /// and Ctrl+Alt+D to open the console on demand.
+        /// Handles global key press events
         /// </summary>
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // Reveals monitor button and opens monitor window ---
+            if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                if (CmdMonitor.Visibility == Visibility.Collapsed)
+                {
+                    CmdMonitor.Visibility = Visibility.Visible;
+                    CmdMonitor.Opacity = 0;
+
+                    // Creates a short fade‑in animation (0 to 1 opacity over 180 ms)
+                    // using a smooth easing curve for a more natural visual transition.
+                    var fadeAnim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+                    {
+                        EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                    };
+
+                    // Applies the fade‑in animation to the monitor button.
+                    CmdMonitor.BeginAnimation(OpacityProperty, fadeAnim);
+                }
+
+                // Toggles the monitor window
+                CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                e.Handled = true;
+                return;
+            }
+
             // Skips tray logic if feature is disabled
             if (!ChatClient.Properties.Settings.Default.ReduceToTray)
             {
                 return;
             }
 
-            // Reduces to tray on Escape key
             if (e.Key == Key.Escape)
             {
                 ReduceToTray();
@@ -646,6 +685,7 @@ namespace ChatClient.MVVM.View
                 _lastCtrlPress = now;
             }
         }
+
 
         /// <summary>
         /// Handles window state changes and minimizes the application to the

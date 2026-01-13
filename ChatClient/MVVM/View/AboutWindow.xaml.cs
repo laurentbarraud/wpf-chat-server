@@ -1,9 +1,8 @@
 ﻿/// <file>AboutWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 11th, 2026</date>
+/// <date>January 13th, 2026</date>
 
-using ChatClient.Converters;
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
 using System.Windows;
@@ -12,7 +11,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
-using System.Xml.Linq;
 
 namespace ChatClient.MVVM.View
 {

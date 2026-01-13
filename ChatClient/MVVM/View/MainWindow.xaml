@@ -409,25 +409,36 @@
                     </ListView>
                 </Border>
 
-                <!-- Row 2 : Bottom toolbar    -->
-                <Grid x:Name="GrdToolBar" Grid.Row="2" MinHeight="34" Height="Auto" Margin="0,0,0,2" VerticalAlignment="Stretch">
+                <!-- Row 2 : Bottom toolbar -->
+                <Grid x:Name="GrdToolBar"
+                      Grid.Row="2"
+                      MinHeight="34"
+                      Height="Auto"
+                      Margin="0,0,0,2"
+                      VerticalAlignment="Stretch">
+
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
+                        <!-- Theme toggle -->
                         <ColumnDefinition Width="Auto"/>
+                        <!-- Settings -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Monitor -->
                         <ColumnDefinition Width="*"/>
+                        <!-- Spacer -->
                     </Grid.ColumnDefinitions>
 
                     <!-- Theme toggle -->
                     <ToggleButton x:Name="ThemeToggle"
-                              Grid.Column="0"
-                              Width="60"
-                              Height="32"
-                              VerticalAlignment="Center"
-                              Margin="5,0,10,0"
-                              Command="{Binding ThemeToggleCommand}"
-                              CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Mode=Self}}"
-                              IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
-                              TabIndex="3">
+                                  Grid.Column="0"
+                                  Width="60"
+                                  Height="32"
+                                  VerticalAlignment="Center"
+                                  Margin="5,0,10,0"
+                                  Command="{Binding ThemeToggleCommand}"
+                                  CommandParameter="{Binding IsChecked, RelativeSource={RelativeSource Mode=Self}}"
+                                  IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
+                                  TabIndex="3">
 
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="{x:Type ToggleButton}">
@@ -435,46 +446,42 @@
 
                                     <!-- Background -->
                                     <Border x:Name="SwitchBackground"
-                                        CornerRadius="16"
-                                        Background="{DynamicResource BackgroundBrush}"
-                                        BorderBrush="{DynamicResource PrimaryBrush}"
-                                        BorderThickness="1" />
+                                            CornerRadius="16"
+                                            Background="{DynamicResource BackgroundBrush}"
+                                            BorderBrush="{DynamicResource PrimaryBrush}"
+                                            BorderThickness="1" />
 
                                     <!-- Thumb -->
                                     <Grid x:Name="ThumbContainer"
-                                      Width="28" Height="28"
-                                      VerticalAlignment="Center"
-                                      Margin="2,2,30,2">
+                                          Width="28" Height="28"
+                                          VerticalAlignment="Center"
+                                          Margin="2,2,30,2">
 
                                         <Ellipse Fill="{DynamicResource PrimaryBrush}" />
 
                                         <Image x:Name="SwitchIcon"
-                                           Source="/Resources/sun.png"
-                                           Width="18" Height="18"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" />
+                                               Source="/Resources/sun.png"
+                                               Width="18" Height="18"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
                                     </Grid>
                                 </Grid>
 
                                 <ControlTemplate.Triggers>
-                                    <!-- Checked: move thumb to right -->
                                     <Trigger Property="IsChecked" Value="True">
                                         <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/moon.png" />
                                         <Setter TargetName="ThumbContainer" Property="Margin" Value="30,2,2,2" />
                                     </Trigger>
 
-                                    <!-- Unchecked: move thumb to left -->
                                     <Trigger Property="IsChecked" Value="False">
                                         <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/sun.png" />
                                         <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,30,2" />
                                     </Trigger>
 
-                                    <!-- Hover effect -->
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource PrimaryBrush}" />
                                     </Trigger>
 
-                                    <!-- Disabled state -->
                                     <Trigger Property="IsEnabled" Value="False">
                                         <Setter TargetName="SwitchBackground" Property="Opacity" Value="0.4" />
                                         <Setter TargetName="ThumbContainer" Property="Opacity" Value="0.4" />
@@ -494,6 +501,7 @@
                             VerticalAlignment="Center"
                             Margin="5,0,5,0"
                             Click="CmdSettings_Click">
+
                         <Button.Style>
                             <Style TargetType="{x:Type Button}">
                                 <Setter Property="Background" Value="Transparent"/>
@@ -511,9 +519,39 @@
                                HorizontalAlignment="Center"/>
                     </Button>
 
+                    <!-- Monitor button -->
+                    <Button x:Name="CmdMonitor"
+                            Grid.Column="2"
+                            Width="30"
+                            Height="30"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            VerticalAlignment="Center"
+                            Margin="5,0,5,0"
+                            Click="CmdMonitor_Click"
+                            Visibility="Visible">
+                        <!-- Visible pour le concepteur -->
+                        <Button.Style>
+                            <Style TargetType="{x:Type Button}">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+
+                        <Image Source="/Resources/monitor.png"
+                               Stretch="Uniform"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    </Button>
+
                     <!-- Spacer -->
-                    <Border Grid.Column="2"/>
+                    <Border Grid.Column="3"/>
                 </Grid>
+
             </Grid>
         </Border>
         

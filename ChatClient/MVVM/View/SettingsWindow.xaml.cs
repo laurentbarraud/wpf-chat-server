@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 11th, 2026</date>
+/// <date>January 13th, 2026</date>
 
 using ChatClient.Helpers;                   // For EncryptionHelper, ClientLogger
 using ChatClient.MVVM.ViewModel;   
@@ -185,7 +185,7 @@ namespace ChatClient.MVVM.View
 
                 TxtPort.Text = "7123";
 
-                ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/reddot.png", UriKind.Relative));
+                ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/redcross.png", UriKind.Relative));
                 ImgPortStatus.ToolTip = LocalizationManager.GetString("PortNumberInvalid")
                                        + "\n"
                                        + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
@@ -203,7 +203,7 @@ namespace ChatClient.MVVM.View
 
                 TxtPort.Text = "7123";
 
-                ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/reddot.png", UriKind.Relative));
+                ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/redcross.png", UriKind.Relative));
                 ImgPortStatus.ToolTip = LocalizationManager.GetString("PortNumberInvalid")
                                        + "\n"
                                        + LocalizationManager.GetString("ChooseAnAppropriatePortNumber");
