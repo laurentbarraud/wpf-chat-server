@@ -201,9 +201,27 @@ namespace ChatClient.MVVM.ViewModel
         {
             KnownPublicKeysView.Clear();
 
+            // Adds the local line first
+            KnownPublicKeysView.Add(new PublicKeyEntry
+            {
+                UID = _mainViewModel.LocalUser.UID,
+                Username = _mainViewModel.Username,
+                KeyExcerpt = ExtractExcerpt(_mainViewModel.LocalUser.PublicKeyDer),
+                StatusText = ValidKeyText,
+                IsLocal = true
+            });
+
+            // Adds the other keys
             foreach (var entry in knownKeys)
             {
                 Guid uid = entry.Key;
+
+                // Avoids duplicating the local line
+                if (uid == _mainViewModel.LocalUser.UID)
+                {
+                    continue;
+                }
+
                 string username = _mainViewModel.ResolveUsername(uid);
                 byte[] keyBytes = entry.Value;
 
@@ -215,7 +233,7 @@ namespace ChatClient.MVVM.ViewModel
                     StatusText = keyBytes is { Length: > 0 }
                         ? ValidKeyText
                         : InvalidOrMissingKeyText,
-                    IsLocal = uid == _mainViewModel.LocalUser.UID
+                    IsLocal = false
                 });
             }
         }
