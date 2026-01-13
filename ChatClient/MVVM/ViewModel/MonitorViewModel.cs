@@ -1,7 +1,7 @@
 ﻿/// <file>MonitorViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 13th, 2026</date>
+/// <date>January 14th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -11,6 +11,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Input;
 
 namespace ChatClient.MVVM.ViewModel
 {
@@ -28,24 +29,6 @@ namespace ChatClient.MVVM.ViewModel
         private string _monitorWindowTitle = string.Empty;
 
         // PUBLIC PROPERTIES
-
-        /// <summary>
-        /// Returns a short, human‑readable excerpt of a DER‑encoded public key.
-        /// Produces a hexadecimal preview of the first bytes, followed by "...".
-        /// </summary>
-        private string ExtractExcerpt(byte[] publicKeyDer)
-        {
-            if (publicKeyDer == null || publicKeyDer.Length == 0)
-                return string.Empty;
-
-            // Take the first 8 bytes (or fewer if the key is extremely short)
-            int excerptLength = Math.Min(8, publicKeyDer.Length);
-
-            // Convert to hex without dashes (e.g. "A1B2C3D4...")
-            string hex = BitConverter.ToString(publicKeyDer, 0, excerptLength).Replace("-", "");
-
-            return hex + "...";
-        }
 
         /// <summary> Localized text displayed when a public key is invalid or missing. </summary> 
         public string InvalidOrMissingKeyText { get; private set; } = string.Empty;
@@ -101,6 +84,12 @@ namespace ChatClient.MVVM.ViewModel
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        /// <summary>
+        /// Command exposed to the View
+        /// </summary>
+        public ICommand RequestMissingPublicKeyCommand { get; } = null!;
+
+
         /// <summary> Localized text displayed when a public key is valid. </summary>
         public string ValidKeyText { get; private set; } = string.Empty;
 
@@ -125,10 +114,33 @@ namespace ChatClient.MVVM.ViewModel
             KnownPublicKeysView.Add(new PublicKeyEntry
             {
                 Username = _mainViewModel.Username,
+                UID = _mainViewModel.LocalUser.UID,
                 KeyExcerpt = ExtractExcerpt(_mainViewModel.LocalUser.PublicKeyDer),
                 StatusText = ValidKeyText,
                 IsLocal = true
             });
+            
+            RequestMissingPublicKeyCommand = new RelayCommand<PublicKeyEntry>(
+                async entry => await RequestMissingPublicKeyAsync(entry)
+            );
+        }
+
+        /// <summary>
+        /// Returns a short, human‑readable excerpt of a DER‑encoded public key.
+        /// Produces a hexadecimal preview of the first bytes, followed by "...".
+        /// </summary>
+        private string ExtractExcerpt(byte[] publicKeyDer)
+        {
+            if (publicKeyDer == null || publicKeyDer.Length == 0)
+                return string.Empty;
+
+            // Take the first 8 bytes (or fewer if the key is extremely short)
+            int excerptLength = Math.Min(8, publicKeyDer.Length);
+
+            // Convert to hex without dashes (e.g. "A1B2C3D4...")
+            string hex = BitConverter.ToString(publicKeyDer, 0, excerptLength).Replace("-", "");
+
+            return hex + "...";
         }
 
         /// <summary>
@@ -191,17 +203,43 @@ namespace ChatClient.MVVM.ViewModel
 
             foreach (var entry in knownKeys)
             {
-                string username = _mainViewModel.ResolveUsername(entry.Key);
+                Guid uid = entry.Key;
+                string username = _mainViewModel.ResolveUsername(uid);
                 byte[] keyBytes = entry.Value;
 
                 KnownPublicKeysView.Add(new PublicKeyEntry
                 {
+                    UID = uid,
                     Username = username,
                     KeyExcerpt = ExtractExcerpt(keyBytes),
                     StatusText = keyBytes is { Length: > 0 }
                         ? ValidKeyText
-                        : InvalidOrMissingKeyText
+                        : InvalidOrMissingKeyText,
+                    IsLocal = uid == _mainViewModel.LocalUser.UID
                 });
+            }
+        }
+
+        /// <summary>
+        /// Sends a targeted request to a specific peer asking for its public key.
+        /// The request is forwarded to the network layer.
+        /// </summary>
+        private async Task RequestMissingPublicKeyAsync(PublicKeyEntry publicKeyEntry)
+        {
+            if (publicKeyEntry == null || publicKeyEntry.IsLocal)
+            {
+                return;
+            }
+
+            try
+            {
+                await _mainViewModel.ClientConn
+                    .SendRequestToPeerForPublicKeyAsync(publicKeyEntry.UID, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"RequestMissingKeyAsync failed for {publicKeyEntry.Username}: {ex.Message}", ClientLogLevel.Error);
             }
         }
     }

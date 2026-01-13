@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 13th, 2026</date>
+/// <date>January 14th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -1034,7 +1034,7 @@ namespace ChatClient.MVVM.ViewModel
             );
 
             // Creates ThemeToggleCommand (bound to ToggleButton)
-            ThemeToggleCommand = new RelayCommands<object>(param =>
+            ThemeToggleCommand = new RelayCommand<object>(param =>
             {
                 // Reads toggle state from UI; true = dark, false = light
                 bool isDarkThemeSelected = param is bool toggleState && toggleState;

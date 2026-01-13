@@ -1,7 +1,7 @@
 ﻿/// <file>PublicKeyEntry.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 13th, 2026</date>
+/// <date>January 14th, 2026</date>
 
 using System;
 
@@ -13,6 +13,12 @@ namespace ChatClient.MVVM.Model
     /// </summary>
     public class PublicKeyEntry
     {
+        /// <summary> 
+        /// Unique identifier of the user this entry refers to.
+        /// Used to request the missing public key from the correct peer.
+        /// </summary> 
+        public Guid UID { get; set; }
+
         /// <summary> 
         /// Username associated with this public key entry. 
         /// </summary> 

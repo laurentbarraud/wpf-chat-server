@@ -138,7 +138,7 @@
 
                                 <Button.Style>
                                     <Style TargetType="Button">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Setter Property="Visibility" Value="Visible"/>
 
                                         <Setter Property="Content">
                                             <Setter.Value>
@@ -146,18 +146,18 @@
                                                    Width="24" Height="24"/>
                                             </Setter.Value>
                                         </Setter>
-
-                                        <Style.Triggers>
-                                            <!-- Hides button for local key -->
+                                        
+                                        <!--<Style.Triggers>
+                                            --><!-- Hides button for local key --><!--
                                             <DataTrigger Binding="{Binding IsLocal}" Value="True">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
 
-                                            <!-- Shows button only for invalid remote keys -->
+                                            --><!-- Shows button only for invalid remote keys --><!--
                                             <DataTrigger Binding="{Binding IsValid}" Value="False">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
-                                        </Style.Triggers>
+                                        </Style.Triggers>-->
 
                                     </Style>
                                 </Button.Style>
