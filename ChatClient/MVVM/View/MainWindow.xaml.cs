@@ -113,60 +113,56 @@ namespace ChatClient.MVVM.View
         /// </summary>
         public MenuItem TrayMenuQuit { get; private set; }
 
-        // Initializes the main window: loads UI components, binds the ViewModel,
-        // restores user preferences, configures layout synchronization, and applies
-        // localization, theming, and emoji panel behavior.
+        // Initializes the main window: loads UI, binds the ViewModel,
+        // restores preferences, applies localization/theme, and configures UI behavior.
         public MainWindow()
         {
             InitializeComponent();
 
-            // Creates and binds the ViewModel
-            viewModel = new MainViewModel(); 
+            // ViewModel setup
+            viewModel = new MainViewModel();
             DataContext = viewModel;
-
-            // Will react to ViewModel layout updates
-            viewModel.PropertyChanged += ViewModel_PropertyChanged; 
-        
-            // Auto-scrolls chat when new messages arrive
+            viewModel.PropertyChanged += ViewModel_PropertyChanged;
             viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            // Configures the auto-scroll timer for the emoji panel
-            scrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            // Emoji panel auto-scroll timer
+            scrollTimer = new DispatcherTimer 
+            { 
+                Interval = TimeSpan.FromMilliseconds(50) 
+            };
             scrollTimer.Tick += ScrollTimer_Tick;
 
-            // Assigns WPF-generated named elements to localized keys
+            // Localized tray menu references
             trayIcon = (TaskbarIcon)FindName("TrayIcon");
             TrayMenuOpen = (MenuItem)FindName("TrayMenuOpen");
             TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
 
+            // Localized tooltips
             CmdSettings.ToolTip = LocalizationManager.GetString("SettingsToolTip");
             CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftToolTip");
             CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
 
-            // Restores last used IP address
+            // User preferences
             TxtServerIPAddress.Text = Settings.Default.ServerIPAddress;
+            ThemeToggle.IsChecked = Settings.Default.AppTheme?.ToLower() == "dark";
 
-            // Applies localization
+            double savedHeight = Settings.Default.InputAreaHeight;
+            if (savedHeight < 34)
+                savedHeight = 34;
+
+            // Localization
             string storedLanguageCode = Settings.Default.AppLanguageCode;
             LocalizationManager.InitializeLocalization(storedLanguageCode);
 
-            #if DEBUG 
-            CmdMonitor.Visibility = Visibility.Visible; 
-            #else 
-            CmdMonitor.Visibility = Visibility.Collapsed; 
+            // Neutralizes any residual animation
+            CmdMonitor.BeginAnimation(UIElement.OpacityProperty, null);
+
+            #if DEBUG
+            CmdMonitor.Visibility = Visibility.Visible;
+            CmdMonitor.Opacity = 1;
             #endif
 
-            // Synchronizes theme toggle with saved preference
-            ThemeToggle.IsChecked = Settings.Default.AppTheme?.ToLower() == "dark";
-
-            // Restores saved message input field height
-            double savedHeight = Settings.Default.InputAreaHeight;
-            
-            if (savedHeight < 34)
-            {
-                savedHeight = 34;
-            }
-
+            // Final UI touches
             ApplyWatermarks();
             TxtUsername.Focus();
         }
@@ -355,10 +351,11 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
-        /// Toggles the SettingsWindow visibility:
-        /// - If an instance is already open, it closes it.
-        /// - If no instance is open, it creates and shows a new one bound to the current MainViewModel.
-        /// - CTRL + Click opens the internal monitor tool instead of Settings.
+        /// Handles Settings button interactions:
+        /// - CTRL + Click opens the internal monitor tool.
+        /// - Normal Click toggles the SettingsWindow:
+        ///     • If an instance is already open, it closes it.
+        ///     • Otherwise, it creates and shows a new one bound to the current MainViewModel.
         /// This prevents multiple SettingsWindow instances from being opened simultaneously.
         /// </summary>
         private void CmdSettings_Click(object sender, RoutedEventArgs e)
@@ -366,13 +363,12 @@ namespace ChatClient.MVVM.View
             // CTRL is held: open the internal monitor tool
             if (Keyboard.Modifiers == ModifierKeys.Control)
             {
-                CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                ToggleMonitorWindow();
                 return;
             }
 
-            // Normal behavior: toggles SettingsWindow
-            var existingSettingsWindow = Application.Current.Windows
-                .OfType<SettingsWindow>()
+            // Normal behavior: toggle SettingsWindow
+            var existingSettingsWindow = Application.Current.Windows.OfType<SettingsWindow>()
                 .FirstOrDefault();
 
             if (existingSettingsWindow != null)
@@ -381,11 +377,11 @@ namespace ChatClient.MVVM.View
                 return;
             }
 
-            var settings = new SettingsWindow(viewModel)
+            var settingsWindow = new SettingsWindow(viewModel)
             {
                 Owner = this
             };
-            settings.Show();
+            settingsWindow.Show();
         }
 
         /// <summary>
@@ -494,6 +490,28 @@ namespace ChatClient.MVVM.View
             // Updates the width of the right panel
             viewModel.RightGridWidth = GrdRight.ActualWidth; 
         }
+
+        /// <summary>
+        /// Hides the monitor button with a fade‑out animation 
+        /// when the monitor window is closed.
+        /// </summary>
+        public void HideMonitorButton()
+        {
+            #if !DEBUG
+            var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(1500))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            fadeOut.Completed += (s, e) =>
+            {
+                CmdMonitor.Visibility = Visibility.Collapsed;
+            };
+
+            CmdMonitor.BeginAnimation(OpacityProperty, fadeOut);
+            #endif
+        }
+
 
         /// <summary> 
         /// Enforces minimum height constraints for both the messages area and the
@@ -637,28 +655,11 @@ namespace ChatClient.MVVM.View
         /// </summary>
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // Reveals monitor button and opens monitor window ---
+            // Reveals monitor button and opens monitor window
             if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
             {
-                if (CmdMonitor.Visibility == Visibility.Collapsed)
-                {
-                    CmdMonitor.Visibility = Visibility.Visible;
-                    CmdMonitor.Opacity = 0;
-
-                    // Creates a short fade‑in animation (0 to 1 opacity over 180 ms)
-                    // using a smooth easing curve for a more natural visual transition.
-                    var fadeAnim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
-                    {
-                        EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-                    };
-
-                    // Applies the fade‑in animation to the monitor button.
-                    CmdMonitor.BeginAnimation(OpacityProperty, fadeAnim);
-                }
-
-                // Toggles the monitor window
-                CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                e.Handled = true;
+                RevealMonitorButtonAndOpenWindow(); 
+                e.Handled = true; 
                 return;
             }
 
@@ -685,7 +686,6 @@ namespace ChatClient.MVVM.View
                 _lastCtrlPress = now;
             }
         }
-
 
         /// <summary>
         /// Handles window state changes and minimizes the application to the
@@ -772,6 +772,29 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
+        /// Reveals the monitor button with a short fade‑in animation if it is hidden,
+        /// then opens or focuses the monitor window.
+        /// </summary>
+        private void RevealMonitorButtonAndOpenWindow()
+        {
+            if (CmdMonitor.Visibility == Visibility.Collapsed)
+            {
+                CmdMonitor.Visibility = Visibility.Visible;
+                CmdMonitor.Opacity = 0;
+
+                var fadeAnim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+                {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                };
+
+                CmdMonitor.BeginAnimation(OpacityProperty, fadeAnim);
+            }
+
+            // Opens or focuses the monitor window
+            CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }
+
+        /// <summary>
         /// Handles continuous scrolling of the emoji panel when arrow buttons are hovered.
         /// <param name="sender">Timer instance firing the event (nullable).</param>
         /// <param name="e">Event arguments (never null).</param>
@@ -813,6 +836,50 @@ namespace ChatClient.MVVM.View
 
             // Apply light theme watermarks
             ApplyWatermarks();
+        }
+
+        /// <summary>
+        /// Shows the monitor button with a fade‑in animation in Release mode, 
+        /// then toggles the monitor window:
+        /// - If the window is already open, it closes it.
+        /// - If it is closed, it opens it.
+        /// </summary>
+        public void ToggleMonitorWindow()
+        {
+            // Checks if the monitor window is already open
+            var existingMonitorWindow = Application.Current.Windows
+                .OfType<MonitorWindow>()
+                .FirstOrDefault();
+
+            if (existingMonitorWindow != null)
+            {
+                existingMonitorWindow.Close();
+                return;
+            }
+
+            // Window is closed: reveals the button (in release mode)
+            #if !DEBUG
+            if (CmdMonitor.Visibility == Visibility.Collapsed)
+            {
+                CmdMonitor.Visibility = Visibility.Visible;
+                CmdMonitor.Opacity = 0;
+
+            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(1500))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+
+                CmdMonitor.BeginAnimation(OpacityProperty, fadeIn);
+            }
+            #else
+            
+            // Debug: always visible, no animation
+            CmdMonitor.Visibility = Visibility.Visible;
+            CmdMonitor.Opacity = 1;
+            #endif
+
+            // Triggers the same behavior as clicking the monitor button
+            CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         }
 
         /// <summary> 

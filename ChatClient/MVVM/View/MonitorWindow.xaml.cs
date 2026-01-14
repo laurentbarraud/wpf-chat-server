@@ -45,6 +45,16 @@ namespace ChatClient.MVVM.View
             this.Close();
         }
 
+        private void MonitorWindow1_Closed(object sender, EventArgs e)
+        {
+        #if !DEBUG
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.HideMonitorButton();
+            }
+        #endif
+        }
+
         private void MonitorWindow1_Loaded(object sender, RoutedEventArgs e)
         {
             if (DataContext is MonitorViewModel monitorViewModel) 

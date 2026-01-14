@@ -16,7 +16,7 @@
     Icon="/Resources/monitor-icon.ico"
     TabIndex="12"
     MinHeight="300"
-    MinWidth="438" Loaded="MonitorWindow1_Loaded">
+    MinWidth="438" Loaded="MonitorWindow1_Loaded" Closed="MonitorWindow1_Closed">
 
     <!-- Main Grid -->
     <Grid Margin="0,0,0,0">

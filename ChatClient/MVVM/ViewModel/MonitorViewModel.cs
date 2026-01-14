@@ -23,6 +23,7 @@ namespace ChatClient.MVVM.ViewModel
     public class MonitorViewModel : INotifyPropertyChanged
     {
         // PRIVATE FIELDS
+
         private readonly MainViewModel _mainViewModel;
 
         /// <summary> Backing fields for localized strings </summary>

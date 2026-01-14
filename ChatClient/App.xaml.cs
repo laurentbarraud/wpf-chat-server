@@ -9,10 +9,9 @@ using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
 using System;
 using System.Globalization;
-using System.Linq;
-using System.Threading;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
 
 namespace ChatClient
 {
@@ -71,13 +70,13 @@ namespace ChatClient
                 Keyboard.PreviewKeyDownEvent,
                 new KeyEventHandler(GlobalShortcutHandler));
 
-            // Debug console handling
-#if DEBUG
+            #if DEBUG
             // Debug build: always show console when running under Visual Studio
             ClientLogger.IsDebugEnabled = true;
             ConsoleManager.Show();
             Console.OutputEncoding = System.Text.Encoding.UTF8;
-#else
+            
+            #else
             // Release build: show console only if explicitly requested
             if (debugMode)
             {
@@ -85,62 +84,49 @@ namespace ChatClient
                 ConsoleManager.Show();
                 Console.OutputEncoding = System.Text.Encoding.UTF8;
             }
-#endif
+            #endif
         }
 
         /// <summary>
         /// Global keyboard shortcut handler.
-        /// This ensures that shortcuts work even when secondary windows
+        /// Ensures shortcuts work even when secondary windows
         /// (such as the Settings window) are focused.
         /// </summary>
         private void GlobalShortcutHandler(object sender, KeyEventArgs e)
         {
-            // Theme toggle
+            var mainWindow = Application.Current.MainWindow as MainWindow;
+            var viewModel = mainWindow?.DataContext as MainViewModel;
+
+            if (mainWindow == null)
+            {
+                return;
+            }
+
+            // Theme toggle 
             if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T)
             {
-                if (Application.Current.MainWindow is MainWindow mainWindow)
-                {
-                    mainWindow.ThemeToggle.IsChecked = !mainWindow.ThemeToggle.IsChecked;
-                    mainWindow.ThemeToggle.Command?.Execute(mainWindow.ThemeToggle.IsChecked ?? false);
-                }
+                mainWindow.ThemeToggle.IsChecked = !mainWindow.ThemeToggle.IsChecked;
+                mainWindow.ThemeToggle.Command?.Execute(mainWindow.ThemeToggle.IsChecked ?? false);
 
-                // Marks event as handled to prevent further processing
                 e.Handled = true;
                 return;
             }
 
-            // Encryption toggle
+            // Encryption toggle 
             if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.E)
             {
-                if (Application.Current.MainWindow?.DataContext is MainViewModel viewModel)
-                {
+                if (viewModel != null)
                     viewModel.UseEncryption = !viewModel.UseEncryption;
-                }
 
                 e.Handled = true;
                 return;
             }
 
-            // Minimize window
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.M)
+            // Monitor button
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.K)
             {
-                Application.Current.MainWindow.WindowState = WindowState.Minimized;
-                e.Handled = true;
-                return;
-            }
+                mainWindow.ToggleMonitorWindow();
 
-            // Minimize window
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.R)
-            {
-                Application.Current.MainWindow.WindowState = WindowState.Minimized;
-                e.Handled = true;
-                return;
-            }
-
-            // Closes main window
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.W)
-            {
-                Application.Current.MainWindow.Close();
                 e.Handled = true;
                 return;
             }

@@ -19,7 +19,8 @@
         PreviewKeyDown="MainWindow_PreviewKeyDown" 
         WindowStartupLocation="CenterScreen" 
         Icon="/Resources/ChatClient-icon.ico" 
-        TabIndex="12" LayoutUpdated="Window_LayoutUpdated" 
+        TabIndex="12"
+        LayoutUpdated="Window_LayoutUpdated" 
         SizeChanged="Window_SizeChanged">
     <Window.Resources>
 
@@ -527,17 +528,22 @@
                             Background="Transparent"
                             BorderThickness="0"
                             VerticalAlignment="Center"
-                            Margin="5,0,5,0"
+                            Margin="10,0,5,0"
                             Click="CmdMonitor_Click"
-                            Visibility="Visible">
-                        <!-- Visible pour le concepteur -->
+                            Visibility="Collapsed"
+                            Opacity="0">
+
                         <Button.Style>
-                            <Style TargetType="{x:Type Button}">
+                            <Style TargetType="Button">
                                 <Setter Property="Background" Value="Transparent"/>
+
                                 <Style.Triggers>
+
+                                    <!-- Hover effect only -->
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter Property="Opacity" Value="0.8"/>
                                     </Trigger>
+
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
@@ -545,7 +551,7 @@
                         <Image Source="/Resources/monitor.png"
                                Stretch="Uniform"
                                VerticalAlignment="Center"
-                               HorizontalAlignment="Center"/>
+                               HorizontalAlignment="Left"/>
                     </Button>
 
                     <!-- Spacer -->

@@ -111,6 +111,12 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private bool _isDarkTheme = Settings.Default.AppTheme == "dark";
 
+        /// <summary> 
+        /// Indicates whether the application is running in debug mode.
+        /// Used to control the visibility and animation behavior of developer‑only UI elements.
+        /// </summary>
+        private bool _isDebugMode;
+
         /// <summary>
         /// Indicates whether the next roster snapshot is the first update
         /// received after connecting. Used to suppress join/leave notifications
@@ -521,6 +527,20 @@ namespace ChatClient.MVVM.ViewModel
 
                 // Applies the selected theme immediately
                 ThemeManager.ApplyTheme(value);
+            }
+        }
+
+        /// <summary>
+        /// Indicates whether the application is running in a debug build,
+        /// enabling developer‑only UI elements and diagnostics.
+        /// </summary>
+        public bool IsDebugMode
+        {
+            get => _isDebugMode;
+            set
+            {
+                _isDebugMode = value;
+                OnPropertyChanged();
             }
         }
 
