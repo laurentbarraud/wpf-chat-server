@@ -164,6 +164,11 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private void OnLanguageChanged(object? sender, EventArgs e)
         {
+            MonitorWindowTitle = LocalizationManager.GetString("MonitorWindowTitle"); 
+            ValidKeyText = LocalizationManager.GetString("ValidKey"); 
+            InvalidOrMissingKeyText = LocalizationManager.GetString("InvalidOrMissingKey");
+            RefreshFromDictionary(_mainViewModel.ClientConn.GetKnownPublicKeys());
+
             OnPropertyChanged(nameof(MaskMessage));
             OnPropertyChanged(nameof(IsMaskVisible));
             OnPropertyChanged(nameof(IsGridVisible));

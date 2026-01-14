@@ -430,7 +430,7 @@ namespace ChatClient.Net
         /// This prevents external callers from modifying the original collection
         /// while still providing read access to the current known public keys.
         /// </summary>
-        public static Dictionary<Guid, byte[]> GetKnownPublicKeys()
+        public Dictionary<Guid, byte[]> GetKnownPublicKeys()
         {
             return new Dictionary<Guid, byte[]>(KnownPublicKeys);
         }

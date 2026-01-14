@@ -7,7 +7,7 @@
     xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
     xmlns:conv="clr-namespace:ChatClient.Converters"
     x:Class="ChatClient.MVVM.View.MonitorWindow"
-    Title="Public Keys Monitor"
+    Title="{Binding MonitorWindowTitle}"
     Height="440" Width="498"
     ShowInTaskbar="False"
     ResizeMode="NoResize"
@@ -78,11 +78,12 @@
 
                 <!-- COLUMN 1 : Username -->
                 <DataGridTextColumn Header="Utilisateur"
-                                Binding="{Binding Username}"
-                                Width="SizeToCells" />
+                                    Binding="{Binding Username}"
+                                    Width="150" />
 
                 <!-- COLUMN 2 : Key excerpt -->
-                <DataGridTemplateColumn Header="Extrait de clé" Width="SizeToCells">
+                <DataGridTemplateColumn Header="Extrait de clé" 
+                                        Width="SizeToCells">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding KeyExcerpt}"
