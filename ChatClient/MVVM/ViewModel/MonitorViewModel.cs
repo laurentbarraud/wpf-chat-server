@@ -49,6 +49,12 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public ObservableCollection<PublicKeyEntry> KnownPublicKeysView { get; }
 
+        /// <summary> 
+        /// Exposes the MainViewModel instance used by this monitor,
+        /// allowing access to the application's shared state and connection.
+        /// </summary>
+        public MainViewModel MainViewModel => _mainViewModel;
+
         /// <summary>
         /// Gets the current mask message to display over the monitor grid.
         /// Returns null when no mask should be shown.

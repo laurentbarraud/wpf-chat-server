@@ -1,4 +1,4 @@
-﻿/// <file>MonitorWindow.xaml.cs</file>
+﻿/// <file>MonitrWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
 /// <date>January 14th, 2026</date>
@@ -18,6 +18,9 @@ namespace ChatClient.MVVM.View
     public partial class MonitorWindow : Window
     {
         private readonly MonitorViewModel _monitorViewModel;
+        private readonly MainViewModel _mainViewModel = new MainViewModel();
+
+        public MainViewModel MainViewModel => _mainViewModel;
 
         /// <summary> 
         /// Initializes the window and assigns its ViewModel. 
@@ -28,8 +31,11 @@ namespace ChatClient.MVVM.View
         {
             InitializeComponent();
 
-            var mainViewModel = Application.Current.MainWindow.DataContext as MainViewModel;
+            // Retrieves the MainViewModel of the application
+            var mainViewModel = Application.Current.MainWindow.DataContext as MainViewModel 
+                ?? throw new InvalidOperationException("MainViewModel not found.");
 
+            // Injects the real MainViewModel into the MonitorViewModel
             _monitorViewModel = new MonitorViewModel(mainViewModel!);
             DataContext = _monitorViewModel;
         }
@@ -41,7 +47,10 @@ namespace ChatClient.MVVM.View
 
         private void MonitorWindow1_Loaded(object sender, RoutedEventArgs e)
         {
-            _monitorViewModel.RefreshFromDictionary(ClientConnection.GetKnownPublicKeys());
+            if (DataContext is MonitorViewModel monitorViewModel) 
+            {
+                monitorViewModel.RefreshFromDictionary(MainViewModel.ClientConn.GetKnownPublicKeys()); 
+            }
         }
     }
 }
