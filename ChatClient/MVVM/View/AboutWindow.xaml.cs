@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 14th, 2026</date>
+/// <date>January 15th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -23,11 +23,14 @@ namespace ChatClient.MVVM.View
         /// Prevents multiple overlapping animations from being triggered.
         /// </summary>
         private bool _snowstormRunning = false;
+        private readonly AboutViewModel _aboutViewModel;
 
         public AboutWindow()
         {
             InitializeComponent();
-            DataContext = new AboutViewModel();
+
+            _aboutViewModel = new AboutViewModel(); 
+            DataContext = _aboutViewModel;
         }
 
         private void AnimateSnowflake(Ellipse flake, Random rnd)
@@ -87,34 +90,48 @@ namespace ChatClient.MVVM.View
             this.Close();
         }
 
-        /// <summary> 
-        /// Gradually fades the hotspot’s background back to transparent once the snow 
-        /// animation has finished, restoring its idle appearance.
+        /// <summary>
+        /// Gradually fades the hotspot’s background back to transparent,
+        /// ensuring the brush is unfrozen before animating.
         /// </summary>
-        private void FadeOutHotspot() 
-        { 
-            var anim = new ColorAnimation { 
-                From = Color.FromRgb(180, 240, 240), To = Colors.Transparent, 
-                Duration = TimeSpan.FromMilliseconds(600), FillBehavior = FillBehavior.Stop 
-            }; 
-            
-            var bgBrush = ServerHotspotButton.Background as SolidColorBrush; 
-            
-            if (bgBrush == null) 
-            { 
-                bgBrush = new SolidColorBrush(Color.FromRgb(180, 240, 240)); 
-                ServerHotspotButton.Background = bgBrush; 
-            } 
-            
-            anim.Completed += (_, __) => ServerHotspotButton.Background = new SolidColorBrush(Colors.Transparent); 
-            bgBrush.BeginAnimation(SolidColorBrush.ColorProperty, anim); 
+        private void FadeOutHotspot()
+        {
+            // Defines a color transition from the highlight tint back to transparent, 
+            // used to smoothly fade out the hotspot background.
+            var colorAnim = new ColorAnimation
+            {
+                From = Color.FromRgb(180, 240, 240),
+                To = Colors.Transparent,
+                Duration = TimeSpan.FromMilliseconds(600),
+                FillBehavior = FillBehavior.Stop
+            };
+
+            // Always clone the brush to avoid frozen brushes from templates/resources
+            SolidColorBrush bgBrush;
+
+            if (HotspotButton.Background is SolidColorBrush hspBtnBgBrush)
+            {
+                bgBrush = hspBtnBgBrush.IsFrozen ? hspBtnBgBrush.Clone() : hspBtnBgBrush;
+            }
+            else
+            {
+                bgBrush = new SolidColorBrush(Color.FromRgb(180, 240, 240));
+            }
+
+            HotspotButton.Background = bgBrush;
+
+            colorAnim.Completed += (_, __) =>
+                HotspotButton.Background = new SolidColorBrush(Colors.Transparent);
+
+            // Animates the brush’s Color property using the defined animation.
+            bgBrush.BeginAnimation(SolidColorBrush.ColorProperty, colorAnim);
         }
 
         /// <summary> 
         /// Animates the hotspot by fading its background from transparent to a light blue 
         /// to visually indicate that the snow effect has been triggered. 
         /// </summary>
-        private void HighlightServerHotspotButton() 
+        public void HighlightHotspotButton() 
         { 
             var anim = new ColorAnimation { 
                 From = Colors.Transparent, To = Color.FromRgb(180, 240, 240),
@@ -122,41 +139,65 @@ namespace ChatClient.MVVM.View
             }; 
         
             var brush = new SolidColorBrush(Colors.Transparent); 
-            ServerHotspotButton.Background = brush; 
+            HotspotButton.Background = brush; 
             brush.BeginAnimation(SolidColorBrush.ColorProperty, anim); 
         }
 
-        /// <summary>
-        /// Brushing the name awakens the hidden glow.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void LicenceFinalLabel_MouseEnter(object sender, MouseEventArgs e)
-        {  
-            HighlightServerHotspotButton(); 
-        }
-
-        /// <summary>
-        /// When attention drifts away, the light fades… unless the storm is already alive.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void LicenceFinalLabel_MouseLeave(object sender, MouseEventArgs e)
-        { 
-            if (!_snowstormRunning) 
-            { 
-                FadeOutHotspot(); 
-            } 
-        }
         /// <summary>
         /// A click on the right spot will trigger a special feature.
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void ServerHotspotButton_Click(object sender, RoutedEventArgs e)
+        private void HotspotButton_Click(object sender, RoutedEventArgs e)
         {
-            HighlightServerHotspotButton();
+            HighlightHotspotButton();
             StartSnowstorm();
+        }
+
+        /// <summary>
+        /// Reverts the WinterHasFallen parameter to its default value.
+        /// </summary>
+
+        private void LicenceFinalLabel_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            // Only reset if the flag is currently set
+            if (Properties.Settings.Default.WinterHasFallen)
+            {
+                Properties.Settings.Default.WinterHasFallen = false;
+                Properties.Settings.Default.Save();
+                
+                ClientLogger.Log("WinterHasFallen app parameter reset. Awaiting the next explorer.", ClientLogLevel.Info);
+            }
+        }
+
+        /// <summary>
+        /// Brushing the name awakens the hidden glow but only the first time.
+        /// </summary>
+        private void LicenceFinalLabel_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (!Properties.Settings.Default.WinterHasFallen)
+            {
+                if (_aboutViewModel.TryShowHotspotHint())
+                {
+                    HighlightHotspotButton();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fades the hotspot when focus leaves the label, unless the effect has already been consumed.
+        /// </summary>
+        private void LicenceFinalLabel_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (_snowstormRunning)
+            {
+                return;
+            }
+
+            if (_aboutViewModel.TryHideHotspotHint())
+            {
+                FadeOutHotspot();
+            }
         }
 
         /// <summary>
@@ -189,10 +230,10 @@ namespace ChatClient.MVVM.View
                 Application.Current.Shutdown();
         }
 
-        /// <summary> 
-        /// Launches a temporary animation.
-        /// <summary> 
-        private async void StartSnowstorm()
+        /// <summary>
+        /// Summons an ephemeral disturbance in the interface. 
+        /// </summary>
+       private async void StartSnowstorm()
         {
             if (_snowstormRunning)
             {
@@ -200,6 +241,13 @@ namespace ChatClient.MVVM.View
             }
 
             _snowstormRunning = true;
+
+            // Only records the event the first time it ever happens.
+            if (!Properties.Settings.Default.WinterHasFallen)
+            { 
+                Properties.Settings.Default.WinterHasFallen = true; 
+                Properties.Settings.Default.Save(); 
+            } 
 
             var rnd = new Random();
             var flakeList = new List<Ellipse>();

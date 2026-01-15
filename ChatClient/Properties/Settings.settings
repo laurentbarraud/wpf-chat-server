@@ -1,5 +1,5 @@
 ﻿<?xml version='1.0' encoding='utf-8'?>
-<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="chat_client.Properties" GeneratedClassName="Settings">
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="ChatClient.Properties" GeneratedClassName="Settings">
   <Profiles />
   <Settings>
     <Setting Name="ServerIPAddress" Type="System.String" Scope="User">
@@ -34,6 +34,9 @@
     </Setting>
     <Setting Name="InputAreaHeight" Type="System.Double" Scope="User">
       <Value Profile="(Default)">120</Value>
+    </Setting>
+    <Setting Name="WinterHasFallen" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>
 </SettingsFile>

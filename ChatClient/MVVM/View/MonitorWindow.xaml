@@ -79,7 +79,7 @@
                 <!-- COLUMN 1 : Username -->
                 <DataGridTextColumn Header="Utilisateur"
                                     Binding="{Binding Username}"
-                                    Width="150" />
+                                    Width="230" />
 
                 <!-- COLUMN 2 : Key excerpt -->
                 <DataGridTemplateColumn Header="Extrait de clé" 
@@ -110,10 +110,10 @@
                                    VerticalAlignment="Center">
                                     <Image.Style>
                                         <Style TargetType="Image">
-                                            <Setter Property="Source" Value="/Resources/redcross.png"/>
+                                            <Setter Property="Source" Value="/Resources/invalid.png"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsValid}" Value="True">
-                                                    <Setter Property="Source" Value="/Resources/validate.png"/>
+                                                    <Setter Property="Source" Value="/Resources/valid-key.png"/>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

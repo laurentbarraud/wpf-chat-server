@@ -50,20 +50,20 @@
                    Margin="0,58,0,0"/>
 
             <!-- Hotspot button -->
-            <Button x:Name="ServerHotspotButton"
+            <Button x:Name="HotspotButton"
                     Width="11"
                     Height="11"
                     Background="Transparent"
                     BorderBrush="Transparent"
                     Cursor="Hand"
-                    Click="ServerHotspotButton_Click"
+                    Click="HotspotButton_Click"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Panel.ZIndex="50" Margin="0,102,85,0"/>
 
             <!-- Title -->
             <TextBlock x:Name="AppTitle"
-                       Text="WPF Chat Client"
+                       Text="Chat Client"
                        FontSize="34"
                        FontWeight="Normal"
                        Foreground="Black"
@@ -124,7 +124,7 @@
                    Foreground="WhiteSmoke"
                    TabIndex="1"
                    MouseEnter="LicenceFinalLabel_MouseEnter"
-                   MouseLeave="LicenceFinalLabel_MouseLeave"/>
+                   MouseLeave="LicenceFinalLabel_MouseLeave" MouseDoubleClick="LicenceFinalLabel_MouseDoubleClick"/>
 
             <Button x:Name="CmdOk"
                     Content="Ok"

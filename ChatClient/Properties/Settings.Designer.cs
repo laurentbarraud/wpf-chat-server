@@ -154,5 +154,17 @@ namespace ChatClient.Properties {
                 this["InputAreaHeight"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool WinterHasFallen {
+            get {
+                return ((bool)(this["WinterHasFallen"]));
+            }
+            set {
+                this["WinterHasFallen"] = value;
+            }
+        }
     }
 }

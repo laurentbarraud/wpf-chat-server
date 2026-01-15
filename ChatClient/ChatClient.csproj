@@ -40,6 +40,7 @@
     <None Remove="Resources\send.png" />
     <None Remove="Resources\settings.png" />
     <None Remove="Resources\sun.png" />
+    <None Remove="Resources\valid-key.png" />
     <None Remove="Resources\validate.png" />
   </ItemGroup>
 
@@ -72,7 +73,7 @@
     <Resource Include="Resources\left-arrow.png" />
     <Resource Include="Resources\moon.png" />
     <Resource Include="Resources\port-setting.png" />
-    <Resource Include="Resources\redcross.png" />
+    <Resource Include="Resources\invalid.png" />
     <Resource Include="Resources\reduce-to-tray-calc-icon.png" />
     <Resource Include="Resources\right-arrow.png" />
     <Resource Include="Resources\send.png">
@@ -80,6 +81,7 @@
     </Resource>
     <Resource Include="Resources\settings.png" />
     <Resource Include="Resources\sun.png" />
+    <Resource Include="Resources\valid-key.png" />
     <Resource Include="Resources\validate.png" />
   </ItemGroup>
 

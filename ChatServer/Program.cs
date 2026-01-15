@@ -1,7 +1,7 @@
 ﻿/// <file>Program.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 14th, 2026</date>
+/// <date>January 15th, 2026</date>
 
 using System;
 using ChatServer.Helpers;
@@ -491,7 +491,7 @@ namespace ChatServer
         static void DisplayBanner()
         {
             Console.WriteLine("╔═══════════════════════════════════╗");
-            Console.WriteLine("║        WPF Chat Server 1.0        ║");
+            Console.WriteLine("║          Chat Server 1.0          ║");
             Console.WriteLine("╚═══════════════════════════════════╝");
             Console.WriteLine(LocalizationManager.GetString("BannerLine1"));
             Console.WriteLine(LocalizationManager.GetString("BannerLine2"));
