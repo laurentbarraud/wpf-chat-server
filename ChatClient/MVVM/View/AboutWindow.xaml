@@ -124,7 +124,8 @@
                    Foreground="WhiteSmoke"
                    TabIndex="1"
                    MouseEnter="LicenceFinalLabel_MouseEnter"
-                   MouseLeave="LicenceFinalLabel_MouseLeave" MouseDoubleClick="LicenceFinalLabel_MouseDoubleClick"/>
+                   MouseLeave="LicenceFinalLabel_MouseLeave" 
+                   MouseDoubleClick="LicenceFinalLabel_MouseDoubleClick"/>
 
             <Button x:Name="CmdOk"
                     Content="Ok"

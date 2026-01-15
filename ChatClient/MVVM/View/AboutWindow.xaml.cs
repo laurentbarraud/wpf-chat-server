@@ -96,51 +96,62 @@ namespace ChatClient.MVVM.View
         /// </summary>
         private void FadeOutHotspot()
         {
-            // Defines a color transition from the highlight tint back to transparent, 
-            // used to smoothly fade out the hotspot background.
+            // Ignores fade-out if the hotspot is already transparent.
+            if (HotspotButton.Background is not SolidColorBrush currentBrush)
+            {
+                return;
+            }
+
+            // Skips animation when the current color is already fully off.
+            if (currentBrush.Color == Colors.Transparent)
+            {
+                return;
+            }
+
+            // Clones the brush when needed to avoid frozen instances from templates.
+            var bgBrush = currentBrush.IsFrozen ? currentBrush.Clone() : currentBrush;
+            HotspotButton.Background = bgBrush;
+
+            // Defines a transition from the current tint back to transparent.
             var colorAnim = new ColorAnimation
             {
-                From = Color.FromRgb(180, 240, 240),
-                To = Colors.Transparent,
+                From = bgBrush.Color,                 // Always start from the actual color.
+                To = Colors.Transparent,              // Fade back to invisible.
                 Duration = TimeSpan.FromMilliseconds(600),
                 FillBehavior = FillBehavior.Stop
             };
 
-            // Always clone the brush to avoid frozen brushes from templates/resources
-            SolidColorBrush bgBrush;
-
-            if (HotspotButton.Background is SolidColorBrush hspBtnBgBrush)
-            {
-                bgBrush = hspBtnBgBrush.IsFrozen ? hspBtnBgBrush.Clone() : hspBtnBgBrush;
-            }
-            else
-            {
-                bgBrush = new SolidColorBrush(Color.FromRgb(180, 240, 240));
-            }
-
-            HotspotButton.Background = bgBrush;
-
+            // Ensures the hotspot ends fully transparent once the fade completes.
             colorAnim.Completed += (_, __) =>
+            {
                 HotspotButton.Background = new SolidColorBrush(Colors.Transparent);
+            };
 
             // Animates the brush’s Color property using the defined animation.
             bgBrush.BeginAnimation(SolidColorBrush.ColorProperty, colorAnim);
         }
 
-        /// <summary> 
-        /// Animates the hotspot by fading its background from transparent to a light blue 
-        /// to visually indicate that the snow effect has been triggered. 
+        /// <summary>
+        /// Briefly awakens the hotspot’s hidden glow.
         /// </summary>
-        public void HighlightHotspotButton() 
-        { 
-            var anim = new ColorAnimation { 
-                From = Colors.Transparent, To = Color.FromRgb(180, 240, 240),
-                Duration = TimeSpan.FromMilliseconds(250), FillBehavior = FillBehavior.HoldEnd 
-            }; 
-        
-            var brush = new SolidColorBrush(Colors.Transparent); 
-            HotspotButton.Background = brush; 
-            brush.BeginAnimation(SolidColorBrush.ColorProperty, anim); 
+        public void HighlightHotspotButton()
+        {
+            // Defines a color transition from transparent to the highlight tint
+            var colorAnim = new ColorAnimation
+            {
+                From = Colors.Transparent,
+                To = Color.FromRgb(180, 240, 240),
+                Duration = TimeSpan.FromMilliseconds(250),
+                FillBehavior = FillBehavior.HoldEnd
+            };
+
+            // Always start from a fresh, unfrozen brush to avoid template/resource issues.
+            var brush = new SolidColorBrush(Colors.Transparent);
+
+            HotspotButton.Background = brush;
+
+            // Animates the brush’s Color property using the defined animation.
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, colorAnim);
         }
 
         /// <summary>
@@ -175,12 +186,15 @@ namespace ChatClient.MVVM.View
         /// </summary>
         private void LicenceFinalLabel_MouseEnter(object sender, MouseEventArgs e)
         {
-            if (!Properties.Settings.Default.WinterHasFallen)
+            if (Properties.Settings.Default.WinterHasFallen || _aboutViewModel.HotSpotHintShown) 
+            { 
+                return; 
+            }
+
+            else 
             {
-                if (_aboutViewModel.TryShowHotspotHint())
-                {
-                    HighlightHotspotButton();
-                }
+                _aboutViewModel.HotSpotHintShown = true;
+                HighlightHotspotButton();
             }
         }
 
@@ -189,12 +203,12 @@ namespace ChatClient.MVVM.View
         /// </summary>
         private void LicenceFinalLabel_MouseLeave(object sender, MouseEventArgs e)
         {
-            if (_snowstormRunning)
+            if (_snowstormRunning) 
             {
-                return;
-            }
+                return; 
+            } 
 
-            if (_aboutViewModel.TryHideHotspotHint())
+            else
             {
                 FadeOutHotspot();
             }

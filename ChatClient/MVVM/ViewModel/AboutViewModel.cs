@@ -25,8 +25,7 @@ namespace ChatClient.MVVM.ViewModel
         private string _licenceInfo = string.Empty;
         private string _licenceInfoResources = string.Empty;
         private string _licenceFinal = string.Empty;
-        private bool _hintOfHotspotShown = false;
-        
+               
         // PUBLIC PROPERTIES
 
         /// <summary> Localized text for the about window title. </summary>
@@ -55,9 +54,9 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Indicates whether the hotspot has already been activated during this window session.
+        /// Indicates whether the hotspot has already been shown during this window session.
         /// </summary>
-        public bool HintOfHotspotShown => _hintOfHotspotShown;
+        public bool HotSpotHintShown { get; set; } = false;
 
         /// <summary>
         /// Localized licence information text.
@@ -123,36 +122,6 @@ namespace ChatClient.MVVM.ViewModel
         protected void OnPropertyChanged([CallerMemberName] string propertyName = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        /// <summary>
-        /// Attempts to trigger the hotspot highlight once per window instance.
-        /// Returns true when the hint is shown for the first time.
-        /// </summary>
-        public bool TryShowHotspotHint() 
-        {
-            if (_hintOfHotspotShown)
-            {
-                return false;
-            }
-                
-            _hintOfHotspotShown = true; 
-            return true; 
-        }
-
-        /// <summary> 
-        /// Attempts to fade out the hotspot hint if it is currently active.
-        /// Returns true when the hint is successfully hidden.
-        /// </summary>
-        public bool TryHideHotspotHint() 
-        {
-            if (!_hintOfHotspotShown)
-            {
-                return false;
-            }
-            
-            _hintOfHotspotShown = false; 
-            return true; 
         }
     }
 }
