@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 15th, 2026</date>
+/// <date>January 16th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -296,13 +296,6 @@ namespace ChatClient.Net
                 // Completes handshake and delegates pipeline readiness.
                 MarkHandshakeComplete(LocalUid, LocalPublicKey);
 
-                // If encryption is enabled at startup, initializes the encryption pipeline now
-                // so that the public key is published just like when the user toggles it manually.
-                if (Properties.Settings.Default.UseEncryption && EncryptionPipeline != null) 
-                { 
-                    await EncryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false); 
-                } 
-
                 // Notifies subscribers that the connection is established.
                 ConnectionEstablished?.Invoke();
 
@@ -464,7 +457,7 @@ namespace ChatClient.Net
             // Initializes pipeline only if encryption is enabled before handshake.
             if (Settings.Default.UseEncryption && EncryptionPipeline != null)
             {
-                EncryptionPipeline.MarkReadyForSession(uid, publicKeyDer);
+                EncryptionPipeline.RegisterLocalHandshakeKey(uid, publicKeyDer);
                 ClientLogger.Log($"MarkHandshakeComplete — encryption enabled, UID={uid}, PublicKeyLen={publicKeyDer?.Length}", ClientLogLevel.Debug);
             }
             else

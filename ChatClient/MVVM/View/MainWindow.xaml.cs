@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 15th, 2026</date>
+/// <date>January 16th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -991,15 +991,23 @@ namespace ChatClient.MVVM.View
             viewModel.MessageInputFieldWidth = TxtMessageInputField.ActualWidth;
         }
 
+        private void TxtServerIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                if (DataContext is MainViewModel viewModel)
+                {
+                    viewModel.ConnectDisconnectCommand.Execute(null);
+                }
+
+                e.Handled = true;
+            }
+        }
+
         /// <summary>
         /// Handles the Enter key in the Username field and invokes the
         /// ConnectDisconnectCommand on the ViewModel.
         /// </summary>
-        /// <remarks>
-        /// The event is marked as handled to prevent WPF from performing
-        /// its default processing of the Enter key (such as moving focus
-        /// or triggering other key bindings).
-        /// </remarks>
         private void TxtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -1009,7 +1017,6 @@ namespace ChatClient.MVVM.View
                     viewModel.ConnectDisconnectCommand.Execute(null);
                 }
 
-                /// <summary> Stops further propagation of the Enter key </summary>
                 e.Handled = true;
             }
         }

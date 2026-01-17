@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 15th, 2026</date>
+/// <date>January 16th, 2026</date>
 
 using ChatClient.Net;
 using ChatClient.MVVM.ViewModel;
@@ -341,30 +341,28 @@ namespace ChatClient.Helpers
         }
 
         /// <summary>
-        /// Marks the pipeline ready for encryption/decryption after handshake.
-        /// Updates LocalUser and KnownPublicKeys with the provided public key.
+        /// Registers the local user's public key received during the handshake.
+        /// Stores the key in LocalUser and injects it into KnownPublicKeys.
+        /// This method does not evaluate or modify encryption readiness.
         /// </summary>
-        public void MarkReadyForSession(Guid uid, byte[] publicKeyProvided)
-        {
-            // Validates that a non-empty public key is provided
-            if (publicKeyProvided == null || publicKeyProvided.Length == 0)
-                throw new InvalidOperationException("Public key not initialized");
 
-            // Updates LocalUser with the handshake key
+        public void RegisterLocalHandshakeKey(Guid uid, byte[] publicKeyProvided)
+        {
+            if (publicKeyProvided == null || publicKeyProvided.Length == 0)
+            {
+                throw new InvalidOperationException("Public key not initialized");
+            }
+
+            // Stores the handshake key in the local user model
             _viewModel.LocalUser.PublicKeyDer = publicKeyProvided;
 
-            // Injects the key into KnownPublicKeys for consistency
+            // Injects the key into the known-keys dictionary
             lock (KnownPublicKeys)
             {
                 KnownPublicKeys[uid] = publicKeyProvided;
             }
 
-            // Marks encryption as ready
-            IsEncryptionReady = true;
-
-            // Logs handshake completion with key length
-            ClientLogger.Log(
-                $"MarkReadyForSession — UID={uid}, PublicKeyLen={publicKeyProvided.Length}",
+            ClientLogger.Log($"MarkReadyForSession — UID={uid}, PublicKeyLen={publicKeyProvided.Length}",
                 ClientLogLevel.Debug
             );
         }

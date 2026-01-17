@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 15th, 2026</date>
+/// <date>January 16th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -155,6 +155,41 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
+        /// Confirms a season shift.
+        /// </summary>
+        public void HighlightSummerOnHotspotButton()
+        {
+            // A fresh brush is created for this transient effect.
+            // Using a new instance avoids any frozen-resource pitfalls
+            // and guarantees that the animation pipeline has full control.
+            var colorBrush = new SolidColorBrush(Colors.Transparent);
+
+            // The hotspot’s background is temporarily replaced with this brush.
+            HotspotButton.Background = colorBrush;
+
+            var sunColor = Color.FromRgb(249, 239, 60);
+
+            // A cubic easing curve gives the flash a more organic feel:
+            // fast at first, then gently settling, like light blooming and fading.
+            var easing = new CubicEase
+            {
+                EasingMode = EasingMode.EaseOut
+            };
+
+            // A quick rise from transparent to the sun tint.
+            var flashAnim = new ColorAnimation
+            {
+                From = Colors.Transparent,
+                To = sunColor,
+                Duration = TimeSpan.FromMilliseconds(1000),
+                FillBehavior = FillBehavior.Stop
+            };
+
+            // Animation is applied to the brush’s Color property.
+            colorBrush.BeginAnimation(SolidColorBrush.ColorProperty, flashAnim);
+        }
+
+        /// <summary>
         /// A click on the right spot will trigger a special feature.
         /// </summary>
         /// <param name="sender"></param>
@@ -163,22 +198,6 @@ namespace ChatClient.MVVM.View
         {
             HighlightHotspotButton();
             StartSnowstorm();
-        }
-
-        /// <summary>
-        /// Reverts the WinterHasFallen parameter to its default value.
-        /// </summary>
-
-        private void LicenceFinalLabel_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            // Only reset if the flag is currently set
-            if (Properties.Settings.Default.WinterHasFallen)
-            {
-                Properties.Settings.Default.WinterHasFallen = false;
-                Properties.Settings.Default.Save();
-                
-                ClientLogger.Log("WinterHasFallen app parameter reset. Awaiting the next explorer.", ClientLogLevel.Info);
-            }
         }
 
         /// <summary>
@@ -211,6 +230,24 @@ namespace ChatClient.MVVM.View
             else
             {
                 FadeOutHotspot();
+            }
+        }
+
+        /// <summary> Listens for the quiet gesture that restores what once shifted. </summary>
+        private void ResetButton_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {           
+            if (_snowstormRunning)
+            {
+                return;
+            }
+
+            if (Properties.Settings.Default.WinterHasFallen)
+            {
+                Properties.Settings.Default.WinterHasFallen = false;
+                Properties.Settings.Default.Save();
+
+                ClientLogger.Log("WinterHasFallen app parameter reset. Awaiting the next explorer.", ClientLogLevel.Info);
+                HighlightSummerOnHotspotButton();
             }
         }
 

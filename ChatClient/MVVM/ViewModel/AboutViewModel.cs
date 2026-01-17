@@ -1,10 +1,11 @@
 ﻿/// <file>AboutViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 15th, 2026</date>
+/// <date>January 16th, 2026</date>
 
 using ChatClient.Helpers;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
 
