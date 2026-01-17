@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 16th, 2026</date>
+/// <date>January 17th, 2026</date>
 
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
@@ -249,6 +249,7 @@ namespace ChatClient.Helpers
             {
                 var about = new AboutWindow();
                 about.ShowCommandLineArgumentsHelp();
+                Environment.Exit(0);
                 return;
             }
 

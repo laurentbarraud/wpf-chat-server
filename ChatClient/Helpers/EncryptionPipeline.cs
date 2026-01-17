@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 16th, 2026</date>
+/// <date>January 17th, 2026</date>
 
 using ChatClient.Net;
 using ChatClient.MVVM.ViewModel;
@@ -391,75 +391,6 @@ namespace ChatClient.Helpers
             }
 
             IsSyncingKeys = isSyncing;
-        }
-
-        /// <summary>
-        /// Starts the encryption pipeline asynchronously.
-        /// Cancels any previous run, 
-        /// creates a fresh CancellationToken,
-        /// and runs initialization in the background.
-        /// Updates flags via dispatcher so the UI stays consistent.
-        /// </summary>
-        /// <returns>true if initialization succeeds; otherwise false</returns>
-        public async Task<bool> StartEncryptionPipelineBackground()
-        {
-            /// <summary> Cancels and disposes any previous run. </summary>
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = new CancellationTokenSource();
-            var token = _cts.Token;
-
-            try
-            {
-                /// <summary> Notifies UI that syncing has started. </summary>
-                _uiDispatcherInvoke(() =>
-                {
-                    IsSyncingKeys = true;
-                    IsEncryptionReady = false;
-                });
-
-                /// <summary> Runs centralized initialization pipeline. </summary>
-                bool result = await InitializeEncryptionAsync(token).ConfigureAwait(false);
-
-                /// <summary> Updates final state after initialization. </summary>
-                _uiDispatcherInvoke(() =>
-                {
-                    bool encryptionReady = EvaluateEncryptionState();
-                    IsEncryptionReady = encryptionReady;
-                    IsSyncingKeys = !encryptionReady;
-                });
-
-                return result;
-            }
-            catch (OperationCanceledException)
-            {
-                /// <summary> Handles cancellation gracefully. </summary>
-                ClientLogger.Log("Encryption pipeline cancelled.", ClientLogLevel.Warn);
-
-                _uiDispatcherInvoke(() =>
-                {
-                    IsSyncingKeys = false;
-                    IsEncryptionReady = false;
-                });
-
-                return false;
-            }
-            catch (Exception ex)
-            {
-                /// <summary> Logs fatal error and rolls back settings. </summary>
-                ClientLogger.Log($"Encryption pipeline failed: {ex.GetBaseException().Message}", ClientLogLevel.Error);
-
-                Settings.Default.UseEncryption = false;
-                try { Settings.Default.Save(); } catch { }
-
-                _uiDispatcherInvoke(() =>
-                {
-                    IsSyncingKeys = false;
-                    IsEncryptionReady = false;
-                });
-
-                return false;
-            }
         }
 
         /// <summary>

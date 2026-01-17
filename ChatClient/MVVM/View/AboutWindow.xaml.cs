@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 16th, 2026</date>
+/// <date>January 17th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -23,7 +23,12 @@ namespace ChatClient.MVVM.View
         /// Prevents multiple overlapping animations from being triggered.
         /// </summary>
         private bool _snowstormRunning = false;
+
+        // Duration of effect in milliseconds
+        const int STORM_DURATION_MS = 5000;
+
         private readonly AboutViewModel _aboutViewModel;
+
 
         public AboutWindow()
         {
@@ -91,6 +96,80 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
+        /// Restores the original daylight gradient after the temporary
+        /// night‑fade effect completes.
+        /// </summary>
+        private void FadeBackgroundToDay()
+        {
+            // Easing curve for a symmetrical, natural return.
+            var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+            // Original gradient colors
+            var dayLight = (Color)ColorConverter.ConvertFromString("#F9F9FF");
+            var dayMid = (Color)ColorConverter.ConvertFromString("#001F44");
+            var dayDark = Colors.Black;
+
+            // Animate each gradient stop back to its initial color.
+            GS_Light.BeginAnimation(GradientStop.ColorProperty,
+                new ColorAnimation(dayLight, TimeSpan.FromMilliseconds(1500))
+                {
+                    EasingFunction = easing
+                });
+
+            GS_Mid.BeginAnimation(GradientStop.ColorProperty,
+                new ColorAnimation(dayMid, TimeSpan.FromMilliseconds(1500))
+                {
+                    EasingFunction = easing
+                });
+
+            GS_Dark.BeginAnimation(GradientStop.ColorProperty,
+                new ColorAnimation(dayDark, TimeSpan.FromMilliseconds(1500))
+                {
+                    EasingFunction = easing
+                });
+        }
+
+
+        /// <summary>
+        /// Gradually darkens the background gradient to night‑tinted colors.
+        /// </summary>
+        private async Task FadeBackgroundToNightAsync()
+        {
+            // A gentle easing curve for a natural, cinematic fade.
+            var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+            var nightLight = Color.FromRgb(40, 60, 90);   // soft night blue
+            var nightMid = Color.FromRgb(10, 30, 60);     // deeper night blue
+            var nightDark = Color.FromRgb(0, 0, 0);       // black 
+
+            // Animates each gradient stop toward its night variant.
+            GS_Light.BeginAnimation(GradientStop.ColorProperty,
+                new ColorAnimation(nightLight, TimeSpan.FromMilliseconds(700))
+                {
+                    EasingFunction = easing
+                });
+
+            GS_Mid.BeginAnimation(GradientStop.ColorProperty,
+                new ColorAnimation(nightMid, TimeSpan.FromMilliseconds(700))
+                {
+                    EasingFunction = easing
+                });
+
+            GS_Dark.BeginAnimation(GradientStop.ColorProperty,
+                new ColorAnimation(nightDark, TimeSpan.FromMilliseconds(700))
+                {
+                    EasingFunction = easing
+                });
+
+            // Waits for the snow effect to finish.
+            await Task.Delay(STORM_DURATION_MS + 2500);
+
+            // Restores the original gradient for background.
+            FadeBackgroundToDay();
+        }
+
+
+        /// <summary>
         /// Gradually fades the hotspot’s background back to transparent,
         /// ensuring the brush is unfrozen before animating.
         /// </summary>
@@ -155,7 +234,7 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
-        /// Confirms a season shift.
+        /// Confirms a season shift with a soft, sun‑tinted bloom.
         /// </summary>
         public void HighlightSummerOnHotspotButton()
         {
@@ -169,19 +248,19 @@ namespace ChatClient.MVVM.View
 
             var sunColor = Color.FromRgb(249, 239, 60);
 
-            // A cubic easing curve gives the flash a more organic feel:
-            // fast at first, then gently settling, like light blooming and fading.
+            // A cubic easing curve gives the bloom a gentle, organic rise.
             var easing = new CubicEase
             {
                 EasingMode = EasingMode.EaseOut
             };
 
-            // A quick rise from transparent to the sun tint.
+            // A smooth rise from transparent to the sun tint.
             var flashAnim = new ColorAnimation
             {
                 From = Colors.Transparent,
                 To = sunColor,
                 Duration = TimeSpan.FromMilliseconds(1000),
+                EasingFunction = easing,
                 FillBehavior = FillBehavior.Stop
             };
 
@@ -191,12 +270,12 @@ namespace ChatClient.MVVM.View
 
         /// <summary>
         /// A click on the right spot will trigger a special feature.
-        /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void HotspotButton_Click(object sender, RoutedEventArgs e)
         {
             HighlightHotspotButton();
+            _ = FadeBackgroundToNightAsync();
             StartSnowstorm();
         }
 
@@ -308,10 +387,7 @@ namespace ChatClient.MVVM.View
             // WPF Storyboards are already paced by the UI thread; using a Timer would cause
             // irregular spawns and potential dispatcher collisions.
 
-            // Duration of the effect
-            const int STORM_DURATION_MS = 10000;
-
-            // Main loop: generate flakes for 10 seconds
+            // Main loop: generate flakes for the duration of the storm
             while (stopwatch.ElapsedMilliseconds < STORM_DURATION_MS)
             {
                 // Creates a new snowflake
@@ -326,13 +402,14 @@ namespace ChatClient.MVVM.View
                 // Starting position: random X at top
                 double startPosX = rnd.NextDouble() * SnowCanvas.ActualWidth;
                 double startPosY = -20; Canvas.SetLeft(flake, startPosX);
-                
-                Canvas.SetTop(flake, startPosY);
 
+                // Positions the snowflake at its initial vertical coordinate
+                Canvas.SetTop(flake, startPosY);
+                
                 SnowCanvas.Children.Add(flake);
                 flakeList.Add(flake);
 
-                // Animates the flakes
+                // Animates the flake
                 AnimateSnowflake(flake, rnd);
 
                 // Spawn rate

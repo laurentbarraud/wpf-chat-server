@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 16th, 2026</date>
+/// <date>January 17th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -1092,7 +1092,7 @@ namespace ChatClient.MVVM.ViewModel
         /// • initializes encryption if enabled (ensures proper key assignment and pipeline readiness)
         /// • persists last used IP
         /// </summary>
-        public async Task ConnectAsync(CancellationToken cancellationToken = default)
+        public async Task ConnectToServerAsync(CancellationToken cancellationToken = default)
         {
             /// <summary>
             /// Username rules:
@@ -1297,7 +1297,7 @@ namespace ChatClient.MVVM.ViewModel
                 return;
             }
 
-            await ConnectAsync().ConfigureAwait(true);
+            await ConnectToServerAsync().ConfigureAwait(true);
         }
 
         /// <summary>

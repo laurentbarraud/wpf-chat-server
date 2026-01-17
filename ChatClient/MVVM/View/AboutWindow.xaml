@@ -25,7 +25,7 @@
                 Grid.RowSpan="2"
                 Background="Transparent"
                 IsHitTestVisible="False"
-                Panel.ZIndex="999"/>
+                Panel.ZIndex="3"/>
 
         <!-- Top content area -->
         <Grid Grid.Row="0" Panel.ZIndex="2">
@@ -33,9 +33,9 @@
             <!-- Diagonal gradient background -->
             <Grid.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="#F9F9FF" Offset="0.0"/>
-                    <GradientStop Color="#001F44" Offset="0.5"/>
-                    <GradientStop Color="Black" Offset="1.0"/>
+                    <GradientStop x:Name="GS_Light" Color="#F9F9FF" Offset="0.0"/>
+                    <GradientStop x:Name="GS_Mid" Color="#001F44" Offset="0.5"/>
+                    <GradientStop x:Name="GS_Dark" Color="Black" Offset="1.0"/>
                 </LinearGradientBrush>
             </Grid.Background>
 
@@ -61,27 +61,27 @@
                     VerticalAlignment="Top"
                     Panel.ZIndex="50" 
                     Margin="0,102,85,0" 
-                    TabIndex="3"/>
+                    TabIndex="3">
+                
+            </Button>
 
             <!-- Reset button -->
             <Button x:Name="ResetButton"
                     Width="11"
                     Height="11"
                     MouseDoubleClick="ResetButton_MouseDoubleClick" 
-                    OverridesDefaultStyle="True"
                     Focusable="False"
                     Background="Transparent"
                     BorderBrush="Transparent"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Panel.ZIndex="49" 
-                    Margin="0,125,85,0" 
-                    TabIndex="4">
+                    Margin="0,125,85,0">
                 
                 <Button.Template>
-                <ControlTemplate TargetType="Button">
-                    <Border Background="Transparent"/>
-                </ControlTemplate>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
                 </Button.Template>
             
             </Button>
