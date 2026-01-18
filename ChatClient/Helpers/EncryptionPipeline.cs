@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 17th, 2026</date>
+/// <date>January 18th, 2026</date>
 
 using ChatClient.Net;
 using ChatClient.MVVM.ViewModel;
@@ -135,47 +135,46 @@ namespace ChatClient.Helpers
 
         /// <summary>
         /// Disables encryption in a safe, idempotent way.
-        /// Cancels the pipeline, clears key material, updates settings,
-        /// resets flags, and notifies the UI.
+        /// Cancels the active pipeline, clears key material, updates settings,
+        /// resets internal flags, and notifies the UI.
         /// </summary>
         public void DisableEncryption()
         {
-            // Avoids double-disable and duplicate logs
+            // Avoids double-disable and unnecessary work
             if (!Settings.Default.UseEncryption)
             {
                 return;
             }
 
+            // Cancels any running encryption pipeline
             try
             {
                 _cts?.Cancel();
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"DisableEncryption: CTS cancel error — {ex.Message}", ClientLogLevel.Debug);
+                ClientLogger.Log($"DisableEncryption: error while cancelling CTS — {ex.Message}",
+                    ClientLogLevel.Debug);
             }
 
             _cts?.Dispose();
             _cts = null;
 
-            // Clears all known public keys
+            // Clears all known public keys for a clean state
             KnownPublicKeys.Clear();
 
+            // Resets pipeline readiness flag
             IsEncryptionReady = false;
 
-            // Resets UI bindings
+            // Resets UI bindings and encryption-related indicators
             _viewModel.ResetEncryptionPipelineAndUI();
 
-            // Updates setting
+            // Updates persisted setting
             Settings.Default.UseEncryption = false;
-
-            try
-            {
-                Settings.Default.Save();
-            }
-            catch { }
-
-            ClientLogger.Log("Encryption disabled via EncryptionPipeline.DisableEncryption().", ClientLogLevel.Info);
+            Settings.Default.Save();
+            
+            ClientLogger.Log("Encryption disabled — pipeline cancelled, keys cleared, UI reset",
+                ClientLogLevel.Info);
         }
 
         /// <summary>

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 17th, 2026</date>
+/// <date>January 18th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -12,12 +12,16 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 
 namespace ChatClient.MVVM.ViewModel
@@ -896,7 +900,7 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged();
 
                 // Atomically trigger the pipeline toggle via ViewModel.
-                ToggleEncryption(value);
+                ToggleEncryptionState(value);
             }
         }
 
@@ -1157,7 +1161,8 @@ namespace ChatClient.MVVM.ViewModel
                     PublicKeyDer = publicKeyDer 
                 };
 
-                ClientLogger.Log($"LocalUser initialized — Username: {LocalUser.Username}, UID: {LocalUser.UID}", ClientLogLevel.Debug);
+                ClientLogger.Log($"LocalUser initialized (Username='{LocalUser.Username}', UID={LocalUser.UID})", ClientLogLevel.Debug); 
+                ClientLogger.Log("Connection established - handshake completed", ClientLogLevel.Info);
 
                 // Updates UI bindings to reflect connected state
                 _ = Application.Current.Dispatcher.BeginInvoke(() => 
@@ -1176,71 +1181,45 @@ namespace ChatClient.MVVM.ViewModel
                     OnPropertyChanged(nameof(ConnectButtonText)); 
                 });
 
-                ClientLogger.Log("Client connected — plain messages allowed before handshake.", ClientLogLevel.Debug);
+                ClientLogger.Log("Server accepted handshake — plaintext messages permitted", ClientLogLevel.Debug);
 
+                /// <summary>
+                /// If the user has pre-enabled encryption,
+                /// we have all required conditions to start the encryption pipeline:
+                /// • TCP connection established
+                /// • Handshake completed
+                /// • LocalUser and keypair initialized
+                /// • UI fully loaded
+                /// This ensures encryption is initialized cleanly and predictably.
+                /// </summary>
                 if (Settings.Default.UseEncryption)
                 {
-                    try
-                    {
-                        // Ensures client connection exists first
-                        _clientConn ??= new ClientConnection(action => 
-                        Application.Current.Dispatcher.BeginInvoke(action), this);
+                    // Ensures UI and logs appear in a natural order.
+                    await Task.Delay(500, cancellationToken);
 
-                        // Ensures pipeline exists before usage
-                        if (EncryptionPipeline == null)
-                        {
-                            // Creates encryption pipeline with ViewModel, client connection, and dispatcher 
-                            EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
-                                action => Application.Current.Dispatcher.BeginInvoke(action)
-                            );
+                    // Clears previous key material for a fresh session
+                    EncryptionPipeline.KnownPublicKeys.Clear();
 
-                            // Binds connection to pipeline
-                            _clientConn.EncryptionPipeline = EncryptionPipeline;
+                    bool encPipelineInitOk = await EncryptionPipeline.InitializeEncryptionAsync(cancellationToken)
+                        .ConfigureAwait(false);
 
-                            ClientLogger.Log("EncryptionPipeline is created before usage.", ClientLogLevel.Debug);
-                        }
-
-                        //  Assigns in-memory RSA public key for this session
-                        LocalUser.PublicKeyDer = EncryptionHelper.PublicKeyDer;
-                        ClientLogger.Log($"LocalUser.PublicKeyDer assigned — length={LocalUser.PublicKeyDer?.Length}", ClientLogLevel.Debug);
-
-                        // Validates LocalUser.PublicKeyDer before use
-                        if (LocalUser.PublicKeyDer == null || LocalUser.PublicKeyDer.Length == 0)
-                        {
-                            throw new InvalidOperationException("Public key not initialized");
-                        }
-
-                        // Resets encryption state for this new session
-                        EncryptionPipeline.KnownPublicKeys.Clear();
-                        EncryptionPipeline.IsEncryptionReady = false;
-                        await EncryptionPipeline.SyncKeysAsync(cancellationToken).ConfigureAwait(false);
-
-                        // Initializes local encryption context
-                        var encryptionInitOk = await EncryptionPipeline.InitializeEncryptionAsync(cancellationToken).ConfigureAwait(false);
-                        ClientLogger.Log($"InitializeEncryptionAsync completed — SyncOk={encryptionInitOk}", ClientLogLevel.Debug);
-
-                        // Evaluates encryption state and notify UI if needed 
-                        var encryptionReady = EncryptionPipeline.EvaluateEncryptionState();
-                        ClientLogger.Log($"EvaluateEncryptionState result — Ready={encryptionReady}", ClientLogLevel.Debug);
-                    }
-                    catch (Exception ex)
-                    {
-                        ClientLogger.Log($"Encryption setup failed: {ex.Message}", ClientLogLevel.Error);
-                    }
+                    ClientLogger.Log($"Initialize of encryption pipeline ={encPipelineInitOk} - handshake done",
+                        ClientLogLevel.Debug);
                 }
 
                 // Restores focus to message input for immediate typing
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
                         mainWindow.TxtMessageInputField.Focus();
+                    }
                 });
             }
             catch (OperationCanceledException)
             {
                 ClientLogger.Log("Connection attempt canceled by user.", ClientLogLevel.Info);
 
-                // Resets UI state after cancellation
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     ReinitializeUI();
@@ -1256,7 +1235,6 @@ namespace ChatClient.MVVM.ViewModel
             {
                 ClientLogger.Log($"Fails to connect or handshake: {ex.Message}", ClientLogLevel.Error);
 
-                // Displays error and resets UI to disconnected state
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     MessageBox.Show(LocalizationManager.GetString("ServerUnreachable"),
@@ -1962,77 +1940,76 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Enables or disables encryption safely from the UI.
-        /// Persists the new setting, validates that a user and connection exist,
-        /// clears any local key material, then either:
-        /// • Starts the asynchronous initialization pipeline in the background when enabling, or
-        /// • Runs the synchronous disable path when disabling.
-        /// If the pipeline fails, rolls back the setting and logs the error.
+        /// Handles user intent to enable or disable encryption.
+        /// - If not connected, this method only stores the
+        ///   preference for later execution after a successful handshake.
+        /// - If connected, it applies the preference immediately:
+        ///     • When enabling: starts the encryption pipeline cleanly.
+        ///     • When disabling: tears down the pipeline safely.
+        /// This method doesn't initialize encryption before the handshake.
         /// </summary>
-        /// <param name="enableEncryption">True to enable encryption, false to disable.</param>
-        public void ToggleEncryption(bool enableEncryption)
+        public void ToggleEncryptionState(bool enableEncryption)
         {
-            // Stores the previous encryption setting for rollback if needed.
             bool previousValue = Settings.Default.UseEncryption;
 
+            // Persists user preference
             Settings.Default.UseEncryption = enableEncryption;
             Settings.Default.Save();
+            OnPropertyChanged(nameof(UseEncryption));
 
-            // If not connected or no LocalUser, just persists the setting silently.
-            if (LocalUser == null || !IsConnected)
+            // Determines whether the client is fully ready to apply encryption immediately.
+            // This requires:
+            // • An active TCP connection
+            // • A fully initialized LocalUser
+            // • A ready EncryptionPipeline instance
+            bool isReadyToApplyEncryption = IsConnected && LocalUser != null && EncryptionPipeline != null;
+
+            if (!isReadyToApplyEncryption)
             {
-                OnPropertyChanged(nameof(UseEncryption));
+                ClientLogger.Log(enableEncryption
+                        ? "Encryption preference enabled; will initialize after next connection."
+                        : "Encryption preference disabled (no active connection).",
+                    ClientLogLevel.Info);
+
                 return;
             }
 
-            // Clears any existing key material before proceeding.
-            EncryptionPipeline.KnownPublicKeys.Clear();
-
-            bool pipelineSucceeded;
-
+            // Connected: apply the preference immediately
             if (enableEncryption)
             {
-                // Notifies UI immediately when enabling encryption.
-                OnPropertyChanged(nameof(UseEncryption));
+                // Clear previous key material before reinitializing
+                EncryptionPipeline?.KnownPublicKeys.Clear();
 
-                /// Fire-and-forget: start pipeline in background without blocking UI.
-                /// Any errors are logged inside the pipeline; session remains alive.
+                // Fire-and-forget: run pipeline asynchronously in the background.
                 _ = Task.Run(async () =>
                 {
-                    bool encryptionInitOk = await EncryptionPipeline.InitializeEncryptionAsync(CancellationToken.None).ConfigureAwait(false);
-                    if (!encryptionInitOk)
+                    // await cannot wait for a Task<bool>? it needs a Task<bool> not null
+                    // So if EncryptionPipeline is null, we must provide a backup Task<bool> => Task.FromResult(false).
+                    bool pipelineInitOk = await (EncryptionPipeline?.InitializeEncryptionAsync(CancellationToken.None)
+                        ?? Task.FromResult(false));
+
+                    if (!pipelineInitOk)
                     {
-                        ClientLogger.Log("Encryption pipeline initialization failed.", ClientLogLevel.Warn);
                         Settings.Default.UseEncryption = previousValue;
                         Settings.Default.Save();
                         OnPropertyChanged(nameof(UseEncryption));
+
+                        ClientLogger.Log("Encryption pipeline initialization failed; preference rolled back.",
+                            ClientLogLevel.Warn);
                     }
                 });
 
-                pipelineSucceeded = true; // optimistic; background task logs actual result
+                ClientLogger.Log("Encryption enable requested (connected).", ClientLogLevel.Info);
             }
-            
-            // When disabling encryption
             else
             {
-                EncryptionPipeline.DisableEncryption();
-                pipelineSucceeded = true;
-            }
+                // Disables encryption immediately
+                EncryptionPipeline?.DisableEncryption();
 
-            // If pipeline failed
-            if (!pipelineSucceeded)
-            {
-                // Rolls back setting.
-                ClientLogger.Log($"Encryption pipeline {(enableEncryption ? "init" : "teardown")} failed – rolling back.", ClientLogLevel.Error);
-                Settings.Default.UseEncryption = previousValue;
-                Settings.Default.Save();
-                OnPropertyChanged(nameof(UseEncryption));
-            }
-            else
-            {
-                ClientLogger.Log(enableEncryption ? "Encryption enable requested." : "Encryption disabled successfully.", ClientLogLevel.Info);
+                ClientLogger.Log("Encryption disabled via toggle.", ClientLogLevel.Info);
             }
         }
+
 
         /// <summary>
         /// Validates and saves the port number if it's within the allowed range.
