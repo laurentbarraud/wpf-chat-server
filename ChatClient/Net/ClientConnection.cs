@@ -4,11 +4,12 @@
 /// <date>January 18th, 2026</date>
 
 using ChatClient.Helpers;
-using ChatClient.MVVM.ViewModel;
 using ChatClient.MVVM.View;
-using ChatProtocol.Net.IO;
-using ChatProtocol.Net;
+using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
+using ChatProtocol.Net;
+using ChatProtocol.Net.IO;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Sockets;
 using System.Windows;
@@ -89,14 +90,6 @@ namespace ChatClient.Net
         public bool IsEstablished => IsConnected && _handshakeCompletionTcs != null 
             && _handshakeCompletionTcs.Task.IsCompletedSuccessfully && _handshakeCompletionTcs.Task.Result == true;
 
-        /// <summary>
-        /// Tracks whether key synchronization is ongoing
-        /// </summary>
-        public bool IsSyncingKeys { get; private set; }
-
-        // Dictionary of known public keys for peers (UID and public key, in DER format)
-        public static readonly Dictionary<Guid, byte[]> KnownPublicKeys = new Dictionary<Guid, byte[]>();
-
         /// <summary> Gets the UID assigned to the local user </summary>
         public Guid LocalUid { get; private set; }
 
@@ -136,7 +129,6 @@ namespace ChatClient.Net
                 ?? throw new InvalidOperationException("MainViewModel is required.");
 
             _viewModel.ResetEncryptionPipelineAndUI();
-            IsSyncingKeys = false;
         }
 
         /// <summary>
@@ -419,16 +411,6 @@ namespace ChatClient.Net
         }
 
         /// <summary>
-        /// Returns a safe copy of the internally stored public key dictionary.
-        /// This prevents external callers from modifying the original collection
-        /// while still providing read access to the current known public keys.
-        /// </summary>
-        public Dictionary<Guid, byte[]> GetKnownPublicKeys()
-        {
-            return new Dictionary<Guid, byte[]>(KnownPublicKeys);
-        }
-
-        /// <summary>
         /// Marks the client-side handshake as complete.
         /// Completes the handshake TaskCompletionSource,
         /// assigns local identifiers and key material,
@@ -686,38 +668,48 @@ namespace ChatClient.Net
                             case PacketOpCode.PublicKeyResponse:
                                 {
                                     // Resets the consecutive unexpected-opcode counter.
-                                    // This ensures that the connection does not mistakenly
-                                    // interpret valid packets as protocol errors.
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                    // Reads the origin UID (the peer who owns the key),
-                                    // followed by the DER-encoded public key bytes,
-                                    // and finally the requester UID (ignored in this context).
+                                    // Reads origin UID, public key DER, and requester UID (ignored).
                                     Guid originUid = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
-                                    byte[] publickeyDer = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
+                                    byte[] publicKeyDer = await reader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
                                     _ = await reader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
 
-                                    // Updates the KnownPublicKeys dictionary with the received key
-                                    // and triggers a refresh of the encryption state via the ViewModel.
-                                    // This ensures that the local pipeline is aware of new or updated keys
-                                    // and can re-evaluate readiness for encrypted communication.
+                                    // Updates KnownPublicKeys on the UI thread.
                                     _ = Application.Current.Dispatcher.BeginInvoke(() =>
                                     {
-                                        // Thread-safe update of KnownPublicKeys.
-                                        // Locks the dictionary to prevent concurrent modifications.
-                                        lock (KnownPublicKeys)
+                                        var encryptionPipeline = _viewModel!.EncryptionPipeline;
+                                        if (encryptionPipeline == null)
                                         {
-                                            KnownPublicKeys[originUid] = publickeyDer;
+                                            ClientLogger.Log("Encryption pipeline is null during PublicKeyResponse.", ClientLogLevel.Warn);
+                                            return;
                                         }
 
-                                        // Invokes the ViewModel handler to process the new key.
-                                        viewModel.OnPublicKeyReceived(originUid, publickeyDer);
+                                        // Ensures that the key is inserted or updated.
+                                        var existingPublicKey = encryptionPipeline.KnownPublicKeys
+                                            .FirstOrDefault(e => e.Key == originUid);
 
-                                        // Logs the registration or update of the public key for traceability.
+                                        if (existingPublicKey.Key == originUid)
+                                        {
+                                            // Updates existing entry in the ObservableCollection
+                                            int index = encryptionPipeline.KnownPublicKeys.IndexOf(existingPublicKey);
+                                            if (index >= 0)
+                                            {
+                                                encryptionPipeline.KnownPublicKeys[index] = new KeyValuePair<Guid, byte[]>(originUid, publicKeyDer);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // Adds new public key in the ObservableCollection.
+                                            encryptionPipeline.KnownPublicKeys.Add(new KeyValuePair<Guid, byte[]>(originUid, publicKeyDer));
+                                        }
+
+                                        // Notifies the ViewModel.
+                                        _viewModel.OnPublicKeyReceived(originUid, publicKeyDer);
+
                                         ClientLogger.Log($"Registered/updated public key for {originUid}", ClientLogLevel.Info);
                                     });
 
-                                    // Breaks out of the switch-case after handling the PublicKeyResponse.
                                     break;
                                 }
 
@@ -1045,57 +1037,72 @@ namespace ChatClient.Net
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
             // Validates input and local user presence.
-            if (string.IsNullOrWhiteSpace(plainText) || _viewModel?.LocalUser == null)
+            if (string.IsNullOrWhiteSpace(plainText) || (_viewModel?.LocalUser == null))
+            {
                 return false;
+            }
 
             Guid senderUid = _viewModel.LocalUser.UID;
-            
+
             // Collects all users except the sender as recipients.
             var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
 
-            bool isEncryptionReady = Settings.Default.UseEncryption && (_viewModel?.EncryptionPipeline?.IsEncryptionReady == true);
+            bool isEncryptionReady = Settings.Default.UseEncryption && _viewModel?.EncryptionPipeline?.IsEncryptionReady == true;
+
             bool messageSent = false;
 
-            // Multi-recipient mode.
             foreach (var recipient in recipients)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var plainPacket = new PacketBuilder();
+                var packet = new PacketBuilder();
 
                 if (!isEncryptionReady)
                 {
-                    // Plain packet with sender UID and text.
-                    plainPacket.WriteOpCode((byte)PacketOpCode.PlainMessage);
-                    plainPacket.WriteUid(senderUid);
-                    plainPacket.WriteString(plainText);
-                }
-                else if (KnownPublicKeys.TryGetValue(recipient.UID, out var pubKey) && pubKey?.Length > 0)
-                {
-                    // Encrypt with recipient's public key.
-                    var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, pubKey);
-                    if (cipher == null || cipher.Length == 0) continue;
-
-                    plainPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
-                    plainPacket.WriteUid(senderUid);
-                    plainPacket.WriteUid(recipient.UID);
-                    plainPacket.WriteBytesWithLength(cipher);
+                    // Builds plain packet with sender UID and text.
+                    packet.WriteOpCode((byte)PacketOpCode.PlainMessage);
+                    packet.WriteUid(senderUid);
+                    packet.WriteString(plainText);
                 }
                 else
                 {
-                    ClientLogger.Log($"Missing public key for {recipient.UID}", ClientLogLevel.Warn);
-                    continue;
-                }
+                    // Looks up recipient's public key.
+                    var pipeline = _viewModel!.EncryptionPipeline;
 
-                await SendFramedAsync(plainPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
-                messageSent = true;
+                    if (pipeline == null)
+                    {
+                        ClientLogger.Log("Encryption pipeline is null.", ClientLogLevel.Warn);
+                        continue;
+                    }
+
+                    var entry = pipeline.KnownPublicKeys
+                        .FirstOrDefault(e => e.Key == recipient.UID);
+
+                    byte[] recipientPublicKeyDer = entry.Value;
+
+                    if ((recipientPublicKeyDer == null) || (recipientPublicKeyDer.Length == 0))
+                    {
+                        ClientLogger.Log($"Missing public key for {recipient.UID}", ClientLogLevel.Warn);
+                        continue;
+                    }
+
+                    // Encrypts message with recipient's public key.
+                    var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, recipientPublicKeyDer);
+                    if ((cipher == null) || (cipher.Length == 0))
+                        continue;
+
+                    packet.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
+                    packet.WriteUid(senderUid);
+                    packet.WriteUid(recipient.UID);
+                    packet.WriteBytesWithLength(cipher);
+                }
             }
 
-            // Also send a self-copy encrypted with sender's own public key,
-            // so local echo can be decrypted.
-            if (isEncryptionReady && _viewModel?.LocalUser.PublicKeyDer?.Length > 0)
+            // Sends a self-copy encrypted with sender's own public key (for local echo).
+            if (isEncryptionReady && (_viewModel?.LocalUser.PublicKeyDer?.Length > 0))
             {
-                var selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
-                if (selfCipher != null && selfCipher.Length > 0)
+                byte[] selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
+
+                if ((selfCipher != null) && (selfCipher.Length > 0))
                 {
                     var selfPacket = new PacketBuilder();
                     selfPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
@@ -1112,27 +1119,31 @@ namespace ChatClient.Net
             if (recipients.Count == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var encryptedPacket = new PacketBuilder();
+                var loopPacket = new PacketBuilder();
 
                 if (!isEncryptionReady)
                 {
-                    encryptedPacket.WriteOpCode((byte)PacketOpCode.PlainMessage);
-                    encryptedPacket.WriteUid(senderUid);
-                    encryptedPacket.WriteString(plainText);
+                    loopPacket.WriteOpCode((byte)PacketOpCode.PlainMessage);
+                    loopPacket.WriteUid(senderUid);
+                    loopPacket.WriteString(plainText);
                 }
                 else if (_viewModel?.LocalUser.PublicKeyDer?.Length > 0)
                 {
                     var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
-                    if (cipher == null || cipher.Length == 0) return false;
+                    if ((cipher == null) || (cipher.Length == 0))
+                        return false;
 
-                    encryptedPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
-                    encryptedPacket.WriteUid(senderUid);
-                    encryptedPacket.WriteUid(senderUid);
-                    encryptedPacket.WriteBytesWithLength(cipher);
+                    loopPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
+                    loopPacket.WriteUid(senderUid);
+                    loopPacket.WriteUid(senderUid);
+                    loopPacket.WriteBytesWithLength(cipher);
                 }
-                else return false;
+                else
+                {
+                    return false;
+                }
 
-                await SendFramedAsync(encryptedPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                await SendFramedAsync(loopPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                 messageSent = true;
             }
 

@@ -54,13 +54,5 @@ namespace ChatClient.MVVM.View
             }
         #endif
         }
-
-        private void MonitorWindow1_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (DataContext is MonitorViewModel monitorViewModel) 
-            {
-                monitorViewModel.RefreshFromDictionary(MainViewModel.ClientConn.GetKnownPublicKeys()); 
-            }
-        }
     }
 }

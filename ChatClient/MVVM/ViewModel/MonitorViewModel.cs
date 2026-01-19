@@ -44,11 +44,14 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public bool IsMaskVisible => MaskMessage != null;
 
-        /// <summary> 
-        /// Observable collection used as the DataGrid source. 
-        /// Contains UI-ready entries with localized status text.
+        /// <summary>
+        /// Exposes the live collection of known public keys maintained by the encryption pipeline.
+        /// Returns null until the connection and pipeline are fully initialized.
         /// </summary>
-        public ObservableCollection<PublicKeyEntry> KnownPublicKeysView { get; }
+        public ObservableCollection<KeyValuePair<Guid, byte[]>>? KnownPublicKeys
+        {
+            get => _mainViewModel?.ClientConn?.EncryptionPipeline?.KnownPublicKeys;
+        }
 
         /// <summary> 
         /// Exposes the MainViewModel instance used by this monitor,
@@ -107,9 +110,8 @@ namespace ChatClient.MVVM.ViewModel
         {
             _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
 
-            KnownPublicKeysView = new ObservableCollection<PublicKeyEntry>();
             MonitorWindowTitle = LocalizationManager.GetString("MonitorWindowTitle");
-            ValidKeyText = LocalizationManager.GetString("ValidKey"); 
+            ValidKeyText = LocalizationManager.GetString("ValidKey");
             InvalidOrMissingKeyText = LocalizationManager.GetString("InvalidOrMissingKey");
 
             // Subscribes to state changes so the mask reacts automatically.
@@ -117,37 +119,10 @@ namespace ChatClient.MVVM.ViewModel
             _mainViewModel.LanguageChanged += OnLanguageChanged;
             Settings.Default.PropertyChanged += OnSettingsChanged;
 
-            // Adds the local client's own public key as the first entry
-            KnownPublicKeysView.Add(new PublicKeyEntry
-            {
-                Username = _mainViewModel.Username,
-                UID = _mainViewModel.LocalUser.UID,
-                KeyExcerpt = ExtractExcerpt(_mainViewModel.LocalUser.PublicKeyDer),
-                StatusText = ValidKeyText,
-                IsLocal = true
-            });
-            
-            RequestMissingPublicKeyCommand = new RelayCommand<PublicKeyEntry>(
+            // Command to request a missing public key from a peer
+            RequestMissingPublicKeyCommand = new RelayCommand<KeyValuePair<Guid, byte[]>>(
                 async entry => await RequestMissingPublicKeyAsync(entry)
             );
-        }
-
-        /// <summary>
-        /// Returns a short, human‑readable excerpt of a DER‑encoded public key.
-        /// Produces a hexadecimal preview of the first bytes, followed by "...".
-        /// </summary>
-        private string ExtractExcerpt(byte[] publicKeyDer)
-        {
-            if (publicKeyDer == null || publicKeyDer.Length == 0)
-                return string.Empty;
-
-            // Take the first 8 bytes (or fewer if the key is extremely short)
-            int excerptLength = Math.Min(8, publicKeyDer.Length);
-
-            // Convert to hex without dashes (e.g. "A1B2C3D4...")
-            string hex = BitConverter.ToString(publicKeyDer, 0, excerptLength).Replace("-", "");
-
-            return hex + "...";
         }
 
         /// <summary>
@@ -174,8 +149,7 @@ namespace ChatClient.MVVM.ViewModel
             MonitorWindowTitle = LocalizationManager.GetString("MonitorWindowTitle"); 
             ValidKeyText = LocalizationManager.GetString("ValidKey"); 
             InvalidOrMissingKeyText = LocalizationManager.GetString("InvalidOrMissingKey");
-            RefreshFromDictionary(_mainViewModel.ClientConn.GetKnownPublicKeys());
-
+  
             OnPropertyChanged(nameof(MaskMessage));
             OnPropertyChanged(nameof(IsMaskVisible));
             OnPropertyChanged(nameof(IsGridVisible));
@@ -206,57 +180,14 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Rebuilds the DataGrid source from the internal KnownPublicKeys dictionary.
-        /// Each entry is transformed into a UI-ready PublicKeyEntry with localized status text.
-        /// </summary>
-        public void RefreshFromDictionary(Dictionary<Guid, byte[]> knownKeys)
-        {
-            KnownPublicKeysView.Clear();
-
-            // Adds the local line first
-            KnownPublicKeysView.Add(new PublicKeyEntry
-            {
-                UID = _mainViewModel.LocalUser.UID,
-                Username = _mainViewModel.Username,
-                KeyExcerpt = ExtractExcerpt(_mainViewModel.LocalUser.PublicKeyDer),
-                StatusText = ValidKeyText,
-                IsLocal = true
-            });
-
-            // Adds the other keys
-            foreach (var entry in knownKeys)
-            {
-                Guid uid = entry.Key;
-
-                // Avoids duplicating the local line
-                if (uid == _mainViewModel.LocalUser.UID)
-                {
-                    continue;
-                }
-
-                string username = _mainViewModel.ResolveUsername(uid);
-                byte[] keyBytes = entry.Value;
-
-                KnownPublicKeysView.Add(new PublicKeyEntry
-                {
-                    UID = uid,
-                    Username = username,
-                    KeyExcerpt = ExtractExcerpt(keyBytes),
-                    StatusText = keyBytes is { Length: > 0 }
-                        ? ValidKeyText
-                        : InvalidOrMissingKeyText,
-                    IsLocal = false
-                });
-            }
-        }
-
-        /// <summary>
         /// Sends a targeted request to a specific peer asking for its public key.
         /// The request is forwarded to the network layer.
         /// </summary>
-        private async Task RequestMissingPublicKeyAsync(PublicKeyEntry publicKeyEntry)
+        private async Task RequestMissingPublicKeyAsync(KeyValuePair<Guid, byte[]> entry)
         {
-            if (publicKeyEntry == null || publicKeyEntry.IsLocal)
+            var uid = entry.Key;
+
+            if (uid == _mainViewModel.LocalUser.UID)
             {
                 return;
             }
@@ -264,14 +195,15 @@ namespace ChatClient.MVVM.ViewModel
             try
             {
                 await _mainViewModel.ClientConn
-                    .SendRequestToPeerForPublicKeyAsync(publicKeyEntry.UID, CancellationToken.None)
+                    .SendRequestToPeerForPublicKeyAsync(uid, CancellationToken.None)
                     .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"RequestMissingKeyAsync failed for {publicKeyEntry.Username}: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.Log($"RequestMissingKeyAsync failed for UID {uid}: {ex.Message}", ClientLogLevel.Error);
             }
         }
+
     }
 }
 

@@ -16,7 +16,8 @@
     Icon="/Resources/monitor-icon.ico"
     TabIndex="12"
     MinHeight="300"
-    MinWidth="438" Loaded="MonitorWindow1_Loaded" Closed="MonitorWindow1_Closed">
+    MinWidth="438"
+    Closed="MonitorWindow1_Closed">
 
     <!-- Main Grid -->
     <Grid Margin="0,0,0,0">
@@ -43,7 +44,7 @@
 
         <!-- Public Keys DataGrid -->
         <DataGrid Grid.Row="0"
-              ItemsSource="{Binding KnownPublicKeysView}"
+              ItemsSource="{Binding KnownPublicKeys}"
               Visibility="{Binding IsGridVisible, Converter={StaticResource BoolToVisibilityConverter}}"
               ColumnWidth="*"
               AutoGenerateColumns="False"
