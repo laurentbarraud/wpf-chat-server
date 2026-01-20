@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 18th, 2026</date>
+/// <date>January 20th, 2026</date>
 
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
@@ -45,6 +45,7 @@ namespace ChatClient.Helpers
             bool debugMode = false;
             bool showHelp = false;
             bool showAbout = false;
+            bool triggerHotSpot = false;
 
             /// <summary> Iterates through each argument with support for bundled short flags like -teu </summary>
             for (int i = 0; i < args.Length; i++)
@@ -105,6 +106,11 @@ namespace ChatClient.Helpers
                         case "--license":
                         case "--version":
                             showAbout = true;
+                            break;
+
+                        case "--snow": 
+                            showAbout = true; 
+                            triggerHotSpot = true; 
                             break;
                         default:
                             break;
@@ -257,6 +263,17 @@ namespace ChatClient.Helpers
             if (showAbout)
             {
                 var aboutWindow = new AboutWindow();
+
+                if (triggerHotSpot)
+                {
+                    aboutWindow.Loaded += async (_, __) =>
+                    {
+                        // Small delay before the effect
+                        await Task.Delay(80);
+                        aboutWindow.TriggerHotSpot();
+                    };
+                }
+
                 aboutWindow.ShowDialog();
                 Environment.Exit(0);
                 return;

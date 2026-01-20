@@ -1,0 +1,12 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:ChatClient.Converters">
+
+    <!-- Built-in WPF converter -->
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+    <!-- Custom converters -->
+    <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <conv:LeftOffsetToMarginConverter x:Key="LeftOffsetToMarginConverter" />
+
+</ResourceDictionary>

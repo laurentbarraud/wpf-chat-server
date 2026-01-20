@@ -1,7 +1,7 @@
 ﻿/// <file>BoolToVisibilityConverter.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 18th, 2026</date>
+/// <date>January 20th, 2026</date>
 
 using System;
 using System.Globalization;
@@ -12,32 +12,36 @@ namespace ChatClient.Converters
 {
     /// <summary>
     /// Converts a boolean value into a Visibility value.
-    /// True  -> Visibility.Visible
-    /// False -> Visibility.Collapsed
+    /// True becomes Visible
+    /// False becomes Collapsed
+    /// Supports inversion via invParameter.
     /// </summary>
     public class BoolToVisibilityConverter : IValueConverter
     {
-        /// <summary>
-        /// Converts a boolean value to a Visibility value.
-        /// </summary>
-        /// <param name="value">The boolean value to convert.</param>
-        /// <returns>Visible if true, Collapsed if false.</returns>
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object Convert(object value, Type targetType, object invParameter, CultureInfo culture)
         {
-            if (value is bool isVisible && isVisible)
+            // Checks inversion request
+            bool invertRequested = invParameter?.ToString()?.Equals("Invert", StringComparison.OrdinalIgnoreCase) == true;
+
+            // Validates input type
+            if (value is bool sourceBool)
             {
-                return Visibility.Visible;
+                // Applies optional inversion
+                bool effectiveBool = invertRequested ? !sourceBool : sourceBool;
+
+                // Maps to visibility
+                return effectiveBool ? Visibility.Visible : Visibility.Collapsed;
             }
 
+            // Fallback for non-boolean values
             return Visibility.Collapsed;
         }
 
-        /// <summary>
-        /// ConvertBack is not supported for this converter.
-        /// </summary>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotSupportedException("BoolToVisibilityConverter does not support ConvertBack.");
         }
     }
+
 }
+

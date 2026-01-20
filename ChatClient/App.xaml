@@ -1,38 +1,33 @@
 ﻿<Application x:Class="ChatClient.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:tb="http://www.hardcodet.net/taskbar"
-             xmlns:helpers="clr-namespace:ChatClient.Helpers"
              xmlns:conv="clr-namespace:ChatClient.Converters">
 
     <Application.Resources>
         <ResourceDictionary>
+
             <ResourceDictionary.MergedDictionaries>
-                <!-- Load default theme for design-time -->
+
+                <!-- Default theme loaded at startup (light mode) -->
                 <ResourceDictionary Source="Themes/LightTheme.xaml" />
+
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Built-in WPF converter -->
-            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+            <!-- Built‑in WPF converter -->
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
-            <!-- Custom converter -->
+            <!-- Custom converters -->
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
-
-            <!-- Converts a left-offset (double) into a Margin applied on the left side. -->
             <conv:LeftOffsetToMarginConverter x:Key="LeftOffsetToMarginConverter" />
 
             <!-- Interactive label style -->
             <Style x:Key="InteractiveTextBlockStyle" TargetType="Label">
-                <!-- Make Label focusable and part of tab navigation -->
                 <Setter Property="Focusable" Value="True" />
                 <Setter Property="IsTabStop" Value="True" />
-
-                <!-- Default appearance -->
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Cursor" Value="Arrow" />
                 <Setter Property="Foreground" Value="WhiteSmoke" />
 
-                <!-- Template: render content inside a TextBlock -->
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Label">
@@ -44,20 +39,29 @@
                                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
                             </Border>
+
                             <ControlTemplate.Triggers>
+
                                 <!-- Mouse hover -->
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="PART_Text" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    <Setter TargetName="PART_Text"
+                                            Property="Foreground"
+                                            Value="{DynamicResource AccentBrush}" />
                                     <Setter Property="Cursor" Value="Hand" />
                                 </Trigger>
-                                <!-- Keyboard focus (Tab navigation) -->
+
+                                <!-- Keyboard focus -->
                                 <Trigger Property="IsFocused" Value="True">
-                                    <Setter TargetName="PART_Text" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    <Setter TargetName="PART_Text"
+                                            Property="Foreground"
+                                            Value="{DynamicResource AccentBrush}" />
                                 </Trigger>
+
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+
             </Style>
 
         </ResourceDictionary>

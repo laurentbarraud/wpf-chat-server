@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 18th, 2026</date>
+/// <date>January 20th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -19,16 +19,15 @@ namespace ChatClient.MVVM.View
         // PRIVATE FIELDS
 
         /// <summary> 
-        /// Indicates whether the snowstorm animation is currently active.
+        /// Indicates whether the storm animation is currently active.
         /// Prevents multiple overlapping animations from being triggered.
         /// </summary>
-        private bool _snowstormRunning = false;
+        private bool _stormRunning = false;
 
         // Duration of effect in milliseconds
         const int STORM_DURATION_MS = 5000;
 
         private readonly AboutViewModel _aboutViewModel;
-
 
         public AboutWindow()
         {
@@ -36,11 +35,12 @@ namespace ChatClient.MVVM.View
 
             _aboutViewModel = new AboutViewModel(); 
             DataContext = _aboutViewModel;
+            Title = _aboutViewModel.AboutWindowTitle;
         }
 
-        private void AnimateSnowflake(Ellipse flake, Random rnd)
+        private void AnimateFlake(Ellipse flake, Random rnd)
         {
-            double endY = SnowCanvas.ActualHeight + 40;
+            double endY = AtmosphericCanvas.ActualHeight + 40;
             double driftX = rnd.NextDouble() * 100 - 50;
 
             // left/right drift
@@ -73,7 +73,7 @@ namespace ChatClient.MVVM.View
             sb.Children.Add(animX);
 
             // Auto-remove when animation ends
-            sb.Completed += (_, __) => { SnowCanvas.Children.Remove(flake); };
+            sb.Completed += (_, __) => { AtmosphericCanvas.Children.Remove(flake); };
             sb.Begin();
         }
 
@@ -93,6 +93,10 @@ namespace ChatClient.MVVM.View
         private void CmdOk_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+        private void CoverUpAppTitle()
+        {
+            AppTitle.Foreground = new SolidColorBrush(Color.FromRgb(40, 60, 90));
         }
 
         /// <summary>
@@ -161,7 +165,7 @@ namespace ChatClient.MVVM.View
                     EasingFunction = easing
                 });
 
-            // Waits for the snow effect to finish.
+            // Waits for the effect to finish.
             await Task.Delay(STORM_DURATION_MS + 2500);
 
             // Restores the original gradient for background.
@@ -246,7 +250,7 @@ namespace ChatClient.MVVM.View
             // The hotspot’s background is temporarily replaced with this brush.
             HotspotButton.Background = colorBrush;
 
-            var sunColor = Color.FromRgb(249, 239, 60);
+            var sunColor = Color.FromRgb(245, 242, 109);
 
             // A cubic easing curve gives the bloom a gentle, organic rise.
             var easing = new CubicEase
@@ -274,9 +278,12 @@ namespace ChatClient.MVVM.View
         /// <param name="e"></param>
         private void HotspotButton_Click(object sender, RoutedEventArgs e)
         {
+            _aboutViewModel.IsNightMode = true;
+
             HighlightHotspotButton();
+            CoverUpAppTitle();
             _ = FadeBackgroundToNightAsync();
-            StartSnowstorm();
+            StartStorm();
         }
 
         /// <summary>
@@ -301,7 +308,7 @@ namespace ChatClient.MVVM.View
         /// </summary>
         private void LicenceFinalLabel_MouseLeave(object sender, MouseEventArgs e)
         {
-            if (_snowstormRunning) 
+            if (_stormRunning) 
             {
                 return; 
             } 
@@ -312,10 +319,15 @@ namespace ChatClient.MVVM.View
             }
         }
 
+        private void ResetAppTitle()
+        { 
+            AppTitle.Foreground = Brushes.Black; 
+        }
+
         /// <summary> Listens for the quiet gesture that restores what once shifted. </summary>
         private void ResetButton_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {           
-            if (_snowstormRunning)
+            if (_stormRunning)
             {
                 return;
             }
@@ -363,14 +375,14 @@ namespace ChatClient.MVVM.View
         /// <summary>
         /// Summons an ephemeral disturbance in the interface. 
         /// </summary>
-       private async void StartSnowstorm()
+       private async void StartStorm()
         {
-            if (_snowstormRunning)
+            if (_stormRunning)
             {
                 return;
             }
 
-            _snowstormRunning = true;
+            _stormRunning = true;
 
             // Only records the event the first time it ever happens.
             if (!Properties.Settings.Default.WinterHasFallen)
@@ -390,7 +402,7 @@ namespace ChatClient.MVVM.View
             // Main loop: generate flakes for the duration of the storm
             while (stopwatch.ElapsedMilliseconds < STORM_DURATION_MS)
             {
-                // Creates a new snowflake
+                // Creates a new flake
                 var flake = new Ellipse
                 {
                     Width = rnd.Next(3, 8),
@@ -400,17 +412,17 @@ namespace ChatClient.MVVM.View
                 };
 
                 // Starting position: random X at top
-                double startPosX = rnd.NextDouble() * SnowCanvas.ActualWidth;
+                double startPosX = rnd.NextDouble() * AtmosphericCanvas.ActualWidth;
                 double startPosY = -20; Canvas.SetLeft(flake, startPosX);
 
-                // Positions the snowflake at its initial vertical coordinate
+                // Positions the flake at its initial vertical coordinate
                 Canvas.SetTop(flake, startPosY);
                 
-                SnowCanvas.Children.Add(flake);
+                AtmosphericCanvas.Children.Add(flake);
                 flakeList.Add(flake);
 
                 // Animates the flake
-                AnimateSnowflake(flake, rnd);
+                AnimateFlake(flake, rnd);
 
                 // Spawn rate
                 await Task.Delay(rnd.Next(40, 120));
@@ -421,12 +433,23 @@ namespace ChatClient.MVVM.View
             // Cleanup
             foreach (var flake in flakeList)
             {
-                SnowCanvas.Children.Remove(flake);
+                AtmosphericCanvas.Children.Remove(flake);
             }
 
-            _snowstormRunning = false;
-            
+            _stormRunning = false;
+          
             FadeOutHotspot();
+            ResetAppTitle();
+        }
+
+        /// <summary>
+        /// Triggers the legacy pathway once used by early builds
+        /// and quietly maintained.
+        /// </summary>
+        public void TriggerHotSpot()
+        {
+            // WPF equivalent of a WinForms PerformClick()
+            HotspotButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
         }
     }
 }

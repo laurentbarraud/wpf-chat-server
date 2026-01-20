@@ -1,7 +1,7 @@
 ﻿/// <file>AboutViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 18th, 2026</date>
+/// <date>January 20th, 2026</date>
 
 using ChatClient.Helpers;
 using System.ComponentModel;
@@ -23,6 +23,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary> Backing fields for localized strings </summary>
         private string _aboutWindowTitle = string.Empty;
         private string _cliArgumentsText = string.Empty;
+        private bool _isNightMode = false;
         private string _licenceInfo = string.Empty;
         private string _licenceInfoResources = string.Empty;
         private string _licenceFinal = string.Empty;
@@ -71,6 +72,22 @@ namespace ChatClient.MVVM.ViewModel
                 _licenceInfo = value;
                 OnPropertyChanged();
             }
+        }
+
+
+        /// <summary>
+        /// Indicates whether the window has shifted into its subtle night mode,
+        /// a state distinct from the regular dark theme and triggered only under
+        /// specific atmospheric conditions.
+        /// </summary>
+        public bool IsNightMode 
+        { 
+            get => _isNightMode; 
+            set 
+            { 
+                _isNightMode = value; 
+                OnPropertyChanged(); 
+            } 
         }
 
         /// <summary>
