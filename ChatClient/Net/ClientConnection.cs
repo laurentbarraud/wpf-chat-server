@@ -1,9 +1,10 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 20th, 2026</date>
+/// <date>January 21th, 2026</date>
 
 using ChatClient.Helpers;
+using ChatClient.MVVM.Model;
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
@@ -412,9 +413,8 @@ namespace ChatClient.Net
 
         /// <summary>
         /// Marks the client-side handshake as complete.
-        /// Completes the handshake TaskCompletionSource,
-        /// assigns local identifiers and key material,
-        /// and initializes the encryption pipeline only if encryption is enabled.
+        /// Finalizes the handshake TaskCompletionSource and stores
+        /// the local user's identifier and public key material.
         /// </summary>
         /// <param name="uid">Unique identifier assigned to the local user.</param>
         /// <param name="publicKeyDer">Public key in DER format for the local user.</param>
@@ -436,18 +436,7 @@ namespace ChatClient.Net
             LocalUid = uid;
             LocalPublicKey = publicKeyDer;
 
-            // Initializes pipeline only if encryption is enabled before handshake.
-            if (Settings.Default.UseEncryption && EncryptionPipeline != null)
-            {
-                EncryptionPipeline.RegisterLocalHandshakeKey(uid, publicKeyDer);
-                ClientLogger.Log($"MarkHandshakeComplete — encryption enabled, UID={uid}, PublicKeyLen={publicKeyDer?.Length}", ClientLogLevel.Debug);
-            }
-            else
-            {
-                // Skips pipeline initialization when encryption is disabled.
-                EncryptionPipeline = null;
-                ClientLogger.Log("MarkHandshakeComplete — encryption disabled, pipeline not initialized.", ClientLogLevel.Info);
-            }
+            ClientLogger.Log($"Handshake complete — UID={uid}, PublicKeyLen={publicKeyDer?.Length}", ClientLogLevel.Debug);
         }
 
         /// <summary>
@@ -685,26 +674,34 @@ namespace ChatClient.Net
                                             return;
                                         }
 
-                                        // Ensures that the key is inserted or updated.
-                                        var existingPublicKey = encryptionPipeline.KnownPublicKeys
-                                            .FirstOrDefault(e => e.Key == originUid);
+                                        // Looks for an existing PublicKeyEntry for this peer
+                                        var matchingEntry = encryptionPipeline.KnownPublicKeys
+                                            .FirstOrDefault(e => e.UID == originUid);
 
-                                        if (existingPublicKey.Key == originUid)
+                                        // Builds a short Base64 excerpt for UI display
+                                        string computedExcerpt = Convert.ToBase64String(publicKeyDer);
+                                        if (computedExcerpt.Length > 20)
+                                            computedExcerpt = computedExcerpt.Substring(0, 20) + "....";
+
+                                        if (matchingEntry != null)
                                         {
-                                            // Updates existing entry in the ObservableCollection
-                                            int index = encryptionPipeline.KnownPublicKeys.IndexOf(existingPublicKey);
-                                            if (index >= 0)
-                                            {
-                                                encryptionPipeline.KnownPublicKeys[index] = new KeyValuePair<Guid, byte[]>(originUid, publicKeyDer);
-                                            }
+                                            // Updates existing entry in place
+                                            matchingEntry.KeyExcerpt = computedExcerpt;
                                         }
                                         else
                                         {
-                                            // Adds new public key in the ObservableCollection.
-                                            encryptionPipeline.KnownPublicKeys.Add(new KeyValuePair<Guid, byte[]>(originUid, publicKeyDer));
+                                            // Inserts new entry
+                                            encryptionPipeline.KnownPublicKeys.Add(
+                                                new PublicKeyEntry
+                                                {
+                                                    UID = originUid,
+                                                    Username = _viewModel.Users.FirstOrDefault(u => u.UID == originUid)?.Username ?? "",
+                                                    KeyExcerpt = computedExcerpt,
+                                                }
+                                            );
                                         }
 
-                                        // Notifies the ViewModel.
+                                        // Notifies the ViewModel (handles readiness logic)
                                         _viewModel.OnPublicKeyReceived(originUid, publicKeyDer);
 
                                         ClientLogger.Log($"Registered/updated public key for {originUid}", ClientLogLevel.Info);
@@ -1031,9 +1028,6 @@ namespace ChatClient.Net
         /// Chooses plain or encrypted transmission depending on pipeline readiness.
         /// Broadcasts to peers or loops back in solo mode.
         /// </summary>
-        /// <param name="plainText">The plaintext message to send.</param>
-        /// <param name="cancellationToken">Token to cancel the operation.</param>
-        /// <returns>True if at least one packet was sent.</returns>
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
             // Validates input and local user presence.
@@ -1047,13 +1041,16 @@ namespace ChatClient.Net
             // Collects all users except the sender as recipients.
             var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
 
-            bool isEncryptionReady = Settings.Default.UseEncryption && _viewModel?.EncryptionPipeline?.IsEncryptionReady == true;
+            bool isEncryptionReady = Settings.Default.UseEncryption &&
+                _viewModel?.EncryptionPipeline?.IsEncryptionReady == true;
 
             bool messageSent = false;
 
             foreach (var recipient in recipients)
             {
+                // Aborts early if the operation was cancelled
                 cancellationToken.ThrowIfCancellationRequested();
+                
                 var packet = new PacketBuilder();
 
                 if (!isEncryptionReady)
@@ -1065,21 +1062,21 @@ namespace ChatClient.Net
                 }
                 else
                 {
-                    // Looks up recipient's public key.
                     var pipeline = _viewModel!.EncryptionPipeline;
-
+                    
                     if (pipeline == null)
                     {
                         ClientLogger.Log("Encryption pipeline is null.", ClientLogLevel.Warn);
                         continue;
                     }
 
+                    // Finds recipient entry by UID
                     var entry = pipeline.KnownPublicKeys
-                        .FirstOrDefault(e => e.Key == recipient.UID);
+                        .FirstOrDefault(e => e.UID == recipient.UID);
 
-                    byte[] recipientPublicKeyDer = entry.Value;
+                    byte[] recipientPublicKeyDer = recipient.PublicKeyDer;
 
-                    if ((recipientPublicKeyDer == null) || (recipientPublicKeyDer.Length == 0))
+                    if (recipientPublicKeyDer == null || recipientPublicKeyDer.Length == 0)
                     {
                         ClientLogger.Log($"Missing public key for {recipient.UID}", ClientLogLevel.Warn);
                         continue;
@@ -1087,14 +1084,20 @@ namespace ChatClient.Net
 
                     // Encrypts message with recipient's public key.
                     var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, recipientPublicKeyDer);
-                    if ((cipher == null) || (cipher.Length == 0))
+                    if (cipher == null || cipher.Length == 0)
+                    {
                         continue;
+                    }
 
                     packet.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
                     packet.WriteUid(senderUid);
                     packet.WriteUid(recipient.UID);
                     packet.WriteBytesWithLength(cipher);
                 }
+
+                // Sends the packet
+                await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                messageSent = true;
             }
 
             // Sends a self-copy encrypted with sender's own public key (for local echo).
@@ -1102,7 +1105,7 @@ namespace ChatClient.Net
             {
                 byte[] selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
 
-                if ((selfCipher != null) && (selfCipher.Length > 0))
+                if (selfCipher != null && selfCipher.Length > 0)
                 {
                     var selfPacket = new PacketBuilder();
                     selfPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
@@ -1119,6 +1122,7 @@ namespace ChatClient.Net
             if (recipients.Count == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                
                 var loopPacket = new PacketBuilder();
 
                 if (!isEncryptionReady)
@@ -1130,7 +1134,7 @@ namespace ChatClient.Net
                 else if (_viewModel?.LocalUser.PublicKeyDer?.Length > 0)
                 {
                     var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
-                    if ((cipher == null) || (cipher.Length == 0))
+                    if (cipher == null || cipher.Length == 0)
                         return false;
 
                     loopPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
@@ -1149,6 +1153,7 @@ namespace ChatClient.Net
 
             return messageSent;
         }
+
 
         /// <summary>
         /// Sends the local client's public RSA key to the server for distribution.
@@ -1205,8 +1210,7 @@ namespace ChatClient.Net
 
                 ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
 
-                // Refreshes encryption readiness
-                _viewModel?.ReevaluateEncryptionStateFromConnection();
+                _viewModel?.RefreshEncryptionState();
 
                 return true;
             }

@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 20th, 2026</date>
+/// <date>January 21th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -93,10 +93,6 @@ namespace ChatClient.MVVM.View
         private void CmdOk_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
-        }
-        private void CoverUpAppTitle()
-        {
-            AppTitle.Foreground = new SolidColorBrush(Color.FromRgb(40, 60, 90));
         }
 
         /// <summary>
@@ -281,7 +277,7 @@ namespace ChatClient.MVVM.View
             _aboutViewModel.IsNightMode = true;
 
             HighlightHotspotButton();
-            CoverUpAppTitle();
+            AppTitle.Visibility = Visibility.Collapsed;
             _ = FadeBackgroundToNightAsync();
             StartStorm();
         }
@@ -317,11 +313,6 @@ namespace ChatClient.MVVM.View
             {
                 FadeOutHotspot();
             }
-        }
-
-        private void ResetAppTitle()
-        { 
-            AppTitle.Foreground = Brushes.Black; 
         }
 
         /// <summary> Listens for the quiet gesture that restores what once shifted. </summary>
@@ -439,7 +430,7 @@ namespace ChatClient.MVVM.View
             _stormRunning = false;
           
             FadeOutHotspot();
-            ResetAppTitle();
+            AppTitle.Visibility = Visibility.Visible;
         }
 
         /// <summary>

@@ -1,7 +1,7 @@
 ﻿/// <file>MonitrWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 20th, 2026</date>
+/// <date>January 21th, 2026</date>
 
 using ChatClient.MVVM.ViewModel;             // For MonitorViewModel
 using ChatClient.Net;
@@ -18,9 +18,6 @@ namespace ChatClient.MVVM.View
     public partial class MonitorWindow : Window
     {
         private readonly MonitorViewModel _monitorViewModel;
-        private readonly MainViewModel _mainViewModel = new MainViewModel();
-
-        public MainViewModel MainViewModel => _mainViewModel;
 
         /// <summary> 
         /// Initializes the window and assigns its ViewModel. 

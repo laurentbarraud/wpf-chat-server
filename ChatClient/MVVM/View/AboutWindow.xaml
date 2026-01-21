@@ -114,9 +114,9 @@
                        FontSize="34"
                        FontWeight="Normal"
                        Foreground="Black"
-                       Margin="24,20,0,0"
+                       Margin="26,22,0,0"
                        HorizontalAlignment="Left"
-                       VerticalAlignment="Top"/>
+                       VerticalAlignment="Top" Panel.ZIndex="100"/>
 
             <TextBlock x:Name="LicenceInfoText"
                        Text="{Binding LicenceInfo}"

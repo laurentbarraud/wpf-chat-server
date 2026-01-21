@@ -1,27 +1,22 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 20th, 2026</date>
+/// <date>January 21th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
 using ChatClient.MVVM.View;
 using ChatClient.Net;
 using ChatClient.Properties;
-using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Automation;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 
 namespace ChatClient.MVVM.ViewModel
@@ -1337,10 +1332,12 @@ namespace ChatClient.MVVM.ViewModel
         /// <param name="rosterEntries">
         /// Full list of connected users (UserId, Username, PublicKeyDer).
         /// </param>
-        public void DisplayRosterSnapshot(IEnumerable<(Guid UserId, string Username, byte[] PublicKeyDer)> rosterEntries)
+        public void DisplayRosterSnapshot(IEnumerable<(Guid UserId, string Username, byte[] PublicKeyDer)> lstConnectedUsers)
         {
-            // Materialize snapshot (avoid multiple enumeration)
-            var incomingUsers = rosterEntries
+            // Materializes snapshot (avoid multiple enumeration).
+            // Type is List<(Guid UserId, string Username, byte[] PublicKeyDer)>,
+            // but 'var' is preferred here since the type is obvious and verbose.
+            var incomingUsers = lstConnectedUsers
                 .Select(e => (e.UserId, e.Username, e.PublicKeyDer))
                 .ToList();
 
@@ -1382,26 +1379,39 @@ namespace ChatClient.MVVM.ViewModel
                                 continue;
                             }
 
+
                             if (usr.PublicKeyDer != null && usr.PublicKeyDer.Length > 0)
                             {
                                 // Snapshot already contains the peer's key, so we store it.
-                                var existingPeerKey = _clientConn.EncryptionPipeline.KnownPublicKeys
-                                    .FirstOrDefault(e => e.Key == usr.UserId);
+                                var matchingEntry = _clientConn.EncryptionPipeline.KnownPublicKeys
+                                    .FirstOrDefault(e => e.UID == usr.UserId);
 
-                                if (existingPeerKey.Key == usr.UserId)
+                                // Builds a short Base64 excerpt for UI display
+                                string computedExcerpt = Convert.ToBase64String(usr.PublicKeyDer);
+                                if (computedExcerpt.Length > 20)
                                 {
-                                    int index = _clientConn.EncryptionPipeline.KnownPublicKeys.IndexOf(existingPeerKey);
-                                    if (index >= 0)
-                                    {
-                                        _clientConn.EncryptionPipeline.KnownPublicKeys[index] =
-                                            new KeyValuePair<Guid, byte[]>(usr.UserId, usr.PublicKeyDer);
-                                    }
+                                    computedExcerpt = computedExcerpt.Substring(0, 20) + "....";
+                                }
+
+                                if (matchingEntry != null)
+                                {
+                                    // Updates existing entry in place
+                                    matchingEntry.KeyExcerpt = computedExcerpt;
+                                    matchingEntry.Username = usr.Username;
                                 }
                                 else
                                 {
+                                    // Inserts new entry
                                     _clientConn.EncryptionPipeline.KnownPublicKeys.Add(
-                                        new KeyValuePair<Guid, byte[]>(usr.UserId, usr.PublicKeyDer));
+                                        new PublicKeyEntry
+                                        {
+                                            UID = usr.UserId,
+                                            Username = usr.Username,
+                                            KeyExcerpt = computedExcerpt,
+                                        }
+                                    );
                                 }
+
                             }
                             else
                             {
@@ -1445,24 +1455,32 @@ namespace ChatClient.MVVM.ViewModel
 
                     if (usr.PublicKeyDer != null && usr.PublicKeyDer.Length > 0)
                     {
-                        // Key already provided in snapshot, we store or refresh it.
-                        var existingPeerKey = _clientConn.EncryptionPipeline.KnownPublicKeys
-                            .FirstOrDefault(e => e.Key == usr.UserId);
+                        // Looks for an existing PublicKeyEntry for this peer
+                        var matchingEntry = _clientConn.EncryptionPipeline.KnownPublicKeys
+                            .FirstOrDefault(e => e.UID == usr.UserId);
 
-                        if (existingPeerKey.Key == usr.UserId)
+                        // Builds a short Base64 excerpt for UI display
+                        string computedExcerpt = Convert.ToBase64String(usr.PublicKeyDer);
+                        if (computedExcerpt.Length > 20)
+                            computedExcerpt = computedExcerpt.Substring(0, 20) + "....";
+
+                        if (matchingEntry != null)
                         {
-                            int index = _clientConn.EncryptionPipeline.KnownPublicKeys.IndexOf(existingPeerKey);
-                            
-                            if (index >= 0)
-                            {
-                                _clientConn.EncryptionPipeline.KnownPublicKeys[index] =
-                                    new KeyValuePair<Guid, byte[]>(usr.UserId, usr.PublicKeyDer);
-                            }
-                        }
+                            // Updates existing entry in place
+                            matchingEntry.KeyExcerpt = computedExcerpt;
+                            matchingEntry.Username = usr.Username;
+                         }
                         else
                         {
+                            // Inserts new entry
                             _clientConn.EncryptionPipeline.KnownPublicKeys.Add(
-                                new KeyValuePair<Guid, byte[]>(usr.UserId, usr.PublicKeyDer));
+                                new PublicKeyEntry
+                                {
+                                    UID = usr.UserId,
+                                    Username = usr.Username,
+                                    KeyExcerpt = computedExcerpt,
+                                }
+                            );
                         }
                     }
                     else
@@ -1472,13 +1490,15 @@ namespace ChatClient.MVVM.ViewModel
                     }
                 }
             }
-
             else
             {
                 // Pipeline not available yet: keys will be handled later.
                 if (Settings.Default.UseEncryption)
                 {
-                    ClientLogger.Log("DisplayRosterSnapshot: encryption enabled but pipeline not available; deferring key injection.", ClientLogLevel.Debug);
+                    ClientLogger.Log(
+                        "DisplayRosterSnapshot: encryption enabled but pipeline not available; deferring key injection.",
+                        ClientLogLevel.Debug
+                    );
                 }
             }
 
@@ -1493,7 +1513,7 @@ namespace ChatClient.MVVM.ViewModel
 
                 if (_userHasClickedOnDisconnect)
                 {
-                    continue;                   // User manually disconnected, no noise
+                    continue;                   // User manually disconnected
                 }
 
                 if (_suppressRosterNotifications)
@@ -1514,7 +1534,7 @@ namespace ChatClient.MVVM.ViewModel
 
                 if (_userHasClickedOnDisconnect)
                 {
-                    continue;                  // No noise on manual disconnect
+                    continue;                  // Manual disconnect
                 }
                 if (_suppressRosterNotifications)
                 {
@@ -1737,10 +1757,11 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles an incoming public‑key update from a peer. 
-        /// Normalizes the key, updates the/ known‑keys collection, 
-        /// checks whether all peers have valid keys, and triggers an
-        /// encryption readiness evaluation when conditions are met.
+        /// Processes a public key sent by another user and keeps the
+        /// known‑keys list accurate and up to date.
+        /// • Updates or creates the corresponding PublicKeyEntry  
+        /// • Checks whether all peers now have valid keys  
+        /// • Triggers an encryption‑readiness evaluation when safe
         /// </summary>
 
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
@@ -1753,47 +1774,56 @@ namespace ChatClient.MVVM.ViewModel
                 return;
             }
 
-            // Normalizes: never store a null public key.
+            // If the received key is null or empty, then we use an empty array.
+            // Otherwise, we use the key as it is. This avoids storing a null public key.
             var publicKey = (publicKeyDer == null || publicKeyDer.Length == 0)
                 ? Array.Empty<byte>()
                 : publicKeyDer;
 
             // Ignores self-echo.
             if (senderUid == LocalUser.UID)
-            {
                 return;
-            }
 
             bool keyDictionaryUpdated = false;
 
-            // Updates KnownPublicKeys safely.
-            var existingEntry = EncryptionPipeline.KnownPublicKeys
-                .FirstOrDefault(e => e.Key == senderUid);
+            // Looks for an existing PublicKeyEntry for this peer.
+            var matchingEntry = EncryptionPipeline.KnownPublicKeys
+                .FirstOrDefault(e => e.UID == senderUid);
 
-            if (existingEntry.Key == senderUid)
+            // Builds a short Base64 excerpt for UI display
+            string computedExcerpt = Convert.ToBase64String(publicKey);
+            if (computedExcerpt.Length > 20)
+                computedExcerpt = computedExcerpt.Substring(0, 20) + "....";
+
+            if (matchingEntry != null)
             {
-                // No-op if identical.
-                if (existingEntry.Value != null &&
-                    existingEntry.Value.Length == publicKey.Length &&
-                    existingEntry.Value.SequenceEqual(publicKey))
+                // No-op if identical excerpt (key is already known)
+                if (matchingEntry.KeyExcerpt == computedExcerpt)
                 {
                     ClientLogger.Log($"Public key already known for {senderUid}.", ClientLogLevel.Debug);
                 }
                 else
                 {
-                    int index = EncryptionPipeline.KnownPublicKeys.IndexOf(existingEntry);
-                    if (index >= 0)
-                    {
-                        EncryptionPipeline.KnownPublicKeys[index] =
-                            new KeyValuePair<Guid, byte[]>(senderUid, publicKey);
-                        keyDictionaryUpdated = true;
-                        ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
-                    }
+                    // Updates existing entry in place
+                    matchingEntry.KeyExcerpt = computedExcerpt;
+                    matchingEntry.Username = matchingEntry.Username; // unchanged
+
+                    keyDictionaryUpdated = true;
+                    ClientLogger.Log($"Updated public key for {senderUid}.", ClientLogLevel.Info);
                 }
             }
             else
             {
-                EncryptionPipeline.KnownPublicKeys.Add(new KeyValuePair<Guid, byte[]>(senderUid, publicKey));
+                // Inserts new entry
+                EncryptionPipeline.KnownPublicKeys.Add(
+                    new PublicKeyEntry
+                    {
+                        UID = senderUid,
+                        Username = Users.FirstOrDefault(u => u.UID == senderUid)?.Username ?? "",
+                        KeyExcerpt = computedExcerpt,
+                    }
+                );
+
                 keyDictionaryUpdated = true;
                 ClientLogger.Log($"Registered new public key for {senderUid}.", ClientLogLevel.Info);
             }
@@ -1805,17 +1835,14 @@ namespace ChatClient.MVVM.ViewModel
             }
 
             // Don't evaluate until every peer key is in.
-            // Prevents early pipeline runs when a new user joins without a key.
-            bool allPeerKeysPresent;
-
-            allPeerKeysPresent = Users
+            bool allPeerKeysPresent = Users
                 .Where(u => u.UID != LocalUser.UID)
                 .All(u =>
                 {
                     var entry = EncryptionPipeline.KnownPublicKeys
-                        .FirstOrDefault(e => e.Key == u.UID);
+                        .FirstOrDefault(e => e.UID == u.UID);
 
-                    return entry.Value != null && entry.Value.Length > 0;
+                    return entry != null && entry.IsValid;
                 });
 
             if (!allPeerKeysPresent)
@@ -1826,7 +1853,7 @@ namespace ChatClient.MVVM.ViewModel
             }
 
             // All keys available, safe to evaluate.
-            ReevaluateEncryptionStateFromConnection();
+            RefreshEncryptionState();
 
             if (EncryptionPipeline.IsEncryptionReady)
             {
@@ -1838,6 +1865,7 @@ namespace ChatClient.MVVM.ViewModel
                 ClientLogger.Log("Key updated but encryption not ready yet.", ClientLogLevel.Debug);
             }
         }
+
 
         /// <summary>
         /// Reacts to AppLanguage changes by applying the new culture
@@ -1887,7 +1915,7 @@ namespace ChatClient.MVVM.ViewModel
         /// Public helper to trigger encryption readiness re-evaluation from connection layer.
         /// Encapsulates pipeline access and raises property change notifications so the UI updates.
         /// </summary>
-        public void ReevaluateEncryptionStateFromConnection()
+        public void RefreshEncryptionState()
         {
             EncryptionPipeline?.EvaluateEncryptionState();
 

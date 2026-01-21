@@ -1,15 +1,20 @@
 ﻿/// <file>MonitorViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 20th, 2026</date>
+/// <date>January 21th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
 using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -29,29 +34,31 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary> Backing fields for localized strings </summary>
         private string _monitorWindowTitle = string.Empty;
 
+        /// <summary>
+        /// Handle to know which instance of the ObservableCollection the ViewModel 
+        /// is currently subscribed to.
+        /// </summary>
+        private ObservableCollection<PublicKeyEntry>? _subscribedKnownPublicKeys;
+
         // PUBLIC PROPERTIES
 
         /// <summary> Localized text displayed when a public key is invalid or missing. </summary> 
         public string InvalidOrMissingKeyText { get; private set; } = string.Empty;
 
-        /// <summary>
-        /// True when the DataGrid should be visible.
-        /// </summary> 
+        /// <summary> True when the DataGrid should be visible. </summary> 
         public bool IsGridVisible => MaskMessage == null;
         
-        /// <summary> 
-        /// True when a mask message should be displayed instead of the grid.
-        /// </summary>
+        /// <summary> True when a mask message should be displayed instead of the grid. </summary>
         public bool IsMaskVisible => MaskMessage != null;
 
         /// <summary>
-        /// Exposes the live collection of known public keys maintained by the encryption pipeline.
-        /// Returns null until the connection and pipeline are fully initialized.
+        /// Calculated property, whose value is obtained via a getter, 
+        /// not stored in a field, that returns a direct reference to
+        /// the collection of public key entries exposed by the encryption pipeline. 
+        /// Returns null until the connection and encryption pipeline are fully initialized.
         /// </summary>
-        public ObservableCollection<KeyValuePair<Guid, byte[]>>? KnownPublicKeys
-        {
-            get => _mainViewModel?.ClientConn?.EncryptionPipeline?.KnownPublicKeys;
-        }
+        public ObservableCollection<PublicKeyEntry>? KnownPublicKeys
+            => _mainViewModel?.ClientConn?.EncryptionPipeline?.KnownPublicKeys;
 
         /// <summary> 
         /// Exposes the MainViewModel instance used by this monitor,
@@ -91,11 +98,17 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged();
             }
         }
-
+        /// <summary>
+        /// Standard INotifyPropertyChanged event used to notify the UI when a property value changes.
+        /// Raised by calling OnPropertyChanged, allowing WPF bindings to refresh automatically.
+        /// </summary>
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        /// <summary>
-        /// Command exposed to the View
+
+        /// <summary> 
+        /// Command bound to the action button in the monitor grid. 
+        /// Sends a targeted request for the missing public key of the selected user, 
+        /// using the UID as the command parameter. 
         /// </summary>
         public ICommand RequestMissingPublicKeyCommand { get; } = null!;
 
@@ -118,11 +131,46 @@ namespace ChatClient.MVVM.ViewModel
             _mainViewModel.PropertyChanged += MainViewModelOnPropertyChanged;
             _mainViewModel.LanguageChanged += OnLanguageChanged;
             Settings.Default.PropertyChanged += OnSettingsChanged;
-
+           
             // Command to request a missing public key from a peer
-            RequestMissingPublicKeyCommand = new RelayCommand<KeyValuePair<Guid, byte[]>>(
-                async entry => await RequestMissingPublicKeyAsync(entry)
+            RequestMissingPublicKeyCommand = new RelayCommand<Guid>(
+                async uid => await RequestMissingPublicKeyAsync(uid)
             );
+
+        }
+
+        /// <summary>
+        /// Attaches the ViewModel to the current KnownPublicKeys collection exposed by the pipeline.
+        /// Ensures that the monitor listens to collection changes and detaches cleanly when
+        /// the underlying collection instance is replaced (e.g. reconnection or new pipeline).
+        /// </summary>
+        private void AttachToKnownPublicKeys()
+        {
+            // Detaches from the previous collection instance, if any.
+            if (_subscribedKnownPublicKeys != null)
+                _subscribedKnownPublicKeys.CollectionChanged -= KnownPublicKeys_CollectionChanged;
+
+            // Attaches to the current collection instance exposed by the pipeline.
+            _subscribedKnownPublicKeys = KnownPublicKeys;
+            if (_subscribedKnownPublicKeys != null)
+                _subscribedKnownPublicKeys.CollectionChanged += KnownPublicKeys_CollectionChanged;
+
+            // Notifies the UI that the ItemsSource may have changed (helps initial binding and reconnection).
+            OnPropertyChanged(nameof(KnownPublicKeys));
+        }
+
+        /// <summary>
+        /// Reacts to changes in the KnownPublicKeys collection.
+        /// The DataGrid refreshes automatically when the collection changes, 
+        /// but this handler also keeps the mask and grid visibility in sync
+        /// with the current state.
+        /// </summary>
+        private void KnownPublicKeys_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        { 
+            // The DataGrid will update automatically when the collection changes. 
+            // But we also want to refresh mask visibility if needed.
+            OnPropertyChanged(nameof(IsMaskVisible)); 
+            OnPropertyChanged(nameof(IsGridVisible)); 
         }
 
         /// <summary>
@@ -139,7 +187,15 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged(nameof(IsMaskVisible));
                 OnPropertyChanged(nameof(IsGridVisible));
             }
+
+            // If MainViewModel can replace ClientConn or the EncryptionPipeline,
+            // re-attach to KnownPublicKeys so the monitor always follows the current collection instance.
+            if (e.PropertyName == "ClientConn" || e.PropertyName == "EncryptionPipeline")
+            {
+                AttachToKnownPublicKeys();
+            }
         }
+
 
         /// <summary>
         /// Refreshes mask-related properties when the application language changes.
@@ -181,29 +237,27 @@ namespace ChatClient.MVVM.ViewModel
 
         /// <summary>
         /// Sends a targeted request to a specific peer asking for its public key.
-        /// The request is forwarded to the network layer.
+        /// The UID is provided directly by the monitor and forwarded to the network layer.
+        /// Does nothing if the UID refers to the local user.
         /// </summary>
-        private async Task RequestMissingPublicKeyAsync(KeyValuePair<Guid, byte[]> entry)
+        private async Task RequestMissingPublicKeyAsync(Guid targetUid)
         {
-            var uid = entry.Key;
-
-            if (uid == _mainViewModel.LocalUser.UID)
-            {
+            // Ignores requests targeting the local user's own UID.
+            if (targetUid == _mainViewModel.LocalUser.UID)
                 return;
-            }
 
             try
             {
                 await _mainViewModel.ClientConn
-                    .SendRequestToPeerForPublicKeyAsync(uid, CancellationToken.None)
+                    .SendRequestToPeerForPublicKeyAsync(targetUid, CancellationToken.None)
                     .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                ClientLogger.Log($"RequestMissingKeyAsync failed for UID {uid}: {ex.Message}", ClientLogLevel.Error);
+                ClientLogger.Log($"RequestMissingPublicKeyAsync failed for UID {targetUid}: {ex.Message}",
+                    ClientLogLevel.Error);
             }
         }
-
     }
 }
 

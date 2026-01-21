@@ -1,9 +1,11 @@
 ﻿/// <file>PublicKeyEntry.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 20th, 2026</date>
+/// <date>January 21th, 2026</date>
 
 using System;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace ChatClient.MVVM.Model
 {
@@ -11,23 +13,29 @@ namespace ChatClient.MVVM.Model
     /// Represents a single public key entry displayed in the monitor.
     /// Contains raw data and computed validation logic, but no localization.
     /// </summary>
-    public class PublicKeyEntry
+    public class PublicKeyEntry : INotifyPropertyChanged
     {
+        private Guid _uid;
+        private string _username = string.Empty;
+        private string _keyExcerpt = string.Empty;
+        private bool _isLocal;
+        private string _statusText = string.Empty;
+
         /// <summary> 
         /// Unique identifier of the user this entry refers to.
         /// Used to request the missing public key from the correct peer.
-        /// </summary> 
-        public Guid UID { get; set; }
+        /// </summary>
+        public Guid UID { get => _uid; set { _uid = value; OnPropertyChanged(); } }
 
         /// <summary> 
         /// Username associated with this public key entry. 
         /// </summary> 
-        public string Username { get; set; } = string.Empty; 
-        
+        public string Username { get => _username; set { _username = value; OnPropertyChanged(); } }
+
         /// <summary> 
         /// Excerpt of the public key (first 20 chars + "...."). 
         /// </summary> 
-        public string KeyExcerpt { get; set; } = string.Empty;
+        public string KeyExcerpt { get => _keyExcerpt; set { _keyExcerpt = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsValid)); } }
 
         /// <summary>
         /// True if the key excerpt is non-empty and appears valid.
@@ -35,14 +43,23 @@ namespace ChatClient.MVVM.Model
         /// </summary>
         public bool IsValid => !string.IsNullOrWhiteSpace(KeyExcerpt);
 
-        /// <summary> 
-        /// Indicates whether this entry represents the local client's own key. 
-        /// </summary> 
-        public bool IsLocal { get; set; }
+        /// <summary> Indicates whether this entry represents the local client's own key. </summary> 
+        public bool IsLocal 
+        {
+            get => _isLocal; 
+            set { _isLocal = value; 
+                OnPropertyChanged(); 
+            } 
+        }
 
         /// <summary>
         /// Localized status text injected by the ViewModel.
         /// </summary>
-        public string StatusText { get; set; } = string.Empty;
+        public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
+
