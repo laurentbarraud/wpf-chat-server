@@ -45,16 +45,15 @@ namespace ChatClient.Helpers
             bool debugMode = false;
             bool showHelp = false;
             bool showAbout = false;
-            bool triggerHotSpot = false;
 
-            /// <summary> Iterates through each argument with support for bundled short flags like -teu </summary>
+            // Iterates through each argument with support for bundled short flags like -teu
             for (int i = 0; i < args.Length; i++)
             {
                 string rawArg = args[i];
                 if (string.IsNullOrEmpty(rawArg))
                     continue;
 
-                /// <summary> Normalize: accepts both Unix-style (--) and Windows-style (/) </summary>
+                // Normalizes: accepts both Unix-style (--) and Windows-style (/)
                 string arg = rawArg.StartsWith("/") ? "-" + rawArg.Substring(1) : rawArg;
                 arg = arg.ToLowerInvariant();
 
@@ -108,17 +107,13 @@ namespace ChatClient.Helpers
                             showAbout = true;
                             break;
 
-                        case "--snow": 
-                            showAbout = true; 
-                            triggerHotSpot = true; 
-                            break;
                         default:
                             break;
                     }
                     continue;
                 }
 
-                /// <summary> Handles single-dash or slash-normalized flags and bundles </summary>
+                // Handles single-dash or slash-normalized flags and bundles
                 if (arg.StartsWith("-") && arg.Length >= 2)
                 {
                     if (arg == "-?")
@@ -189,13 +184,13 @@ namespace ChatClient.Helpers
                                 }
                                 else if (flag == 'p')
                                 {
-                                    /// <summary> Tries to parse the port number </summary>
+                                    // Tries to parse the port number
                                     if (int.TryParse(flagArgument, out var inputPort))
                                     {
-                                        /// <summary> Validates the port using the same logic as the UI </summary>
+                                        // Validates the port using the same logic as the UI
                                         bool isPortValid = MainViewModel.TrySavePort(inputPort);
 
-                                        ///<summary> Only saves if valid — otherwise does nothing </summary>
+                                        // Only saves if valid
                                         if (isPortValid)
                                         {
                                             Properties.Settings.Default.PortNumber = inputPort;
@@ -234,7 +229,7 @@ namespace ChatClient.Helpers
                 }
             }
 
-            ///<summary> Applies chosen localization </summary>
+            // Applies chosen localization
             if (!string.IsNullOrEmpty(langCodeChosen))
             {
                 var supported = new[] { "en", "fr" };
@@ -264,73 +259,59 @@ namespace ChatClient.Helpers
             {
                 var aboutWindow = new AboutWindow();
 
-                if (triggerHotSpot)
-                {
-                    aboutWindow.Loaded += async (_, __) =>
-                    {
-                        // Small delay before the effect
-                        await Task.Delay(80);
-                        aboutWindow.TriggerHotSpot();
-                    };
-                }
-
                 aboutWindow.ShowDialog();
                 Environment.Exit(0);
                 return;
             }
 
-            // Retrieves window and view model if available
-            if (Application.Current.MainWindow is MainWindow mainWindow &&
-                mainWindow.viewModel is MainViewModel viewModel)
-            {
-                // Persists the preference first
-                Properties.Settings.Default.UseEncryption = enableEncryption;
-                Properties.Settings.Default.Save();
-
-                // Updates the source on the view model;
-                // the ViewModel decides when/how to start or stop the pipeline.
-                viewModel.UseEncryption = enableEncryption;
-
-                // If a username was chosen
-                if (!string.IsNullOrEmpty(usernameChosen))
-                {
-                    // Sets the chosen username on the VM
-                    viewModel.Username = usernameChosen;
-
-                    // RoutedEventHandler is the delegate type used for WPF routed events
-                    // that travel through the visual tree, such as Loaded, Click, or MouseDown.
-                    // It is used for events that can bubble or tunnel through UI elements.
-                    // We declare 'onLoaded' before assigning the lambda so the lambda can reference itself.
-                    RoutedEventHandler onLoaded = null!;
-                    onLoaded = (s, e) =>
-                    {
-                        // Unsubscribes immediately to avoid being called back several times
-                        mainWindow.Loaded -= onLoaded;
-
-                        // If the command is available and executable
-                        if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
-                        {
-                            viewModel.ConnectDisconnectCommand.Execute(null);
-                        }
-                    };
-
-                    if (mainWindow.IsLoaded)
-                    {
-                        if (viewModel.ConnectDisconnectCommand?.CanExecute(null) == true)
-                        {
-                            viewModel.ConnectDisconnectCommand.Execute(null);
-                        }
-                    }
-                    else
-                    {
-                        // Attach handler to execute once when loaded
-                        mainWindow.Loaded += onLoaded;
-                    }
-                }
-            }
-            else
+            // Retrieves window and view model
+            if (Application.Current.MainWindow is not MainWindow mainWindow ||
+                mainWindow.viewModel is not MainViewModel viewModel)
             {
                 ClientLogger.Log("MainWindow or MainViewModel not found during startup configuration.", ClientLogLevel.Warn);
+                return;
+            }
+
+            // Persists encryption preference
+            Properties.Settings.Default.UseEncryption = enableEncryption;
+            Properties.Settings.Default.Save();
+
+            // Updates VM
+            viewModel.UseEncryption = enableEncryption;
+
+            // If a username was chosen, we apply it and auto‑connect
+            if (!string.IsNullOrEmpty(usernameChosen))
+            {
+                // Stores the username in the ViewModel
+                viewModel.Username = usernameChosen;
+
+                // Small helper to run the Connect/Disconnect command
+                void ExecuteConnect()
+                {
+                    viewModel.ConnectDisconnectCommand?.Execute(null);
+                }
+
+                // If the window is already loaded, we can connect right now
+                if (mainWindow.IsLoaded)
+                {
+                    ExecuteConnect();
+                }
+                else
+                {
+                    // Waits for the Loaded event before running the command.
+                    RoutedEventHandler handler = null!;
+                    handler = (_, _) =>
+                    {
+                        // Removes the handler so it runs only once
+                        mainWindow.Loaded -= handler;
+
+                        // Now the window is fully loaded, so we can connect
+                        ExecuteConnect();
+                    };
+
+                    // Runs the handler once the window finishes loading
+                    mainWindow.Loaded += handler;
+                }
             }
 
             // Theme selection

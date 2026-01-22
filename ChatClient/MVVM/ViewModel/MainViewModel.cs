@@ -9,10 +9,12 @@ using ChatClient.MVVM.View;
 using ChatClient.Net;
 using ChatClient.Properties;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -151,6 +153,12 @@ namespace ChatClient.MVVM.ViewModel
         private string _monitorWindowTitle = string.Empty;
 
         /// <summary>
+        /// Stores the last known value of AllKeysValid
+        /// so the lock animation only runs on state changes.
+        /// </summary>
+        private bool _previousAllKeysValid;
+
+        /// <summary>
         /// Backing field storing the current computed width of the right panel.
         /// Updated whenever the window is resized.
         /// </summary>
@@ -190,6 +198,17 @@ namespace ChatClient.MVVM.ViewModel
         private SolidColorBrush _watermarkBrush = new SolidColorBrush(Color.FromRgb(128, 128, 128)) { Opacity = 0.45 };
 
         // PUBLIC PROPERTIES
+
+        /// <summary>
+        /// Read‑only computed property using LINQ .All() to check whether all known
+        /// public keys are valid, and encryption can be used (keys present, all valid,
+        /// encryption enabled, and client connected).
+        /// </summary>
+        public bool AllKeysValid =>
+            EncryptionPipeline.KnownPublicKeys.Count > 0 &&
+            EncryptionPipeline.KnownPublicKeys.All(k => k.IsValid) &&
+            UseEncryption &&
+            IsConnected;
 
         /// <summary>
         /// Application UI language code.
@@ -1048,14 +1067,14 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public ObservableCollection<UserModel> Users { get; set; }
 
-        /// <summary> 
-        /// Initializes the MainViewModel. 
-        /// Sets up observable collections, configures the client connection, 
+        /// <summary>
+        /// Initializes the MainViewModel.
+        /// Sets up observable collections, configures the client connection,
         /// initializes the encryption pipeline, and prepares UI‑bound data views.
         /// </summary>
         public MainViewModel()
         {
-            // Initializes collections bound to the UI
+            // Initializes UI‑bound collections
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<string>();
 
@@ -1063,7 +1082,8 @@ namespace ChatClient.MVVM.ViewModel
             // The dispatcher callback ensures that all UI‑affecting actions are marshalled back
             // onto the WPF UI thread.
             // Passing "this" allows the connection layer to push events into the ViewModel.
-            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action), this);
+            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action),
+                this);
 
             // Gets the default view for the Users collection
             // Note: WPF does not sort ObservableCollection automatically, so we obtain
@@ -1076,22 +1096,27 @@ namespace ChatClient.MVVM.ViewModel
             usersView.SortDescriptions.Clear();
 
             // Adds ascending sort on Username property.
-            usersView.SortDescriptions.Add(new SortDescription(nameof(UserModel.Username), ListSortDirection.Ascending));
+            usersView.SortDescriptions.Add(new SortDescription(nameof(UserModel.Username),
+                ListSortDirection.Ascending));
 
-            // Creates encryption pipeline with ViewModel and client connection
+            // Initializes encryption pipeline with ViewModel and client connection
             EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
-                action => Application.Current.Dispatcher.BeginInvoke(action)
-            );
+                action => Application.Current.Dispatcher.BeginInvoke(action));
 
             // Relays pipeline PropertyChanged to proxy property for UI binding
             EncryptionPipeline.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(EncryptionPipeline.IsEncryptionReady))
+                {
                     OnPropertyChanged(nameof(IsEncryptionReady));
+                }
             };
 
-            // Binds the connection to the pipeline
+            // Binds connection to pipeline
             _clientConn.EncryptionPipeline = EncryptionPipeline;
+
+            // Subscribes to key‑state changes for lock synchronization
+            EncryptionPipeline.KnownPublicKeys.CollectionChanged += OnKnownPublicKeysChanged;
 
             // Reloads user-scoped settings from disk to ensure the ViewModel
             // starts with the most recently saved values.
@@ -1121,24 +1146,24 @@ namespace ChatClient.MVVM.ViewModel
                 Settings.Default.AppTheme = isDarkThemeSelected ? "dark" : "light";
                 Settings.Default.Save();
 
-                // Apply theme immediately
+                // Applies theme immediately
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
             // Creates request missing public key command (bound to the corresponding button in the monitor)
-            RequestMissingPublicKeyCommand = new RelayCommand<Guid>(async uid => 
-            await RequestMissingPublicKeyAsync(uid));
+            RequestMissingPublicKeyCommand =
+                new RelayCommand<Guid>(async uid => await RequestMissingPublicKeyAsync(uid));
 
             LoadLocalizedStrings();
 
-            // Retrieves the active instance (standard WPF way to access the main window).
-            var mainWindow = Application.Current.MainWindow as MainWindow;
-            mainWindow?.ApplyTrayMenuLocalization();
+            // Applies tray menu localization
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.ApplyTrayMenuLocalization();
+            }
 
-            int savedDisplayFontSize = Properties.Settings.Default.DisplayFontSize;
-
-            // Applies the font size (this triggers all layout updates)
-            DisplayFontSize = savedDisplayFontSize;
+            // Applies saved display font size
+            DisplayFontSize = Properties.Settings.Default.DisplayFontSize;
         }
 
         /// <summary>
@@ -1798,6 +1823,35 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Called when the KnownPublicKeys collection changes.
+        /// Subscribes to PropertyChanged on added entries, unsubscribes from removed ones,
+        /// and re-evaluates the global key‑validity state.
+        /// </summary>
+        private void OnKnownPublicKeysChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            // Subscribes to new entries
+            if (e.NewItems != null)
+            {
+                foreach (PublicKeyEntry publicKeyEntry in e.NewItems)
+                {
+                    publicKeyEntry.PropertyChanged += OnPublicKeyEntryChanged;
+                }
+            }
+
+            // Unsubscribes from removed entries
+            if (e.OldItems != null)
+            {
+                foreach (PublicKeyEntry publicKeyEntry in e.OldItems)
+                {
+                    publicKeyEntry.PropertyChanged -= OnPublicKeyEntryChanged;
+                }
+            }
+
+            // Recomputes validity and notify UI if needed
+            UpdateLockAnimationState();
+        }
+
+        /// <summary>
         /// Handles a delivered plain‐text message by prefixing the sender’s name.
         /// Marshals the update to the UI thread and appends "sender: message" to the chat.
         /// </summary>
@@ -1820,6 +1874,17 @@ namespace ChatClient.MVVM.ViewModel
                 );
             }
         }
+
+        /// <summary>
+        /// Handles changes inside a PublicKeyEntry (e.g., IsValid).
+        /// Triggers a lock‑state refresh when a key's validity changes.
+        /// </summary>
+        private void OnPublicKeyEntryChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(PublicKeyEntry.IsValid))
+                UpdateLockAnimationState();
+        }
+
 
         /// <summary>
         /// Processes a public key sent by another user and keeps the
@@ -2187,5 +2252,25 @@ namespace ChatClient.MVVM.ViewModel
             return false;
         }
 
+        /// <summary>
+        /// Checks for a change in the global key‑validity state and triggers
+        /// the lock animation when transitioning from invalid to valid.
+        /// The animation must be triggered via an event or a XAML trigger, never directly in the ViewModel.
+        /// The XAML listens to IsEncryptionReady
+        /// IsEncryptionReady depends on AllKeysValid
+        /// When AllKeysValid changes IsEncryptionReady changes and the animation is triggered.
+        /// </summary>
+        private void UpdateLockAnimationState()
+        {
+            bool current = AllKeysValid; 
+            
+            // Only notifies if the value changed
+            if (_previousAllKeysValid != current)
+            {
+                OnPropertyChanged(nameof(AllKeysValid)); 
+            }
+            
+            _previousAllKeysValid = current;
+        }
     }
 }

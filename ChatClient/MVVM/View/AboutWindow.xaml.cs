@@ -432,15 +432,5 @@ namespace ChatClient.MVVM.View
             FadeOutHotspot();
             AppTitle.Visibility = Visibility.Visible;
         }
-
-        /// <summary>
-        /// Triggers the legacy pathway once used by early builds
-        /// and quietly maintained.
-        /// </summary>
-        public void TriggerHotSpot()
-        {
-            // WPF equivalent of a WinForms PerformClick()
-            HotspotButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-        }
     }
 }
