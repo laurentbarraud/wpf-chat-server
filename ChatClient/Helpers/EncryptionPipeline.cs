@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 21th, 2026</date>
+/// <date>January 22th, 2026</date>
 
 using ChatClient.MVVM.Model;
 using ChatClient.MVVM.ViewModel;
@@ -71,6 +71,7 @@ namespace ChatClient.Helpers
                 }
             }
         }
+ 
         /// <summary>
         /// Unique source of truth for all known public keys, 
         /// exposed as a live collection of PublicKeyEntry.
@@ -114,6 +115,23 @@ namespace ChatClient.Helpers
 
             /// <summary> Initializes local public key material </summary>
             PublicKeyDer = EncryptionHelper.PublicKeyDer;
+        }
+
+        /// <summary>
+        /// Generates a short, stable excerpt of a public key for display in the monitor.
+        /// The method converts the DER-encoded key to Base64 and returns the first
+        /// 20 characters followed by "....". If the input is null or empty, an empty
+        /// string is returned. This ensures consistent formatting and avoids exposing
+        /// the full key in the UI.
+        /// </summary>
+
+        private string ComputeExcerpt(byte[]? der)
+        {
+            if (der == null || der.Length == 0)
+                return string.Empty;
+
+            string base64 = Convert.ToBase64String(der);
+            return base64.Length > 20 ? base64.Substring(0, 20) + "...." : base64;
         }
 
         /// <summary>
@@ -161,125 +179,108 @@ namespace ChatClient.Helpers
         }
 
         /// <summary>
-        /// Evaluates whether encryption is ready by checking local and peer public keys,
-        /// synchronizing missing keys, and updating UI state.
+        /// Evaluates whether encryption is ready by synchronizing the known public keys
+        /// with the current roster and updating the UI-bound collection in-place.
+        /// All modifications to KnownPublicKeys are dispatched to the UI thread.
         /// </summary>
         public bool EvaluateEncryptionState()
         {
             bool encryptionReady = false;
 
-            // Ensures that encryption is enabled and local user exists.
-            if (!Settings.Default.UseEncryption || (_viewModel.LocalUser == null))
+            // Encryption disabled or local user missing: nothing to evaluate.
+            if (!Settings.Default.UseEncryption || _viewModel.LocalUser == null)
             {
                 ClientLogger.Log("EvalEnc: encryption disabled or local user missing.", ClientLogLevel.Info);
+                SetEncryptionReady(false);
+                return false;
             }
 
-            // Solo mode: only the local key is required.
-            else if (_viewModel.Users.Count <= 1)
+            var encPipeline = _viewModel.EncryptionPipeline;
+            if (encPipeline == null)
             {
-                byte[] localPublicKey = _viewModel.LocalUser.PublicKeyDer;
-                byte[] helperPublicKey = EncryptionHelper.PublicKeyDer;
-
-                if ((localPublicKey?.Length > 0) || (helperPublicKey?.Length > 0))
-                {
-                    ClientLogger.Log("EvalEnc: solo mode detected, encryption ready.", ClientLogLevel.Info);
-                    encryptionReady = true;
-                }
-                else
-                {
-                    ClientLogger.Log("EvalEnc: solo mode detected, but no local key defined.", ClientLogLevel.Warn);
-                }
+                ClientLogger.Log("EvalEnc: pipeline is null.", ClientLogLevel.Warn);
+                SetEncryptionReady(false);
+                return false;
             }
 
-            // Multi-user mode: all peers must have valid public keys.
-            else
+            // Local UID for convenience.
+            Guid localUid = _viewModel.LocalUser.UID;
+
+            // Build a list of all users except the local one.
+            var peers = _viewModel.Users
+                .Where(u => u.UID != localUid)
+                .ToList();
+
+            // --- UI-thread update of KnownPublicKeys ---
+            _uiDispatcherInvoke(() =>
             {
-                var encryptionPipeline = _viewModel!.EncryptionPipeline;
-                if (encryptionPipeline == null)
+                foreach (var user in _viewModel.Users)
                 {
-                    ClientLogger.Log("EvalEnc: pipeline is null.", ClientLogLevel.Warn);
-                }
-                else
-                {
-                    // Collects all peer UIDs except the local user.
-                    List<Guid> peerUids = _viewModel.Users
-                        .Where(u => u.UID != _viewModel.LocalUser.UID)
-                        .Select(u => u.UID)
-                        .ToList();
+                    // Compute excerpt from the pipeline
+                    string excerpt = ComputeExcerpt(user.PublicKeyDer);
 
-                    // Updates the PublicKeyEntry list with the keys from the current roster.
-                    foreach (var user in _viewModel.Users)
+                    // Find existing entry.
+                    var entry = encPipeline.KnownPublicKeys.FirstOrDefault(e => e.UID == user.UID);
+
+                    if (entry == null)
                     {
-                        if (user.UID == _viewModel.LocalUser.UID)
+                        // Create a fully initialized entry.
+                        entry = new PublicKeyEntry
                         {
-                            continue;
-                        }
+                            UID = user.UID,
+                            Username = user.Username,
+                            KeyExcerpt = excerpt,
+                            IsLocal = (user.UID == localUid),
+                            StatusText = excerpt.Length > 0 ? "Valid" : "Missing"
+                        };
 
-                        if (user.PublicKeyDer != null && user.PublicKeyDer.Length > 0)
-                        {
-                            // Finds the entry with the same UID.
-                            var existingEntry = encryptionPipeline.KnownPublicKeys
-                                .FirstOrDefault(e => e.UID == user.UID);
-
-                            string keyExcerpt = Convert.ToBase64String(user.PublicKeyDer);
-                            if (keyExcerpt.Length > 20)
-                                keyExcerpt = keyExcerpt.Substring(0, 20) + "....";
-
-                            if (existingEntry != null)
-                            {
-                                existingEntry.KeyExcerpt = keyExcerpt;
-                                existingEntry.Username = user.Username;
-                            }
-                            else
-                            {
-                                encryptionPipeline.KnownPublicKeys.Add(
-                                    new PublicKeyEntry
-                                    {
-                                        UID = user.UID,
-                                        Username = user.Username,
-                                        KeyExcerpt = keyExcerpt
-                                    }
-                                );
-                            }
-                        }
-                    }
-
-                    List<Guid> missingKeys = new List<Guid>();
-
-                    foreach (Guid peerUid in peerUids)
-                    {
-                        // Find the peer entry matching this UID.
-                        var missingEntry = encryptionPipeline.KnownPublicKeys
-                            .FirstOrDefault(e => e.UID == peerUid);
-
-                        if (missingEntry == null || !missingEntry.IsValid)
-                        {
-                            missingKeys.Add(peerUid);
-                        }
-                    }
-
-                    if (missingKeys.Count == 0)
-                    {
-                        ClientLogger.Log("EvalEnc: all peer keys present -> ready.", ClientLogLevel.Info);
-                        encryptionReady = true;
+                        encPipeline.KnownPublicKeys.Add(entry);
                     }
                     else
                     {
-                        ClientLogger.Log($"EvalEnc: missing peer keys -> {string.Join(", ", missingKeys)}",
-                            ClientLogLevel.Debug);
+                        // Update in-place.
+                        entry.Username = user.Username;
+                        entry.KeyExcerpt = excerpt;
+                        entry.IsLocal = (user.UID == localUid);
+                        entry.StatusText = entry.IsValid ? "Valid" : "Missing";
                     }
                 }
-            }
 
-            // Updates UI flags.
-            _uiDispatcherInvoke(() =>
-            {
-                SetEncryptionReady(encryptionReady);
+                // Remove entries for users no longer in the roster.
+                var stale = encPipeline.KnownPublicKeys
+                    .Where(e => !_viewModel.Users.Any(u => u.UID == e.UID))
+                    .ToList();
+
+                foreach (var s in stale)
+                    encPipeline.KnownPublicKeys.Remove(s);
             });
 
-            ClientLogger.Log($"EvalEnc: final Ready={encryptionReady}", ClientLogLevel.Debug);
+            // --- Evaluate readiness ---
+            if (peers.Count == 0)
+            {
+                // Solo mode: only the local key matters.
+                encryptionReady = encPipeline.KnownPublicKeys.Any(e => e.IsLocal && e.IsValid);
+                ClientLogger.Log($"EvalEnc: solo mode → Ready={encryptionReady}", ClientLogLevel.Info);
+            }
+            else
+            {
+                // Multi-user mode: all peers must have valid keys.
+                bool allValid = peers.All(p =>
+                {
+                    var entry = encPipeline.KnownPublicKeys.FirstOrDefault(e => e.UID == p.UID);
+                    return entry != null && entry.IsValid;
+                });
+
+                encryptionReady = allValid;
+                ClientLogger.Log($"EvalEnc: multi-user → Ready={encryptionReady}", ClientLogLevel.Info);
+            }
+
+            // Update UI flag.
+            _uiDispatcherInvoke(() => SetEncryptionReady(encryptionReady));
+
             return encryptionReady;
         }
+
 
         /// <summary>
         /// Initializes the encryption pipeline: restores local key material if needed,

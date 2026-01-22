@@ -43,7 +43,7 @@
 
         <!-- Public Keys DataGrid -->
         <DataGrid Grid.Row="0"
-              ItemsSource="{Binding KnownPublicKeys}"
+              ItemsSource="{Binding EncryptionPipeline.KnownPublicKeys}"
               Visibility="{Binding IsGridVisible, Converter={StaticResource BoolToVisibilityConverter}}"
               ColumnWidth="*"
               AutoGenerateColumns="False"

@@ -1,7 +1,7 @@
 ﻿/// <file>RelayCommand.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 21th, 2026</date>
+/// <date>January 22th, 2026</date>
 
 using System;                               
 using System.Windows.Input;                // Imports ICommand and CommandManager.
@@ -41,18 +41,29 @@ namespace ChatClient.Helpers
 
         /// <summary>
         /// Determines whether the command can execute with the given parameter.
+        /// WPF may call CanExecute with a null or invalid parameter, so we validate
+        /// the type before invoking the predicate.
         /// </summary>
-        /// <param name="parameter">Parameter passed from UI; cast to T.</param>
-        /// <returns>True if _canExecute returns true; otherwise false.</returns>
-        public bool CanExecute(object? parameter) =>
-            _canExecute((T)parameter!);         // Invokes the canExecute predicate with the casted parameter.
+        public bool CanExecute(object? parameter)
+        {
+            // Pattern matching (introduced in C# 7):
+            // If parameter is of type T, calls _canExecute with this parameter.
+            // Otherwise, return false.
+            return parameter is T value && _canExecute(value);
+        }
 
         /// <summary>
         /// Executes the command action with the given parameter.
+        /// The parameter is only executed if it can be safely cast to T.
         /// </summary>
-        /// <param name="parameter">Parameter passed from UI; cast to T.</param>
-        public void Execute(object? parameter) =>
-            _execute((T)parameter!);            // Invokes the execute action with the casted parameter.
+        public void Execute(object? parameter)
+        {
+            if (parameter is T value)
+            {
+                _execute(value);
+            }
+        }
+
 
         /// <summary>
         /// Forces WPF to re-evaluate CanExecute and refresh bound controls.

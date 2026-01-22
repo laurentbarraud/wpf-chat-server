@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 21th, 2026</date>
+/// <date>January 22th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -147,12 +147,14 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private string _messageToSend = string.Empty;
 
+        /// <summary> Backing field storing the title of the monitoring window.</summary>
+        private string _monitorWindowTitle = string.Empty;
+
         /// <summary>
         /// Backing field storing the current computed width of the right panel.
         /// Updated whenever the window is resized.
         /// </summary>
         private double _rightGridWidth;
-
 
         /// <summary>
         /// Backing field for the server IP address used when the client is disconnected.
@@ -160,7 +162,7 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private string _serverIPAddress = Settings.Default.ServerIPAddress;
 
-        /// <summary>Blocks roster notifications during initialization.</summary>
+        /// <summary> Blocks roster notifications during initialization. </summary>
         private bool _suppressRosterNotifications = true;
 
         /// <summary>
@@ -459,6 +461,9 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public double HeightScaleFactor { get; } = 2.2;
 
+        /// <summary> Localized text displayed when a public key is invalid or missing. </summary> 
+        public string InvalidOrMissingKeyText { get; private set; } = string.Empty;
+
         /// <summary> 
         /// Stores the height of the message input area (the text input field). 
         /// This value is updated live by the splitter and persisted in user settings.
@@ -502,12 +507,6 @@ namespace ChatClient.MVVM.ViewModel
         public bool IsConnected => _clientConn?.IsConnected ?? false;
 
         /// <summary>
-        /// Proxy for UI binding.
-        /// True when the encryption pipeline is ready.
-        /// </summary>
-        public bool IsEncryptionReady => EncryptionPipeline?.IsEncryptionReady == true;
-
-        /// <summary>
         /// Gets or sets a value indicating whether the dark theme is active.
         /// Persists the choice to settings and applies the theme when changed.
         /// </summary>
@@ -530,6 +529,25 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Proxy for UI binding.
+        /// True when the encryption pipeline is ready.
+        /// </summary>
+        public bool IsEncryptionReady => EncryptionPipeline?.IsEncryptionReady == true;
+
+        /// <summary>
+        /// Exposes whether the initial roster snapshot has already been processed.
+        /// True only until the first roster update is received.
+        /// </summary>
+        public bool IsFirstRosterSnapshot => _isFirstRosterSnapshot;
+
+        /// <summary> True when the 
+        /// should be visible. </summary> 
+        public bool IsGridVisible => MaskMessage == null;
+
+        /// <summary> True when a mask message should be displayed instead of the grid. </summary>
+        public bool IsMaskVisible => MaskMessage != null;
+
+        /// <summary>
         /// Indicates whether the application is running in a debug build,
         /// enabling developer‑only UI elements and diagnostics.
         /// </summary>
@@ -543,12 +561,6 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        /// <summary>
-        /// Exposes whether the initial roster snapshot has already been processed.
-        /// True only until the first roster update is received.
-        /// </summary>
-        public bool IsFirstRosterSnapshot => _isFirstRosterSnapshot;
-
         /// <summary> 
         /// Raised whenever the application language changes. 
         /// ViewModels that expose localized properties can subscribe to 
@@ -561,6 +573,28 @@ namespace ChatClient.MVVM.ViewModel
         /// Is initialized to an empty User instance to satisfy non-nullable requirements.
         /// </summary>
         public UserModel LocalUser { get; private set; } = new UserModel();
+
+        /// <summary>
+        /// Gets the current mask message to display over the monitor grid.
+        /// Returns null when no mask should be shown.
+        /// </summary>
+        public string? MaskMessage
+        {
+            get
+            {
+                if (!Settings.Default.UseEncryption)
+                {
+                    return LocalizationManager.GetString("EnableEncryptionToSeePublicKeysState");
+                }
+
+                if (!IsConnected)
+                {
+                    return LocalizationManager.GetString("NotConnected");
+                }
+
+                return null;
+            }
+        }
 
         /// <summary>
         /// Gets the maximum font size allowed for UI text scaling.
@@ -759,6 +793,17 @@ namespace ChatClient.MVVM.ViewModel
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
+        /// <summary> Localized text for the monitor window title. </summary>
+        public string MonitorWindowTitle
+        {
+            get => _monitorWindowTitle;
+            set
+            {
+                _monitorWindowTitle = value;
+                OnPropertyChanged();
+            }
+        }
+
         /// <summary>
         /// Gets or sets the port number used by the client.
         /// This property acts as a proxy to the underlying application settings.
@@ -804,6 +849,13 @@ namespace ChatClient.MVVM.ViewModel
         /// Gets the localized reduce to tray label text
         /// </summary>
         public static string ReduceToTrayLabel => LocalizationManager.GetString("ReduceToTrayLabel");
+
+        /// <summary> 
+        /// Command bound to the action button in the monitor grid. 
+        /// Sends a targeted request for the missing public key of the selected user, 
+        /// using the UID as the command parameter. 
+        /// </summary>
+        public ICommand RequestMissingPublicKeyCommand { get; } = null!;
 
         /// <summary>
         /// Represents the current pixel width of the right panel. 
@@ -970,6 +1022,9 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
+
+        public string ValidKeyText { get; private set; } = string.Empty;
+     
         public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
 
@@ -1070,9 +1125,13 @@ namespace ChatClient.MVVM.ViewModel
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
+            // Creates request missing public key command (bound to the corresponding button in the monitor)
+            RequestMissingPublicKeyCommand = new RelayCommand<Guid>(async uid => 
+            await RequestMissingPublicKeyAsync(uid));
+
             LoadLocalizedStrings();
 
-            // Retrieve the active instance: this is the standard WPF way to access the main window.
+            // Retrieves the active instance (standard WPF way to access the main window).
             var mainWindow = Application.Current.MainWindow as MainWindow;
             mainWindow?.ApplyTrayMenuLocalization();
 
@@ -1621,10 +1680,16 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(AppLanguageLabel));
             OnPropertyChanged(nameof(AboutThisSoftwareLabel));
 
-            // Other localized properties
+            // Main window localized properties
             OnPropertyChanged(nameof(ConnectButtonText));
             OnPropertyChanged(nameof(CurrentIPDisplay));
 
+            // Monitor window title and key status texts
+            MonitorWindowTitle = LocalizationManager.GetString("MonitorWindowTitle");
+            ValidKeyText = LocalizationManager.GetString("ValidKey");
+            InvalidOrMissingKeyText = LocalizationManager.GetString("InvalidOrMissingKey");
+
+            // Watermark texts
             InitializeWatermarkBrush();
 
             // Notifies any subscribers that the language has changed
@@ -1866,20 +1931,26 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-
         /// <summary>
         /// Reacts to AppLanguage changes by applying the new culture
         /// and reloading all localized ViewModel strings.
         /// </summary>
         private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName != nameof(Settings.Default.AppLanguageCode))
+            if (e.PropertyName == nameof(Settings.Default.AppLanguageCode))
             {
+                LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode);
+                LoadLocalizedStrings();
                 return;
             }
 
-            LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode);
-            LoadLocalizedStrings();
+            if (e.PropertyName == nameof(Settings.Default.UseEncryption))
+            {
+                OnPropertyChanged(nameof(MaskMessage));
+                OnPropertyChanged(nameof(IsMaskVisible));
+                OnPropertyChanged(nameof(IsGridVisible));
+                return;
+            }
         }
 
         /// <summary>
@@ -1958,6 +2029,30 @@ namespace ChatClient.MVVM.ViewModel
             // Disables encryption pipeline
             EncryptionPipeline?.DisableEncryption();
             Volatile.Write(ref _encryptionInitOnce, 0);
+        }
+
+        /// <summary>
+        /// Sends a targeted request to a specific peer asking for its public key.
+        /// The UID is provided directly by the monitor and forwarded to the network layer.
+        /// Does nothing if the UID refers to the local user.
+        /// </summary>
+        private async Task RequestMissingPublicKeyAsync(Guid targetUid)
+        {
+            // Ignores requests targeting the local user's own UID.
+            if (targetUid == LocalUser.UID)
+                return;
+
+            try
+            {
+                await ClientConn
+                    .SendRequestToPeerForPublicKeyAsync(targetUid, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                ClientLogger.Log($"RequestMissingPublicKeyAsync failed for UID {targetUid}: {ex.Message}",
+                    ClientLogLevel.Error);
+            }
         }
 
         /// <summary>

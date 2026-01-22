@@ -1,7 +1,7 @@
 ﻿/// <file>MonitrWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 21th, 2026</date>
+/// <date>January 22th, 2026</date>
 
 using ChatClient.MVVM.ViewModel;             // For MonitorViewModel
 using ChatClient.Net;
@@ -17,24 +17,15 @@ namespace ChatClient.MVVM.View
     /// </summary>
     public partial class MonitorWindow : Window
     {
-        private readonly MonitorViewModel _monitorViewModel;
-
-        /// <summary> 
-        /// Initializes the window and assigns its ViewModel. 
-        /// Retrieves the MainViewModel from the application's main window 
-        /// and injects it into the MonitorViewModel before setting the DataContext.
+        /// <summary>
+        /// Initializes the monitor window and assigns the MainViewModel as DataContext.
+        /// This ensures that EncryptionPipeline and KnownPublicKeys are directly accessible
+        /// from the XAML bindings.
         /// </summary>
-        public MonitorWindow()
+        public MonitorWindow(MainViewModel mainViewModel)
         {
             InitializeComponent();
-
-            // Retrieves the MainViewModel of the application
-            var mainViewModel = Application.Current.MainWindow.DataContext as MainViewModel 
-                ?? throw new InvalidOperationException("MainViewModel not found.");
-
-            // Injects the real MainViewModel into the MonitorViewModel
-            _monitorViewModel = new MonitorViewModel(mainViewModel!);
-            DataContext = _monitorViewModel;
+            DataContext = mainViewModel;
         }
 
         private void CmdValidate_Click(object sender, RoutedEventArgs e)

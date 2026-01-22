@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 21th, 2026</date>
+/// <date>January 22th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -271,10 +271,14 @@ namespace ChatClient.MVVM.View
                 return;
             }
 
-            var monitor = new MonitorWindow()
-            {
-                Owner = this
-            };
+            // Explicitly pass the MainViewModel to the monitor,
+            // to give access to EncryptionPipeline and KnownPublicKeys.
+            var mainViewModel = DataContext as MainViewModel
+            ?? throw new InvalidOperationException("MainViewModel not found.");
+
+            var monitor = new MonitorWindow(mainViewModel);
+            monitor.Show();
+
 
             monitor.Show();
         }
