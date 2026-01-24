@@ -1975,7 +1975,7 @@ namespace ChatClient.MVVM.ViewModel
             // All keys available, safe to evaluate.
             RefreshEncryptionState();
 
-            if (EncryptionPipeline.IsEncryptionReady)
+            if (AllKeysValid)
             {
                 ClientLogger.Log($"Encryption ready after key update from {senderUid}.",
                     ClientLogLevel.Debug);
@@ -2046,7 +2046,7 @@ namespace ChatClient.MVVM.ViewModel
             EncryptionPipeline?.EvaluateEncryptionState();
 
             // Ensures UI bindings refresh for IsEncryptionReady
-            OnPropertyChanged(nameof(EncryptionPipeline.IsEncryptionReady));
+            OnPropertyChanged(nameof(AllKeysValid));
         }
 
         /// <summary>
@@ -2124,7 +2124,6 @@ namespace ChatClient.MVVM.ViewModel
                 return;
             }
 
-            AllKeysValid = false;
             UseEncryption = false;
             OnPropertyChanged(nameof(UseEncryption));
         }
