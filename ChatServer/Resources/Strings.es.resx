@@ -1,0 +1,324 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+<data name="ClientConnected" xml:space="preserve">
+  <value>Cliente {0} conectado correctamente.</value>
+</data>
+  <data name="ServerStartFailed" xml:space="preserve">
+  <value>Error al iniciar el servidor en el puerto {0}: {1}</value>
+</data>
+  <data name="BannerLine1" xml:space="preserve">
+  <value>Presione Ctrl+C para detener el servidor.</value>
+</data>
+  <data name="BannerLine2" xml:space="preserve">
+  <value>Cambie el puerto TCP de escucha o espere 7 segundos.</value>
+</data>
+  <data name="PortPrompt" xml:space="preserve">
+  <value>Introduzca un número de puerto entre 1000 y 65535 [predeterminado: 7123]:</value>
+</data>
+  <data name="InvalidPortPrompt" xml:space="preserve">
+  <value>Puerto inválido, ¿desea usar el puerto predeterminado (7123)? (s/n):</value>
+</data>
+  <data name="ServerShutdown" xml:space="preserve">
+  <value>Cerrando el servidor...</value>
+</data>
+  <data name="ServerShutdownComplete" xml:space="preserve">
+  <value>Apagado del servidor completado.</value>
+</data>
+  <data name="ServerStartedOnPort" xml:space="preserve">
+  <value>Escuchando en el puerto {0} — esperando conexiones entrantes...</value>
+</data>
+  <data name="StartingPacketLoop" xml:space="preserve">
+  <value>Iniciando bucle de lectura de paquetes por cliente.</value>
+</data>
+  <data name="PublicKeyBroadcastFail" xml:space="preserve">
+  <value>Error al difundir la clave pública de '{0}': {1}</value>
+</data>
+  <data name="PublicKeyBroadcast" xml:space="preserve">
+  <value>Clave pública difundida para '{0}'</value>
+</data>
+  <data name="UnknownOpcode" xml:space="preserve">
+  <value>Paquete recibido con opcode desconocido.</value>
+</data>
+  <data name="StreamClosed" xml:space="preserve">
+  <value>El par remoto cerró el flujo.</value>
+</data>
+  <data name="IOError" xml:space="preserve">
+  <value>Error de E/S durante el bucle de paquetes.</value>
+</data>
+  <data name="ErrorPacketLoop" xml:space="preserve">
+  <value>Error no controlado en el procesamiento de paquetes.</value>
+</data>
+  <data name="ClientRemoved" xml:space="preserve">
+  <value>Cliente {0} eliminado.</value>
+</data>
+  <data name="RosterSendFailed" xml:space="preserve">
+  <value>Error al enviar la lista a '{0}': {1}</value>
+</data>
+  <data name="DisconnectNotifyFailed" xml:space="preserve">
+  <value>Error al notificar la desconexión de '{0}': {1}</value>
+</data>
+  <data name="UserDisconnected" xml:space="preserve">
+  <value>Usuario '{0}' desconectado</value>
+</data>
+  <data name="MessageBroadcast" xml:space="preserve">
+  <value>Mensaje difundido desde '{0}'</value>
+</data>
+  <data name="MessageSendFailed" xml:space="preserve">
+  <value>Error al enviar mensaje a '{0}': {1}</value>
+</data>
+  <data name="UnexpectedOpcode" xml:space="preserve">
+  <value>Opcode inesperado '{1}' de '{0}'</value>
+</data>
+  <data name="EncryptedDeliverFailed" xml:space="preserve">
+  <value>Error al entregar mensaje cifrado a '{0}': {1}</value>
+</data>
+  <data name="EncryptedSendError" xml:space="preserve">
+  <value>Error al enviar mensaje cifrado a '{0}': {1}</value>
+</data>
+  <data name="PublicKeyRequestTargetNotFound" xml:space="preserve">
+  <value>Solicitud de clave pública fallida: destino '{0}' no encontrado</value>
+</data>
+  <data name="PublicKeyRequestRequesterNotConnected" xml:space="preserve">
+  <value>Solicitud de clave pública fallida: solicitante '{0}' no conectado</value>
+</data>
+  <data name="PublicKeyRequestSuccess" xml:space="preserve">
+  <value>Clave pública de '{0}' enviada correctamente</value>
+</data>
+  <data name="PublicKeyRequestSendError" xml:space="preserve">
+  <value>Error al enviar clave pública a '{0}': {1}</value>
+</data>
+  <data name="PublicKeyDeliverFail" xml:space="preserve">
+  <value>Entrega de clave pública a '{0}' fallida: {1}</value>
+</data>
+  <data name="PublicKeyDelivered" xml:space="preserve">
+  <value>Clave pública entregada a '{0}'</value>
+</data>
+  <data name="PublicKeyDeliverError" xml:space="preserve">
+  <value>Error al entregar clave pública a '{0}': {1}</value>
+</data>
+  <data name="ShutdownNotifyFail" xml:space="preserve">
+  <value>Error al notificar apagado a '{0}': {1}</value>
+</data>
+  <data name="AcceptLoopError" xml:space="preserve">
+  <value>Error en el bucle de aceptación: {0}</value>
+</data>
+  <data name="IncomingConnection" xml:space="preserve">
+  <value>Conexión entrante de '{0}'</value>
+</data>
+  <data name="Exiting" xml:space="preserve">
+  <value>Saliendo...</value>
+</data>
+  <data name="RosterSendSuccess" xml:space="preserve">
+  <value>Lista enviada correctamente a '{0}'</value>
+</data>
+  <data name="MessageRelaySuccess" xml:space="preserve">
+  <value>Mensaje retransmitido correctamente a {0}.</value>
+</data>
+  <data name="MessageRelayFailed" xml:space="preserve">
+  <value>Error al retransmitir mensaje a {0}: {1}</value>
+</data>
+  <data name="ErrorPublicKeyLengthInvalid" xml:space="preserve">
+  <value>Longitud de clave pública inválida en el handshake.</value>
+</data>
+  <data name="ErrorInvalidOperationException" xml:space="preserve">
+  <value>Opcode inesperado durante el procesamiento del handshake.</value>
+</data>
+  <data name="ErrorInvalidDataException" xml:space="preserve">
+  <value>Datos inválidos encontrados durante el handshake.</value>
+</data>
+  <data name="ErrorInvalidHandshakeLength" xml:space="preserve">
+  <value>Longitud de carga útil del handshake inválida durante la inicialización.</value>
+</data>
+  <data name="InvalidFrameLength" xml:space="preserve">
+  <value>Longitud de trama inválida recibida.</value>
+</data>
+  <data name="StreamDisposed" xml:space="preserve">
+  <value>Flujo eliminado durante la lectura.</value>
+</data>
+  <data name="ErrorClientCleanup" xml:space="preserve">
+  <value>Error durante la limpieza del cliente.</value>
+</data>
+  <data name="ClientCleanupComplete" xml:space="preserve">
+  <value>Limpieza del cliente completada.</value>
+</data>
+  <data name="ErrorInitializeClient" xml:space="preserve">
+  <value>Error al inicializar cliente: {0}</value>
+</data>
+  <data name="HandShakeTimeOutBeforePacketLoop" xml:space="preserve">
+  <value>Handshake no completado a tiempo; abortando bucle de paquetes.</value>
+</data>
+  <data name="SocketAlreadyClosed" xml:space="preserve">
+  <value>Socket ya cerrado o no conectado.</value>
+</data>
+  <data name="SocketCloseFailed" xml:space="preserve">
+  <value>Error al cerrar el socket del cliente durante la limpieza.</value>
+</data>
+  <data name="PacketReaderMissing" xml:space="preserve">
+  <value>Falta instancia de PacketReader; abortando manejador de conexión.</value>
+</data>
+  <data name="SocketNotConnected" xml:space="preserve">
+  <value>Socket del cliente no conectado; saliendo del bucle de lectura.</value>
+</data>
+  <data name="EmptyFrame" xml:space="preserve">
+  <value>Trama vacía recibida; ignorando.</value>
+</data>
+  <data name="DisconnectNotifyAlreadySent" xml:space="preserve">
+  <value>Notificación de desconexión ya enviada para este cliente.</value>
+</data>
+  <data name="HandshakeAckSendFailed" xml:space="preserve">
+  <value>Error al enviar HandshakeAck para {0}: {1}</value>
+</data>
+  <data name="ConnectionClosingDueToError" xml:space="preserve">
+  <value>Cerrando conexión debido a un error.</value>
+</data>
+  <data name="MessageReceived" xml:space="preserve">
+  <value>Mensaje sin cifrar recibido de {0}</value>
+</data>
+  <data name="ForceDisconnectReceived" xml:space="preserve">
+  <value>Comando de desconexión forzada recibido para este cliente.</value>
+</data>
+  <data name="ReadCancelled" xml:space="preserve">
+  <value>Operación de lectura cancelada.</value>
+</data>
+  <data name="AcceptTcpClientFailed" xml:space="preserve">
+  <value>Error al aceptar cliente TCP: {0}</value>
+</data>
+  <data name="SentHandshakeAck" xml:space="preserve">
+  <value>Paquete HandshakeAck enviado a {0}</value>
+</data>
+  <data name="BroadcastRosterFailed" xml:space="preserve">
+  <value>Error al difundir la lista: {0}</value>
+</data>
+  <data name="BroadcastForceDisconnectFailed" xml:space="preserve">
+  <value>Error al enviar paquete ForceDisconnect: {0}</value>
+</data>
+  <data name="SendFramedIoError" xml:space="preserve">
+  <value>Error de E/S al enviar paquete enmarcado al usuario '{0}': {1}</value>
+</data>
+  <data name="EncryptedPayloadEmpty" xml:space="preserve">
+  <value>La carga útil del mensaje cifrado está vacía (UID={0}, Destinatario={1}).</value>
+</data>
+  <data name="EncryptedMessageReceived" xml:space="preserve">
+  <value>Mensaje cifrado recibido de {0} para {1}</value>
+</data>
+  <data name="PublicKeyResponseRelayFailed" xml:space="preserve">
+  <value>Falló la retransmisión de la respuesta de clave pública.</value>
+</data>
+</root>

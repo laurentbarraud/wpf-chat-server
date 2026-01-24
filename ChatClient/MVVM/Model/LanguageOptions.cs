@@ -29,6 +29,7 @@ namespace ChatClient.MVVM.Model
                 {
                     "en" => "english",
                     "fr" => "french",
+                    "es" => "spanish",
                     _ => LanguageCode.ToLowerInvariant()
                 };
 

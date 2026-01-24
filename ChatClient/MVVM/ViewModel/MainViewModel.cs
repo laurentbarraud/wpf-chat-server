@@ -919,7 +919,8 @@ namespace ChatClient.MVVM.ViewModel
             = new ObservableCollection<LanguageOptions>
             {
                 new LanguageOptions("en"),
-                new LanguageOptions("fr")
+                new LanguageOptions("fr"),
+                new LanguageOptions("es"),
             };
 
 

@@ -40,9 +40,18 @@ namespace ChatServer
         /// </summary>
         public static async Task Main(string[] args)
         {
-            // Initializes localization based on system language.
-            string uiLang = CultureInfo.CurrentCulture.TwoLetterISOLanguageName.Equals("fr", StringComparison.OrdinalIgnoreCase) ? "fr" : "en";
+            // Detects the OS UI language (two-letter ISO code).
+            string osLanguage = CultureInfo.CurrentCulture.TwoLetterISOLanguageName.ToLowerInvariant();
+
+            string appLanguage = osLanguage switch
+            {
+                "fr" => "fr",
+                "es" => "es",
+                _ => "en"
+            };
+
             LocalizationManager.Initialize(uiLang);
+
 
             // Ensures console supports UTF-8 output.
             Console.OutputEncoding = Encoding.UTF8;
