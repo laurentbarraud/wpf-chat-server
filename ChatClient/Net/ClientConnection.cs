@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 24th, 2026</date>
+/// <date>January 25th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -1117,7 +1117,8 @@ namespace ChatClient.Net
             }
 
             // Solo mode: loopback to self.
-            if (recipients.Count == 0)
+            bool isSoloMode = _viewModel?.Users.Count == 1; 
+            if (isSoloMode)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 

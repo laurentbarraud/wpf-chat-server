@@ -321,7 +321,7 @@ depuis la gauche</value>
   <data name="MonitorWindowTitle" xml:space="preserve">
     <value>Moniteur de clés publiques</value>
   </data>
-  <data name="ValidKey" xml:space="preserve">
+  <data name="ValidPublicKey" xml:space="preserve">
     <value>Clé valide</value>
   </data>
   <data name="EnableEncryptionToSeePublicKeysState" xml:space="preserve">
@@ -329,5 +329,8 @@ depuis la gauche</value>
   </data>
   <data name="NotConnected" xml:space="preserve">
     <value>Veuillez vous connecter pour voir l'état des clés publiques.</value>
+  </data>
+  <data name="MissingOrInvalidPublicKey" xml:space="preserve">
+    <value>Clé manquante ou invalide</value>
   </data>
 </root>

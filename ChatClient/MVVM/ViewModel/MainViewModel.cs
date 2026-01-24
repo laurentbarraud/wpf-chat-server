@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 24th, 2026</date>
+/// <date>January 25th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -450,9 +450,6 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public double HeightScaleFactor { get; } = 2.2;
 
-        /// <summary> Localized text displayed when a public key is invalid or missing. </summary> 
-        public string InvalidOrMissingKeyText { get; private set; } = string.Empty;
-
         /// <summary> 
         /// Stores the height of the message input area (the text input field). 
         /// This value is updated live by the splitter and persisted in user settings.
@@ -767,6 +764,9 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public static int MinDisplayFontSize => 12;
 
+        /// <summary> Localized text displayed when a public key is missing or invalid. </summary> 
+        public string MissingOrInvalidPublicKey { get; private set; } = string.Empty;
+
         /// <summary>
         /// Notifies the UI that a property value has changed.
         /// </summary>
@@ -1006,8 +1006,7 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-
-        public string ValidKeyText { get; private set; } = string.Empty;
+        public string ValidPublicKey { get; private set; } = string.Empty;
      
         public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
@@ -1676,8 +1675,8 @@ namespace ChatClient.MVVM.ViewModel
 
             // Monitor window title and key status texts
             MonitorWindowTitle = LocalizationManager.GetString("MonitorWindowTitle");
-            ValidKeyText = LocalizationManager.GetString("ValidKey");
-            InvalidOrMissingKeyText = LocalizationManager.GetString("InvalidOrMissingKey");
+            ValidPublicKey = LocalizationManager.GetString("ValidPublicKey");
+            MissingOrInvalidPublicKey = LocalizationManager.GetString("MissingOrInvalidPublicKey");
 
             // Watermark texts
             InitializeWatermarkBrush();

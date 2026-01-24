@@ -449,6 +449,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Missing or invalid key.
+        /// </summary>
+        public static string MissingOrInvalidPublicKey {
+            get {
+                return ResourceManager.GetString("MissingOrInvalidPublicKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Public Keys Monitor.
         /// </summary>
         public static string MonitorWindowTitle {
@@ -622,9 +631,9 @@ namespace ChatClient.Resources {
         /// <summary>
         ///   Recherche une chaîne localisée semblable à Valid key.
         /// </summary>
-        public static string ValidKey {
+        public static string ValidPublicKey {
             get {
-                return ResourceManager.GetString("ValidKey", resourceCulture);
+                return ResourceManager.GetString("ValidPublicKey", resourceCulture);
             }
         }
     }

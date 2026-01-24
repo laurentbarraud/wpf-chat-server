@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 24th, 2026</date>
+/// <date>January 25th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -276,10 +276,11 @@ namespace ChatClient.MVVM.View
             var mainViewModel = DataContext as MainViewModel
             ?? throw new InvalidOperationException("MainViewModel not found.");
 
-            var monitor = new MonitorWindow(mainViewModel);
-            monitor.Show();
-
-
+            var monitor = new MonitorWindow(mainViewModel)
+            {
+                Owner = this
+            };
+            
             monitor.Show();
         }
 

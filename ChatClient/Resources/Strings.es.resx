@@ -119,115 +119,115 @@
   </resheader>
   <data name="AppLanguageLabel" xml:space="preserve">
     <value>Idioma de la aplicación</value>
-</data>
+  </data>
   <data name="ChooseAnAppropriatePortNumber" xml:space="preserve">
     <value>Elija un número entre 1000 y 65535.</value>
-</data>
+  </data>
   <data name="ClientSocketNotConnected" xml:space="preserve">
     <value>El socket del cliente no está conectado.</value>
-</data>
+  </data>
   <data name="Connect" xml:space="preserve">
     <value>_Conectar</value>
-</data>
+  </data>
   <data name="Connected" xml:space="preserve">
     <value>Conectado</value>
-</data>
+  </data>
   <data name="ConnectionFailed" xml:space="preserve">
     <value>La conexión ha fallado.</value>
-</data>
+  </data>
   <data name="ErrorDecryptionFailed" xml:space="preserve">
     <value>[Error al descifrar]</value>
-</data>
+  </data>
   <data name="Disconnect" xml:space="preserve">
     <value>_Desconectar</value>
-</data>
+  </data>
   <data name="DisconnectError" xml:space="preserve">
     <value>Error al desconectar</value>
-</data>
+  </data>
   <data name="EncryptionEnabledToolTip" xml:space="preserve">
     <value>El cifrado de mensajes está activado.</value>
-</data>
+  </data>
   <data name="Error" xml:space="preserve">
     <value>Error</value>
-</data>
+  </data>
   <data name="ErrorInActivatingEncryption" xml:space="preserve">
     <value>No se pudo activar el cifrado.</value>
-</data>
+  </data>
   <data name="ErrorLoadingThemeResources" xml:space="preserve">
     <value>Ocurrió un error al cargar la configuración. Verifique los recursos del tema.</value>
-</data>
+  </data>
   <data name="ErrorWhileDisconnecting" xml:space="preserve">
     <value>Error al desconectar: </value>
-</data>
+  </data>
   <data name="HasConnected" xml:space="preserve">
     <value>se ha conectado</value>
-</data>
+  </data>
   <data name="HasDisconnected" xml:space="preserve">
     <value>se ha desconectado</value>
-</data>
+  </data>
   <data name="InvalidPublicKey" xml:space="preserve">
     <value>Clave pública inválida. El cifrado no se activó.</value>
-</data>
+  </data>
   <data name="IPAddressInvalid" xml:space="preserve">
     <value>La dirección IP es incorrecta. Déjela vacía para conectarse localmente.</value>
-</data>
+  </data>
   <data name="LicenceFinal" xml:space="preserve">
     <value> v1.0 - ene. 2026 - Laurent Barraud </value>
-</data>
+  </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>Este software de código abierto se distribuye con la esperanza de que sea útil, pero sin ninguna garantía.</value>
-</data>
+  </data>
   <data name="LicenceInfoResources" xml:space="preserve">
     <value>Imágenes de botones e iconos inspirados en recursos disponibles en Flaticon.com.</value>
-</data>
+  </data>
   <data name="PortNumberInvalid" xml:space="preserve">
     <value>El número de puerto no es válido.</value>
-</data>
+  </data>
   <data name="PortNumberValid" xml:space="preserve">
     <value>El número de puerto es válido.</value>
-</data>
+  </data>
   <data name="PublicKeyRejected" xml:space="preserve">
     <value>La clave pública fue rechazada por el servidor. El cifrado no se activó.</value>
-</data>
+  </data>
   <data name="ReduceToTrayLabel" xml:space="preserve">
     <value>Minimizar en la bandeja del sistema</value>
-</data>
+  </data>
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
     <value>No se pudo enviar la clave pública RSA al servidor. Verifique su conexión.</value>
-</data>
+  </data>
   <data name="DisconnectedByServer" xml:space="preserve">
     <value>Ha sido desconectado por el servidor</value>
-</data>
+  </data>
   <data name="ServerUnreachable" xml:space="preserve">
     <value>El servidor no está disponible o ha rechazado la conexión.</value>
-</data>
+  </data>
   <data name="TrayOpenLabel" xml:space="preserve">
     <value>Abrir</value>
-</data>
+  </data>
   <data name="TrayQuitLabel" xml:space="preserve">
     <value>Salir</value>
-</data>
+  </data>
   <data name="UseTcpPortLabel" xml:space="preserve">
     <value>Usar puerto TCP:</value>
-</data>
+  </data>
   <data name="UseEncryptionLabel" xml:space="preserve">
     <value>Usar cifrado para los mensajes</value>
-</data>
+  </data>
   <data name="GettingMissingKeysToolTip" xml:space="preserve">
     <value>Obteniendo claves faltantes...</value>
-</data>
+  </data>
   <data name="SendingPublicKey" xml:space="preserve">
     <value>Enviando clave pública...</value>
-</data>
+  </data>
   <data name="ScrollLeftToolTip" xml:space="preserve">
     <value>Desplazar a la izquierda</value>
-</data>
+  </data>
   <data name="ScrollRightToolTip" xml:space="preserve">
     <value>Desplazar a la derecha</value>
-</data>
+  </data>
   <data name="CliOptionsHelpTitle" xml:space="preserve">
     <value>Ayuda de línea de comandos</value>
-</data>
+  </data>
   <data name="CliOptionsHelpText" xml:space="preserve">
     <value>Uso: chat-client.exe [opciones]
 
@@ -257,75 +257,78 @@ y estilo Unix (--opción).
 
 Ejemplo:
   chat-client.exe --dark /t /e /u Laurent</value>
-</data>
+  </data>
   <data name="CliArgumentsText" xml:space="preserve">
     <value>Argumentos de línea de comandos</value>
-</data>
+  </data>
   <data name="MessageSendingFailed" xml:space="preserve">
     <value>[Error: Su mensaje no se pudo enviar.]</value>
-</data>
+  </data>
   <data name="SendingFailed" xml:space="preserve">
     <value>No se pudo enviar el mensaje.</value>
-</data>
+  </data>
   <data name="SettingsToolTip" xml:space="preserve">
     <value>Configuración</value>
-</data>
+  </data>
   <data name="ErrorPlaintextEmpty" xml:space="preserve">
     <value>El texto sin cifrar no debe estar vacío.</value>
-</data>
+  </data>
   <data name="ErrorPublicKeyMissing" xml:space="preserve">
     <value>La clave pública DER del destinatario no debe ser nula ni vacía.</value>
-</data>
+  </data>
   <data name="ErrorEncryptionFailed" xml:space="preserve">
     <value>Error de cifrado: {0}</value>
-</data>
+  </data>
   <data name="ErrorInitializeClient" xml:space="preserve">
     <value>Error al inicializar el cliente: {0}</value>
-</data>
+  </data>
   <data name="ErrorFailedToSendInitialHandshake" xml:space="preserve">
     <value>Error al enviar el saludo inicial al servidor</value>
-</data>
+  </data>
   <data name="ActivateEncryptionToRead" xml:space="preserve">
     <value>Active el cifrado en la configuración para seguir leyendo los mensajes entrantes #</value>
-</data>
+  </data>
   <data name="ServerPrefix" xml:space="preserve">
     <value># - Servidor:</value>
-</data>
+  </data>
   <data name="DisplayFontSizeLabel" xml:space="preserve">
     <value>Tamaño del texto para conversaciones
 y lista de usuarios conectados</value>
-</data>
+  </data>
   <data name="MessageInputFieldLeftOffsetLabel" xml:space="preserve">
     <value>Desplazamiento izquierdo del campo de entrada</value>
-</data>
+  </data>
   <data name="MessageInputFieldWidthLabel" xml:space="preserve">
     <value>Ancho del campo de entrada</value>
-</data>
+  </data>
   <data name="MessageInputFieldWatermark" xml:space="preserve">
     <value>Escriba un mensaje...</value>
-</data>
+  </data>
   <data name="UsernameWatermark" xml:space="preserve">
     <value>Nombre de usuario</value>
-</data>
+  </data>
   <data name="IPAddressWatermark" xml:space="preserve">
     <value>Dirección IP del servidor</value>
-</data>
+  </data>
   <data name="EnableEncryptionToKeepReadingMessages" xml:space="preserve">
     <value>Active el cifrado para seguir leyendo los mensajes entrantes.</value>
-</data>
+  </data>
   <data name="AboutThisSoftwareLabel" xml:space="preserve">
     <value>Acerca de este software</value>
-</data>
+  </data>
   <data name="MonitorWindowTitle" xml:space="preserve">
     <value>Monitor de claves públicas</value>
-</data>
-  <data name="ValidKey" xml:space="preserve">
+  </data>
+  <data name="ValidPublicKey" xml:space="preserve">
     <value>Clave válida</value>
-</data>
+  </data>
   <data name="EnableEncryptionToSeePublicKeysState" xml:space="preserve">
     <value>Active el cifrado de mensajes para ver el estado de las claves públicas.</value>
-</data>
+  </data>
   <data name="NotConnected" xml:space="preserve">
     <value>Inicie sesión para ver el estado de las claves públicas.</value>
-</data>
+  </data>
+  <data name="MissingOrInvalidPublicKey" xml:space="preserve">
+    <value>Clave perdida o inválida</value>
+  </data>
 </root>
