@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 22th, 2026</date>
+/// <date>January 24th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -200,15 +200,11 @@ namespace ChatClient.MVVM.ViewModel
         // PUBLIC PROPERTIES
 
         /// <summary>
-        /// Read‑only computed property using LINQ .All() to check whether all known
-        /// public keys are valid, and encryption can be used (keys present, all valid,
-        /// encryption enabled, and client connected).
+        /// True when all known public keys are valid.
+        /// Does not depend on user settings or connection state.
         /// </summary>
-        public bool AllKeysValid =>
-            EncryptionPipeline.KnownPublicKeys.Count > 0 &&
-            EncryptionPipeline.KnownPublicKeys.All(k => k.IsValid) &&
-            UseEncryption &&
-            IsConnected;
+        public bool AllKeysValid => EncryptionPipeline.KnownPublicKeys.Count > 0 &&
+            EncryptionPipeline.KnownPublicKeys.All(k => k.IsValid);
 
         /// <summary>
         /// Application UI language code.
@@ -546,12 +542,6 @@ namespace ChatClient.MVVM.ViewModel
                 ThemeManager.ApplyTheme(value);
             }
         }
-
-        /// <summary>
-        /// Proxy for UI binding.
-        /// True when the encryption pipeline is ready.
-        /// </summary>
-        public bool IsEncryptionReady => EncryptionPipeline?.IsEncryptionReady == true;
 
         /// <summary>
         /// Exposes whether the initial roster snapshot has already been processed.
@@ -1106,9 +1096,9 @@ namespace ChatClient.MVVM.ViewModel
             // Relays pipeline PropertyChanged to proxy property for UI binding
             EncryptionPipeline.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(EncryptionPipeline.IsEncryptionReady))
+                if (e.PropertyName == nameof(AllKeysValid))
                 {
-                    OnPropertyChanged(nameof(IsEncryptionReady));
+                    OnPropertyChanged(nameof(AllKeysValid));
                 }
             };
 
@@ -2130,15 +2120,12 @@ namespace ChatClient.MVVM.ViewModel
             {
                 // Pipeline not yet initialized: just reset UI flags
                 UseEncryption = false;
-                OnPropertyChanged(nameof(EncryptionPipeline.IsEncryptionReady));
                 OnPropertyChanged(nameof(UseEncryption));
                 return;
             }
 
-            EncryptionPipeline.SetEncryptionReady(false);
+            AllKeysValid = false;
             UseEncryption = false;
-
-            OnPropertyChanged(nameof(EncryptionPipeline.IsEncryptionReady));
             OnPropertyChanged(nameof(UseEncryption));
         }
 

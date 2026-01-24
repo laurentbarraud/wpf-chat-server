@@ -38,13 +38,12 @@
 
         <!-- Atmospheric overlay (does not affect layout) -->
             <Canvas x:Name="AtmosphericCanvas"
-                    Grid.RowSpan="2"
                     Background="Transparent"
                     IsHitTestVisible="False"
-                    Panel.ZIndex="3"/>
+                    Panel.ZIndex="1"/>
 
         <!-- Top content area -->
-        <Grid Grid.Row="0" Panel.ZIndex="2" DataContext="{Binding}">
+        <Grid Grid.Row="0" Panel.ZIndex="0" DataContext="{Binding}">
 
             <!-- Diagonal gradient background -->
             <Grid.Background>
@@ -97,7 +96,7 @@
                     BorderBrush="Transparent"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
-                    Panel.ZIndex="49" 
+                    Panel.ZIndex="50" 
                     Margin="0,125,85,0">
                 
                 <Button.Template>
@@ -150,6 +149,7 @@
         <!-- Bottom panel -->
         <DockPanel Grid.Row="1"
                    Background="Black"
+                   Panel.ZIndex="10"
                    LastChildFill="False"
                    VerticalAlignment="Stretch">
 

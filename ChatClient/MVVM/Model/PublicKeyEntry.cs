@@ -1,7 +1,7 @@
 ﻿/// <file>PublicKeyEntry.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 22th, 2026</date>
+/// <date>January 24th, 2026</date>
 
 using System;
 using System.ComponentModel;
@@ -53,6 +53,12 @@ namespace ChatClient.MVVM.Model
                 OnPropertyChanged(nameof(IsValid));
             }
         }
+
+        /// <summary>
+        /// True when the key is missing or invalid.
+        /// Convenience property for readability.
+        /// </summary>
+        public bool IsMissing => !IsValid;
 
         /// <summary>
         /// Computed validity: true if the public key excerpt is non-empty.

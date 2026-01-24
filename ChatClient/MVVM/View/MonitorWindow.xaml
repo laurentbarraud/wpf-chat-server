@@ -142,7 +142,7 @@
 
                                 <Button.Style>
                                     <Style TargetType="Button">
-                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Setter Property="Visibility" Value="Collapsed"/>
 
                                         <Setter Property="Content">
                                             <Setter.Value>
@@ -157,8 +157,8 @@
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
 
-                                            <!-- Shows button only for invalid remote keys -->
-                                            <DataTrigger Binding="{Binding IsValid}" Value="False">
+                                            <!-- Shows button only for missing remote keys -->
+                                            <DataTrigger Binding="{Binding IsMissing}" Value="False">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                         </Style.Triggers>
