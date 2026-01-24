@@ -50,7 +50,7 @@ namespace ChatServer
                 _ => "en"
             };
 
-            LocalizationManager.Initialize(uiLang);
+            LocalizationManager.Initialize(appLanguage);
 
 
             // Ensures console supports UTF-8 output.

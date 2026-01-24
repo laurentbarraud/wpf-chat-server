@@ -150,17 +150,23 @@
                                                    Width="24" Height="24"/>
                                             </Setter.Value>
                                         </Setter>
-                                        
+
                                         <Style.Triggers>
-                                            <!-- Hides button for local key -->
+
+                                            <!-- Always hide for local key -->
                                             <DataTrigger Binding="{Binding IsLocal}" Value="True">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
 
-                                            <!-- Shows button only for missing remote keys -->
-                                            <DataTrigger Binding="{Binding IsMissing}" Value="False">
+                                            <!-- Show only if missing AND not local -->
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsLocal}" Value="False"/>
+                                                    <Condition Binding="{Binding IsMissing}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
                                                 <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
+                                            </MultiDataTrigger>
+
                                         </Style.Triggers>
 
                                     </Style>

@@ -428,20 +428,7 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        /// <summary>
-        /// Gets or sets the localized tooltip text displayed when encryption
-        /// is ready. This value is updated through localization and notifies
-        /// the UI whenever it changes.
-        /// </summary>
-        public string EncryptionEnabledToolTip
-        {
-            get => _encryptionEnabledToolTip;
-            set
-            {
-                _encryptionEnabledToolTip = value;
-                OnPropertyChanged();
-            }
-        }
+        public string EncryptionEnabledToolTip => LocalizationManager.GetString("EncryptionEnabledToolTip");
 
         /// <summary>
         /// Provides access to the encryption pipeline instance,
@@ -456,20 +443,7 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public int ExpectedClientCount { get; set; } = 1; // Starts at 1 (self)
 
-        /// <summary>
-        /// Gets or sets the localized tooltip text displayed when encryption
-        /// keys are missing. This value is updated through localization and
-        /// notifies the UI whenever it changes.
-        /// </summary>
-        public string GettingMissingKeysToolTip
-        {
-            get => _gettingMissingKeysToolTip;
-            set
-            {
-                _gettingMissingKeysToolTip = value;
-                OnPropertyChanged();
-            }
-        }
+        public string GettingMissingKeysToolTip => LocalizationManager.GetString("GettingMissingKeysToolTip");
 
         /// <summary>
         /// Base multiplier used to convert the global font size into a consistent control height.
@@ -1995,12 +1969,14 @@ namespace ChatClient.MVVM.ViewModel
         {
             if (e.PropertyName == nameof(Settings.Default.AppLanguageCode))
             {
-                LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode);
-                LoadLocalizedStrings();
-                return;
+                LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode); 
+                LoadLocalizedStrings(); 
+                OnPropertyChanged(nameof(EncryptionEnabledToolTip)); 
+                OnPropertyChanged(nameof(GettingMissingKeysToolTip)); 
+                return; 
             }
 
-            if (e.PropertyName == nameof(Settings.Default.UseEncryption))
+                if (e.PropertyName == nameof(Settings.Default.UseEncryption))
             {
                 OnPropertyChanged(nameof(MaskMessage));
                 OnPropertyChanged(nameof(IsMaskVisible));
