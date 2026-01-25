@@ -332,4 +332,16 @@ and connected users list</value>
   <data name="MissingOrInvalidPublicKey" xml:space="preserve">
     <value>Missing or invalid key</value>
   </data>
+  <data name="UsernameHeader" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="KeyExcerptHeader" xml:space="preserve">
+    <value>Key excerpt</value>
+  </data>
+  <data name="StatusHeader" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="ActionHeader" xml:space="preserve">
+    <value>Action</value>
+  </data>
 </root>

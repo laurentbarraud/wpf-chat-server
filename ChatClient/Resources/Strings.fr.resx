@@ -333,4 +333,16 @@ depuis la gauche</value>
   <data name="MissingOrInvalidPublicKey" xml:space="preserve">
     <value>Clé manquante ou invalide</value>
   </data>
+  <data name="UsernameHeader" xml:space="preserve">
+    <value>Utilisateur</value>
+  </data>
+  <data name="KeyExcerptHeader" xml:space="preserve">
+    <value>Extrait de clé</value>
+  </data>
+  <data name="StatusHeader" xml:space="preserve">
+    <value>Statut</value>
+  </data>
+  <data name="ActionHeader" xml:space="preserve">
+    <value>Action</value>
+  </data>
 </root>

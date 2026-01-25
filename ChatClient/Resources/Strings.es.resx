@@ -331,4 +331,16 @@ y lista de usuarios conectados</value>
   <data name="MissingOrInvalidPublicKey" xml:space="preserve">
     <value>Clave perdida o inválida</value>
   </data>
+  <data name="UsernameHeader" xml:space="preserve">
+    <value>Usuario</value>
+  </data>
+  <data name="KeyExcerptHeader" xml:space="preserve">
+    <value>Extracto de clave</value>
+  </data>
+  <data name="StatusHeader" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="ActionHeader" xml:space="preserve">
+    <value>Acción</value>
+  </data>
 </root>

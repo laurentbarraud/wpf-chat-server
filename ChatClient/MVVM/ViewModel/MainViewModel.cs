@@ -77,22 +77,11 @@ namespace ChatClient.MVVM.ViewModel
         private string _currentIPDisplay = "";
 
         /// <summary>
-        /// Stores the localized tooltip text shown when encryption is fully
-        /// enabled and all required keys are available.
-        /// </summary>
-        private string _encryptionEnabledToolTip = "";
-
-        /// <summary>
         /// Ensures that encryption initialization runs only once per session.
         /// Used as an interlocked flag: 0 = not initialized, 1 = already initialized.
         /// Reset to 0 during disconnect cleanup to allow fresh initialization.
         /// </summary>
         private int _encryptionInitOnce = 0;
-
-        /// <summary>
-        /// Backing field storing the tooltip text shown when encryption keys are missing.
-        /// </summary>
-        private string _gettingMissingKeysToolTip = "";
 
         /// <summary>
         /// Backing field for the height of the message input area (the text input field),
@@ -249,7 +238,12 @@ namespace ChatClient.MVVM.ViewModel
         public ClientConnection ClientConn => _clientConn;
 
         public static string AboutThisSoftwareLabel => LocalizationManager.GetString("AboutThisSoftwareLabel");
-      
+
+        /// <summary>
+        /// Localized header text for the action column in the monitor grid.
+        /// </summary>
+        public static string ActionHeader => LocalizationManager.GetString("ActionHeader");
+
         /// <summary> 
         /// Base emoji button size (minimum), derived from display font and height scale. 
         /// </summary> 
@@ -428,7 +422,7 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        public string EncryptionEnabledToolTip => LocalizationManager.GetString("EncryptionEnabledToolTip");
+        public static string EncryptionEnabledToolTip => LocalizationManager.GetString("EncryptionEnabledToolTip");
 
         /// <summary>
         /// Provides access to the encryption pipeline instance,
@@ -443,7 +437,7 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public int ExpectedClientCount { get; set; } = 1; // Starts at 1 (self)
 
-        public string GettingMissingKeysToolTip => LocalizationManager.GetString("GettingMissingKeysToolTip");
+        public static string GettingMissingKeysToolTip => LocalizationManager.GetString("GettingMissingKeysToolTip");
 
         /// <summary>
         /// Base multiplier used to convert the global font size into a consistent control height.
@@ -540,6 +534,11 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged();
             }
         }
+
+        /// <summary>
+        /// Localized header text for the key excerpt column in the monitor grid.
+        /// </summary>
+        public static string KeyExcerptHeader => LocalizationManager.GetString("KeyExcerptHeader");
 
         /// <summary> 
         /// Raised whenever the application language changes. 
@@ -897,6 +896,10 @@ namespace ChatClient.MVVM.ViewModel
                 new LanguageOptions("es"),
             };
 
+        /// <summary>
+        /// Localized header text for the status column in the monitor grid.
+        /// </summary>
+        public static string StatusHeader => LocalizationManager.GetString("StatusHeader");
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -992,6 +995,11 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
+        /// <summary>
+        /// Localized header text for the username column in the monitor grid.
+        /// </summary>
+        public static string UsernameHeader => LocalizationManager.GetString("Username");
+
         /// <summary> 
         /// Gets or sets the localized placeholder text for the IP address field. 
         /// Displayed when the field is empty and not focused. </summary> 
@@ -1006,10 +1014,15 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
+        /// <summary>
+        /// Localized text displayed when a public key is valid.
+        /// </summary>
         public string ValidPublicKey { get; private set; } = string.Empty;
-     
-        public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
+        /// <summary>
+        /// Localized label text for the TCP port number input field.
+        /// </summary>
+        public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
         /// <summary>
         /// Gets or sets the brush used for watermark text. The brush is theme‑aware
@@ -1067,17 +1080,9 @@ namespace ChatClient.MVVM.ViewModel
             EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action));
 
-            // Notifies UI that the pipeline now exists
-            OnPropertyChanged(nameof(EncryptionPipeline));
-
-            // Relays pipeline PropertyChanged to proxy property for UI binding
-            EncryptionPipeline.PropertyChanged += (s, e) =>
-            {
-                if (e.PropertyName == nameof(AllKeysValid))
-                {
-                    OnPropertyChanged(nameof(AllKeysValid));
-                }
-            };
+            // Notifies UI when AllKeysValid, a calculated property, must refresh after collection changes
+            EncryptionPipeline.KnownPublicKeys.CollectionChanged += (_, __) =>
+                OnPropertyChanged(nameof(AllKeysValid));
 
             // Binds connection to pipeline
             _clientConn.EncryptionPipeline = EncryptionPipeline;
@@ -1678,6 +1683,12 @@ namespace ChatClient.MVVM.ViewModel
             ValidPublicKey = LocalizationManager.GetString("ValidPublicKey");
             MissingOrInvalidPublicKey = LocalizationManager.GetString("MissingOrInvalidPublicKey");
             OnPropertyChanged(nameof(MaskMessage));
+
+            // Monitor DataGrid column headers
+            OnPropertyChanged(nameof(UsernameHeader));
+            OnPropertyChanged(nameof(KeyExcerptHeader));
+            OnPropertyChanged(nameof(StatusHeader));
+            OnPropertyChanged(nameof(ActionHeader));
 
             // Watermark texts
             InitializeWatermarkBrush();

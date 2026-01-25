@@ -70,6 +70,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Action.
+        /// </summary>
+        public static string ActionHeader {
+            get {
+                return ResourceManager.GetString("ActionHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Please activate encryption in settings to keep reading incoming messages #.
         /// </summary>
         public static string ActivateEncryptionToRead {
@@ -386,6 +395,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Key excerpt.
+        /// </summary>
+        public static string KeyExcerptHeader {
+            get {
+                return ResourceManager.GetString("KeyExcerptHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à  v1.0 - Jan. 2026 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
@@ -584,6 +602,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Status.
+        /// </summary>
+        public static string StatusHeader {
+            get {
+                return ResourceManager.GetString("StatusHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Open.
         /// </summary>
         public static string TrayOpenLabel {
@@ -607,6 +634,15 @@ namespace ChatClient.Resources {
         public static string UseEncryptionLabel {
             get {
                 return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à User.
+        /// </summary>
+        public static string UsernameHeader {
+            get {
+                return ResourceManager.GetString("UsernameHeader", resourceCulture);
             }
         }
         

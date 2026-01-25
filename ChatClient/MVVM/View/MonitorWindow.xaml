@@ -42,24 +42,25 @@
                Foreground="{DynamicResource PrimaryBrush}" />
 
         <!-- Public Keys DataGrid -->
-        <DataGrid Grid.Row="0"
-              ItemsSource="{Binding EncryptionPipeline.KnownPublicKeys}"
-              Visibility="{Binding IsGridVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-              ColumnWidth="*"
-              AutoGenerateColumns="False"
-              HeadersVisibility="Column"
-              CanUserAddRows="False"
-              CanUserDeleteRows="False"
-              CanUserResizeRows="False"
-              CanUserResizeColumns="True"
-              CanUserSortColumns="False"
-              Background="{DynamicResource BackgroundBrush}"
-              Foreground="{DynamicResource ForegroundBrush}"
-              BorderThickness="0"
-              RowHeaderWidth="0"
-              SelectionMode="Single"
-              SelectionUnit="FullRow"
-              IsReadOnly="True">
+        <DataGrid x:Name="PublicKeysDataGrid"
+                  Grid.Row="0"
+                  ItemsSource="{Binding EncryptionPipeline.KnownPublicKeys}"
+                  Visibility="{Binding IsGridVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+                  ColumnWidth="*"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  CanUserResizeRows="False"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="False"
+                  Background="{DynamicResource BackgroundBrush}"
+                  Foreground="{DynamicResource ForegroundBrush}"
+                  BorderThickness="0"
+                  RowHeaderWidth="0"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow"
+                  IsReadOnly="True">
 
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
@@ -77,13 +78,13 @@
             <DataGrid.Columns>
 
                 <!-- COLUMN 1 : Username -->
-                <DataGridTextColumn Header="Utilisateur"
+                <DataGridTextColumn Header="{Binding UsernameHeader}"
                                     Binding="{Binding Username}"
-                                    Width="224" />
+                                    Width="4.5*" />
 
                 <!-- COLUMN 2 : Key excerpt -->
-                <DataGridTemplateColumn Header="Extrait de clé" 
-                                        Width="120">
+                <DataGridTemplateColumn Header="{Binding KeyExcerptHeader}"
+                                        Width="2*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding KeyExcerpt}"
@@ -95,7 +96,8 @@
                 </DataGridTemplateColumn>
 
                 <!-- COLUMN 3 : Status (text and icon) -->
-                <DataGridTemplateColumn Header="Statut" Width="80">
+                <DataGridTemplateColumn Header="{Binding StatusHeader}" 
+                                        Width="2*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
 
@@ -127,7 +129,8 @@
                 </DataGridTemplateColumn>
 
                 <!-- COLUMN 4 : Action button -->
-                <DataGridTemplateColumn Header="" Width="70">
+                <DataGridTemplateColumn Header="{Binding ActionHeader}"
+                                        Width="1.5*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
 

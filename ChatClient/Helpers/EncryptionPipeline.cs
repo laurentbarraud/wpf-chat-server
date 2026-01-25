@@ -23,7 +23,7 @@ namespace ChatClient.Helpers
     /// This class is called from MainViewModel and ClientConnection
     /// to keep UI and network code separate from encryption logic.
     /// </summary>
-    public class EncryptionPipeline : INotifyPropertyChanged
+    public class EncryptionPipeline
     {
         // PRIVATE FIELDS
 
@@ -58,13 +58,6 @@ namespace ChatClient.Helpers
         /// </summary>
         public ObservableCollection<PublicKeyEntry> KnownPublicKeys { get; }
             = new ObservableCollection<PublicKeyEntry>();
-
-        /// <summary>
-        /// Occurs when a property value changes.
-        /// Used by WPF data binding to update the UI when
-        /// properties change.
-        /// </summary>
-        public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>
         /// Local user’s own RSA public key (DER-encoded).
