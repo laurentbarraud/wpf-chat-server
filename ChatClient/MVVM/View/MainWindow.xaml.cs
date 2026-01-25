@@ -259,10 +259,17 @@ namespace ChatClient.MVVM.View
             popupEmoji.IsOpen = true;
         }
 
+        /// <summary>
+        /// Toggles the MonitorWindow:
+        /// - Closes it if already open.
+        /// - Otherwise opens a new instance using the existing MainViewModel,
+        ///   ensuring access to EncryptionPipeline and KnownPublicKeys.
+        /// </summary>
         private void CmdMonitor_Click(object sender, RoutedEventArgs e)
         {
+            // Checks if a monitor window is already open
             var existingMonitorWindow = Application.Current.Windows
-                .OfType <MonitorWindow>()
+                .OfType<MonitorWindow>()
                 .FirstOrDefault();
 
             if (existingMonitorWindow != null)
@@ -271,16 +278,17 @@ namespace ChatClient.MVVM.View
                 return;
             }
 
-            // Explicitly pass the MainViewModel to the monitor,
-            // to give access to EncryptionPipeline and KnownPublicKeys.
-            var mainViewModel = DataContext as MainViewModel
-            ?? throw new InvalidOperationException("MainViewModel not found.");
+            // Retrieves the existing MainViewModel from this window
+            var mainViewModel = DataContext as MainViewModel;
+            if (mainViewModel == null)
+                return; // no exception, simple early exit
 
+            // Creates the monitor window with the REAL ViewModel
             var monitor = new MonitorWindow(mainViewModel)
             {
                 Owner = this
             };
-            
+
             monitor.Show();
         }
 
