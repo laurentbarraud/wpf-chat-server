@@ -1677,6 +1677,7 @@ namespace ChatClient.MVVM.ViewModel
             MonitorWindowTitle = LocalizationManager.GetString("MonitorWindowTitle");
             ValidPublicKey = LocalizationManager.GetString("ValidPublicKey");
             MissingOrInvalidPublicKey = LocalizationManager.GetString("MissingOrInvalidPublicKey");
+            OnPropertyChanged(nameof(MaskMessage));
 
             // Watermark texts
             InitializeWatermarkBrush();
@@ -1873,10 +1874,6 @@ namespace ChatClient.MVVM.ViewModel
             var publicKey = (publicKeyDer == null || publicKeyDer.Length == 0)
                 ? Array.Empty<byte>()
                 : publicKeyDer;
-
-            // Ignores self-echo.
-            if (senderUid == LocalUser.UID)
-                return;
 
             bool keyDictionaryUpdated = false;
 

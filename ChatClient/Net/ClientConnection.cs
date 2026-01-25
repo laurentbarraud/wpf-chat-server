@@ -687,6 +687,10 @@ namespace ChatClient.Net
                                         {
                                             // Updates existing entry in place
                                             matchingEntry.KeyExcerpt = computedExcerpt;
+
+                                            // Ensures correct local/non-local classification
+                                            // (required so the DataGrid does not hide remote keys)
+                                            matchingEntry.IsLocal = (originUid == _viewModel.LocalUser.UID);
                                         }
                                         else
                                         {
@@ -695,8 +699,13 @@ namespace ChatClient.Net
                                                 new PublicKeyEntry
                                                 {
                                                     UID = originUid,
-                                                    Username = _viewModel.Users.FirstOrDefault(u => u.UID == originUid)?.Username ?? "",
+                                                    Username = _viewModel.Users
+                                                        .FirstOrDefault(u => u.UID == originUid)?.Username ?? "",
+
                                                     KeyExcerpt = computedExcerpt,
+
+                                                    // Mark as local only if this UID is the local user's UID
+                                                    IsLocal = (originUid == _viewModel.LocalUser.UID)
                                                 }
                                             );
                                         }

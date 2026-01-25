@@ -194,27 +194,12 @@ namespace ChatClient.Helpers
                     // Find existing keyEntry.
                     var entry = encPipeline.KnownPublicKeys.FirstOrDefault(e => e.UID == user.UID);
 
-                    if (entry == null)
+                    if (entry != null)
                     {
-                        // Create a fully initialized keyEntry.
-                        entry = new PublicKeyEntry
-                        {
-                            UID = user.UID,
-                            Username = user.Username,
-                            KeyExcerpt = computedExcerpt,
-                            IsLocal = (user.UID == localUid),
-                            StatusText = computedExcerpt.Length > 0 ? "Valid" : "Missing"
-                        };
-
-                        encPipeline.KnownPublicKeys.Add(entry);
-                    }
-                    else
-                    {
-                        // Update in-place.
                         entry.Username = user.Username;
                         entry.KeyExcerpt = computedExcerpt;
                         entry.IsLocal = (user.UID == localUid);
-                        entry.StatusText = entry.IsValid ? "Valid" : "Missing";
+                        entry.StatusText = entry.IsValid ? LocalizationManager.GetString("ValidPublicKey") : LocalizationManager.GetString("MissingOrInvalidPublicKey");
                     }
                 }
 
@@ -249,7 +234,6 @@ namespace ChatClient.Helpers
 
             return encryptionReady;
         }
-
 
         /// <summary>
         /// Initializes the encryption pipeline: restores local key material if needed,
@@ -295,20 +279,6 @@ namespace ChatClient.Helpers
                     matchingEntry.KeyExcerpt = computedExcerpt;
                     matchingEntry.Username = _viewModel.LocalUser.Username;
                     matchingEntry.IsLocal = true;
-                }
-                else
-                {
-                    KnownPublicKeys.Add(
-                        new PublicKeyEntry
-                        {
-                            UID = localUserUid,
-                            Username = _viewModel.LocalUser.Username,
-                            KeyExcerpt = computedExcerpt,
-                            IsLocal = true
-                        }
-                    );
-
-                    ClientLogger.Log("Local public key injected into KnownPublicKeys.", ClientLogLevel.Debug);
                 }
             }
 
