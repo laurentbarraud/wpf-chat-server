@@ -145,7 +145,7 @@
     <value>Error al desconectar</value>
   </data>
   <data name="EncryptionEnabledToolTip" xml:space="preserve">
-    <value>El cifrado de mensajes está activado.</value>
+    <value>Cifrado de mensajes activado.</value>
   </data>
   <data name="Error" xml:space="preserve">
     <value>Error</value>
@@ -239,6 +239,7 @@ Opciones:
 
   --en, --english       Cambiar a inglés
   --fr, --french        Cambiar a francés
+  --sp, --spanish     Cambiar al español
 
   -e, --encrypted       Activar cifrado de extremo a extremo
 
@@ -286,7 +287,7 @@ Ejemplo:
     <value>Error al enviar el saludo inicial al servidor</value>
   </data>
   <data name="ActivateEncryptionToRead" xml:space="preserve">
-    <value>Active el cifrado en la configuración para seguir leyendo los mensajes entrantes #</value>
+    <value>Active el cifrado en la configuración para seguir leyendo los mensajes entrantes</value>
   </data>
   <data name="ServerPrefix" xml:space="preserve">
     <value># - Servidor:</value>
@@ -342,5 +343,8 @@ y lista de usuarios conectados</value>
   </data>
   <data name="ActionHeader" xml:space="preserve">
     <value>Acción</value>
+  </data>
+  <data name="SettingsWindowTitle" xml:space="preserve">
+    <value>Configuración</value>
   </data>
 </root>

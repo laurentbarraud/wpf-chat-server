@@ -280,16 +280,20 @@ namespace ChatClient.MVVM.View
 
             // Retrieves the existing MainViewModel from this window
             var mainViewModel = DataContext as MainViewModel;
+            
             if (mainViewModel == null)
-                return; // no exception, simple early exit
+            {
+                return; 
+            }
 
-            // Creates the monitor window with the REAL ViewModel
+            // Creates the monitor window with the real ViewModel
             var monitor = new MonitorWindow(mainViewModel)
             {
                 Owner = this
             };
 
             monitor.Show();
+            monitor.PositionRelativeToOwnerBottomRight();
         }
 
         private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)

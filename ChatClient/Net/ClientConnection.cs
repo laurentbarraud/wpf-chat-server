@@ -10,6 +10,7 @@ using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
 using ChatProtocol.Net;
 using ChatProtocol.Net.IO;
+using Microsoft.VisualBasic.ApplicationServices;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Sockets;
@@ -1126,10 +1127,16 @@ namespace ChatClient.Net
             }
 
             // Solo mode: loopback to self.
-            bool isSoloMode = _viewModel?.Users.Count == 1; 
-            if (isSoloMode)
+            bool isSoloMode = (_viewModel?.Users.Count == 1) && !clientCanEncrypt;
+
+            // Prevents unintended local echo in multi‑user sessions by ensuring the solo‑mode
+            // path only executes when the client is truly alone and encryption is disabled.
+            if (!isSoloMode)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                return messageSent;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
                 var loopPacket = new PacketBuilder();
 
@@ -1162,7 +1169,6 @@ namespace ChatClient.Net
 
                 await SendFramedAsync(loopPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                 messageSent = true;
-            }
 
             return messageSent;
         }

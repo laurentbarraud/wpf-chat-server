@@ -87,6 +87,10 @@ namespace ChatClient.Helpers
                         case "--french":
                             langCodeChosen = "fr";
                             break;
+                        case "--sp":
+                        case "--spanish":
+                            langCodeChosen = "es";
+                            break;
                         case "--encrypted":
                             enableEncryption = true;
                             break;

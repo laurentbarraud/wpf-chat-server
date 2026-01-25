@@ -79,7 +79,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Please activate encryption in settings to keep reading incoming messages #.
+        ///   Recherche une chaîne localisée semblable à Please activate encryption in settings to keep reading incoming messages.
         /// </summary>
         public static string ActivateEncryptionToRead {
             get {
@@ -134,15 +134,14 @@ namespace ChatClient.Resources {
         ///
         ///  --en, --english        Switch to English
         ///  --fr, --french           Switch to French
+        ///  --sp, --spanish        Switch to Spanish
         ///
         ///  -e, --encrypted       Enable end-to-end encryption
         ///
         ///  -r, -t, -m, --reduce  Enable minimize to system tray
         ///  --tray, --min
         ///
-        ///  -c, -d, --debug        Open console window
-        ///                   
-        ///  -h, -? , --help     [le reste de la chaîne a été tronqué]&quot;;.
+        ///  -c, -d, --debug        Open console window [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {
@@ -598,6 +597,15 @@ namespace ChatClient.Resources {
         public static string SettingsToolTip {
             get {
                 return ResourceManager.GetString("SettingsToolTip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Settings.
+        /// </summary>
+        public static string SettingsWindowTitle {
+            get {
+                return ResourceManager.GetString("SettingsWindowTitle", resourceCulture);
             }
         }
         

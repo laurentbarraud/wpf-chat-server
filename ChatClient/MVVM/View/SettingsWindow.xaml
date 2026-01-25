@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
     xmlns:helpers="clr-namespace:ChatClient.Helpers"
-    Title="Settings"
+    Title="{Binding SettingsWindowTitle}"
     Height="440" Width="498"
     ShowInTaskbar="False"
     ResizeMode="NoResize"

@@ -239,6 +239,7 @@ Options :
 
   --en, --english        Basculer en anglais
   --fr, --french           Basculer en français
+  --sp, --spanish       Basculer en espagnol
 
   -e, --encrypted       Activer le chiffrement de bout en bout
 
@@ -286,7 +287,7 @@ Exemple :
     <value>Échec de l'envoi du handshake initial vers le serveur</value>
   </data>
   <data name="ActivateEncryptionToRead" xml:space="preserve">
-    <value>Veuillez activer le chiffrement dans les paramètres pour continuer à lire les messages entrants #
+    <value>Veuillez activer le chiffrement dans les paramètres pour continuer à lire les messages entrants
 </value>
   </data>
   <data name="ServerPrefix" xml:space="preserve">
@@ -344,5 +345,8 @@ depuis la gauche</value>
   </data>
   <data name="ActionHeader" xml:space="preserve">
     <value>Action</value>
+  </data>
+  <data name="SettingsWindowTitle" xml:space="preserve">
+    <value>Paramètres</value>
   </data>
 </root>

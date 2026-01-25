@@ -138,7 +138,7 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private string _messageToSend = string.Empty;
 
-        /// <summary> Backing field storing the title of the monitoring window.</summary>
+        /// <summary> Backing field storing the title of the monitor window.</summary>
         private string _monitorWindowTitle = string.Empty;
 
         /// <summary>
@@ -158,6 +158,9 @@ namespace ChatClient.MVVM.ViewModel
         /// This value is bound in TwoWay mode to allow user input and is initialized from application settings.
         /// </summary>
         private string _serverIPAddress = Settings.Default.ServerIPAddress;
+
+        /// <summary> Backing field storing the title of the settings window.</summary>
+        private string _settingsWindowTitle = string.Empty;
 
         /// <summary> Blocks roster notifications during initialization. </summary>
         private bool _suppressRosterNotifications = true;
@@ -862,6 +865,18 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
             }
         }
+
+        /// <summary> Localized text for the settings window title. </summary>
+        public string SettingsWindowTitle
+        {
+            get => _settingsWindowTitle;
+            set
+            {
+                _settingsWindowTitle = value;
+                OnPropertyChanged();
+            }
+        }
+
         public static string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
         public static string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
 
@@ -1664,7 +1679,8 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(ScrollRightToolTip));
             OnPropertyChanged(nameof(SettingsToolTip));
 
-            // Settings window labels
+            // Settings window labels and title
+            SettingsWindowTitle = LocalizationManager.GetString("SettingsWindowTitle");
             OnPropertyChanged(nameof(UseTcpPortLabel));
             OnPropertyChanged(nameof(ReduceToTrayLabel));
             OnPropertyChanged(nameof(UseEncryptionLabel));

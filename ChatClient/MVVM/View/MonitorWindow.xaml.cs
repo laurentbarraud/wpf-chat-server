@@ -20,17 +20,20 @@ namespace ChatClient.MVVM.View
     public partial class MonitorWindow : Window
     {
         /// <summary>
-        /// Initializes the monitor window, assigns the MainViewModel as its DataContext,
-        /// ensures access to EncryptionPipeline and KnownPublicKeys from XAML bindings,
-        /// and subscribes to language change notifications to refresh localized UI elements.
+        /// Initializes the monitor window, assigns the MainViewModel as DataContext,
+        /// anchors the window to the owner's bottom‑right corner,
+        /// and listens for language changes to refresh localized UI.
         /// </summary>
         public MonitorWindow(MainViewModel mainViewModel)
         {
             InitializeComponent();
             DataContext = mainViewModel!;
 
-            // Subscribes to language change event
-            mainViewModel!.LanguageChanged += MainViewModel_LanguageChanged;
+            Loaded += (_, __) => PositionRelativeToOwnerBottomRight();
+            Owner.LocationChanged += (_, __) => PositionRelativeToOwnerBottomRight();
+            Owner.SizeChanged += (_, __) => PositionRelativeToOwnerBottomRight();
+
+            mainViewModel.LanguageChanged += MainViewModel_LanguageChanged;
         }
 
         private void CmdValidate_Click(object sender, RoutedEventArgs e)
@@ -58,6 +61,23 @@ namespace ChatClient.MVVM.View
                 mainWindow.HideMonitorButton();
             }
         #endif
+        }
+
+        /// <summary> 
+        /// Positions the monitor window anchored to the bottom‑right corner of its owner.
+        /// Uses the owner's current bounds to compute a stable offset, ensuring consistent
+        /// placement even when the main window is resized or moved. 
+        /// </summary> 
+        public void PositionRelativeToOwnerBottomRight()
+        {
+            if (Owner == null)
+            {
+                return;
+            }
+
+            const double margin = 12;
+            Left = Owner.Left + Owner.Width - Width - margin;
+            Top = Owner.Top + Owner.Height - Height - margin;
         }
     }
 }

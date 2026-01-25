@@ -239,6 +239,7 @@ Options:
 
   --en, --english        Switch to English
   --fr, --french           Switch to French
+  --sp, --spanish        Switch to Spanish
 
   -e, --encrypted       Enable end-to-end encryption
 
@@ -286,7 +287,7 @@ Example:
     <value>Failed to send initial handshake to server</value>
   </data>
   <data name="ActivateEncryptionToRead" xml:space="preserve">
-    <value>Please activate encryption in settings to keep reading incoming messages #</value>
+    <value>Please activate encryption in settings to keep reading incoming messages</value>
   </data>
   <data name="ServerPrefix" xml:space="preserve">
     <value># - Server:</value>
@@ -342,5 +343,8 @@ and connected users list</value>
   </data>
   <data name="ActionHeader" xml:space="preserve">
     <value>Action</value>
+  </data>
+  <data name="SettingsWindowTitle" xml:space="preserve">
+    <value>Settings</value>
   </data>
 </root>
