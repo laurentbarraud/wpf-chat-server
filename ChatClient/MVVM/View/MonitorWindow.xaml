@@ -79,7 +79,7 @@
                 <!-- COLUMN 1 : Username -->
                 <DataGridTextColumn Header="Utilisateur"
                                     Binding="{Binding Username}"
-                                    Width="230" />
+                                    Width="224" />
 
                 <!-- COLUMN 2 : Key excerpt -->
                 <DataGridTemplateColumn Header="Extrait de clé" 

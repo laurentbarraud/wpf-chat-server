@@ -1200,31 +1200,28 @@ namespace ChatClient.MVVM.ViewModel
                 }
 
                 // Initializes LocalUser with handshake results
-                LocalUser = new UserModel 
-                { 
-                    Username = Username.Trim(), 
-                    UID = uid, 
-                    PublicKeyDer = publicKeyDer 
+                LocalUser = new UserModel
+                {
+                    Username = Username.Trim(),
+                    UID = uid,
+                    PublicKeyDer = publicKeyDer
                 };
 
-                ClientLogger.Log($"LocalUser initialized (Username='{LocalUser.Username}', UID={LocalUser.UID})", ClientLogLevel.Debug); 
+                ClientLogger.Log($"LocalUser initialized (Username='{LocalUser.Username}', UID={LocalUser.UID})", ClientLogLevel.Debug);
                 ClientLogger.Log("Connection established - handshake completed", ClientLogLevel.Info);
 
-                // Updates UI bindings to reflect connected state
-                _ = Application.Current.Dispatcher.BeginInvoke(() => 
-                { 
-                    // Notifies connection state
-                    OnPropertyChanged(nameof(IsConnected));
+                // Notifies UI that connection is now established
+                OnPropertyChanged(nameof(IsConnected));
 
-                    // Resets manual-disconnect flag
+                // Updates UI bindings to reflect connected state
+                _ = Application.Current.Dispatcher.BeginInvoke(() =>
+                {
                     _userHasClickedOnDisconnect = false;
 
-                    // Updates display text
-                    CurrentIPDisplay = "- " + LocalizationManager.GetString("Connected") + " -"; 
-                    
-                    // Notifies dependent UI elements
-                    OnPropertyChanged(nameof(CurrentIPDisplay)); 
-                    OnPropertyChanged(nameof(ConnectButtonText)); 
+                    CurrentIPDisplay = "- " + LocalizationManager.GetString("Connected") + " -";
+
+                    OnPropertyChanged(nameof(CurrentIPDisplay));
+                    OnPropertyChanged(nameof(ConnectButtonText));
                 });
 
                 ClientLogger.Log("Server accepted handshake — plaintext messages permitted", ClientLogLevel.Debug);
