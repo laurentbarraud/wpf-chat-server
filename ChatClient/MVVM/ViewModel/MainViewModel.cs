@@ -1067,6 +1067,9 @@ namespace ChatClient.MVVM.ViewModel
             EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
                 action => Application.Current.Dispatcher.BeginInvoke(action));
 
+            // Notifies UI that the pipeline now exists
+            OnPropertyChanged(nameof(EncryptionPipeline));
+
             // Relays pipeline PropertyChanged to proxy property for UI binding
             EncryptionPipeline.PropertyChanged += (s, e) =>
             {
