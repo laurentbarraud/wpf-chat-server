@@ -5,8 +5,10 @@
 
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
+using Microsoft.VisualBasic;
 using System;
 using System.Windows;
+using System.Windows.Media.Media3D;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ChatClient.Helpers
@@ -62,49 +64,131 @@ namespace ChatClient.Helpers
                 {
                     switch (arg)
                     {
+                        case "--nom":
+                        case "--name":
+                        case "--user":
+                        case "--nick":
+                        case "--pseudo":
+                        case "--apodo":
+                        case "--nickname":
+                        case "--nombre":
+                        case "--usuario":
                         case "--username":
+                        case "--utilisateur":
                             if (i + 1 < args.Length)
                                 usernameChosen = args[++i];
                             break;
+
                         case "--port":
+                        case "--puerto":
+                        case "--numport":
+                        case "--listenport":
+                        case "--portnumber":
                             if (i + 1 < args.Length && int.TryParse(args[i + 1], out var portNumberArgument))
                             {
                                 Properties.Settings.Default.PortNumber = portNumberArgument;
                                 i++;
                             }
                             break;
+
                         case "--dark":
+                        case "--nuit":
+                        case "--night":
+                        case "--noche":
+                        case "--oscuro":
+                        case "--sombre":
+                        case "--nocturne":
+                        case "--nocturno":
+                        case "--darkmode":
                             themeChosen = "dark";
                             break;
+
+                        case "--dia":
+                        case "--day":
+                        case "--clair":
+                        case "--claro":
                         case "--light":
+                        case "--bright":
+                        case "--lightmode":
                             themeChosen = "light";
                             break;
                         case "--en":
+                        case "--eng":
+                        case "--ingles":
+                        case "--inglés":
+                        case "--anglais":
                         case "--english":
                             langCodeChosen = "en";
                             break;
+
                         case "--fr":
+                        case "--france":
                         case "--french":
+                        case "--francés":
+                        case "--frances":
+                        case "--francais":
+                        case "--français":
                             langCodeChosen = "fr";
                             break;
+
+                        case "--es":
                         case "--sp":
+                        case "--esp":
+                        case "--espagnol":
+                        case "--espanol":
+                        case "--español":
                         case "--spanish":
                             langCodeChosen = "es";
                             break;
+
+                        case "--enc":
+                        case "--lock":
+                        case "--crypt":
+                        case "--crypté":
+                        case "--crypte":
+                        case "--crypto":
+                        case "--crypted":
+                        case "--secure":
+                        case "--seguro":
+                        case "--cifrado":
+                        case "--chiffré":
+                        case "--chiffre":
+                        case "--encrypt":
+                        case "--securise":
+                        case "--securisé":
                         case "--encrypted":
+                        case "--encryption":
+                        case "--securemode":
+                        case "--chiffrement":
                             enableEncryption = true;
                             break;
+
+                        case "--bandeja":
                         case "--reduce":
                         case "--tray":
+                        case "--systray":
                         case "--minimize":
+                        case "--minimized":
+                        case "--minimiser":
+                        case "--minimizar":
+                        case "--minimizado":
                             reduceInTray = true;
                             break;
+
+                        case "--aide":
+                        case "--ayuda":
                         case "--help":
                             showHelp = true;
                             break;
+
+                        case "--info":
+                        case "--infos":
                         case "--about":
                         case "--author":
+                        case "--acerca":
                         case "--credits":
+                        case "--informacion":
+                        case "--información":
                         case "--licence":
                         case "--license":
                         case "--version":

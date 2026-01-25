@@ -41,6 +41,7 @@ namespace ChatClient
             // Detects debug/console flags
             bool debugMode = args.Any(arg =>
                 arg.Equals("--debug", StringComparison.OrdinalIgnoreCase) ||
+                arg.Equals("--verbose", StringComparison.OrdinalIgnoreCase) ||
                 arg.Equals("--console", StringComparison.OrdinalIgnoreCase) ||
                 arg.Equals("-d", StringComparison.OrdinalIgnoreCase) ||
                 arg.Equals("-c", StringComparison.OrdinalIgnoreCase));

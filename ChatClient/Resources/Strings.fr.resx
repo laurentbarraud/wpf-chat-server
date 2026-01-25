@@ -231,33 +231,34 @@
   <data name="CliOptionsHelpText" xml:space="preserve">
     <value>Utilisation : chat-client.exe [options]
 
-Options :
-  -u, --username        Définir votre nom d'utilisateur et se connecter automatiquement
-  -p, --port                Définir le port du serveur
+Options:
+  -u, --nom, --username      Définir votre nom d'utilisateur et se connecter automatiquement
+  -p, --port                 Définir le port du serveur
 
-  --dark, --light         Basculer sur le thème
+  --sombre, --dark           Basculer sur le thème sombre
+  --clair,  --light          Basculer sur le thème clair
 
-  --en, --english        Basculer en anglais
-  --fr, --french           Basculer en français
-  --sp, --spanish       Basculer en espagnol
+  --fr, --français           Basculer en français
+  --en, --english            Basculer en anglais
+  --es, --español            Basculer en espagnol
 
-  -e, --encrypted       Activer le chiffrement de bout en bout
+  -e, --enc, --encrypted     Activer le chiffrement de bout en bout
 
-  -r, -t, -m --reduce   Activer la réduction dans la zone de notification
-  --tray, --min
+  -r, -t, -m, --reduce       Activer la réduction dans la zone de notification
+  --tray, --systray          Alias pour la zone de notification
 
-  -c, -d, --debug       Ouvrir la fenêtre console
+  -c, -d, --debug            Ouvrir la fenêtre console
 
-   -h, -? , --help        Afficher ce message d'aide
- 
-  -v, --about,           Ouvrir la fenêtre A propos
-  --version
+  -h, -? , --help, --aide    Afficher ce message d'aide
 
-Toutes les options acceptent la notation Windows (/option)  
+  -v, --about, --version     Ouvrir la fenêtre À propos / afficher la version
+
+Toutes les options acceptent la notation Windows (/option)
 et Unix (--option).
 
-Exemple :  
-  chat-client.exe --dark /t /e /u Laurent</value>
+Exemple :
+  chat-client.exe --sombre /t /e /u Laurent
+</value>
   </data>
   <data name="CliArgumentsText" xml:space="preserve">
     <value>Arguments de ligne de commande</value>

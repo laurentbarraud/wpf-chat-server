@@ -232,32 +232,33 @@
     <value>Uso: chat-client.exe [opciones]
 
 Opciones:
-  -u, --username        Establecer nombre de usuario y auto-conectar
-  -p, --port            Establecer el puerto del servidor
+  -u, --nombre, --username   Establecer nombre de usuario y auto-conectar
+  -p, --port, --puerto       Establecer el puerto del servidor
 
-   --dark, --light      Cambiar tema
+  --oscuro, --dark           Cambiar al tema oscuro
+  --claro,  --light          Cambiar al tema claro
 
-  --en, --english       Cambiar a inglés
-  --fr, --french        Cambiar a francés
-  --sp, --spanish     Cambiar al español
+  --es, --español            Cambiar al español
+  --en, --english            Cambiar a inglés
+  --fr, --francés            Cambiar a francés
 
-  -e, --encrypted       Activar cifrado de extremo a extremo
+  -e, --enc, --encrypted     Activar cifrado de extremo a extremo
 
-  -r, -t, -m, --reduce  Activar minimizar a la bandeja del sistema
-  --tray, --min
+  -r, -t, -m, --reduce       Activar minimizar a la bandeja del sistema
+  --tray, --bandeja          Alias para la bandeja del sistema
 
-  -c, -d, --debug       Abrir ventana de consola
-                   
-  -h, -? , --help       Mostrar este mensaje de ayuda
-  
-  -v, --about,          Abrir la ventana Acerca de
-  --version
+  -c, -d, --debug            Abrir ventana de consola
+
+  -h, -? , --help, --ayuda   Mostrar este mensaje de ayuda
+
+  -v, --about, --version     Abrir la ventana Acerca de / mostrar versión
 
 Todos los argumentos admiten notación estilo Windows (/opción)
 y estilo Unix (--opción).
 
 Ejemplo:
-  chat-client.exe --dark /t /e /u Laurent</value>
+  chat-client.exe --oscuro /t /e /u Laurent
+</value>
   </data>
   <data name="CliArgumentsText" xml:space="preserve">
     <value>Argumentos de línea de comandos</value>
