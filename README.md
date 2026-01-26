@@ -23,6 +23,7 @@ Client
 - 🪟 System tray integration — minimize/close to tray
 - 🎨 Theme toggle — light/dark themes switchable at any time
 - 🌐 Instant language switching — fully localized in French, Spanish and English
+- ↔️ Adjustable input field — resize or shift it horizontally to match your layout preferences
 - 🎞️ Subtle WPF animations using xaml storyboards and UI polish
 
 Architecture
@@ -32,4 +33,5 @@ Architecture
 
 ### Download
 Go to the [Releases](../../releases) section.
+
 A few pages of technical documentation are available [here](/docs/ChatClient-documentation.pdf).
