@@ -33,3 +33,5 @@ Architecture
 ### Download
 Go to the [Releases](../../releases) section.
 Provided as a ZIP archive with compiled executables, compatible with Windows 7 and above (x64).
+
+Full technical documentation is available [here](/docs/ChatClient-documentation.pdf).
