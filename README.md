@@ -1,4 +1,4 @@
-## WPF Chat App
+## Chat Client
 A real‑time WPF chat client and TCP server in C#, featuring a custom binary protocol, framed packet system, RSA encryption, and a modern interface.
 
 [![Release](https://img.shields.io/badge/release-stable-245e48)](https://github.com/laurentbarraud/wpf-chat-server/releases)
@@ -10,17 +10,17 @@ A real‑time WPF chat client and TCP server in C#, featuring a custom binary pr
 
 ### Features
 Core
-- 🔐 End‑to‑end RSA encryption — automatic keypair generation, real‑time public key sync, lock icon showing global encryption readiness
+- 🔐 End‑to‑end RSA encryption — automatic keypair generation and real‑time public key sync
 - 🔑 Public Key Monitor — live view of all known keys, drives encryption state
 - 📦 Length‑prefixed packet framing — no desync, no corrupted packets
 - 🌐 Async TCP networking — clean connect/disconnect cycle.
 
 Client
 - 👥 Real‑time user list — updates automatically on login/logout
-- 😀 UTF‑8 messaging — emoji‑compatible with a popup toolbar
+- 😀 UTF‑8 messaging — emoji‑compatible
 - 🔌 Configurable TCP port — choose the port before connecting
 - 🏠 Local mode — runs locally if no IP address is provided
-- 🪟 System tray integration — minimize/close to tray, Escape behavior
+- 🪟 System tray integration — minimize/close to tray
 - 🎨 Theme toggle — light/dark themes switchable at any time
 - 🌐 Instant language switching — fully localized in French, Spanish and English
 - 🎞️ Subtle WPF animations using xaml storyboards and UI polish
