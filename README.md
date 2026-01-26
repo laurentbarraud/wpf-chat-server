@@ -23,8 +23,12 @@ Client
 - 🪟 System tray integration — minimize/close to tray
 - 🎨 Theme toggle — light/dark themes switchable at any time
 - 🌐 Instant language switching — fully localized in French, Spanish and English
-- ↔️ Adjustable input field — resize or shift it horizontally to match your layout preferences
+- ✏️ Adjustable input field — resize or shift it horizontally to match your layout preferences
 - 🎞️ Subtle WPF animations using xaml storyboards and UI polish
+
+Server
+- ⚡ Async TCP engine — handles multiple clients concurrently with non‑blocking I/O
+- 📡 Broadcast & routing logic — distributes messages to all connected clients
 
 Architecture
 - 🧱 Three‑module structure — Client, Server, Protocol
