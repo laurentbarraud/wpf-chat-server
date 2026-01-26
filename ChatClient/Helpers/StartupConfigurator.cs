@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 25th, 2026</date>
+/// <date>January 26th, 2026</date>
 
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
@@ -163,9 +163,9 @@ namespace ChatClient.Helpers
                             enableEncryption = true;
                             break;
 
-                        case "--bandeja":
-                        case "--reduce":
                         case "--tray":
+                        case "--reduce":
+                        case "--bandeja":
                         case "--systray":
                         case "--minimize":
                         case "--minimized":
@@ -181,17 +181,17 @@ namespace ChatClient.Helpers
                             showHelp = true;
                             break;
 
+                        case "--about":
                         case "--info":
                         case "--infos":
-                        case "--about":
-                        case "--author":
                         case "--acerca":
+                        case "--author":
                         case "--credits":
-                        case "--informacion":
-                        case "--información":
                         case "--licence":
                         case "--license":
                         case "--version":
+                        case "--informacion":
+                        case "--información":
                             showAbout = true;
                             break;
 

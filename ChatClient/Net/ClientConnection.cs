@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 25th, 2026</date>
+/// <date>January 26th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -1035,83 +1035,84 @@ namespace ChatClient.Net
 
         /// <summary>
         /// Sends a chat message to the server.
-        /// Chooses plain or encrypted transmission depending on encPipeline readiness.
-        /// Broadcasts to peers or loops back in solo mode.
+        /// Selects plaintext or encrypted transmission based on pipeline readiness.
+        /// • Plaintext mode: sends a single packet (server handles broadcast and solo echo).
+        /// • Encrypted mode: sends one encrypted packet per recipient plus an encrypted self‑echo.
+        /// • Solo mode: only the encrypted case performs a self‑echo; plaintext relies on server echo.
         /// </summary>
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
-            // Basic validation: message must not be empty and a local user must exist.
-            if (string.IsNullOrWhiteSpace(plainText) || (_viewModel?.LocalUser == null))
+            // Rejects empty messages or missing local user.
+            if (string.IsNullOrWhiteSpace(plainText) || _viewModel?.LocalUser == null)
             {
                 return false;
             }
 
             Guid senderUid = _viewModel.LocalUser.UID;
 
-            // All users except the sender are recipients.
-            var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
-
+            // Determines whether encryption is fully usable.
             bool clientCanEncrypt = Settings.Default.UseEncryption && _viewModel.IsConnected && _viewModel.AllKeysValid;
+
+
+            // Plain text mode (one packet, server handles broadcast)
+            if (!clientCanEncrypt)
+            {
+                var packet = new PacketBuilder();
+                packet.WriteOpCode((byte)PacketOpCode.PlainMessage);
+                packet.WriteUid(senderUid);
+                packet.WriteString(plainText);
+
+                await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+
+            
+            // Encrypted mode (one packet per-recipient plus self-echo)
+            var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
             bool messageSent = false;
 
             foreach (var recipient in recipients)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var encPipeline = _viewModel.EncryptionPipeline;
+                if (encPipeline == null)
+                {
+                    ClientLogger.Log("Encryption pipeline is null.", ClientLogLevel.Warn);
+                    continue;
+                }
+
+                // Retrieves recipient public key.
+                byte[] recipientPublicKeyDer = recipient.PublicKeyDer;
+
+                if (recipientPublicKeyDer == null || recipientPublicKeyDer.Length == 0)
+                {
+                    ClientLogger.Log($"Missing public key for {recipient.UID}", ClientLogLevel.Warn);
+                    continue;
+                }
+
+                // Encrypts message for this specific recipient.
+                var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, recipientPublicKeyDer);
+
+                if (cipher == null || cipher.Length == 0)
+                {
+                    continue;
+                }
+
                 var packet = new PacketBuilder();
+                packet.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
+                packet.WriteUid(senderUid);
+                packet.WriteUid(recipient.UID);
+                packet.WriteBytesWithLength(cipher);
 
-                if (!clientCanEncrypt)
-                {
-                    // Plain-text fallback: encryption disabled or pipeline not ready.
-                    packet.WriteOpCode((byte)PacketOpCode.PlainMessage);
-                    packet.WriteUid(senderUid);
-                    packet.WriteString(plainText);
-                }
-                else
-                {
-                    var encPipeline = _viewModel.EncryptionPipeline;
-
-                    // Defensive check: avoids a crash.
-                    if (encPipeline == null)
-                    {
-                        ClientLogger.Log("Encryption pipeline is null.", ClientLogLevel.Warn);
-                        continue;
-                    }
-
-                    // Retrieves recipient's public key
-                    byte[] recipientPublicKeyDer = recipient.PublicKeyDer;
-
-                    if (recipientPublicKeyDer == null || recipientPublicKeyDer.Length == 0)
-                    {
-                        ClientLogger.Log($"Missing public key for {recipient.UID}", ClientLogLevel.Warn);
-                        continue;
-                    }
-
-                    // Encrypt message for this specific recipient.
-                    var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, recipientPublicKeyDer);
-
-                    // If encryption failed
-                    if (cipher == null || cipher.Length == 0)
-                    {
-                        // Skips this recipient only.
-                        continue;
-                    }
-
-                    packet.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
-                    packet.WriteUid(senderUid);
-                    packet.WriteUid(recipient.UID);
-                    packet.WriteBytesWithLength(cipher);
-                }
-
-                // Sends the packet to the server (framed TCP).
                 await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                 messageSent = true;
             }
 
-            // Local echo, encrypted if possible, that ensures UI consistency with remote recipients.
-            if (clientCanEncrypt && (_viewModel?.LocalUser.PublicKeyDer?.Length > 0))
+            // Self‑echo (encrypted)
+            if (_viewModel?.LocalUser.PublicKeyDer?.Length > 0)
             {
-                byte[] selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
+                var selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
 
                 if (selfCipher != null && selfCipher.Length > 0)
                 {
@@ -1125,50 +1126,6 @@ namespace ChatClient.Net
                     messageSent = true;
                 }
             }
-
-            // Solo mode: loopback to self.
-            bool isSoloMode = (_viewModel?.Users.Count == 1) && !clientCanEncrypt;
-
-            // Prevents unintended local echo in multi‑user sessions by ensuring the solo‑mode
-            // path only executes when the client is truly alone and encryption is disabled.
-            if (!isSoloMode)
-            {
-                return messageSent;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-                var loopPacket = new PacketBuilder();
-
-                if (!clientCanEncrypt)
-                {
-                    // Plain solo echo
-                    loopPacket.WriteOpCode((byte)PacketOpCode.PlainMessage);
-                    loopPacket.WriteUid(senderUid);
-                    loopPacket.WriteString(plainText);
-                }
-                else if (_viewModel?.LocalUser.PublicKeyDer?.Length > 0)
-                {
-                    // Encrypted solo echo.
-                    var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
-
-                    if (cipher == null || cipher.Length == 0)
-                    {
-                        return false;
-                    }
-
-                    loopPacket.WriteOpCode((byte)PacketOpCode.EncryptedMessage);
-                    loopPacket.WriteUid(senderUid);
-                    loopPacket.WriteUid(senderUid);
-                    loopPacket.WriteBytesWithLength(cipher);
-                }
-                else
-                {
-                    return false;
-                }
-
-                await SendFramedAsync(loopPacket.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
-                messageSent = true;
 
             return messageSent;
         }

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 25th, 2026</date>
+/// <date>January 26th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -948,7 +948,7 @@ namespace ChatClient.MVVM.ViewModel
                 // Notifies UI bindings
                 OnPropertyChanged();
 
-                // Atomically trigger the pipeline toggle via ViewModel.
+                // Atomically triggers the pipeline toggle via ViewModel.
                 ToggleEncryptionState(value);
             }
         }
@@ -2221,7 +2221,6 @@ namespace ChatClient.MVVM.ViewModel
                 ClientLogger.Log("Encryption disabled via toggle.", ClientLogLevel.Info);
             }
         }
-
 
         /// <summary>
         /// Validates and saves the port number if it's within the allowed range.
