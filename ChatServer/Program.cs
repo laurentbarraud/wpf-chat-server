@@ -243,8 +243,8 @@ namespace ChatServer
 
         /// <summary>
         /// Builds and sends a framed ForceDisconnectClient packet to every connected client.  
-        /// • Packet structure: [4-byte length][1-byte opcode][16-byte target UID]  
-        /// • Forces each client to call its Disconnect sequence upon decoding  
+        /// - Packet structure: [4-byte length][1-byte opcode][16-byte target UID]  
+        /// - Forces each client to call its Disconnect sequence upon decoding  
         /// </summary>
         public static async Task BroadcastForceDisconnect(CancellationToken cancellationToken)
         {
@@ -295,10 +295,10 @@ namespace ChatServer
 
         /// <summary>
         /// Broadcasts the full roster of connected users to every client.
-        /// • Snapshots current users to avoid concurrent modification.
-        /// • Builds a RosterBroadcast packet containing per-user: UID, username, and raw DER public key (length-prefixed).
-        /// • Frames each packet with a 4-byte length prefix for wire transport.
-        /// • Sends framed packet to each recipient and logs success or failure.
+        /// - Snapshots current users to avoid concurrent modification.
+        /// - Builds a RosterBroadcast packet containing per-user: UID, username, and raw DER public key (length-prefixed).
+        /// - Frames each packet with a 4-byte length prefix for wire transport.
+        /// - Sends framed packet to each recipient and logs success or failure.
         /// </summary>
         public static async Task BroadcastRosterAsync(CancellationToken cancellationToken = default)
         {
@@ -452,7 +452,7 @@ namespace ChatServer
                 // Builds the packet
                 var builder = new PacketBuilder();
                 builder.WriteOpCode((byte)PacketOpCode.PlainMessage);
-                builder.WriteUid(senderUid);     // sender’s UID
+                builder.WriteUid(senderUid);     // sender's UID
                 builder.WriteUid(target.UID);    // recipient UID placeholder
                 builder.WriteString(messageText);// length+UTF-8 bytes
 
@@ -568,10 +568,10 @@ namespace ChatServer
 
         /// <summary>
         /// Relays an already encrypted payload from a sender to a recipient.
-        /// • Validates recipient connection and session state.
-        /// • Ensures ciphertext is non-empty.
-        /// • Builds packet (opcode + sender UID + recipient UID + length-prefixed ciphertext).
-        /// • Frames packet for wire transport and sends.
+        /// - Validates recipient connection and session state.
+        /// - Ensures ciphertext is non-empty.
+        /// - Builds packet (opcode + sender UID + recipient UID + length-prefixed ciphertext).
+        /// - Frames packet for wire transport and sends.
         /// </summary>
         public static async Task RelayEncryptedMessageToAUser(byte[] ciphertext, Guid senderUid,
             Guid recipientUid, CancellationToken cancellationToken)
@@ -632,9 +632,9 @@ namespace ChatServer
         /// <summary>
         /// Relays a public key request from one client to another specific client.
         /// Constructs a framed packet containing:
-        ///   • opcode (PublicKeyRequest)
-        ///   • requester UID
-        ///   • target UID
+        ///   - opcode (PublicKeyRequest)
+        ///   - requester UID
+        ///   - target UID
         /// Sends it via SendFramedAsync. 
         /// If target is not connected/established, logs and returns non-fatally.
         /// </summary>
@@ -828,10 +828,10 @@ namespace ChatServer
 
         /// <summary>
         /// Gracefully shuts down the server:
-        /// • Stops listener and cancels accept loop
-        /// • Broadcasts ForceDisconnect to all clients
-        /// • Closes sockets and clears Users
-        /// • Resets accept CTS for restart
+        /// - Stops listener and cancels accept loop
+        /// - Broadcasts ForceDisconnect to all clients
+        /// - Closes sockets and clears Users
+        /// - Resets accept CTS for restart
         /// </summary>
         public static async Task ShutdownAsync(CancellationToken cancellationToken)
         {

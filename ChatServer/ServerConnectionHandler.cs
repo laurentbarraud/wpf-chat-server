@@ -89,8 +89,8 @@ namespace ChatServer
         private int _readerStarted = 0;
 
         /// <summary>
-        /// • Accepts a connected TcpClient and assigns it to the connection object.
-        /// • Wraps the client's network stream with a PacketReader for framed reads.
+        /// - Accepts a connected TcpClient and assigns it to the connection object.
+        /// - Wraps the client's network stream with a PacketReader for framed reads.
         /// </summary>
         /// <param name="client">Accepted TcpClient instance.</param>
         public ServerConnectionHandler(TcpClient client)
@@ -112,9 +112,9 @@ namespace ChatServer
         /// <remarks>
         /// Interlocked.CompareExchange is used to guarantee that only the first caller
         /// performs the cleanup logic:
-        /// • ref _cleanupState — the cleanup flag passed by reference.
-        /// • 1 — the value to assign if the current value matches the expected one.
-        /// • 0 — the expected value; cleanup proceeds only if the flag was still 0.
+        /// - ref \_cleanupState — the cleanup flag passed by reference.
+        /// - 1 — the value to assign if the current value matches the expected one.
+        /// - 0 — the expected value; cleanup proceeds only if the flag was still 0.
         /// The return value is the previous state. 
         /// If it was not 0, another thread has already executed cleanup, and the method exits immediately.
         /// This prevents duplicate socket closes, duplicate user removals, etc.
@@ -170,12 +170,12 @@ namespace ChatServer
 
         /// <summary>
         /// Finalizes a connection after an async handshake has been validated by the accept loop.
-        /// • Sets handshake-derived properties (Username, UID, PublicKeyDer) and marks the handler ready.
-        /// • Creates a per-connection CancellationTokenSource linked to the provided serverToken so the
+        /// - Sets handshake-derived properties (Username, UID, PublicKeyDer) and marks the handler ready.
+        /// - Creates a per-connection CancellationTokenSource linked to the provided serverToken so the
         ///   read loop can be cancelled when the server shuts down or when the connection is closed.
-        /// • Starts the per-connection read loop exactly once on the thread-pool, passing the linked token
+        /// - Starts the per-connection read loop exactly once on the thread-pool, passing the linked token
         ///   so reads and dispatching observe cooperative cancellation.
-        /// • Ensures any previous connection CTS is disposed to avoid resource leaks.
+        /// - Ensures any previous connection CTS is disposed to avoid resource leaks.
         /// </summary>
 
         internal void InitializeAfterHandshake(string username, Guid uid, byte[] publicKey, CancellationToken serverToken = default)
@@ -317,9 +317,9 @@ namespace ChatServer
                             case PacketOpCode.PublicKeyResponse:
                                 {
                                     // Reads origin UID, DER key, and requester UID from the packet.
-                                    // • originUserKeyUid: owner of the public key being registered/updated
-                                    // • publicKey: DER-encoded RSA public key (may be empty for "clear mode")
-                                    // • publicKeyRequesterUid: target user who requested this key
+                                    // - originUserKeyUid: owner of the public key being registered/updated
+                                    // - publicKey: DER-encoded RSA public key (may be empty for "clear mode")
+                                    // - publicKeyRequesterUid: target user who requested this key
                                     var requesterUserPublicKeyUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);
                                     var publicKey = await bodyReader.ReadBytesWithLengthAsync(null, cancellationToken).ConfigureAwait(false);
                                     var publicKeyRequesterUid = await bodyReader.ReadUidAsync(cancellationToken).ConfigureAwait(false);

@@ -127,7 +127,7 @@
     <value>Appuyez sur Ctrl+C pour arrêter le serveur.</value>
   </data>
   <data name="BannerLine2" xml:space="preserve">
-    <value>Changez le port TCP utilisé pour l’écoute ou attendez 7 secondes.</value>
+    <value>Changez le port TCP utilisé pour l'écoute ou attendez 7 secondes.</value>
   </data>
   <data name="PortPrompt" xml:space="preserve">
     <value>Entrez un numéro de port entre 1000 et 65535 [défaut : 7123] :</value>
@@ -169,7 +169,7 @@
     <value>Client {0} supprimé</value>
   </data>
   <data name="RosterSendFailed" xml:space="preserve">
-    <value>Échec de l’envoi de la liste de contacts à '{0}' : {1}</value>
+    <value>Échec de l'envoi de la liste de contacts à '{0}' : {1}</value>
   </data>
   <data name="DisconnectNotifyFailed" xml:space="preserve">
     <value>Échec de la notification de déconnexion de '{0}' : {1}</value>
@@ -181,7 +181,7 @@
     <value>Message diffusé de '{0}'</value>
   </data>
   <data name="MessageSendFailed" xml:space="preserve">
-    <value>Échec de l’envoi du message à '{0}' : {1}</value>
+    <value>Échec de l'envoi du message à '{0}' : {1}</value>
   </data>
   <data name="UnexpectedOpcode" xml:space="preserve">
     <value>Opcode inattendu '{1}' reçu de '{0}'</value>
@@ -190,7 +190,7 @@
     <value>Échec de la livraison du message chiffré à '{0}' : {1}</value>
   </data>
   <data name="EncryptedSendError" xml:space="preserve">
-    <value>Erreur d’envoi du message chiffré à '{0}' : {1}</value>
+    <value>Erreur d'envoi du message chiffré à '{0}' : {1}</value>
   </data>
   <data name="PublicKeyRequestTargetNotFound" xml:space="preserve">
     <value>Requête de clé publique échouée : cible '{0}' introuvable</value>
@@ -202,7 +202,7 @@
     <value>Clé publique de '{0}' envoyée avec succès</value>
   </data>
   <data name="PublicKeyRequestSendError" xml:space="preserve">
-    <value>Échec de l’envoi de la clé publique à '{0}' : {1}</value>
+    <value>Échec de l'envoi de la clé publique à '{0}' : {1}</value>
   </data>
   <data name="PublicKeyDeliverFail" xml:space="preserve">
     <value>Livraison de la clé publique à '{0}' échouée : {1}</value>
@@ -214,10 +214,10 @@
     <value>Erreur lors de la livraison de la clé publique à '{0}' : {1}</value>
   </data>
   <data name="ShutdownNotifyFail" xml:space="preserve">
-    <value>Échec de la notification d’arrêt à '{0}' : {1}</value>
+    <value>Échec de la notification d'arrêt à '{0}' : {1}</value>
   </data>
   <data name="AcceptLoopError" xml:space="preserve">
-    <value>Erreur dans la boucle d’acceptation : {0}</value>
+    <value>Erreur dans la boucle d'acceptation : {0}</value>
   </data>
   <data name="IncomingConnection" xml:space="preserve">
     <value>Connexion entrante depuis '{0}'</value>
@@ -283,7 +283,7 @@
     <value>Notification de déconnexion déjà envoyée pour ce client.</value>
   </data>
   <data name="HandshakeAckSendFailed" xml:space="preserve">
-    <value>Échec de l’envoi du HandshakeAck pour {0} : {1}</value>
+    <value>Échec de l'envoi du HandshakeAck pour {0} : {1}</value>
   </data>
   <data name="ConnectionClosingDueToError" xml:space="preserve">
     <value>Fermeture de la connexion en raison d'une erreur.</value>
@@ -298,7 +298,7 @@
     <value>Opération de lecture annulée.</value>
   </data>
   <data name="AcceptTcpClientFailed" xml:space="preserve">
-    <value>Échec lors de l’acceptation d’un client TCP : {0}</value>
+    <value>Échec lors de l'acceptation d'un client TCP : {0}</value>
   </data>
   <data name="SentHandshakeAck" xml:space="preserve">
     <value>Paquet HandshakeAck envoyé à {0}</value>
@@ -307,7 +307,7 @@
     <value>Échec lors de la diffusion du roster : {0}</value>
   </data>
   <data name="BroadcastForceDisconnectFailed" xml:space="preserve">
-    <value>Échec lors de l’envoi du paquet ForceDisconnect : {0}</value>
+    <value>Échec lors de l'envoi du paquet ForceDisconnect : {0}</value>
   </data>
   <data name="SendFramedIoError" xml:space="preserve">
     <value>Erreur E/S lors de l'envoi du paquet encadré vers l'utilisateur '{0}' : {1}</value>

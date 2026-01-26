@@ -42,7 +42,7 @@ namespace ChatClient.MVVM.Model
         public string LanguageCode { get; }
 
         /// <summary> 
-        /// Returns the culture’s native language name depending on the 
+        /// Returns the culture's native language name depending on the 
         /// current UI culture. 
         /// </summary>
         public string DisplayName =>  CultureInfo.GetCultureInfo(LanguageCode).DisplayName;

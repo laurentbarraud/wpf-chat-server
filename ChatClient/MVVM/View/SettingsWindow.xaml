@@ -161,7 +161,7 @@
             </Setter>
         </Style>
 
-        <!-- Overrides the default theme’s RelativeSource binding for these properties -->
+        <!-- Overrides the default theme's RelativeSource binding for these properties -->
         <Style TargetType="{x:Type ComboBoxItem}">
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="VerticalContentAlignment"   Value="Center" />

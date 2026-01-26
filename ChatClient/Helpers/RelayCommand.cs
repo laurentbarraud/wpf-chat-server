@@ -108,15 +108,15 @@ namespace ChatClient.Helpers
         /// <summary>
         /// Determines whether the command can execute.
         /// </summary>
-        /// <param name="parameter">Not used; always invokes _canExecute.</param>
-        /// <returns>True if _canExecute returns true; otherwise false.</returns>
+        /// <param name="parameter">Not used; always invokes \_canExecute.</param>
+        /// <returns>True if \_canExecute returns true; otherwise false.</returns>
         public bool CanExecute(object? parameter) =>
             _canExecute();                     // Invokes the canExecute function.
 
         /// <summary>
         /// Executes the command action.
         /// </summary>
-        /// <param name="parameter">Not used; always invokes _execute.</param>
+        /// <param name="parameter">Not used; always invokes \_execute.</param>
         public void Execute(object? parameter) =>
             _execute();                        // Invokes the execute action.
 

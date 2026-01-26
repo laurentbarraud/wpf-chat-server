@@ -24,12 +24,12 @@ namespace ChatClient.Helpers
     {
         /// <summary>
         /// Reads the args array and configures the application accordingly:
-        ///   • Parses username, port, theme, language, encryption, tray, debug, help, and about flags.
-        ///   • Shows a message box with help text if help is requested, then exits.
-        ///   • Opens the About window if requested, then exits.
-        ///   • Initializes localization based on language flags (--language, --en, --fr).
-        ///   • Applies encryption, theme, tray, debug console, and username/auto-connect.
-        ///   • Saves all updated settings at the end.
+        ///   - Parses username, port, theme, language, encryption, tray, debug, help, and about flags.
+        ///   - Shows a message box with help text if help is requested, then exits.
+        ///   - Opens the About window if requested, then exits.
+        ///   - Initializes localization based on language flags (--language, --en, --fr).
+        ///   - Applies encryption, theme, tray, debug console, and username/auto-connect.
+        ///   - Saves all updated settings at the end.
         /// </summary>
         /// <param name="args">Array of command-line arguments.</param>
         public static void ApplyStartupArguments(string[] args)

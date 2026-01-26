@@ -124,7 +124,7 @@
     <value>Veuillez choisir un nombre entre 1000 et 65535.</value>
   </data>
   <data name="ClientSocketNotConnected" xml:space="preserve">
-    <value>Le socket du client n’est pas connecté.</value>
+    <value>Le socket du client n'est pas connecté.</value>
   </data>
   <data name="Connect" xml:space="preserve">
     <value>_Connecter</value>
@@ -154,7 +154,7 @@
     <value>Le chiffrement n'a pas pu être activé.</value>
   </data>
   <data name="ErrorLoadingThemeResources" xml:space="preserve">
-    <value>Une erreur s’est produite lors du chargement des paramètres. Veuillez vérifier les ressources de votre thème.</value>
+    <value>Une erreur s'est produite lors du chargement des paramètres. Veuillez vérifier les ressources de votre thème.</value>
   </data>
   <data name="ErrorWhileDisconnecting" xml:space="preserve">
     <value>Erreur pendant la déconnexion : </value>
@@ -169,7 +169,7 @@
     <value>Clé publique invalide. Le chiffrement n'a pas été activé.</value>
   </data>
   <data name="IPAddressInvalid" xml:space="preserve">
-    <value>L’adresse IP est incorrecte. Laissez-la vide pour vous connecter localement.</value>
+    <value>L'adresse IP est incorrecte. Laissez-la vide pour vous connecter localement.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
     <value> v1.0 - janv. 2026 - Laurent Barraud </value>
@@ -193,7 +193,7 @@
     <value>Réduire dans la zone de notification</value>
   </data>
   <data name="SendingClientsPublicRSAKeyToTheServerFailed" xml:space="preserve">
-    <value>Échec de l’envoi de la clé RSA publique au serveur. Veuillez vérifier votre connexion.</value>
+    <value>Échec de l'envoi de la clé RSA publique au serveur. Veuillez vérifier votre connexion.</value>
   </data>
   <data name="DisconnectedByServer" xml:space="preserve">
     <value>Vous avez été déconnecté par le serveur</value>
@@ -264,10 +264,10 @@ Exemple :
     <value>Arguments de ligne de commande</value>
   </data>
   <data name="MessageSendingFailed" xml:space="preserve">
-    <value>[Erreur : l’envoi du message a échoué.]</value>
+    <value>[Erreur : l'envoi du message a échoué.]</value>
   </data>
   <data name="SendingFailed" xml:space="preserve">
-    <value>Échec de l’envoi du message.</value>
+    <value>Échec de l'envoi du message.</value>
   </data>
   <data name="SettingsToolTip" xml:space="preserve">
     <value>Paramètres</value>
@@ -327,7 +327,7 @@ depuis la gauche</value>
     <value>Clé valide</value>
   </data>
   <data name="EnableEncryptionToSeePublicKeysState" xml:space="preserve">
-    <value>Veuillez activer le chiffrement des messages pour voir l’état des clés publiques.</value>
+    <value>Veuillez activer le chiffrement des messages pour voir l'état des clés publiques.</value>
   </data>
   <data name="NotConnected" xml:space="preserve">
     <value>Veuillez vous connecter pour voir l'état des clés publiques.</value>

@@ -14,11 +14,11 @@ namespace ChatClient.Helpers
 {
     /// <summary>
     /// EncryptionPipeline centralizes all encryption logic.
-    /// • Start or stop the encryption pipeline safely.
-    /// • Publish the local public key once per session.
-    /// • Synchronize peer keys.
-    /// • Update UI state with IsEncryptionReady.
-    /// • Provide a single keyEntry point for disabling encryption.
+    /// - Start or stop the encryption pipeline safely.
+    /// - Publish the local public key once per session.
+    /// - Synchronize peer keys.
+    /// - Update UI state with IsEncryptionReady.
+    /// - Provide a single keyEntry point for disabling encryption.
     /// 
     /// This class is called from MainViewModel and ClientConnection
     /// to keep UI and network code separate from encryption logic.
@@ -60,7 +60,7 @@ namespace ChatClient.Helpers
             = new ObservableCollection<PublicKeyEntry>();
 
         /// <summary>
-        /// Local user’s own RSA public key (DER-encoded).
+        /// Local user's own RSA public key (DER-encoded).
         /// Must be initialized before handshake completion.
         /// </summary>
         public byte[] PublicKeyDer { get; set; }

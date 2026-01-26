@@ -159,7 +159,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à _Connect.
+        ///   Recherche une chaîne localisée semblable à \_Connect.
         /// </summary>
         public static string Connect {
             get {
@@ -186,7 +186,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à _Disconnect.
+        ///   Recherche une chaîne localisée semblable à \_Disconnect.
         /// </summary>
         public static string Disconnect {
             get {

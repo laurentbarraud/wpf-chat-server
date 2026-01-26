@@ -11,7 +11,7 @@ namespace ChatClient.Converters
 {
     /// <summary>
     /// Multiplies a numeric value by a given factor to compute proportional UI positions.
-    /// It uses the container’s ActualWidth/ActualHeight and applies a ratio so the hotspot
+    /// It uses the container's ActualWidth/ActualHeight and applies a ratio so the hotspot
     /// stays correctly aligned even when the image or window scales.
     /// </summary>
     public class MultiplyConverter : IValueConverter

@@ -371,8 +371,8 @@ namespace ChatClient.MVVM.View
         /// Handles Settings button interactions:
         /// - CTRL + Click opens the internal monitor tool.
         /// - Normal Click toggles the SettingsWindow:
-        ///     • If an instance is already open, it closes it.
-        ///     • Otherwise, it creates and shows a new one bound to the current MainViewModel.
+        ///     - If an instance is already open, it closes it.
+        ///     - Otherwise, it creates and shows a new one bound to the current MainViewModel.
         /// This prevents multiple SettingsWindow instances from being opened simultaneously.
         /// </summary>
         private void CmdSettings_Click(object sender, RoutedEventArgs e)

@@ -115,7 +115,7 @@ namespace ChatClient.MVVM.ViewModel
         private bool _isFirstRosterSnapshot = true;
 
         /// <summary>
-        /// Holds the previous roster’s user IDs and usernames for diffing.
+        /// Holds the previous roster's user IDs and usernames for diffing.
         /// </summary>
         private List<(Guid UserId, string Username)> _previousRosterSnapshot
             = new List<(Guid, string)>();
@@ -1155,12 +1155,12 @@ namespace ChatClient.MVVM.ViewModel
 
         /// <summary>
         /// Orchestrates UI-side connection workflow:
-        /// • validates username
-        /// • delegates handshake to clientConn
-        /// • initializes LocalUser
-        /// • updates UI state and focus
-        /// • initializes encryption if enabled (ensures proper key assignment and pipeline readiness)
-        /// • persists last used IP
+        /// - validates username
+        /// - delegates handshake to clientConn
+        /// - initializes LocalUser
+        /// - updates UI state and focus
+        /// - initializes encryption if enabled (ensures proper key assignment and pipeline readiness)
+        /// - persists last used IP
         /// </summary>
         public async Task ConnectToServerAsync(CancellationToken cancellationToken = default)
         {
@@ -1168,7 +1168,7 @@ namespace ChatClient.MVVM.ViewModel
             /// Username rules:
             /// - first character must be a letter (ASCII or selected accented letters)
             /// - allowed subsequent characters: letters (ASCII + selected accents), digits,
-            ///   underscore (_), hyphen (-) or a single normal space (U+0020)
+            ///   underscore (\_), hyphen (-) or a single normal space (U+0020)
             /// - no leading or trailing space, no consecutive spaces, no tabs or other Unicode space characters
             /// - at least one character required
             /// </summary>
@@ -1249,10 +1249,10 @@ namespace ChatClient.MVVM.ViewModel
                 /// <summary>
                 /// If the user has pre-enabled encryption,
                 /// we have all required conditions to start the encryption pipeline:
-                /// • TCP connection established
-                /// • Handshake completed
-                /// • LocalUser and keypair initialized
-                /// • UI fully loaded
+                /// - TCP connection established
+                /// - Handshake completed
+                /// - LocalUser and keypair initialized
+                /// - UI fully loaded
                 /// This ensures encryption is initialized cleanly and predictably.
                 /// </summary>
                 if (Settings.Default.UseEncryption)
@@ -1343,10 +1343,10 @@ namespace ChatClient.MVVM.ViewModel
 
         /// <summary>
         /// Disconnects the client from the server.
-        /// • Marks the disconnection as user-initiated to suppress "Server has closed" messages.  
-        /// • Closes the TCP connection via clientConn.  
-        /// • Clears UI state and notifies bindings.  
-        /// • Disables encryption and resets init flags.  
+        /// - Marks the disconnection as user-initiated to suppress "Server has closed" messages.  
+        /// - Closes the TCP connection via clientConn.  
+        /// - Clears UI state and notifies bindings.  
+        /// - Disables encryption and resets init flags.  
         /// </summary>
         public void Disconnect()
         {
@@ -1844,7 +1844,7 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a delivered plain‐text message by prefixing the sender’s name.
+        /// Handles a delivered plain‐text message by prefixing the sender's name.
         /// Marshals the update to the UI thread and appends "sender: message" to the chat.
         /// </summary>
         /// <param name="senderName">The display name of the message sender.</param>
@@ -1881,9 +1881,9 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Processes a public key sent by another user and keeps the
         /// known‑keys list accurate and up to date.
-        /// • Updates or creates the corresponding PublicKeyEntry  
-        /// • Checks whether all peers now have valid keys  
-        /// • Triggers an encryption‑readiness evaluation when safe
+        /// - Updates or creates the corresponding PublicKeyEntry  
+        /// - Checks whether all peers now have valid keys  
+        /// - Triggers an encryption‑readiness evaluation when safe
         /// </summary>
 
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
@@ -2156,8 +2156,8 @@ namespace ChatClient.MVVM.ViewModel
         /// - If not connected, this method only stores the
         ///   preference for later execution after a successful handshake.
         /// - If connected, it applies the preference immediately:
-        ///     • When enabling: starts the encryption pipeline cleanly.
-        ///     • When disabling: tears down the pipeline safely.
+        ///     - When enabling: starts the encryption pipeline cleanly.
+        ///     - When disabling: tears down the pipeline safely.
         /// This method doesn't initialize encryption before the handshake.
         /// </summary>
         public void ToggleEncryptionState(bool enableEncryption)
@@ -2171,9 +2171,9 @@ namespace ChatClient.MVVM.ViewModel
 
             // Determines whether the client is fully ready to apply encryption immediately.
             // This requires:
-            // • An active TCP connection
-            // • A fully initialized LocalUser
-            // • A ready EncryptionPipeline instance
+            // - An active TCP connection
+            // - A fully initialized LocalUser
+            // - A ready EncryptionPipeline instance
             bool isReadyToApplyEncryption = IsConnected && LocalUser != null && EncryptionPipeline != null;
 
             if (!isReadyToApplyEncryption)

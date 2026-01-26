@@ -21,12 +21,12 @@ namespace ChatClient
         /// Application startup entry point.
         /// 
         /// Responsibilities:
-        /// • Parses command-line arguments
-        /// • Applies startup configuration flags
-        /// • Initializes culture and localization
-        /// • Creates and displays the main window
-        /// • Registers global keyboard shortcuts for all windows
-        /// • Optionally opens the debug console depending on build mode and flags
+        /// - Parses command-line arguments
+        /// - Applies startup configuration flags
+        /// - Initializes culture and localization
+        /// - Creates and displays the main window
+        /// - Registers global keyboard shortcuts for all windows
+        /// - Optionally opens the debug console depending on build mode and flags
         /// 
         /// This method runs before any window is shown and prepares the
         /// application environment for the entire session.
