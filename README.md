@@ -2,7 +2,7 @@
 A real‑time WPF chat client and TCP server in C#, featuring a custom binary protocol, framed packet system, RSA encryption, and a modern interface.
 
 [![Release](https://img.shields.io/badge/release-stable-245e48)](https://github.com/laurentbarraud/wpf-chat-server/releases)
-[![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/latest/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases/tag/v0.9)
+[![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/latest/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases)
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="chat client screenshot" >
@@ -34,4 +34,4 @@ Architecture
 Go to the [Releases](../../releases) section.
 Provided as a ZIP archive with compiled executables, compatible with Windows 7 and above (x64).
 
-Full technical documentation is available [here](/docs/ChatClient-documentation.pdf).
+A few pages of technical documentation is available [here](/docs/ChatClient-documentation.pdf).
