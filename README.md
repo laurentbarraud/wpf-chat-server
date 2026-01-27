@@ -22,7 +22,7 @@ Client
 - 🏠 Local mode — runs locally if no IP address is provided
 - 🪟 System tray integration — minimize/close to tray
 - 🎨 Theme toggle — light/dark themes switchable at any time
-- 🌐 Instant language switching — fully localized in French, Spanish and English
+- 🌐 Instant language switching — localized in French, Spanish and English
 - ✏️ Adjustable input field — resize or shift it horizontally to match your layout preferences
 - 🎞️ Subtle WPF animations using xaml storyboards and UI polish
 
@@ -38,5 +38,5 @@ Architecture
 ### Download
 Go to the [Releases](../../releases) section.
 
-A few pages of technical documentation are available [here](/docs/ChatClient-documentation.pdf) —
-Quelques pages de documentation sont disponibles [ici](/docs/ChatClient-documentation-fr.pdf).
+Technical documentation is available [here](/docs/ChatClient-documentation.pdf) —
+Documentation technique disponible [ici](/docs/ChatClient-documentation-fr.pdf).
