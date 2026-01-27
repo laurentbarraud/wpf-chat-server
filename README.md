@@ -38,4 +38,5 @@ Architecture
 ### Download
 Go to the [Releases](../../releases) section.
 
-A few pages of technical documentation are available [here](/docs/ChatClient-documentation.pdf).
+A few pages of technical documentation are available [here](/docs/ChatClient-documentation.pdf) —
+French version available [here](/docs/ChatClient-documentation-fr.pdf).
