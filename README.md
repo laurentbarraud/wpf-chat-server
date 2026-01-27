@@ -39,4 +39,4 @@ Architecture
 Go to the [Releases](../../releases) section.
 
 A few pages of technical documentation are available [here](/docs/ChatClient-documentation.pdf) —
-French version available [here](/docs/ChatClient-documentation-fr.pdf).
+Quelques pages de documentation sont disponibles [ici](/docs/ChatClient-documentation-fr.pdf).
