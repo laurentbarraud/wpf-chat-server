@@ -127,8 +127,8 @@
                        Margin="30,90,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
-                       Width="231"
-                       Height="28"
+                       Width="242"
+                       Height="44"
                        TextAlignment="Right"/>
 
             <!-- Licence info resources block -->
