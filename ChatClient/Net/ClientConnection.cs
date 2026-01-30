@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -135,13 +135,13 @@ namespace ChatClient.Net
 
         /// <summary>
         /// Cleanly resets the client connection state:
-        /// - Cancels and disposes any pending handshake TaskCompletionSource to wake awaiters
-        /// - Cancels and disposes the connection CancellationTokenSource to stop the background reader
-        /// - Disposes the TcpClient (which also closes the NetworkStream) and reinitializes a fresh instance
-        /// - Clears the PacketReader backing field (not IDisposable)
-        /// - Disposes and recreates the reader lock to ensure a fresh semaphore
-        /// - Resets handshake/encryption flags and user disconnect flag to ensure fresh state
-        /// - UI update is delegated to the caller
+        /// • Cancels and disposes any pending handshake TaskCompletionSource to wake awaiters
+        /// • Cancels and disposes the connection CancellationTokenSource to stop the background reader
+        /// • Disposes the TcpClient (which also closes the NetworkStream) and reinitializes a fresh instance
+        /// • Clears the PacketReader backing field (not IDisposable)
+        /// • Disposes and recreates the reader lock to ensure a fresh semaphore
+        /// • Resets handshake/encryption flags and user disconnect flag to ensure fresh state
+        /// • UI update is delegated to the caller
         /// </summary>
         private void CleanConnection()
         {
@@ -331,10 +331,10 @@ namespace ChatClient.Net
 
         /// <summary>
         /// Gracefully disconnects from the server.
-        /// - Cancels background readers and disposes their cancellation token.  
-        /// - Closes and disposes the TcpClient and its NetworkStream (only if still connected).  
-        /// - Clears the PacketReader reference.  
-        /// - Resets counters and notifies listeners of termination.  
+        /// • Cancels background readers and disposes their cancellation token.  
+        /// • Closes and disposes the TcpClient and its NetworkStream (only if still connected).  
+        /// • Clears the PacketReader reference.  
+        /// • Resets counters and notifies listeners of termination.  
         /// </summary>
         public Task DisconnectFromServerAsync(CancellationToken cancellationToken = default)
         {
@@ -442,10 +442,10 @@ namespace ChatClient.Net
 
         /// <summary>
         /// Background task that continuously reads framed packets until the connection closes.
-        /// - Reads length‑prefixed payloads with PacketReader.
-        /// - Dispatches roster and message updates to the UI thread.
-        /// - Completes handshake when HandshakeAck is received.
-        /// - Stops gracefully on cancellation, stream close, or protocol error.
+        /// • Reads length‑prefixed payloads with PacketReader.
+        /// • Dispatches roster and message updates to the UI thread.
+        /// • Completes handshake when HandshakeAck is received.
+        /// • Stops gracefully on cancellation, stream close, or protocol error.
         /// </summary>
         private async Task ReadPacketsAsync(CancellationToken cancellationToken)
         {
@@ -915,7 +915,7 @@ namespace ChatClient.Net
         /// <summary>
         /// Build and send the framed handshake packet, then consume 
         /// exactly one framed response (HandshakeAck) using the shared
-        /// PacketReader protected by \\_readerLock.
+        /// PacketReader protected by _readerLock.
         /// Packet on wire: 
         /// [4-byte big-endian length][1-byte opcode][username (length-prefixed UTF-8)] 
         /// [16-byte UID][4-byte publicKeyDer length][publicKeyDer bytes] 
@@ -1036,9 +1036,9 @@ namespace ChatClient.Net
         /// <summary>
         /// Sends a chat message to the server.
         /// Selects plaintext or encrypted transmission based on pipeline readiness.
-        /// - Plaintext mode: sends a single packet (server handles broadcast and solo echo).
-        /// - Encrypted mode: sends one encrypted packet per recipient plus an encrypted self‑echo.
-        /// - Solo mode: only the encrypted case performs a self‑echo; plaintext relies on server echo.
+        /// • Plaintext mode: sends a single packet (server handles broadcast and solo echo).
+        /// • Encrypted mode: sends one encrypted packet per recipient plus an encrypted self‑echo.
+        /// • Solo mode: only the encrypted case performs a self‑echo; plaintext relies on server echo.
         /// </summary>
         public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
         {
@@ -1136,12 +1136,12 @@ namespace ChatClient.Net
         /// Also triggers a re-evaluation of encryption readiness, 
         /// which only becomes true once all peer keys have been received.
         /// 
-        /// - Validates connection before sending  
-        /// - Normalizes payload (empty array = invalid)  
-        /// - Builds packet: opcode, origin UID, DER key, requester UID  
-        /// - Sends via framed sender  
-        /// - Re-evaluates encryption readiness  
-        /// - Returns true on success, false otherwise  
+        /// • Validates connection before sending  
+        /// • Normalizes payload (empty array = invalid)  
+        /// • Builds packet: opcode, origin UID, DER key, requester UID  
+        /// • Sends via framed sender  
+        /// • Re-evaluates encryption readiness  
+        /// • Returns true on success, false otherwise  
         /// </summary>
         public async Task<bool> SendPublicKeyToServerAsync(Guid senderUid, byte[] publicKeyDer,
             Guid requesterUid, CancellationToken cancellationToken)

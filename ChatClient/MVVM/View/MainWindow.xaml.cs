@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -293,7 +293,6 @@ namespace ChatClient.MVVM.View
             };
 
             monitor.Show();
-            monitor.PositionRelativeToOwnerBottomRight();
         }
 
         private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
@@ -371,8 +370,8 @@ namespace ChatClient.MVVM.View
         /// Handles Settings button interactions:
         /// - CTRL + Click opens the internal monitor tool.
         /// - Normal Click toggles the SettingsWindow:
-        ///     - If an instance is already open, it closes it.
-        ///     - Otherwise, it creates and shows a new one bound to the current MainViewModel.
+        ///     • If an instance is already open, it closes it.
+        ///     • Otherwise, it creates and shows a new one bound to the current MainViewModel.
         /// This prevents multiple SettingsWindow instances from being opened simultaneously.
         /// </summary>
         private void CmdSettings_Click(object sender, RoutedEventArgs e)

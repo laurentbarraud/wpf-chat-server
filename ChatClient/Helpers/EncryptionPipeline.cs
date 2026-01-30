@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using ChatClient.MVVM.Model;
 using ChatClient.MVVM.ViewModel;
@@ -14,11 +14,11 @@ namespace ChatClient.Helpers
 {
     /// <summary>
     /// EncryptionPipeline centralizes all encryption logic.
-    /// - Start or stop the encryption pipeline safely.
-    /// - Publish the local public key once per session.
-    /// - Synchronize peer keys.
-    /// - Update UI state with IsEncryptionReady.
-    /// - Provide a single keyEntry point for disabling encryption.
+    /// • Start or stop the encryption pipeline safely.
+    /// • Publish the local public key once per session.
+    /// • Synchronize peer keys.
+    /// • Update UI state with IsEncryptionReady.
+    /// • Provide a single keyEntry point for disabling encryption.
     /// 
     /// This class is called from MainViewModel and ClientConnection
     /// to keep UI and network code separate from encryption logic.
@@ -60,7 +60,7 @@ namespace ChatClient.Helpers
             = new ObservableCollection<PublicKeyEntry>();
 
         /// <summary>
-        /// Local user's own RSA public key (DER-encoded).
+        /// Local user’s own RSA public key (DER-encoded).
         /// Must be initialized before handshake completion.
         /// </summary>
         public byte[] PublicKeyDer { get; set; }
@@ -235,13 +235,14 @@ namespace ChatClient.Helpers
         /// </summary>
         public async Task<bool> InitializeEncryptionAsync(CancellationToken cancellationToken)
         {
+            // Validates prerequisites
             if ((_viewModel == null) || (_viewModel.LocalUser == null))
             {
                 ClientLogger.Log("Init encryption aborted — ViewModel or LocalUser missing.", ClientLogLevel.Error);
                 return false;
             }
 
-            // Ensures local key material exists (fallback to EncryptionHelper if ViewModel is empty)
+            // Ensures local public key material exists
             if (((_viewModel.LocalUser.PublicKeyDer == null) || (_viewModel.LocalUser.PublicKeyDer.Length == 0)) &&
                 (EncryptionHelper.PublicKeyDer != null) && (EncryptionHelper.PublicKeyDer.Length > 0))
             {
@@ -249,6 +250,7 @@ namespace ChatClient.Helpers
                 ClientLogger.Log("Local public key materialized from EncryptionHelper.", ClientLogLevel.Debug);
             }
 
+            // Ensures local private key material exists
             if (((_viewModel.LocalUser.PrivateKeyDer == null) || (_viewModel.LocalUser.PrivateKeyDer.Length == 0)) &&
                 (EncryptionHelper.PrivateKeyDer != null) && (EncryptionHelper.PrivateKeyDer.Length > 0))
             {
@@ -256,29 +258,48 @@ namespace ChatClient.Helpers
                 ClientLogger.Log("Local private key materialized from EncryptionHelper.", ClientLogLevel.Debug);
             }
 
-            // Injects local public key into KnownPublicKeys
+            // Injects local public key into KnownPublicKeys so the monitor can display the local entry as well
             if ((_viewModel.LocalUser.PublicKeyDer != null) && (_viewModel.LocalUser.PublicKeyDer.Length > 0))
             {
                 Guid localUserUid = _viewModel.LocalUser.UID;
                 byte[] localPublicKeyDer = _viewModel.LocalUser.PublicKeyDer;
 
+                // Looks for an existing entry for the local user
                 var matchingEntry = KnownPublicKeys
                     .FirstOrDefault(e => e.UID == localUserUid);
 
+                // Computes a short excerpt of the public key
                 string computedExcerpt = ComputeExcerpt(localPublicKeyDer);
 
+                // If an entry exists, updates it in place to preserve bindings
                 if (matchingEntry != null)
                 {
                     matchingEntry.KeyExcerpt = computedExcerpt;
                     matchingEntry.Username = _viewModel.LocalUser.Username;
                     matchingEntry.IsLocal = true;
                 }
+                else
+                {
+                    // Solo / first‑time: adds the local key entry so the monitor is populated even without peers
+                    _uiDispatcherInvoke(() =>
+                    {
+                        // Adds local public key entry on the UI thread to keep the ObservableCollection thread‑safe
+                        KnownPublicKeys.Add(new PublicKeyEntry
+                        {
+                            UID = localUserUid,
+                            Username = _viewModel.LocalUser.Username,
+                            KeyExcerpt = computedExcerpt,
+                            IsLocal = true,
+                            StatusText = _viewModel.ValidPublicKey
+                        });
+                    });
+                }
             }
 
-            // Syncs peer keys
+            // Syncs peer keys from the server (remote public keys)
             bool peerKeySyncSucceeded = await SyncKeysAsync(cancellationToken).ConfigureAwait(false);
 
-            // Computes final encryption readiness
+            // Computes final encryption readiness: both sync and local validation must succeed
             bool encryptionReady = (peerKeySyncSucceeded && EvaluateEncryptionState());
 
             ClientLogger.Log($"Init encryption completed — Ready={encryptionReady}", ClientLogLevel.Info);

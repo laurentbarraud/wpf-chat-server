@@ -1,7 +1,7 @@
 ﻿/// <file>MonitrWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using ChatClient.MVVM.ViewModel;             // For MonitorViewModel
 using ChatClient.Net;
@@ -19,6 +19,8 @@ namespace ChatClient.MVVM.View
     /// </summary>
     public partial class MonitorWindow : Window
     {
+        private bool _columnsBuilt = false;
+
         /// <summary>
         /// Initializes the monitor window, assigns the MainViewModel as DataContext,
         /// anchors the window to the owner's bottom‑right corner,
@@ -29,28 +31,80 @@ namespace ChatClient.MVVM.View
             InitializeComponent();
             DataContext = mainViewModel!;
 
-            Loaded += (_, __) => PositionRelativeToOwnerBottomRight();
-            Owner.LocationChanged += (_, __) => PositionRelativeToOwnerBottomRight();
-            Owner.SizeChanged += (_, __) => PositionRelativeToOwnerBottomRight();
+            mainViewModel.LanguageChanged += (_, _) =>
+            {
+                if (_columnsBuilt)
+                {
+                    ApplyLocalizedHeaders();
+                }
+            };
 
-            mainViewModel.LanguageChanged += MainViewModel_LanguageChanged;
+            PublicKeysDataGrid.Loaded += PublicKeysDataGrid_Loaded;
         }
+
+        private void ApplyLocalizedHeaders()
+        {
+            if (DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            if (PublicKeysDataGrid.Columns.Count < 4)
+            {
+                return;
+            }
+
+            PublicKeysDataGrid.Columns[0].Header = viewModel.UsernameHeader;
+            PublicKeysDataGrid.Columns[1].Header = viewModel.KeyExcerptHeader;
+            PublicKeysDataGrid.Columns[2].Header = viewModel.StatusHeader;
+            PublicKeysDataGrid.Columns[3].Header = viewModel.ActionHeader;
+        }
+
+        /// <summary>
+        /// Builds the DataGrid columns programmatically.  
+        /// This avoids XAML binding issues and ensures the column structure  
+        /// is created once during the DataGrid's Loaded event.
+        /// </summary>
+        private void BuildColumns()
+        {
+            // username column
+            var colUsername = new DataGridTextColumn
+            {
+                Binding = new Binding("Username"),
+                Width = new DataGridLength(4, DataGridLengthUnitType.Star)
+            };
+
+            // key excerpt column (template defined in xaml)
+            var colExcerpt = new DataGridTemplateColumn
+            {
+                Width = new DataGridLength(2.5, DataGridLengthUnitType.Star),
+                CellTemplate = (DataTemplate)FindResource("KeyExcerptTemplate")
+            };
+
+            // status column (template defined in xaml)
+            var colStatus = new DataGridTemplateColumn
+            {
+                Width = new DataGridLength(2, DataGridLengthUnitType.Star),
+                CellTemplate = (DataTemplate)FindResource("StatusTemplate")
+            };
+
+            // action button column (template defined in xaml)
+            var colAction = new DataGridTemplateColumn
+            {
+                Width = new DataGridLength(1.5, DataGridLengthUnitType.Star),
+                CellTemplate = (DataTemplate)FindResource("ActionTemplate")
+            };
+
+            PublicKeysDataGrid.Columns.Add(colUsername);
+            PublicKeysDataGrid.Columns.Add(colExcerpt);
+            PublicKeysDataGrid.Columns.Add(colStatus);
+            PublicKeysDataGrid.Columns.Add(colAction);
+        }
+
 
         private void CmdValidate_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
-        }
-
-        /// <summary>
-        /// Refreshes DataGrid column headers when the application language changes.
-        /// </summary>
-        private void MainViewModel_LanguageChanged(object? sender, EventArgs e)
-        {
-            foreach (var column in PublicKeysDataGrid.Columns)
-            {
-                var binding = BindingOperations.GetBindingExpression(column, DataGridColumn.HeaderProperty);
-                binding?.UpdateTarget();
-            }
         }
 
         private void MonitorWindow1_Closed(object sender, EventArgs e)
@@ -63,21 +117,15 @@ namespace ChatClient.MVVM.View
         #endif
         }
 
-        /// <summary> 
-        /// Positions the monitor window anchored to the bottom‑right corner of its owner.
-        /// Uses the owner's current bounds to compute a stable offset, ensuring consistent
-        /// placement even when the main window is resized or moved. 
-        /// </summary> 
-        public void PositionRelativeToOwnerBottomRight()
+        private void PublicKeysDataGrid_Loaded(object sender, RoutedEventArgs e) 
         {
-            if (Owner == null)
+            if (!_columnsBuilt)
             {
-                return;
+                BuildColumns(); 
+                _columnsBuilt = true; 
             }
-
-            const double margin = 12;
-            Left = Owner.Left + Owner.Width - Width - margin;
-            Top = Owner.Top + Owner.Height - Height - margin;
+            
+            ApplyLocalizedHeaders();
         }
     }
 }

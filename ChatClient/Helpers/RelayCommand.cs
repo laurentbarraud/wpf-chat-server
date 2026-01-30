@@ -1,7 +1,7 @@
 ﻿/// <file>RelayCommand.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using System;                               
 using System.Windows.Input;                // Imports ICommand and CommandManager.
@@ -108,15 +108,15 @@ namespace ChatClient.Helpers
         /// <summary>
         /// Determines whether the command can execute.
         /// </summary>
-        /// <param name="parameter">Not used; always invokes \_canExecute.</param>
-        /// <returns>True if \_canExecute returns true; otherwise false.</returns>
+        /// <param name="parameter">Not used; always invokes _canExecute.</param>
+        /// <returns>True if _canExecute returns true; otherwise false.</returns>
         public bool CanExecute(object? parameter) =>
             _canExecute();                     // Invokes the canExecute function.
 
         /// <summary>
         /// Executes the command action.
         /// </summary>
-        /// <param name="parameter">Not used; always invokes \_execute.</param>
+        /// <param name="parameter">Not used; always invokes _execute.</param>
         public void Execute(object? parameter) =>
             _execute();                        // Invokes the execute action.
 

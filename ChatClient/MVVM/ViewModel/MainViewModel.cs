@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -115,7 +115,7 @@ namespace ChatClient.MVVM.ViewModel
         private bool _isFirstRosterSnapshot = true;
 
         /// <summary>
-        /// Holds the previous roster's user IDs and usernames for diffing.
+        /// Holds the previous roster’s user IDs and usernames for diffing.
         /// </summary>
         private List<(Guid UserId, string Username)> _previousRosterSnapshot
             = new List<(Guid, string)>();
@@ -229,7 +229,7 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        public static string AppLanguageLabel => LocalizationManager.GetString("AppLanguageLabel");
+        public string AppLanguageLabel => LocalizationManager.GetString("AppLanguageLabel");
 
 
         /// <summary>
@@ -240,12 +240,12 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public ClientConnection ClientConn => _clientConn;
 
-        public static string AboutThisSoftwareLabel => LocalizationManager.GetString("AboutThisSoftwareLabel");
+        public string AboutThisSoftwareLabel => LocalizationManager.GetString("AboutThisSoftwareLabel");
 
         /// <summary>
         /// Localized header text for the action column in the monitor grid.
         /// </summary>
-        public static string ActionHeader => LocalizationManager.GetString("ActionHeader");
+        public string ActionHeader => LocalizationManager.GetString("ActionHeader");
 
         /// <summary> 
         /// Base emoji button size (minimum), derived from display font and height scale. 
@@ -351,7 +351,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Gets the localized font size label text
         /// </summary>
-        public static string DisplayFontSizeLabel => LocalizationManager.GetString("DisplayFontSizeLabel");
+        public string DisplayFontSizeLabel => LocalizationManager.GetString("DisplayFontSizeLabel");
 
         /// <summary> 
         /// Proportional emoji button size. 
@@ -425,7 +425,7 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        public static string EncryptionEnabledToolTip => LocalizationManager.GetString("EncryptionEnabledToolTip");
+        public string EncryptionEnabledToolTip => LocalizationManager.GetString("EncryptionEnabledToolTip");
 
         /// <summary>
         /// Provides access to the encryption pipeline instance,
@@ -440,7 +440,7 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public int ExpectedClientCount { get; set; } = 1; // Starts at 1 (self)
 
-        public static string GettingMissingKeysToolTip => LocalizationManager.GetString("GettingMissingKeysToolTip");
+        public string GettingMissingKeysToolTip => LocalizationManager.GetString("GettingMissingKeysToolTip");
 
         /// <summary>
         /// Base multiplier used to convert the global font size into a consistent control height.
@@ -541,7 +541,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Localized header text for the key excerpt column in the monitor grid.
         /// </summary>
-        public static string KeyExcerptHeader => LocalizationManager.GetString("KeyExcerptHeader");
+        public string KeyExcerptHeader => LocalizationManager.GetString("KeyExcerptHeader");
 
         /// <summary> 
         /// Raised whenever the application language changes. 
@@ -581,7 +581,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Gets the maximum font size allowed for UI text scaling.
         /// </summary>
-        public static int MaxDisplayFontSize => 36;
+        public int MaxDisplayFontSize => 36;
 
         /// <summary>
         /// Computes the pixel offset of the message input field based on the right
@@ -605,7 +605,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Gets the localized label text for the message input field's left offset slider.
         /// </summary>
-        public static string MessageInputFieldLeftOffsetLabel => LocalizationManager.GetString("MessageInputFieldLeftOffsetLabel");
+        public string MessageInputFieldLeftOffsetLabel => LocalizationManager.GetString("MessageInputFieldLeftOffsetLabel");
 
         /// <summary>
         /// Stores the percentage (1–100) of horizontal offset applied to the message
@@ -698,7 +698,7 @@ namespace ChatClient.MVVM.ViewModel
             } 
         }
 
-        public static string MessageInputFieldWidthLabel => LocalizationManager.GetString("MessageInputFieldWidthLabel");
+        public string MessageInputFieldWidthLabel => LocalizationManager.GetString("MessageInputFieldWidthLabel");
 
         /// <summary>
         /// Stores the percentage (1–100) of the right panel width allocated
@@ -833,7 +833,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Gets the localized reduce to tray label text
         /// </summary>
-        public static string ReduceToTrayLabel => LocalizationManager.GetString("ReduceToTrayLabel");
+        public string ReduceToTrayLabel => LocalizationManager.GetString("ReduceToTrayLabel");
 
         /// <summary> 
         /// Command bound to the action button in the monitor grid. 
@@ -877,8 +877,8 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        public static string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
-        public static string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
+        public string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
+        public string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
 
         /// <summary>
         /// Property used by the IP address TextBox when the client is disconnected.
@@ -897,7 +897,7 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        public static string SettingsToolTip => LocalizationManager.GetString("SettingsToolTip");
+        public string SettingsToolTip => LocalizationManager.GetString("SettingsToolTip");
 
 
         /// <summary>
@@ -914,7 +914,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Localized header text for the status column in the monitor grid.
         /// </summary>
-        public static string StatusHeader => LocalizationManager.GetString("StatusHeader");
+        public string StatusHeader => LocalizationManager.GetString("StatusHeader");
 
         /// <summary>
         /// Static UID used to identify system-originated messages such as server shutdown or administrative commands.
@@ -956,7 +956,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Gets the localized use encryption for messages label text
         /// </summary>
-        public static string UseEncryptionLabel => LocalizationManager.GetString("UseEncryptionLabel");
+        public string UseEncryptionLabel => LocalizationManager.GetString("UseEncryptionLabel");
 
         /// <summary>True if the user triggered a disconnect.</summary>
         public bool UserHasClickedOnDisconnect
@@ -1013,7 +1013,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Localized header text for the username column in the monitor grid.
         /// </summary>
-        public static string UsernameHeader => LocalizationManager.GetString("Username");
+        public string UsernameHeader => LocalizationManager.GetString("UsernameHeader");
 
         /// <summary> 
         /// Gets or sets the localized placeholder text for the IP address field. 
@@ -1037,7 +1037,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Localized label text for the TCP port number input field.
         /// </summary>
-        public static string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
+        public string UseTcpPortLabel => LocalizationManager.GetString("UseTcpPortLabel");
 
         /// <summary>
         /// Gets or sets the brush used for watermark text. The brush is theme‑aware
@@ -1155,12 +1155,12 @@ namespace ChatClient.MVVM.ViewModel
 
         /// <summary>
         /// Orchestrates UI-side connection workflow:
-        /// - validates username
-        /// - delegates handshake to clientConn
-        /// - initializes LocalUser
-        /// - updates UI state and focus
-        /// - initializes encryption if enabled (ensures proper key assignment and pipeline readiness)
-        /// - persists last used IP
+        /// • validates username
+        /// • delegates handshake to clientConn
+        /// • initializes LocalUser
+        /// • updates UI state and focus
+        /// • initializes encryption if enabled (ensures proper key assignment and pipeline readiness)
+        /// • persists last used IP
         /// </summary>
         public async Task ConnectToServerAsync(CancellationToken cancellationToken = default)
         {
@@ -1168,7 +1168,7 @@ namespace ChatClient.MVVM.ViewModel
             /// Username rules:
             /// - first character must be a letter (ASCII or selected accented letters)
             /// - allowed subsequent characters: letters (ASCII + selected accents), digits,
-            ///   underscore (\_), hyphen (-) or a single normal space (U+0020)
+            ///   underscore (_), hyphen (-) or a single normal space (U+0020)
             /// - no leading or trailing space, no consecutive spaces, no tabs or other Unicode space characters
             /// - at least one character required
             /// </summary>
@@ -1249,10 +1249,10 @@ namespace ChatClient.MVVM.ViewModel
                 /// <summary>
                 /// If the user has pre-enabled encryption,
                 /// we have all required conditions to start the encryption pipeline:
-                /// - TCP connection established
-                /// - Handshake completed
-                /// - LocalUser and keypair initialized
-                /// - UI fully loaded
+                /// • TCP connection established
+                /// • Handshake completed
+                /// • LocalUser and keypair initialized
+                /// • UI fully loaded
                 /// This ensures encryption is initialized cleanly and predictably.
                 /// </summary>
                 if (Settings.Default.UseEncryption)
@@ -1343,10 +1343,10 @@ namespace ChatClient.MVVM.ViewModel
 
         /// <summary>
         /// Disconnects the client from the server.
-        /// - Marks the disconnection as user-initiated to suppress "Server has closed" messages.  
-        /// - Closes the TCP connection via clientConn.  
-        /// - Clears UI state and notifies bindings.  
-        /// - Disables encryption and resets init flags.  
+        /// • Marks the disconnection as user-initiated to suppress "Server has closed" messages.  
+        /// • Closes the TCP connection via clientConn.  
+        /// • Clears UI state and notifies bindings.  
+        /// • Disables encryption and resets init flags.  
         /// </summary>
         public void Disconnect()
         {
@@ -1844,7 +1844,7 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a delivered plain‐text message by prefixing the sender's name.
+        /// Handles a delivered plain‐text message by prefixing the sender’s name.
         /// Marshals the update to the UI thread and appends "sender: message" to the chat.
         /// </summary>
         /// <param name="senderName">The display name of the message sender.</param>
@@ -1881,9 +1881,9 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Processes a public key sent by another user and keeps the
         /// known‑keys list accurate and up to date.
-        /// - Updates or creates the corresponding PublicKeyEntry  
-        /// - Checks whether all peers now have valid keys  
-        /// - Triggers an encryption‑readiness evaluation when safe
+        /// • Updates or creates the corresponding PublicKeyEntry  
+        /// • Checks whether all peers now have valid keys  
+        /// • Triggers an encryption‑readiness evaluation when safe
         /// </summary>
 
         public void OnPublicKeyReceived(Guid senderUid, byte[]? publicKeyDer)
@@ -2156,8 +2156,8 @@ namespace ChatClient.MVVM.ViewModel
         /// - If not connected, this method only stores the
         ///   preference for later execution after a successful handshake.
         /// - If connected, it applies the preference immediately:
-        ///     - When enabling: starts the encryption pipeline cleanly.
-        ///     - When disabling: tears down the pipeline safely.
+        ///     • When enabling: starts the encryption pipeline cleanly.
+        ///     • When disabling: tears down the pipeline safely.
         /// This method doesn't initialize encryption before the handshake.
         /// </summary>
         public void ToggleEncryptionState(bool enableEncryption)
@@ -2171,9 +2171,9 @@ namespace ChatClient.MVVM.ViewModel
 
             // Determines whether the client is fully ready to apply encryption immediately.
             // This requires:
-            // - An active TCP connection
-            // - A fully initialized LocalUser
-            // - A ready EncryptionPipeline instance
+            // • An active TCP connection
+            // • A fully initialized LocalUser
+            // • A ready EncryptionPipeline instance
             bool isReadyToApplyEncryption = IsConnected && LocalUser != null && EncryptionPipeline != null;
 
             if (!isReadyToApplyEncryption)
@@ -2197,10 +2197,10 @@ namespace ChatClient.MVVM.ViewModel
                 {
                     // await cannot wait for a Task<bool>? it needs a Task<bool> not null
                     // So if EncryptionPipeline is null, we must provide a backup Task<bool> => Task.FromResult(false).
-                    bool pipelineInitOk = await (EncryptionPipeline?.InitializeEncryptionAsync(CancellationToken.None)
+                    bool encPipelineInitOk = await (EncryptionPipeline?.InitializeEncryptionAsync(CancellationToken.None)
                         ?? Task.FromResult(false));
 
-                    if (!pipelineInitOk)
+                    if (!encPipelineInitOk)
                     {
                         Settings.Default.UseEncryption = previousValue;
                         Settings.Default.Save();

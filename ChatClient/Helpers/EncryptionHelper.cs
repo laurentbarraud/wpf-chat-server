@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionHelper.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 ///<summary>
 ///Technical note : 
@@ -28,16 +28,16 @@ namespace ChatClient.Helpers
 {
     /// <summary>
     /// Provides RSA-based end-to-end encryption utilities for secure message exchange.
-    /// - Generates one 2048-bit RSA key pair at startup.
-    /// - Publishes the public key as DER (PKCS\#1 RSAPublicKey) for the handshake.
-    /// - Retains the private key locally for decryption; never transmits private material.
-    /// - Uses RSA-OAEP with SHA-256 for padding to provide semantic security.
+    /// • Generates one 2048-bit RSA key pair at startup.
+    /// • Publishes the public key as DER (PKCS#1 RSAPublicKey) for the handshake.
+    /// • Retains the private key locally for decryption; never transmits private material.
+    /// • Uses RSA-OAEP with SHA-256 for padding to provide semantic security.
     /// 
-    /// PKCS\#1 (simplified):
-    /// - Public key: compact DER encoding of modulus + exponent.
-    /// - Private key: DER encoding of the full RSA private components required for decryption.
-    /// - Intended for RSA-only key interchange when both endpoints agree on the format.
-    /// - Use ExportRSAPublicKey / ImportRSAPublicKey for PKCS\#1 DER serialization.
+    /// PKCS#1 (simplified):
+    /// • Public key: compact DER encoding of modulus + exponent.
+    /// • Private key: DER encoding of the full RSA private components required for decryption.
+    /// • Intended for RSA-only key interchange when both endpoints agree on the format.
+    /// • Use ExportRSAPublicKey / ImportRSAPublicKey for PKCS#1 DER serialization.
     /// </summary>
 
     public static class EncryptionHelper
@@ -45,7 +45,7 @@ namespace ChatClient.Helpers
         /// <summary>Holds the public key as a DER-encoded byte array for key exchange.</summary>
         public static byte[] PublicKeyDer { get; private set; }
 
-        /// <summary>Holds the public key as a DER-encoded PKCS\#1 RSAPublicKey byte array.</summary>
+        /// <summary>Holds the public key as a DER-encoded PKCS#1 RSAPublicKey byte array.</summary>
         public static byte[] PrivateKeyDer { get; private set; }
 
         /// <summary>Internal RSA instance that holds the in-memory key pair for the session.</summary>
@@ -62,10 +62,10 @@ namespace ChatClient.Helpers
             // Generates a new 2048-bit RSA key pair
             RsaInstance = RSA.Create(2048);
 
-            // Exports the public key as DER PKCS\#1 (RSAPublicKey) so ImportRSAPublicKey can consume it
+            // Exports the public key as DER PKCS#1 (RSAPublicKey) so ImportRSAPublicKey can consume it
             PublicKeyDer = RsaInstance.ExportRSAPublicKey();
 
-            // Exports the private key as DER PKCS\#1 for later import
+            // Exports the private key as DER PKCS#1 for later import
             PrivateKeyDer = RsaInstance.ExportRSAPrivateKey();
 
             // Proper logging via ClientLogger instead of Debug.WriteLine
@@ -116,10 +116,10 @@ namespace ChatClient.Helpers
 
         /// <summary>
         /// Encrypts a UTF-8 plaintext string using the recipient's RSA public key (DER bytes).
-        /// - Convert text to UTF-8 bytes. Initializes plaintext for encryption.
-        /// - Import public key from DER bytes. Loads recipient RSA key.
-        /// - Encrypt with RSA OAEP-SHA256. Uses secure padding and SHA-256.
-        /// - Return raw ciphertext bytes or empty array on failure. Errors are logged via LocalizationManager.GetString and Console.WriteLine.
+        /// • Convert text to UTF-8 bytes. Initializes plaintext for encryption.
+        /// • Import public key from DER bytes. Loads recipient RSA key.
+        /// • Encrypt with RSA OAEP-SHA256. Uses secure padding and SHA-256.
+        /// • Return raw ciphertext bytes or empty array on failure. Errors are logged via LocalizationManager.GetString and Console.WriteLine.
         /// </summary>
         /// <param name="plainMessage">The plaintext string to encrypt. If null or empty returns empty byte[] and logs error.</param>
         /// <param name="recipientPublicKeyDer">Recipient RSA public key encoded in DER format as raw bytes. If null or empty returns empty byte[] and logs error.</param>

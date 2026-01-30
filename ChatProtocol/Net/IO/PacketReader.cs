@@ -1,7 +1,7 @@
 ﻿/// <file>PacketReader.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using System;
 using System.Text;
@@ -123,7 +123,7 @@ namespace ChatProtocol.Net.IO
 
         /// <summary>
         /// Reads a 4-byte big-endian integer from the stream and returns it in host byte order.
-        /// Diagnostic: logs the raw 4 bytes read as READ\_HEADER=xx-xx-xx-xx (Debug).
+        /// Diagnostic: logs the raw 4 bytes read as READ_HEADER=xx-xx-xx-xx (Debug).
         /// </summary>
         public async Task<int> ReadInt32NetworkOrderAsync(CancellationToken cancellationToken = default)
         {

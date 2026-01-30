@@ -1,7 +1,7 @@
 ﻿/// <file>AboutWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.ViewModel;
@@ -170,7 +170,7 @@ namespace ChatClient.MVVM.View
 
 
         /// <summary>
-        /// Gradually fades the hotspot's background back to transparent,
+        /// Gradually fades the hotspot’s background back to transparent,
         /// ensuring the brush is unfrozen before animating.
         /// </summary>
         private void FadeOutHotspot()
@@ -206,12 +206,12 @@ namespace ChatClient.MVVM.View
                 HotspotButton.Background = new SolidColorBrush(Colors.Transparent);
             };
 
-            // Animates the brush's Color property using the defined animation.
+            // Animates the brush’s Color property using the defined animation.
             bgBrush.BeginAnimation(SolidColorBrush.ColorProperty, colorAnim);
         }
 
         /// <summary>
-        /// Briefly awakens the hotspot's hidden glow.
+        /// Briefly awakens the hotspot’s hidden glow.
         /// </summary>
         public void HighlightHotspotButton()
         {
@@ -229,7 +229,7 @@ namespace ChatClient.MVVM.View
 
             HotspotButton.Background = brush;
 
-            // Animates the brush's Color property using the defined animation.
+            // Animates the brush’s Color property using the defined animation.
             brush.BeginAnimation(SolidColorBrush.ColorProperty, colorAnim);
         }
 
@@ -243,7 +243,7 @@ namespace ChatClient.MVVM.View
             // and guarantees that the animation pipeline has full control.
             var colorBrush = new SolidColorBrush(Colors.Transparent);
 
-            // The hotspot's background is temporarily replaced with this brush.
+            // The hotspot’s background is temporarily replaced with this brush.
             HotspotButton.Background = colorBrush;
 
             var sunColor = Color.FromRgb(245, 242, 109);
@@ -264,7 +264,7 @@ namespace ChatClient.MVVM.View
                 FillBehavior = FillBehavior.Stop
             };
 
-            // Animation is applied to the brush's Color property.
+            // Animation is applied to the brush’s Color property.
             colorBrush.BeginAnimation(SolidColorBrush.ColorProperty, flashAnim);
         }
 

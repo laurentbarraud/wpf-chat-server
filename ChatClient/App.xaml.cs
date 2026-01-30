@@ -1,7 +1,7 @@
 ﻿/// <file>App.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 27th, 2026</date>
+/// <date>January 30th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.Properties;
@@ -21,12 +21,12 @@ namespace ChatClient
         /// Application startup entry point.
         /// 
         /// Responsibilities:
-        /// - Parses command-line arguments
-        /// - Applies startup configuration flags
-        /// - Initializes culture and localization
-        /// - Creates and displays the main window
-        /// - Registers global keyboard shortcuts for all windows
-        /// - Optionally opens the debug console depending on build mode and flags
+        /// • Parses command-line arguments
+        /// • Applies startup configuration flags
+        /// • Initializes culture and localization
+        /// • Creates and displays the main window
+        /// • Registers global keyboard shortcuts for all windows
+        /// • Optionally opens the debug console depending on build mode and flags
         /// 
         /// This method runs before any window is shown and prepares the
         /// application environment for the entire session.

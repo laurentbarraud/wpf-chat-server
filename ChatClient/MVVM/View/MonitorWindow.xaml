@@ -1,23 +1,105 @@
-﻿<Window
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:helpers="clr-namespace:ChatClient.Helpers"
-    xmlns:av="http://schemas.microsoft.com/expression/blend/2008" 
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" 
-    x:Name="MonitorWindow1"
-    xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
-    x:Class="ChatClient.MVVM.View.MonitorWindow"
-    Title="{Binding MonitorWindowTitle}"
-    Height="440" Width="498"
-    ShowInTaskbar="False"
-    ResizeMode="NoResize"
-    WindowStartupLocation="Manual"
-    Background="{DynamicResource BackgroundBrush}"
-    Icon="/Resources/monitor-icon.ico"
-    TabIndex="12"
-    MinHeight="300"
-    MinWidth="438"
-    Closed="MonitorWindow1_Closed">
+﻿<Window x:Class="ChatClient.MVVM.View.MonitorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:helpers="clr-namespace:ChatClient.Helpers"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" 
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" 
+        x:Name="MonitorWindow1"
+        xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
+        Title="{Binding MonitorWindowTitle}"
+        Height="440" Width="498"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BackgroundBrush}"
+        Icon="/Resources/monitor-icon.ico"
+        TabIndex="12"
+        MinHeight="300"
+        MinWidth="438"
+        Closed="MonitorWindow1_Closed">
+
+    <Window.Resources>
+
+        <!-- key excerpt template -->
+        <DataTemplate x:Key="KeyExcerptTemplate">
+            <TextBlock Text="{Binding KeyExcerpt}"
+                       Foreground="#82AFBD"
+                       FontFamily="Consolas"
+                       VerticalAlignment="Center"/>
+        </DataTemplate>
+
+        <!-- status template -->
+        <DataTemplate x:Key="StatusTemplate">
+            <StackPanel Orientation="Horizontal"
+                        VerticalAlignment="Center">
+
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{DynamicResource ForegroundBrush}"
+                           VerticalAlignment="Center"/>
+
+                <Image Width="16" Height="16"
+                   VerticalAlignment="Center">
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Setter Property="Source" Value="/Resources/invalid.png"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsValid}" Value="True">
+                                    <Setter Property="Source" Value="/Resources/valid-key.png"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- action button template -->
+        <DataTemplate x:Key="ActionTemplate">
+            <Button Width="24" Height="24"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Command="{Binding DataContext.RequestMissingPublicKeyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding UID}">
+
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+
+                        <Setter Property="Content">
+                            <Setter.Value>
+                                <Image Source="/Resources/pull-missing-public-key.png"
+                                   Width="24" Height="24"/>
+                            </Setter.Value>
+                        </Setter>
+
+                        <Style.Triggers>
+
+                            <!-- always hide for local key -->
+                            <DataTrigger Binding="{Binding IsLocal}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+
+                            <!-- show only if missing and not local -->
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsLocal}" Value="False"/>
+                                    <Condition Binding="{Binding IsMissing}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </MultiDataTrigger>
+
+                        </Style.Triggers>
+
+                    </Style>
+                </Button.Style>
+
+            </Button>
+        </DataTemplate>
+
+    </Window.Resources>
 
     <!-- Main Grid -->
     <Grid Margin="0,0,0,0">
@@ -75,114 +157,7 @@
                     </Style.Triggers>
                 </Style>
             </DataGrid.RowStyle>
-
-            <DataGrid.Columns>
-
-                <!-- COLUMN 1 : Username -->
-                <DataGridTextColumn Header="{Binding UsernameHeader}"
-                                    Binding="{Binding Username}"
-                                    Width="4.5*" />
-
-                <!-- COLUMN 2 : Key excerpt -->
-                <DataGridTemplateColumn Header="{Binding KeyExcerptHeader}"
-                                        Width="2*">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding KeyExcerpt}"
-                                   Foreground="#82AFBD"
-                                   FontFamily="Consolas"
-                                   VerticalAlignment="Center"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- COLUMN 3 : Status (text and icon) -->
-                <DataGridTemplateColumn Header="{Binding StatusHeader}" 
-                                        Width="2*">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-
-                            <StackPanel Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-
-                                <TextBlock Text="{Binding StatusText}"
-                                       Foreground="{DynamicResource ForegroundBrush}"
-                                       VerticalAlignment="Center"/>
-
-                                <Image Width="16" Height="16"
-                                   VerticalAlignment="Center">
-                                    <Image.Style>
-                                        <Style TargetType="Image">
-                                            <Setter Property="Source" Value="/Resources/invalid.png"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsValid}" Value="True">
-                                                    <Setter Property="Source" Value="/Resources/valid-key.png"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Image.Style>
-                                </Image>
-
-                            </StackPanel>
-
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- COLUMN 4 : Action button -->
-                <DataGridTemplateColumn Header="{Binding ActionHeader}"
-                                        Width="1.5*">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-
-                            <Button Width="24" Height="24"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Command="{Binding DataContext.RequestMissingPublicKeyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding UID}">
-                                    <!-- Pass row UID to the window ViewModel command -->
-
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-
-                                        <Setter Property="Content">
-                                            <Setter.Value>
-                                                <Image Source="/Resources/pull-missing-public-key.png"
-                                                   Width="24" Height="24"/>
-                                            </Setter.Value>
-                                        </Setter>
-
-                                        <Style.Triggers>
-
-                                            <!-- Always hide for local key -->
-                                            <DataTrigger Binding="{Binding IsLocal}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                            </DataTrigger>
-
-                                            <!-- Show only if missing AND not local -->
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding IsLocal}" Value="False"/>
-                                                    <Condition Binding="{Binding IsMissing}" Value="True"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </MultiDataTrigger>
-
-                                        </Style.Triggers>
-
-                                    </Style>
-                                </Button.Style>
-
-                            </Button>
-
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-            </DataGrid.Columns>
+            
         </DataGrid>
 
         <!-- Validate button -->
