@@ -185,8 +185,9 @@
 
         <!-- Central settings grid -->
         <Grid Grid.Row="0"
-          Margin="0,21,0,10"
-          HorizontalAlignment="Center">
+              Margin="0,21,0,10"
+              HorizontalAlignment="Center"
+              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>

@@ -579,7 +579,9 @@
         <Grid x:Name="GrdRight"
               Grid.Column="2"
               Background="{DynamicResource BackgroundBrush}"
-              SizeChanged="GrdRight_SizeChanged">
+              SizeChanged="GrdRight_SizeChanged"
+              UseLayoutRounding="True"
+              SnapsToDevicePixels="True">
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -909,12 +911,13 @@
                                      Foreground="{DynamicResource ForegroundBrush}"
                                      PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
                                      SizeChanged="TxtMessageInputField_SizeChanged"
+                                     Margin="{Binding MessageInputFieldMargin}"
                                      VerticalAlignment="Stretch"
                                      VerticalContentAlignment="Center"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      BorderThickness="0"
-                                     Padding="8,0,8,0">
+                                     Padding="0">
                                 <!-- Template unchanged -->
                             </TextBox>
 

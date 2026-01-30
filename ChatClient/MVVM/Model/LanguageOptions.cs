@@ -1,7 +1,7 @@
 ﻿/// <file>LanguageOption.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 30th, 2026</date>
+/// <date>January 31th, 2026</date>
 
 using System.ComponentModel;
 using System.Globalization;

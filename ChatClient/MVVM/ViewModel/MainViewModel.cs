@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.0</version>
-/// <date>January 30th, 2026</date>
+/// <date>January 31th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -617,10 +617,6 @@ namespace ChatClient.MVVM.ViewModel
             {
                 double storedLeftOffsetPercent = Properties.Settings.Default.MessageInputFieldLeftOffsetPercent;
 
-                // Fallback to 0% if invalid
-                if (storedLeftOffsetPercent < 0)
-                    storedLeftOffsetPercent = 0;
-
                 return Math.Clamp(storedLeftOffsetPercent, 0.0, 100.0);
             }
             set
@@ -633,6 +629,7 @@ namespace ChatClient.MVVM.ViewModel
                 Properties.Settings.Default.MessageInputFieldLeftOffsetPercent = clampedValue;
                 Properties.Settings.Default.Save();
 
+                OnPropertyChanged(nameof(MessageInputFieldLeftOffsetPercent));
                 OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
             }
@@ -648,7 +645,6 @@ namespace ChatClient.MVVM.ViewModel
                 return new Thickness(MessageInputFieldLeftOffset, 0, 0, 0);
             }
         }
-
 
         /// <summary> 
         /// Localized watermark text displayed in the message input field when empty. </summary> 
@@ -709,28 +705,26 @@ namespace ChatClient.MVVM.ViewModel
         {
             get
             {
-                double storedMessageInputFieldWidthPercent = Properties.Settings.Default.MessageInputFieldWidthPercent;
+                double storedWidthPercent = Properties.Settings.Default.MessageInputFieldWidthPercent;
 
-                /// <summary> Fallbacks to 60% if the stored value is invalid or zero </summary>
-                if (storedMessageInputFieldWidthPercent <= 0)
-                {
-                    storedMessageInputFieldWidthPercent = 60.0;
-                }
+                if (storedWidthPercent <= 0)
+                    storedWidthPercent = 60.0;
 
-                /// <summary> Clamps the value between 1.0 and 100.0 </summary>
-                return Math.Clamp(storedMessageInputFieldWidthPercent, 1.0, 100.0);
+                return Math.Clamp(storedWidthPercent, 1.0, 100.0);
             }
             set
             {
-                // Clamps between 1% and 100% to ensure the input field remains visible
-                double clamped = Math.Clamp(value, 1.0, 100.0);
+                double clampedValue = Math.Clamp(value, 1.0, 100.0);
 
-                if (Math.Abs(clamped - Properties.Settings.Default.MessageInputFieldWidthPercent) < 0.01)
+                if (Math.Abs(clampedValue - Properties.Settings.Default.MessageInputFieldWidthPercent) < 0.01)
+                {
                     return;
+                }
 
-                Properties.Settings.Default.MessageInputFieldWidthPercent = clamped;
+                Properties.Settings.Default.MessageInputFieldWidthPercent = clampedValue;
                 Properties.Settings.Default.Save();
 
+                OnPropertyChanged(nameof(MessageInputFieldWidthPercent));
                 OnPropertyChanged(nameof(MessageInputFieldWidth));
                 OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
