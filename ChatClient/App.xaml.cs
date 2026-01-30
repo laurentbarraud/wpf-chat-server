@@ -35,6 +35,13 @@ namespace ChatClient
         {
             base.OnStartup(e);
 
+            // Force English on first launch if no language has been chosen yet
+            if (string.IsNullOrWhiteSpace(Settings.Default.AppLanguageCode)) 
+            { 
+                Settings.Default.AppLanguageCode = "en"; 
+                Settings.Default.Save(); 
+            }
+
             // Collects all command-line arguments (skipping the executable path)
             string[] args = Environment.GetCommandLineArgs().Skip(1).ToArray();
 

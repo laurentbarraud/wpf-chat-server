@@ -9,9 +9,10 @@
     <UseWPF>true</UseWPF>
     <AssemblyVersion>1.0</AssemblyVersion>
     <FileVersion>1.0</FileVersion>
-    <Company></Company>
+    <Company>wpf-chat-server</Company>
+    <Product>ChatClient</Product>
     <Version>1.0</Version>
-    <Title>chat-client</Title>
+    <Title>ChatClient</Title>
     <Authors>Laurent Barraud</Authors>
     <Description>chat-server app</Description>
     <StartupObject>ChatClient.App</StartupObject>
