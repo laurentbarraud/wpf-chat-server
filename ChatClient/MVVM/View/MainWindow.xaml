@@ -911,13 +911,12 @@
                                      Foreground="{DynamicResource ForegroundBrush}"
                                      PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
                                      SizeChanged="TxtMessageInputField_SizeChanged"
-                                     Margin="{Binding MessageInputFieldMargin}"
                                      VerticalAlignment="Stretch"
-                                     VerticalContentAlignment="Center"
+                                     VerticalContentAlignment="Bottom"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      BorderThickness="0"
-                                     Padding="0">
+                                     Padding="4,0,4,10">
                                 <!-- Template unchanged -->
                             </TextBox>
 

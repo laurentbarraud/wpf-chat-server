@@ -1227,7 +1227,7 @@ namespace ChatClient.MVVM.ViewModel
                 // Notifies UI that connection is now established
                 OnPropertyChanged(nameof(IsConnected));
 
-                // Updates UI bindings to reflect connected state
+                // Updates UI bindings to reflect connected state.
                 _ = Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     _userHasClickedOnDisconnect = false;
@@ -1236,7 +1236,22 @@ namespace ChatClient.MVVM.ViewModel
 
                     OnPropertyChanged(nameof(CurrentIPDisplay));
                     OnPropertyChanged(nameof(ConnectButtonText));
+
+                    // Deferred focus transfer to the message input field
+                    _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (Application.Current.MainWindow is MainWindow mainWindow)
+                        {
+                            // Makes sure the message input box becomes the real focus target of the window.
+                            // FocusManager sets which control should logically receive focus,
+                            // and Keyboard.Focus gives it the actual keyboard focus so the user can type immediately.
+                            FocusManager.SetFocusedElement(mainWindow, mainWindow.TxtMessageInputField);
+                            Keyboard.Focus(mainWindow.TxtMessageInputField);
+                            mainWindow.TxtMessageInputField.CaretIndex = mainWindow.TxtMessageInputField.Text.Length;
+                        }
+                    }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
                 });
+
 
                 ClientLogger.Log("Server accepted handshake — plaintext messages permitted", ClientLogLevel.Debug);
 
