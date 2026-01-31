@@ -232,32 +232,33 @@
     <value>Usage: chat-client.exe [options]
 
 Options:
-  -u, --username        Set your username and auto-connect
-  -p, --port                Set the server port
+  -u, --username         Set your username and auto-connect
+  -p, --port                  Set the server port
 
-   --dark, --light        Switch to theme
+  --dark, --light           Switch theme
 
-  --en, --english        Switch to English
-  --fr, --french           Switch to French
-  --sp, --spanish        Switch to Spanish
+  --en, --english          Switch to English
+  --fr, --french             Switch to French
+  --sp, --spanish          Switch to Spanish
 
-  -e, --encrypted       Enable end-to-end encryption
+  -e, --encrypted         Enable end-to-end encryption
 
-  -r, -t, -m, --reduce  Enable minimize to system tray
+  -r, -t, -m, --reduce    Enable minimize to system tray
   --tray, --min
 
-  -c, -d, --debug        Open console window
-                   
-  -h, -? , --help          Display this help message
-  
-  -v, --about,             Open the About window
+  -c, -d, --debug         Open console window
+
+  -h, -? , --help           Display this help message
+
+  -v, --about,              Open the About window
   --version
 
 All arguments support Windows-style (/option)
 and Unix-style (--option) notation.
 
 Example:
-  chat-client.exe --dark /t /e /u Laurent</value>
+  chat-client.exe --dark /t /e /u Laurent
+</value>
   </data>
   <data name="CliArgumentsText" xml:space="preserve">
     <value>Command-line arguments</value>

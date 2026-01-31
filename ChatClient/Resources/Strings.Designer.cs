@@ -127,21 +127,23 @@ namespace ChatClient.Resources {
         ///   Recherche une chaîne localisée semblable à Usage: chat-client.exe [options]
         ///
         ///Options:
-        ///  -u, --username        Set your username and auto-connect
-        ///  -p, --port                Set the server port
+        ///  -u, --username         Set your username and auto-connect
+        ///  -p, --port                  Set the server port
         ///
-        ///   --dark, --light        Switch to theme
+        ///  --dark, --light           Switch theme
         ///
-        ///  --en, --english        Switch to English
-        ///  --fr, --french           Switch to French
-        ///  --sp, --spanish        Switch to Spanish
+        ///  --en, --english          Switch to English
+        ///  --fr, --french             Switch to French
+        ///  --sp, --spanish          Switch to Spanish
         ///
-        ///  -e, --encrypted       Enable end-to-end encryption
+        ///  -e, --encrypted         Enable end-to-end encryption
         ///
-        ///  -r, -t, -m, --reduce  Enable minimize to system tray
+        ///  -r, -t, -m, --reduce    Enable minimize to system tray
         ///  --tray, --min
         ///
-        ///  -c, -d, --debug        Open console window [le reste de la chaîne a été tronqué]&quot;;.
+        ///  -c, -d, --debug         Open console window
+        ///
+        ///   [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {

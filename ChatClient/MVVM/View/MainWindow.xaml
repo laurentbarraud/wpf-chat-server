@@ -192,7 +192,7 @@
           Background="{DynamicResource BackgroundBrush}">
 
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="ColRoster" Width="*" MinWidth="40" d:Width="250"/>
+            <ColumnDefinition x:Name="ColRoster" Width="*" MinWidth="40" d:Width="280"/>
             <ColumnDefinition Width="5"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
@@ -590,7 +590,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition x:Name="RowMessagesRight" Height="*" MinHeight="1"/>
                 <RowDefinition Height="4"/>
-                <RowDefinition x:Name="RowBottomRight" Height="*" MinHeight="34" d:Height="100"/>
+                <RowDefinition x:Name="RowBottomRight" Height="*" MinHeight="34" d:Height="34"/>
             </Grid.RowDefinitions>
 
             <!-- Row 0 : Received messages -->

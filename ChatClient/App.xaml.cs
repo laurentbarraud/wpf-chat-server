@@ -35,6 +35,21 @@ namespace ChatClient
         {
             base.OnStartup(e);
 
+            // Collects all command-line arguments (skipping the executable path)
+            string[] args = Environment.GetCommandLineArgs().Skip(1).ToArray();
+
+            // Applies all other startup flags
+            StartupConfigurator.ApplyStartupArguments(args);
+            
+            // Detects if a language was explicitly requested via command-line
+            bool languageForcedByArgs = args.Any(a => a.Equals("--fr", StringComparison.OrdinalIgnoreCase) 
+            || a.Equals("--french", StringComparison.OrdinalIgnoreCase) 
+            || a.Equals("--es", StringComparison.OrdinalIgnoreCase) 
+            || a.Equals("--esp", StringComparison.OrdinalIgnoreCase) 
+            || a.Equals("--spanish", StringComparison.OrdinalIgnoreCase) 
+            || a.Equals("--en", StringComparison.OrdinalIgnoreCase) 
+            || a.Equals("--english", StringComparison.OrdinalIgnoreCase) );
+
             // Applies default settings on first launch
             if (string.IsNullOrWhiteSpace(Settings.Default.AppLanguageCode))
             {
@@ -43,7 +58,6 @@ namespace ChatClient
 
                 // Default horizontal offset (20%) for a more balanced layout
                 Settings.Default.MessageInputFieldLeftOffsetPercent = 20.0;
-
                 Settings.Default.Save();
 
                 // After the main window is created, sets the input field row to minimum height
@@ -57,22 +71,16 @@ namespace ChatClient
                 });
             }
 
-            // Collects all command-line arguments (skipping the executable path)
-            string[] args = Environment.GetCommandLineArgs().Skip(1).ToArray();
+            // Creates and displays the main window
+            var mainWindow = new MainWindow();
+            Application.Current.MainWindow = mainWindow;
+            mainWindow.Show();
 
-            // Detects debug/console flags
-            bool debugMode = args.Any(arg =>
-                arg.Equals("--debug", StringComparison.OrdinalIgnoreCase) ||
-                arg.Equals("--verbose", StringComparison.OrdinalIgnoreCase) ||
-                arg.Equals("--console", StringComparison.OrdinalIgnoreCase) ||
-                arg.Equals("-d", StringComparison.OrdinalIgnoreCase) ||
-                arg.Equals("-c", StringComparison.OrdinalIgnoreCase));
-
-            // Applies all other startup flags
-            StartupConfigurator.ApplyStartupArguments(args);
+            // Re-reads the language after StartupConfigurator has applied command-line flags
+            Settings.Default.Reload();
+            string languageCodeSaved = Settings.Default.AppLanguageCode ?? "en";
 
             // Culture & localization setup
-            string languageCodeSaved = Settings.Default.AppLanguageCode ?? "en";
             var cultureToApply = new CultureInfo(languageCodeSaved);
 
             Thread.CurrentThread.CurrentCulture = cultureToApply;
@@ -82,32 +90,27 @@ namespace ChatClient
 
             LocalizationManager.InitializeLocalization(languageCodeSaved);
 
-            // Creates and displays the main window
-            var mainWindow = new MainWindow();
-            Application.Current.MainWindow = mainWindow;
-            mainWindow.Show();
-
             // Registers global keyboard shortcuts for all windows
             EventManager.RegisterClassHandler(
                 typeof(Window),
                 Keyboard.PreviewKeyDownEvent,
                 new KeyEventHandler(GlobalShortcutHandler));
 
-            #if DEBUG
+#if DEBUG
             // Debug build: always show console when running under Visual Studio
             ClientLogger.IsDebugEnabled = true;
             ConsoleManager.Show();
             Console.OutputEncoding = System.Text.Encoding.UTF8;
-            
-            #else
+
+#else
             // Release build: show console only if explicitly requested
-            if (debugMode)
+            if (Settings.Default.DebugMode)
             {
                 ClientLogger.IsDebugEnabled = true;
                 ConsoleManager.Show();
                 Console.OutputEncoding = System.Text.Encoding.UTF8;
             }
-            #endif
+#endif
         }
 
         /// <summary>

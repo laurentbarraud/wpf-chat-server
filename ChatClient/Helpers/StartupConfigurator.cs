@@ -320,7 +320,7 @@ namespace ChatClient.Helpers
             // Applies chosen localization
             if (!string.IsNullOrEmpty(langCodeChosen))
             {
-                var supported = new[] { "en", "fr" };
+                var supported = new[] { "en", "fr", "es"};
                 if (supported.Contains(langCodeChosen.ToLowerInvariant()))
                 {
                     LocalizationManager.InitializeLocalization(langCodeChosen);
@@ -331,6 +331,8 @@ namespace ChatClient.Helpers
                     LocalizationManager.InitializeLocalization("en");
                     Properties.Settings.Default.AppLanguageCode = "en";
                 }
+
+                Properties.Settings.Default.Save();
             }
 
             // Shows help and exits
