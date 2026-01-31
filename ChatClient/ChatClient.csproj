@@ -9,7 +9,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyVersion>1.0</AssemblyVersion>
     <FileVersion>1.0</FileVersion>
-    <Company>wpf-chat-server</Company>
+    <Company>ChatClient</Company>
     <Product>ChatClient</Product>
     <Version>1.0</Version>
     <Title>ChatClient</Title>

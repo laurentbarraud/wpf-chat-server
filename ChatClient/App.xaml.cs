@@ -35,11 +35,26 @@ namespace ChatClient
         {
             base.OnStartup(e);
 
-            // Force English on first launch if no language has been chosen yet
-            if (string.IsNullOrWhiteSpace(Settings.Default.AppLanguageCode)) 
-            { 
-                Settings.Default.AppLanguageCode = "en"; 
-                Settings.Default.Save(); 
+            // Applies default settings on first launch
+            if (string.IsNullOrWhiteSpace(Settings.Default.AppLanguageCode))
+            {
+                // Default language
+                Settings.Default.AppLanguageCode = "en";
+
+                // Default horizontal offset (20%) for a more balanced layout
+                Settings.Default.MessageInputFieldLeftOffsetPercent = 20.0;
+
+                Settings.Default.Save();
+
+                // After the main window is created, sets the input field row to minimum height
+                this.Dispatcher.InvokeAsync(() =>
+                {
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                    {
+                        // Sets RowBottomRight to its minimum height
+                        mainWindow.RowBottomRight.Height = new GridLength(mainWindow.RowBottomRight.MinHeight, GridUnitType.Pixel);
+                    }
+                });
             }
 
             // Collects all command-line arguments (skipping the executable path)
