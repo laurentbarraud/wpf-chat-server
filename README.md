@@ -1,5 +1,5 @@
 ## Chat Client
-A real‑time WPF chat client and TCP server in C#, featuring a custom binary protocol, framed packet system, RSA encryption, and a modern interface.
+Encrypted chat client & server in C# (WPF), using RSA encryption, async TCP networking, and a custom packet protocol.
 
 [![Release](https://img.shields.io/badge/release-stable-245e48)](https://github.com/laurentbarraud/wpf-chat-server/releases)
 [![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/latest/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases)
