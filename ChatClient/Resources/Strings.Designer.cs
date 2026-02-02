@@ -97,15 +97,6 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Bubble mode.
-        /// </summary>
-        public static string BubbleModeToolTip {
-            get {
-                return ResourceManager.GetString("BubbleModeToolTip", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Recherche une chaîne localisée semblable à Please choose a number between 1000 and 65535..
         /// </summary>
         public static string ChooseAnAppropriatePortNumber {
@@ -651,6 +642,15 @@ namespace ChatClient.Resources {
         public static string UseEncryptionLabel {
             get {
                 return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Use raw text mode for messages.
+        /// </summary>
+        public static string UseRawTextModeLabel {
+            get {
+                return ResourceManager.GetString("UseRawTextModeLabel", resourceCulture);
             }
         }
         

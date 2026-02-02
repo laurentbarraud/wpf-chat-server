@@ -348,7 +348,7 @@ and connected users list</value>
   <data name="SettingsWindowTitle" xml:space="preserve">
     <value>Settings</value>
   </data>
-  <data name="BubbleModeToolTip" xml:space="preserve">
-    <value>Bubble mode</value>
+  <data name="UseRawTextModeLabel" xml:space="preserve">
+    <value>Use raw text mode for messages</value>
   </data>
 </root>

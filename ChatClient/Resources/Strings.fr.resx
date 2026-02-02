@@ -350,7 +350,7 @@ depuis la gauche</value>
   <data name="SettingsWindowTitle" xml:space="preserve">
     <value>Paramètres</value>
   </data>
-  <data name="BubbleModeToolTip" xml:space="preserve">
-    <value>Mode bulles</value>
+  <data name="UseRawTextModeLabel" xml:space="preserve">
+    <value>Utiliser le mode texte brut pour les messages</value>
   </data>
 </root>

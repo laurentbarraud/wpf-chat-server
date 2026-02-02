@@ -178,5 +178,17 @@ namespace ChatClient.Properties {
                 this["DebugMode"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool UseRawText {
+            get {
+                return ((bool)(this["UseRawText"]));
+            }
+            set {
+                this["UseRawText"] = value;
+            }
+        }
     }
 }

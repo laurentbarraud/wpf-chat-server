@@ -96,11 +96,6 @@ namespace ChatClient.MVVM.ViewModel
         private string _ipAddressWatermarkText = "";
 
         /// <summary>
-        /// Backing field indicating whether the bubble layout is currently enabled.
-        /// </summary>
-        private bool _isBubbleMode = true;
-
-        /// <summary>
         /// Stores the current theme selection state.
         /// Initialized from the saved AppTheme ("dark" = true, otherwise false).
         /// </summary>
@@ -235,8 +230,6 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         public string AppLanguageLabel => LocalizationManager.GetString("AppLanguageLabel");
-
-        public string BubbleModeToolTip => LocalizationManager.GetString("BubbleModeToolTip");
 
         /// <summary>
         /// Gets the active client connection used by the ViewModel to manage the
@@ -487,23 +480,6 @@ namespace ChatClient.MVVM.ViewModel
                 
                 OnPropertyChanged(nameof(IPAddressWatermarkText)); 
             } 
-        }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the application should
-        /// display incoming and outgoing messages using the bubble-style layout.
-        /// This property is bound to the mini toggle in the main window and
-        /// notifies the UI immediately when the mode changes.
-        /// </summary>
-        public bool IsBubbleMode
-        {
-            get => _isBubbleMode;
-            set
-            {
-                if (_isBubbleMode == value) return;
-                _isBubbleMode = value;
-                OnPropertyChanged();
-            }
         }
 
         /// <summary>
@@ -989,6 +965,29 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
+        /// <summary>
+        /// Proxy-property: gets or sets the application setting
+        /// indicating whether raw text mode is enabled.
+        /// </summary>
+        public bool UseRawTextMode
+        {
+            get => Settings.Default.UseRawText;
+            set
+            {
+                if (Settings.Default.UseRawText == value)
+                {
+                    return;
+                }
+
+                Settings.Default.UseRawText = value;
+                Settings.Default.Save();
+
+                // Notifies UI bindings
+                OnPropertyChanged();
+            }
+        }
+
+        public string UseRawTextModeLabel => LocalizationManager.GetString("UseRawTextModeLabel");
 
         /// <summary>
         /// What the user types in the first textbox on top left of the MainWindow.
@@ -1705,7 +1704,6 @@ namespace ChatClient.MVVM.ViewModel
         public void LoadLocalizedStrings()
         {
             // Tooltips
-            OnPropertyChanged(nameof(BubbleModeToolTip));
             OnPropertyChanged(nameof(GettingMissingKeysToolTip));
             OnPropertyChanged(nameof(EncryptionEnabledToolTip));
             OnPropertyChanged(nameof(ScrollLeftToolTip));
@@ -1717,6 +1715,7 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(UseTcpPortLabel));
             OnPropertyChanged(nameof(ReduceToTrayLabel));
             OnPropertyChanged(nameof(UseEncryptionLabel));
+            OnPropertyChanged(nameof(UseRawTextModeLabel));
             OnPropertyChanged(nameof(DisplayFontSizeLabel));
             OnPropertyChanged(nameof(MessageInputFieldWidthLabel));
             OnPropertyChanged(nameof(MessageInputFieldLeftOffsetLabel));

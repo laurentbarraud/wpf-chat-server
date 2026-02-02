@@ -36,6 +36,7 @@
     <None Remove="Resources\monitor-icon.ico" />
     <None Remove="Resources\moon.png" />
     <None Remove="Resources\port-setting.png" />
+    <None Remove="Resources\raw-text-mode.png" />
     <None Remove="Resources\reduce-to-tray-calc-icon.png" />
     <None Remove="Resources\right-arrow.png" />
     <None Remove="Resources\send.png" />
@@ -68,6 +69,7 @@
     <Resource Include="Resources\message-input-field-width.png" />
     <Resource Include="Resources\app-language-selection.png" />
     <Resource Include="Resources\monitor.png" />
+    <Resource Include="Resources\raw-text-mode.png" />
     <Resource Include="Resources\spanish-flag.png" />
     <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
