@@ -4,10 +4,11 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>1.0</Version>
+    <Version>1.1</Version>
     <Authors>Laurent Barraud</Authors>
     <RootNamespace>ChatProtocol</RootNamespace>
     <AssemblyName>ChatProtocol</AssemblyName>
+    <AssemblyVersion>1.1</AssemblyVersion>
   </PropertyGroup>
 
 </Project>

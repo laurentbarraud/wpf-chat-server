@@ -97,6 +97,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Bubble mode.
+        /// </summary>
+        public static string BubbleModeToolTip {
+            get {
+                return ResourceManager.GetString("BubbleModeToolTip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Please choose a number between 1000 and 65535..
         /// </summary>
         public static string ChooseAnAppropriatePortNumber {
@@ -141,9 +150,7 @@ namespace ChatClient.Resources {
         ///  -r, -t, -m, --reduce    Enable minimize to system tray
         ///  --tray, --min
         ///
-        ///  -c, -d, --debug         Open console window
-        ///
-        ///   [le reste de la chaîne a été tronqué]&quot;;.
+        ///  -c, -d, --debug         Open c [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {
@@ -405,7 +412,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.0 - Jan. 2026 - Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.1 - Feb. 2026 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {

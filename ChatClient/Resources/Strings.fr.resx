@@ -172,7 +172,7 @@
     <value>L’adresse IP est incorrecte. Laissez-la vide pour vous connecter localement.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.0 - janv. 2026 - Laurent Barraud </value>
+    <value> v1.1 - févr. 2026 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>Ce logiciel open‑source est fourni dans l'espoir qu'il sera utile, mais sans garantie.</value>
@@ -349,5 +349,8 @@ depuis la gauche</value>
   </data>
   <data name="SettingsWindowTitle" xml:space="preserve">
     <value>Paramètres</value>
+  </data>
+  <data name="BubbleModeToolTip" xml:space="preserve">
+    <value>Mode bulles</value>
   </data>
 </root>

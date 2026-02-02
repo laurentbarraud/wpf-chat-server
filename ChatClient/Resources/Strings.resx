@@ -172,7 +172,7 @@
     <value>The IP address is incorrect. Leave it blank to connect locally.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.0 - Jan. 2026 - Laurent Barraud </value>
+    <value> v1.1 - Feb. 2026 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>This open-source software is distributed in the hope that it will be useful, but without any warranty.</value>
@@ -347,5 +347,8 @@ and connected users list</value>
   </data>
   <data name="SettingsWindowTitle" xml:space="preserve">
     <value>Settings</value>
+  </data>
+  <data name="BubbleModeToolTip" xml:space="preserve">
+    <value>Bubble mode</value>
   </data>
 </root>

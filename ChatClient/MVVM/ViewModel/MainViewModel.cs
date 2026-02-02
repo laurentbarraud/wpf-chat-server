@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>1.0</version>
-/// <date>January 31th, 2026</date>
+/// <version>1.1</version>
+/// <date>February 2nd, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -94,6 +94,11 @@ namespace ChatClient.MVVM.ViewModel
         /// in the IP address input field when it is empty and not focused.
         /// </summary> 
         private string _ipAddressWatermarkText = "";
+
+        /// <summary>
+        /// Backing field indicating whether the bubble layout is currently enabled.
+        /// </summary>
+        private bool _isBubbleMode = true;
 
         /// <summary>
         /// Stores the current theme selection state.
@@ -231,6 +236,7 @@ namespace ChatClient.MVVM.ViewModel
 
         public string AppLanguageLabel => LocalizationManager.GetString("AppLanguageLabel");
 
+        public string BubbleModeToolTip => LocalizationManager.GetString("BubbleModeToolTip");
 
         /// <summary>
         /// Gets the active client connection used by the ViewModel to manage the
@@ -481,6 +487,23 @@ namespace ChatClient.MVVM.ViewModel
                 
                 OnPropertyChanged(nameof(IPAddressWatermarkText)); 
             } 
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the application should
+        /// display incoming and outgoing messages using the bubble-style layout.
+        /// This property is bound to the mini toggle in the main window and
+        /// notifies the UI immediately when the mode changes.
+        /// </summary>
+        public bool IsBubbleMode
+        {
+            get => _isBubbleMode;
+            set
+            {
+                if (_isBubbleMode == value) return;
+                _isBubbleMode = value;
+                OnPropertyChanged();
+            }
         }
 
         /// <summary>
@@ -1682,6 +1705,7 @@ namespace ChatClient.MVVM.ViewModel
         public void LoadLocalizedStrings()
         {
             // Tooltips
+            OnPropertyChanged(nameof(BubbleModeToolTip));
             OnPropertyChanged(nameof(GettingMissingKeysToolTip));
             OnPropertyChanged(nameof(EncryptionEnabledToolTip));
             OnPropertyChanged(nameof(ScrollLeftToolTip));
@@ -2003,8 +2027,6 @@ namespace ChatClient.MVVM.ViewModel
             {
                 LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode); 
                 LoadLocalizedStrings(); 
-                OnPropertyChanged(nameof(EncryptionEnabledToolTip)); 
-                OnPropertyChanged(nameof(GettingMissingKeysToolTip)); 
                 return; 
             }
 

@@ -6,9 +6,9 @@
     <RootNamespace>ChatServer</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyVersion>1.0</AssemblyVersion>
-    <Version>1.0</Version>
-    <FileVersion>1.0</FileVersion>
+    <AssemblyVersion>1.1</AssemblyVersion>
+    <Version>1.1</Version>
+    <FileVersion>1.1</FileVersion>
     <Company>Laurent Barraud</Company>
     <Authors>$(Authors)</Authors>
     <Title>chat-server</Title>

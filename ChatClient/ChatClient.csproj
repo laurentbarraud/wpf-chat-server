@@ -7,14 +7,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyVersion>1.0</AssemblyVersion>
-    <FileVersion>1.0</FileVersion>
+    <AssemblyVersion>1.1</AssemblyVersion>
+    <FileVersion>1.1</FileVersion>
     <Company>ChatClient</Company>
     <Product>ChatClient</Product>
-    <Version>1.0</Version>
+    <Version>1.1</Version>
     <Title>ChatClient</Title>
     <Authors>Laurent Barraud</Authors>
-    <Description>chat-server app</Description>
+    <Description>chat client and server</Description>
     <StartupObject>ChatClient.App</StartupObject>
     <AssemblyName>ChatClient</AssemblyName>
   </PropertyGroup>

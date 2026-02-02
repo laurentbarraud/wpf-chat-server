@@ -15,42 +15,6 @@
 
     <Window.Resources>
         
-        <!-- Custom style for the "Use Custom TCP Port" toggle -->
-        <Style x:Key="CustomPortToggleStyle" TargetType="{x:Type ToggleButton}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ToggleButton}">
-                        <Grid>
-                            <Border x:Name="SwitchBackground"
-                                CornerRadius="16"
-                                Background="{DynamicResource BackgroundBrush}"
-                                BorderBrush="{DynamicResource AccentBrush}"
-                                BorderThickness="1" />
-
-                            <Grid x:Name="ThumbContainer"
-                              Width="30" Height="30"
-                              VerticalAlignment="Center"
-                              Margin="2,2,28,2">
-                                <Ellipse Fill="{DynamicResource AccentBrush}" />
-                                <Image x:Name="SwitchIcon"
-                                   Width="16" Height="16"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
-                            </Grid>
-                        </Grid>
-
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/port-setting.png" />
-                                <Setter TargetName="ThumbContainer" Property="Margin" Value="28,2,2,2" />
-                                <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- Common toggle style -->
         <Style x:Key="ToggleStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="54"/>
@@ -330,7 +294,8 @@
                     Minimum="{Binding MinDisplayFontSize}" 
                     Maximum="{Binding MaxDisplayFontSize}" 
                     Value="{Binding DisplayFontSize, Mode=TwoWay}"
-                    TickFrequency="1" IsSnapToTickEnabled="True"
+                    TickFrequency="1" 
+                    IsSnapToTickEnabled="True"
                     Width="180"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
@@ -350,7 +315,8 @@
                     Minimum="1" 
                     Maximum="100"
                     Value="{Binding MessageInputFieldWidthPercent, Mode=TwoWay}"
-                    TickFrequency="10" IsSnapToTickEnabled="True"
+                    TickFrequency="10" 
+                    IsSnapToTickEnabled="True"
                     Width="180"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
@@ -372,7 +338,8 @@
                 <Slider Grid.Row="2" Grid.Column="2"
                         Minimum="0" Maximum="100"
                         Value="{Binding MessageInputFieldLeftOffsetPercent, Mode=TwoWay}"
-                        TickFrequency="5" IsSnapToTickEnabled="True"
+                        TickFrequency="5" 
+                        IsSnapToTickEnabled="True"
                         Width="180"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"

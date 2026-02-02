@@ -1,7 +1,7 @@
 ﻿/// <file>LocalizationManager.cs</file>
 /// <author>Laurent Barraud</author>
-/// <version>1.0</version>
-/// <date>January 31th, 2026</date>
+/// <version>1.1</version>
+/// <date>February 2nd, 2026</date>
 
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;

@@ -172,7 +172,7 @@
     <value>La dirección IP es incorrecta. Déjela vacía para conectarse localmente.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.0 - ene. 2026 - Laurent Barraud </value>
+    <value>v1.1 - feb. 2026 - Laurent Barraud</value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>Este software de código abierto se distribuye con la esperanza de que sea útil, pero sin ninguna garantía.</value>
@@ -347,5 +347,8 @@ y lista de usuarios conectados</value>
   </data>
   <data name="SettingsWindowTitle" xml:space="preserve">
     <value>Configuración</value>
+  </data>
+  <data name="BubbleModeToolTip" xml:space="preserve">
+    <value>Modo burbuja</value>
   </data>
 </root>
