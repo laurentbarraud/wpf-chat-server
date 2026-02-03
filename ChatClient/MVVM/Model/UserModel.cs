@@ -1,7 +1,7 @@
 ﻿/// <file>UserModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 2nd, 2026</date>
+/// <date>February 3rd, 2026</date>
 
 using System;
 

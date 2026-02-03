@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 2nd, 2026</date>
+/// <date>February 3rd, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -747,12 +747,14 @@ namespace ChatClient.MVVM.ViewModel
                 }
             }
         }
-
         /// <summary>
-        /// Represents a dynamic data collections that provides notification
-        /// when a message is added or removed, or when the full list is refreshed.
+        /// Represents a dynamic collection of chat messages that notifies the UI
+        /// when items are added, removed, or when the entire list is refreshed.
+        /// Each entry is a ChatMessage containing text, sender information,
+        /// timestamp, and display flags.
         /// </summary>
-        public ObservableCollection<string> Messages { get; set; }
+        public ObservableCollection<ChatMessage> Messages { get; set; }
+            = new ObservableCollection<ChatMessage>();
 
         /// <summary>
         /// Minimum font size allowed for UI text scaling.
@@ -971,15 +973,15 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public bool UseRawTextMode
         {
-            get => Settings.Default.UseRawText;
+            get => Settings.Default.UseRawTextMode;
             set
             {
-                if (Settings.Default.UseRawText == value)
+                if (Settings.Default.UseRawTextMode == value)
                 {
                     return;
                 }
 
-                Settings.Default.UseRawText = value;
+                Settings.Default.UseRawTextMode = value;
                 Settings.Default.Save();
 
                 // Notifies UI bindings
@@ -1084,7 +1086,7 @@ namespace ChatClient.MVVM.ViewModel
         {
             // Initializes UI‑bound collections
             Users = new ObservableCollection<UserModel>();
-            Messages = new ObservableCollection<string>();
+            Messages = new ObservableCollection<ChatMessage>();
 
             // Creates client connection with dispatcher callback and reference to this ViewModel.
             // The dispatcher callback ensures that all UI‑affecting actions are marshalled back
@@ -1620,7 +1622,15 @@ namespace ChatClient.MVVM.ViewModel
                     continue;                   // Suppression flag active
                 }
 
-                Messages.Add($"# {username} {LocalizationManager.GetString("HasConnected")} #");
+                Messages.Add(new ChatMessage
+                {
+                    Text = $"# {username} {LocalizationManager.GetString("HasConnected")} #",
+                    Sender = username,
+                    TimeStamp = DateTime.Now.ToString("HH:mm"),
+                    IsFromLocalUser = false,
+                    IsSystemMessage = true
+                });
+
             }
 
             // --- Notifications (left users) ---
@@ -1640,7 +1650,14 @@ namespace ChatClient.MVVM.ViewModel
                     continue;                  // Suppression flag active
                 }
 
-                Messages.Add($"# {username} {LocalizationManager.GetString("HasDisconnected")} #");
+                Messages.Add(new ChatMessage
+                {
+                    Text = $"# {username} {LocalizationManager.GetString("HasDisconnected")} #",
+                    Sender = username,
+                    TimeStamp = DateTime.Now.ToString("HH:mm"),
+                    IsFromLocalUser = false,
+                    IsSystemMessage = true
+                });
             }
 
             // --- Updates Users list ---
@@ -1778,7 +1795,14 @@ namespace ChatClient.MVVM.ViewModel
             Messages.Clear();
 
             // Adds a user-visible notification in the history
-            Messages.Add("# " + LocalizationManager.GetString("DisconnectedByServer") + " #");
+            Messages.Add(new ChatMessage
+            {
+                Text = "# " + LocalizationManager.GetString("DisconnectedByServer") + " #",
+                Sender = "System",
+                TimeStamp = DateTime.Now.ToString("HH:mm"),
+                IsFromLocalUser = false,
+                IsSystemMessage = true
+            });
         }
 
         /// <summary>
@@ -1807,9 +1831,15 @@ namespace ChatClient.MVVM.ViewModel
             {
                 Application.Current.Dispatcher.BeginInvoke(() =>
                 {
-                    Messages.Add(LocalizationManager.GetString("EnableEncryptionToKeepReadingMessages"));
+                    Messages.Add(new ChatMessage
+                    {
+                        Text = LocalizationManager.GetString("EnableEncryptionToKeepReadingMessages"),
+                        Sender = "System",
+                        TimeStamp = DateTime.Now.ToString("HH:mm"),
+                        IsFromLocalUser = false,
+                        IsSystemMessage = true
+                    });
                 });
-                return;
             }
 
             // If private key exists, tries decrypt
@@ -1822,7 +1852,14 @@ namespace ChatClient.MVVM.ViewModel
                     Application.Current.Dispatcher.BeginInvoke(() =>
                     {
                         // Displays the decrypted message with sender's username
-                        Messages.Add($"{username}: {plaintext}");
+                        Messages.Add(new ChatMessage
+                        {
+                            Text = plaintext,
+                            Sender = username,
+                            TimeStamp = DateTime.Now.ToString("HH:mm"),
+                            IsFromLocalUser = false,
+                            IsSystemMessage = false
+                        });
                     });
                 }
                 catch (Exception ex)
@@ -1831,7 +1868,14 @@ namespace ChatClient.MVVM.ViewModel
 
                     Application.Current.Dispatcher.BeginInvoke(() =>
                     {
-                        Messages.Add($"{username}: [decryption failed — {cipherBytes.Length} bytes]");
+                        Messages.Add(new ChatMessage
+                        {
+                            Text = $"[decryption failed — {cipherBytes.Length} bytes]",
+                            Sender = username,
+                            TimeStamp = DateTime.Now.ToString("HH:mm"),
+                            IsFromLocalUser = false,
+                            IsSystemMessage = false
+                        });
                     });
                 }
             }
@@ -1841,7 +1885,14 @@ namespace ChatClient.MVVM.ViewModel
 
                 Application.Current.Dispatcher.BeginInvoke(() =>
                 {
-                    Messages.Add($"{username}: {Encoding.UTF8.GetString(cipherBytes)}");
+                    Messages.Add(new ChatMessage
+                    {
+                        Text = Encoding.UTF8.GetString(cipherBytes),
+                        Sender = username,
+                        TimeStamp = DateTime.Now.ToString("HH:mm"),
+                        IsFromLocalUser = false,
+                        IsSystemMessage = false
+                    });
                 });
             }
         }
@@ -1887,7 +1938,14 @@ namespace ChatClient.MVVM.ViewModel
             {
                 Application.Current.Dispatcher.BeginInvoke(() =>
                 {
-                    Messages.Add($"{senderName}: {messageToDisplay}");
+                    Messages.Add(new ChatMessage
+                    {
+                        Text = messageToDisplay,
+                        Sender = senderName,
+                        TimeStamp = DateTime.Now.ToString("HH:mm"),
+                        IsFromLocalUser = false,
+                        IsSystemMessage = false
+                    });
                 });
             }
             catch (Exception ex)
@@ -2043,18 +2101,18 @@ namespace ChatClient.MVVM.ViewModel
         /// Removes the user from the local roster, updates the snapshot used 
         /// for roster diffing, and emits a disconnect notification when appropriate.
         /// </summary>
-        /// <param name="userId">UID of the user who disconnected.</param>
+        /// <param name="disconnectedUserId">UID of the user who disconnected.</param>
         /// <param name="username">Display name of the user who disconnected.</param>
-        public void OnUserDisconnected(Guid userId, string username)
+        public void OnUserDisconnected(Guid disconnectedUserId, string username)
         {
-            var usr = Users.FirstOrDefault(u => u.UID == userId);
+            var disconnectedUser = Users.FirstOrDefault(u => u.UID == disconnectedUserId);
 
             // Uses null‑conditional and null‑coalescing operators to pick the first non‑null, non‑empty value.
-            string realName = usr?.Username ?? username ?? "(unknown)";
+            string disconnectedUsername = disconnectedUser?.Username ?? username ?? "(unknown)";
 
-            if (usr != null)
+            if (disconnectedUser != null)
             {
-                Users.Remove(usr);
+                Users.Remove(disconnectedUser);
             }
 
             _previousRosterSnapshot = Users.Select(u => (u.UID, u.Username)).ToList();
@@ -2063,7 +2121,15 @@ namespace ChatClient.MVVM.ViewModel
 
             if (!_userHasClickedOnDisconnect)
             {
-                Messages.Add($"# {realName} {LocalizationManager.GetString("HasDisconnected")} #");
+                Messages.Add(new ChatMessage
+                {
+                    Text = $"# {disconnectedUsername} {LocalizationManager.GetString("HasDisconnected")} #",
+                    Sender = "System",
+                    TimeStamp = DateTime.Now.ToString("HH:mm"),
+                    IsFromLocalUser = false,
+                    IsSystemMessage = true
+                });
+
             }
         }
 

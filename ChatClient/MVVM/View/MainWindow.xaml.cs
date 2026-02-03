@@ -1,9 +1,10 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 2nd, 2026</date>
+/// <date>February 3rd, 2026</date>
 
 using ChatClient.Helpers;
+using ChatClient.MVVM.Model;
 using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -341,9 +342,9 @@ namespace ChatClient.MVVM.View
                 string messageToSend = viewModel.MessageToSend;
 
                 // Awaits the unified send method; handles encryption internally if enabled.
-                bool success = await viewModel.ClientConn.SendMessageAsync(messageToSend, CancellationToken.None);
+                bool messageSent = await viewModel.ClientConn.SendMessageAsync(messageToSend, CancellationToken.None);
 
-                if (success)
+                if (messageSent)
                 {
                     // The TextBox will automatically empty thanks to the binding.
                     viewModel.MessageToSend = "";
@@ -352,7 +353,13 @@ namespace ChatClient.MVVM.View
                 else
                 {
                     // Notifies user of logical failure (e.g., missing keys or encryption error)
-                    viewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
+                    viewModel.Messages.Add(new ChatMessage 
+                    { 
+                        Text = $"# {LocalizationManager.GetString("SendingFailed")} #",
+                        Sender = "System", 
+                        TimeStamp = DateTime.Now.ToString("HH:mm"), 
+                        IsFromLocalUser = false, IsSystemMessage = true 
+                    });
                 }
             }
             catch (OperationCanceledException)
@@ -362,7 +369,14 @@ namespace ChatClient.MVVM.View
             catch (Exception ex)
             {
                 ClientLogger.Log($"Send failed: {ex.Message}", ClientLogLevel.Error);
-                viewModel.Messages.Add($"# {LocalizationManager.GetString("SendingFailed")} #");
+                viewModel.Messages.Add(new ChatMessage
+                {
+                    Text = $"# {LocalizationManager.GetString("SendingFailed")} #",
+                    Sender = "System",
+                    TimeStamp = DateTime.Now.ToString("HH:mm"),
+                    IsFromLocalUser = false,
+                    IsSystemMessage = true
+                });
             }
         }
 

@@ -27,6 +27,49 @@
         SizeChanged="Window_SizeChanged">
     <Window.Resources>
 
+        <!-- Bubble templates -->
+        <DataTemplate x:Key="ReceivedBubbleTemplate">
+            <Border Background="{DynamicResource BackgroundBrush}"
+                    CornerRadius="14"
+                    Padding="8,4"
+                    Margin="6,2,40,2">
+                <TextBlock Text="{Binding Message}"
+                           TextWrapping="Wrap"
+                           FontFamily="Segoe UI Emoji"
+                           Foreground="{DynamicResource ForegroundBrush}"
+                           FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=Window}}"/>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SentBubbleTemplate">
+            <Border Background="#E69ABFC2"
+                    CornerRadius="14"
+                    Padding="8,4"
+                    Margin="40,2,6,2">
+                <TextBlock Text="{Binding Message}"
+                           TextWrapping="Wrap"
+                           FontFamily="Segoe UI Emoji"
+                           Foreground="White"
+                           FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=Window}}"/>
+            </Border>
+        </DataTemplate>
+
+        <!-- Raw text template -->
+        <DataTemplate x:Key="RawTextTemplate">
+            <TextBlock Text="{Binding Message}"
+                       TextWrapping="Wrap"
+                       FontFamily="Segoe UI Emoji"
+                       Foreground="{DynamicResource ForegroundBrush}"
+                       FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=Window}}"/>
+        </DataTemplate>
+
+        <!-- Template selector -->
+        <local:MessageTemplateSelector x:Key="MessageTemplateSelector"
+                                       RawTemplate="{StaticResource RawTextTemplate}"
+                                       SentTemplate="{StaticResource SentBubbleTemplate}"
+                                       ReceivedTemplate="{StaticResource ReceivedBubbleTemplate}"/>
+
+
         <!-- Connected field shine animation -->
         <Storyboard x:Key="ConnectedShineAnimation">
             <DoubleAnimation Storyboard.TargetProperty="Opacity"
@@ -593,45 +636,27 @@
                 <RowDefinition x:Name="RowBottomRight" Height="Auto" MinHeight="34" d:Height="34"/>
             </Grid.RowDefinitions>
 
-            <!-- Row 0 : Received messages -->
-            <ListView x:Name="lstReceivedMessages"
-                      Grid.Row="0"
-                      ItemsSource="{Binding Messages}"
-                      Loaded="lstReceivedMessages_Loaded"
-                      Background="{DynamicResource BackgroundBrush}"
-                      Foreground="{DynamicResource ForegroundBrush}"
-                      VerticalAlignment="Stretch"
-                      ScrollViewer.CanContentScroll="True"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                      Padding="0"
-                      BorderThickness="0"
-                      TabIndex="6">
+            <ItemsControl x:Name="lstReceivedMessages"
+                          Grid.Row="0"
+                          ItemsSource="{Binding Messages}"
+                          Loaded="lstReceivedMessages_Loaded"
+                          Background="{DynamicResource BackgroundBrush}"
+                          Foreground="{DynamicResource ForegroundBrush}">
 
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="{x:Type ListViewItem}">
-                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
-                        <Setter Property="Margin" Value="0,0,0,1" />
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        <Setter Property="VerticalContentAlignment" Value="Center" />
-                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                        <Style.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
-                            </Trigger>
-                        </Style.Triggers>
+                <ItemsControl.Resources>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="ContentTemplateSelector"
+                    Value="{StaticResource MessageTemplateSelector}"/>
                     </Style>
-                </ListView.ItemContainerStyle>
+                </ItemsControl.Resources>
 
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}"
-                                   TextWrapping="Wrap"
-                                   FontFamily="Segoe UI Emoji"
-                                   FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+            </ItemsControl>
 
             <!-- Row 1 : Horizontal splitter separating the message list and the bottom input area -->
             <GridSplitter Grid.Row="1"
