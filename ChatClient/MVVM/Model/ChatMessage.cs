@@ -1,8 +1,10 @@
 ﻿/// <file>ChatMessage.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 3rd, 2026</date>
+/// <date>February 5th, 2026</date>
 
+using ChatClient.Helpers;
+using Microsoft.VisualBasic.ApplicationServices;
 using System;
 
 namespace ChatClient.MVVM.Model
@@ -15,10 +17,29 @@ namespace ChatClient.MVVM.Model
     /// </summary>
     public class ChatMessage
     {
-        public string Text { get; set; } = string.Empty;
-        public string Sender { get; set; } = string.Empty;
-        public string TimeStamp { get; set; } = string.Empty;
+        /// <summary> 
+        /// Returns the raw-text representation of the message, 
+        /// used when the user activates raw-text mode. 
+        /// </summary>
+        public string FormattedRawText
+        {
+            get
+            {
+                if (IsSystemMessage)
+                {
+                    // System messages follow the "# Serveur : message" convention.
+                    return $"{LocalizationManager.GetString("ServerPrefix")} : {Text}";
+                }
+
+                // Standard user messages follow the "Pseudo : message" format.
+                return $"{Sender} : {Text}";
+            }
+        }
+
         public bool IsFromLocalUser { get; set; } = false;
         public bool IsSystemMessage { get; set; } = false;
+        public string Sender { get; set; } = string.Empty;
+        public string Text { get; set; } = string.Empty;
+        public string TimeStamp { get; set; } = string.Empty;
     }
 }

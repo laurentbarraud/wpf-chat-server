@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 3rd, 2026</date>
+/// <date>February 5th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -808,6 +808,30 @@ namespace ChatClient.MVVM.ViewModel
         public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>
+        /// Proxy-property: gets or sets the application setting
+        /// controlling whether raw text mode is enabled.
+        /// </summary>
+        public bool RawTextMode
+        {
+            get => Settings.Default.RawTextMode;
+            set
+            {
+                if (Settings.Default.RawTextMode == value)
+                {
+                    return;
+                }
+
+                Settings.Default.RawTextMode = value;
+                Settings.Default.Save();
+
+                // Notifies UI bindings
+                OnPropertyChanged();
+            }
+        }
+
+        public string RawTextModeLabel => LocalizationManager.GetString("RawTextModeLabel");
+
+        /// <summary>
         /// Determines whether the application should minimize to the system tray.
         /// </summary>
         public bool ReduceToTray
@@ -966,30 +990,6 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged();
             }
         }
-
-        /// <summary>
-        /// Proxy-property: gets or sets the application setting
-        /// indicating whether raw text mode is enabled.
-        /// </summary>
-        public bool UseRawTextMode
-        {
-            get => Settings.Default.UseRawTextMode;
-            set
-            {
-                if (Settings.Default.UseRawTextMode == value)
-                {
-                    return;
-                }
-
-                Settings.Default.UseRawTextMode = value;
-                Settings.Default.Save();
-
-                // Notifies UI bindings
-                OnPropertyChanged();
-            }
-        }
-
-        public string UseRawTextModeLabel => LocalizationManager.GetString("UseRawTextModeLabel");
 
         /// <summary>
         /// What the user types in the first textbox on top left of the MainWindow.
@@ -1732,7 +1732,7 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(UseTcpPortLabel));
             OnPropertyChanged(nameof(ReduceToTrayLabel));
             OnPropertyChanged(nameof(UseEncryptionLabel));
-            OnPropertyChanged(nameof(UseRawTextModeLabel));
+            OnPropertyChanged(nameof(RawTextModeLabel));
             OnPropertyChanged(nameof(DisplayFontSizeLabel));
             OnPropertyChanged(nameof(MessageInputFieldWidthLabel));
             OnPropertyChanged(nameof(MessageInputFieldLeftOffsetLabel));
@@ -1963,10 +1963,11 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private void OnPublicKeyEntryChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(PublicKeyEntry.IsValid))
+            if (e.PropertyName == nameof(PublicKeyEntry.IsValid)) 
+            { 
                 UpdateLockAnimationState();
+            }
         }
-
 
         /// <summary>
         /// Processes a public key sent by another user and keeps the

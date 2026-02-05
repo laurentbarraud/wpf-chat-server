@@ -520,6 +520,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Use raw text mode for messages.
+        /// </summary>
+        public static string RawTextModeLabel {
+            get {
+                return ResourceManager.GetString("RawTextModeLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Reduce in system tray.
         /// </summary>
         public static string ReduceToTrayLabel {
@@ -574,7 +583,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à # - Server:.
+        ///   Recherche une chaîne localisée semblable à # - Server.
         /// </summary>
         public static string ServerPrefix {
             get {
@@ -642,15 +651,6 @@ namespace ChatClient.Resources {
         public static string UseEncryptionLabel {
             get {
                 return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Recherche une chaîne localisée semblable à Use raw text mode for messages.
-        /// </summary>
-        public static string UseRawTextModeLabel {
-            get {
-                return ResourceManager.GetString("UseRawTextModeLabel", resourceCulture);
             }
         }
         

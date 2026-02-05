@@ -182,12 +182,12 @@ namespace ChatClient.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool UseRawTextMode {
+        public bool RawTextMode {
             get {
-                return ((bool)(this["UseRawTextMode"]));
+                return ((bool)(this["RawTextMode"]));
             }
             set {
-                this["UseRawTextMode"] = value;
+                this["RawTextMode"] = value;
             }
         }
     }

@@ -258,15 +258,15 @@
                        Source="/Resources/raw-text-mode.png"
                        VerticalAlignment="Center"/>
 
-                <Label x:Name="UseRawTextModeLabel" Grid.Row="3" Grid.Column="1"
-                       Content="{Binding UseRawTextModeLabel}"
+                <Label x:Name="RawTextModeLabel" Grid.Row="3" Grid.Column="1"
+                       Content="{Binding RawTextModeLabel}"
                        VerticalAlignment="Center"
                        Margin="0,0,0,5"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="12" />
 
                 <ToggleButton Grid.Row="3" Grid.Column="2"
                               Style="{StaticResource ToggleStyle}"
-                              IsChecked="{Binding UseRawTextMode, Mode=TwoWay}"
+                              IsChecked="{Binding RawTextMode, Mode=TwoWay}"
                               Width="60" Height="30"
                               Margin="0,0,0,5"
                               TabIndex="3"/>

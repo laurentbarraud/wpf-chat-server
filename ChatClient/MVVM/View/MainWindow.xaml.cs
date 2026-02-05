@@ -1,7 +1,7 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 3rd, 2026</date>
+/// <date>February 5th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -11,13 +11,16 @@ using Hardcodet.Wpf.TaskbarNotification;
 using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
+using System.Security.Policy;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 
 
@@ -580,7 +583,7 @@ namespace ChatClient.MVVM.View
         /// <summary> Saves the input area height when the horizontal splitter drag operation completes. </summary> 
         private void HorizontalSplitter_DragCompleted(object sender, DragCompletedEventArgs e) 
         { 
-            double actualHeight = GrdBottom.ActualHeight;
+            double actualHeight = GrdInputAreaContainer.ActualHeight;
 
             if (actualHeight < _MIN_INPUT_AREA_HEIGHT)
             {
@@ -1020,6 +1023,45 @@ namespace ChatClient.MVVM.View
         {
             viewModel.MessageInputFieldWidth = TxtMessageInputField.ActualWidth;
         }
+
+        /// <summary>
+        /// Adjusts the height of the message input TextBox dynamically based on its content.
+        /// The control expands as the user types multiple lines, up to a defined maximum height.
+        /// </summary>
+        private void TxtMessageInputField_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is not TextBox inputBox)
+            {
+                return;
+            }
+
+            // Forces WPF to update the layout before measuring text size
+            inputBox.UpdateLayout();
+
+            // Measures the rendered height of the text inside the TextBox.
+            // We must provide a NumberSubstitution because the FormattedText builder requires this parameter.
+            // It's an old API and Microsoft has chosen to make this parameter mandatory.
+            // The final parameter (1.0) represents the pixels-per-DIP scaling factor, typically 1.0 on standard DPI screens.
+            var formattedText = new FormattedText(
+                inputBox.Text,
+                System.Globalization.CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface(inputBox.FontFamily, inputBox.FontStyle, inputBox.FontWeight, inputBox.FontStretch),
+                inputBox.FontSize,
+                Brushes.Black,
+                new NumberSubstitution(),
+                1.0);
+
+            // Adds padding to avoid clipping the last line
+            double desiredHeight = formattedText.Height + 20;
+
+            // Maximum allowed height for the input field
+            const double maxInputHeight = 200;
+
+            // Applies the final height (bounded)
+            inputBox.Height = Math.Min(desiredHeight, maxInputHeight);
+        }
+
 
         private void TxtServerIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
         {

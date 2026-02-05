@@ -3,10 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:ChatClient" 
+        xmlns:local="clr-namespace:ChatClient.MVVM.View"
         xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
         xmlns:tb="http://www.hardcodet.net/taskbar"
         xmlns:helpers="clr-namespace:ChatClient.Helpers"
+        xmlns:conv="clr-namespace:ChatClient.MVVM.Converters"
         xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
         mc:Ignorable="d"
         Title="Chat client" 
@@ -27,48 +28,107 @@
         SizeChanged="Window_SizeChanged">
     <Window.Resources>
 
-        <!-- Bubble templates -->
+        <conv:WidthPercentageConverter x:Key="Width70" Factor="0.7"/>
+
+        <!-- Controls the background of the incoming messages area.
+             Default: uses a soft cream background (#F4F3E8)
+             When raw text mode is enabled: uses the application's theme (BackgroundBrush). -->
+        <Style TargetType="Grid" x:Key="IncomingMessagesAreaBackgroundStyle">
+
+            <!-- Default: raw text mode or disconnected -->
+            <Setter Property="Background" Value="{DynamicResource BackgroundBrush}"/>
+
+            <Style.Triggers>
+
+                <!-- Bubble mode + connected → soft cream background -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding RawTextMode}" Value="False"/>
+                        <Condition Binding="{Binding IsConnected}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#F4F3E8"/>
+                </MultiDataTrigger>
+
+            </Style.Triggers>
+        </Style>
+
+        <!-- Received message bubble template -->
         <DataTemplate x:Key="ReceivedBubbleTemplate">
             <Border Background="{DynamicResource BackgroundBrush}"
                     CornerRadius="14"
                     Padding="8,4"
-                    Margin="6,2,40,2">
-                <TextBlock Text="{Binding Message}"
-                           TextWrapping="Wrap"
-                           FontFamily="Segoe UI Emoji"
-                           Foreground="{DynamicResource ForegroundBrush}"
-                           FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                    Margin="6,2,40,2"
+                    HorizontalAlignment="Left"
+                    MaxWidth="{Binding ActualWidth, ElementName=GrdRight, Converter={StaticResource Width70}}">
+
+                <StackPanel>
+                    <TextBlock Text="{Binding Sender}"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource ForegroundBrush}"/>
+
+                    <TextBlock Text="{Binding Text}"
+                               TextWrapping="Wrap"
+                               FontFamily="Segoe UI Emoji"
+                               Foreground="{DynamicResource ForegroundBrush}"
+                               Margin="0,2,0,0"/>
+
+                    <TextBlock Text="{Binding TimeStamp}"
+                               FontSize="10"
+                               HorizontalAlignment="Right"
+                               Foreground="{DynamicResource ForegroundBrush}"
+                               Margin="0,2,0,0"/>
+                </StackPanel>
             </Border>
         </DataTemplate>
 
+        <!-- Sent message bubble template -->
         <DataTemplate x:Key="SentBubbleTemplate">
-            <Border Background="#E69ABFC2"
+            <Border Background="#9ABFC2"
                     CornerRadius="14"
                     Padding="8,4"
-                    Margin="40,2,6,2">
-                <TextBlock Text="{Binding Message}"
-                           TextWrapping="Wrap"
-                           FontFamily="Segoe UI Emoji"
-                           Foreground="White"
-                           FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                    Margin="40,2,6,2"
+                    HorizontalAlignment="Right"
+                    MaxWidth="{Binding ActualWidth, ElementName=GrdRight, Converter={StaticResource Width70}}">
+
+                <StackPanel>
+                    <TextBlock Text="{Binding Text}"
+                               TextWrapping="Wrap"
+                               FontFamily="Segoe UI Emoji"
+                               Foreground="White"/>
+
+                    <TextBlock Text="{Binding TimeStamp}"
+                               FontSize="10"
+                               HorizontalAlignment="Right"
+                               Foreground="White"
+                               Margin="0,2,0,0"/>
+                </StackPanel>
             </Border>
         </DataTemplate>
 
         <!-- Raw text template -->
         <DataTemplate x:Key="RawTextTemplate">
-            <TextBlock Text="{Binding Message}"
+            <TextBlock Text="{Binding FormattedRawText}"
                        TextWrapping="Wrap"
-                       FontFamily="Segoe UI Emoji"
+                       FontFamily="Segoe UI"
                        Foreground="{DynamicResource ForegroundBrush}"
                        FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=Window}}"/>
         </DataTemplate>
 
+        <!-- System message template -->
+        <DataTemplate x:Key="SystemMessageTemplate">
+            <TextBlock Text="{Binding Text}"
+                       Foreground="#666"
+                       HorizontalAlignment="Center"
+                       Margin="12"
+                       FontStyle="Italic"/>
+        </DataTemplate>
+
         <!-- Template selector -->
         <local:MessageTemplateSelector x:Key="MessageTemplateSelector"
-                                       RawTemplate="{StaticResource RawTextTemplate}"
-                                       SentTemplate="{StaticResource SentBubbleTemplate}"
-                                       ReceivedTemplate="{StaticResource ReceivedBubbleTemplate}"/>
-
+                                       RawTextTemplate="{StaticResource RawTextTemplate}"
+                                       SentMessageTemplate="{StaticResource SentBubbleTemplate}"
+                                       ReceivedMessageTemplate="{StaticResource ReceivedBubbleTemplate}"
+                                       SystemMessageTemplate="{StaticResource SystemMessageTemplate}" />
 
         <!-- Connected field shine animation -->
         <Storyboard x:Key="ConnectedShineAnimation">
@@ -183,6 +243,22 @@
             </Style.Triggers>
         </Style>
 
+        <!-- Style controlling the appearance of the message input field.
+             Default: rounded white input field
+             When raw text mode is enabled: flat rectangular input -->
+        <Style TargetType="Border" x:Key="MessageInputFieldStyle">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RawTextMode}" Value="False">
+                    <Setter Property="CornerRadius" Value="18"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- Slide animation for emoji popup -->
         <Storyboard x:Key="SlideInStoryboard">
             <DoubleAnimation Storyboard.TargetName="popupEmoji"
@@ -244,7 +320,7 @@
                 BorderBrush="#1A000000"
                 BorderThickness="1"
                 Background="Transparent">
-            
+
             <!-- Left Panel -->
             <Grid x:Name="GrdLeft" 
               HorizontalAlignment="Stretch" 
@@ -411,7 +487,7 @@
                             </Grid>
                         </Border>
                     </Grid>
-                    
+
                     <!-- Connect button -->
                     <Button Grid.Row="2"
                         x:Name="CmdConnectDisconnect"
@@ -606,7 +682,7 @@
 
             </Grid>
         </Border>
-        
+
         <!-- Vertical Splitter -->
         <GridSplitter Grid.Column="1"
               Width="4"
@@ -621,7 +697,7 @@
         <!-- Right Panel -->
         <Grid x:Name="GrdRight"
               Grid.Column="2"
-              Background="{DynamicResource BackgroundBrush}"
+              Style="{StaticResource IncomingMessagesAreaBackgroundStyle}"
               SizeChanged="GrdRight_SizeChanged"
               UseLayoutRounding="True"
               SnapsToDevicePixels="True">
@@ -639,22 +715,29 @@
             <ItemsControl x:Name="lstReceivedMessages"
                           Grid.Row="0"
                           ItemsSource="{Binding Messages}"
+                          ItemTemplateSelector="{StaticResource MessageTemplateSelector}"
                           Loaded="lstReceivedMessages_Loaded"
-                          Background="{DynamicResource BackgroundBrush}"
+                          Background="Transparent"
                           Foreground="{DynamicResource ForegroundBrush}">
 
-                <ItemsControl.Resources>
-                    <Style TargetType="ContentPresenter">
-                        <Setter Property="ContentTemplateSelector"
-                    Value="{StaticResource MessageTemplateSelector}"/>
-                    </Style>
-                </ItemsControl.Resources>
-
+                <!-- This defines how items are stacked vertically, 
+                 because WPF's default ItemsPanel is a vertical StackPanel anyway,
+                 but declaring it explicitly makes the layout intention clear. -->
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <StackPanel/>
+                        <StackPanel Orientation="Vertical"/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
+
+                <!-- Ensures each message container stretches horizontally across the available width,
+                 so that the bubble templates can align themselves left or right.
+                 Without this, WPF centers each ContentPresenter by default,
+                 causing chat bubbles to appear centered instead of aligned. -->
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
 
             </ItemsControl>
 
@@ -705,233 +788,227 @@
             </GridSplitter>
 
             <!-- Row 2 : Bottom block (emoji bar + input field) 
-            This entire section is hidden when the user is not connected. -->
-            <Grid Grid.Row="2"
-                  x:Name="GrdBottom"
-                  MinHeight="34"
-                  VerticalAlignment="Stretch"
-                  Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
-                
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <!-- Emoji bar -->
-                    <RowDefinition x:Name="RowInputArea" Height="*"/>
-                    <!-- Input field -->
-                </Grid.RowDefinitions>
+            Entire section is hidden until the user is connected. -->
+            <Border Grid.Row="2" 
+                    x:Name="BrdBottomBlock" 
+                    Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}" 
+                    Background="Transparent">
 
-                <!-- Row 2.0 : Emoji bar -->
-                <Grid x:Name="GrdEmoji"
-                      Grid.Row="0"
-                      Height="Auto"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Bottom">
+                <!-- Parent container -->
+                <Grid x:Name="GrdInputAreaContainer">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <!-- Emoji bar + popup -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- Input field -->
+                    </Grid.RowDefinitions>
 
-                    <Grid.ColumnDefinitions>
-                        <!-- Emoji button -->
-                        <ColumnDefinition Width="Auto"/>
+                    <!-- Row 2.0 : Emoji bar -->
+                    <Grid x:Name="GrdEmoji" Grid.Row="0" Height="Auto" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <!-- Emoji button -->
+                            <ColumnDefinition Width="Auto"/>
+                            <!-- Encryption icon -->
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Emoji toggle button -->
+                        <Button x:Name="CmdEmojiPanel"
+                                Grid.Column="0"
+                                Click="CmdEmojiPanel_Click"
+                                Width="32"
+                                Height="32"
+                                VerticalAlignment="Bottom"
+                                Margin="2,0,0,0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ToolTip="Emoji bar"
+                                TabIndex="6">
+                            <Image x:Name="ImgEmojiPanel"
+                                   Source="/Resources/right-arrow.png"
+                                   Stretch="Uniform"
+                                   Width="14"/>
+                        </Button>
 
                         <!-- Encryption icon -->
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                        <Image x:Name="imgEncryptionStatus"
+                               Grid.Column="1"
+                               Width="15"
+                               Height="15"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"
+                               Style="{StaticResource EncryptionStatusIconStyle}"/>
 
-                    <!-- Emoji toggle button -->
-                    <Button x:Name="CmdEmojiPanel"
-                            Grid.Column="0"
-                            Click="CmdEmojiPanel_Click"
-                            Width="32"
-                            Height="32"
-                            VerticalAlignment="Bottom"
-                            Margin="2,0,0,0"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            ToolTip="Emoji bar"
-                            TabIndex="6">
-                        <Image x:Name="ImgEmojiPanel"
-                               Source="/Resources/right-arrow.png"
-                               Stretch="Uniform"
-                               Width="14"/>
-                    </Button>
+                        <!-- Emoji popup -->
+                        <Popup x:Name="popupEmoji"
+                               DataContext="{Binding}"
+                               Closed="popupEmoji_Closed"
+                               Visibility="Collapsed"
+                               Placement="Top"
+                               PlacementTarget="{Binding ElementName=TxtMessageInputField}"
+                               StaysOpen="False"
+                               AllowsTransparency="True"
+                               PopupAnimation="Slide"
+                               HorizontalOffset="0"
+                               VerticalOffset="-5">
 
-                    <!-- Encryption icon -->
-                    <Image x:Name="imgEncryptionStatus"
-                           Grid.Column="1"
-                           Width="15"
-                           Height="15"
-                           VerticalAlignment="Center"
-                           Margin="8,0,0,0"
-                           Style="{StaticResource EncryptionStatusIconStyle}"/>
+                            <Popup.RenderTransform>
+                                <TranslateTransform X="0"/>
+                            </Popup.RenderTransform>
 
-                    <!-- Emoji popup -->
-                    <Popup x:Name="popupEmoji"
-                           DataContext="{Binding}"
-                           Closed="popupEmoji_Closed"
-                           Visibility="Collapsed"
-                           Placement="Top"
-                           PlacementTarget="{Binding ElementName=TxtMessageInputField}"
-                           StaysOpen="False"
-                           AllowsTransparency="True"
-                           PopupAnimation="Slide"
-                           HorizontalOffset="0"
-                           VerticalOffset="-5">
+                            <Border DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                    Background="{DynamicResource BackgroundBrush}"
+                                    BorderBrush="{DynamicResource PrimaryBrush}"
+                                    BorderThickness="1"
+                                    Padding="4"
+                                    Height="{Binding EmojiPopupHeight}"
+                                    Width="{Binding EmojiPopupWidth}"
+                                    HorizontalAlignment="Center">
 
-                        <Popup.RenderTransform>
-                            <TranslateTransform X="0"/>
-                        </Popup.RenderTransform>
+                                <!-- Emoji panel layout -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
 
-                        <Border DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                Background="{DynamicResource BackgroundBrush}"
-                                BorderBrush="{DynamicResource PrimaryBrush}"
-                                BorderThickness="1"
-                                Padding="4"
-                                Height="{Binding EmojiPopupHeight}"
-                                Width="{Binding EmojiPopupWidth}"
-                                HorizontalAlignment="Center">
+                                    <!-- Left arrow -->
+                                    <Button x:Name="CmdScrollLeft"
+                                            Grid.Column="0"
+                                            Width="20"
+                                            Height="20"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Cursor="Hand"
+                                            MouseEnter="CmdScrollLeft_MouseEnter"
+                                            MouseLeave="CmdScrollLeft_MouseLeave"
+                                            ToolTip="Scroll left">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Opacity" Value="0.6"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Opacity" Value="1"/>
+                                                        <Setter Property="Background" Value="#22000000"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <Image Source="/Resources/left-arrow.png" Stretch="Uniform"/>
+                                    </Button>
 
-                            <!-- Emoji panel layout -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
+                                    <!-- Emoji list -->
+                                    <ScrollViewer x:Name="emojiScrollViewer"
+                                                  Grid.Column="1"
+                                                  VerticalAlignment="Center"
+                                                  MinHeight="48"
+                                                  Margin="4,0,0,0"
+                                                  HorizontalScrollBarVisibility="Hidden"
+                                                  VerticalScrollBarVisibility="Disabled"
+                                                  CanContentScroll="True">
+                                        <ItemsControl x:Name="emojiItems"
+                                                      ItemsSource="{Binding EmojiList}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
 
-                                <!-- Left arrow -->
-                                <Button x:Name="CmdScrollLeft"
-                                        Grid.Column="0"
-                                        Width="20"
-                                        Height="20"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Cursor="Hand"
-                                        MouseEnter="CmdScrollLeft_MouseEnter"
-                                        MouseLeave="CmdScrollLeft_MouseLeave"
-                                        ToolTip="Scroll left">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Opacity" Value="0.6"/>
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Opacity" Value="1"/>
-                                                    <Setter Property="Background" Value="#22000000"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                    <Image Source="/Resources/left-arrow.png" Stretch="Uniform"/>
-                                </Button>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Width="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                            Height="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                            Margin="2,0,0,0"
+                                                            Padding="0"
+                                                            Background="{DynamicResource PrimaryBrush}"
+                                                            Foreground="{DynamicResource ForegroundBrush}"
+                                                            BorderThickness="0"
+                                                            VerticalAlignment="Center"
+                                                            Click="EmojiButton_Click">
 
-                                <!-- Emoji list -->
-                                <ScrollViewer x:Name="emojiScrollViewer"
-                                              Grid.Column="1"
-                                              VerticalAlignment="Center"
-                                              MinHeight="48"
-                                              Margin="4,0,0,0"
-                                              HorizontalScrollBarVisibility="Hidden"
-                                              VerticalScrollBarVisibility="Disabled"
-                                              CanContentScroll="True">
-                                    <ItemsControl x:Name="emojiItems"
-                                                  ItemsSource="{Binding EmojiList}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Orientation="Horizontal"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}"
+                                                                        CornerRadius="4"
+                                                                        VerticalAlignment="Stretch"
+                                                                        HorizontalAlignment="Stretch">
+                                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                                      VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
 
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Button Width="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                        Height="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                        Margin="2,0,0,0"
-                                                        Padding="0"
-                                                        Background="{DynamicResource PrimaryBrush}"
-                                                        Foreground="{DynamicResource ForegroundBrush}"
-                                                        BorderThickness="0"
-                                                        VerticalAlignment="Center"
-                                                        Click="EmojiButton_Click">
+                                                        <TextBlock Text="{Binding}"
+                                                                   FontSize="{Binding DataContext.EmojiFontSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
 
-                                                    <Button.Template>
-                                                        <ControlTemplate TargetType="Button">
-                                                            <Border Background="{TemplateBinding Background}"
-                                                                    CornerRadius="4"
-                                                                    VerticalAlignment="Stretch"
-                                                                    HorizontalAlignment="Stretch">
-                                                                <ContentPresenter HorizontalAlignment="Center"
-                                                                                  VerticalAlignment="Center"/>
-                                                            </Border>
-                                                        </ControlTemplate>
-                                                    </Button.Template>
+                                    <!-- Right arrow -->
+                                    <Button x:Name="CmdScrollRight"
+                                            Grid.Column="2"
+                                            Width="20"
+                                            Height="20"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Cursor="Hand"
+                                            MouseEnter="CmdScrollRight_MouseEnter"
+                                            MouseLeave="CmdScrollRight_MouseLeave"
+                                            ToolTip="Scroll right">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Opacity" Value="0.6"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Opacity" Value="1"/>
+                                                        <Setter Property="Background" Value="#22000000"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <Image Source="/Resources/right-arrow.png" Stretch="Uniform"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </Popup>
+                    </Grid>
 
-                                                    <TextBlock Text="{Binding}"
-                                                               FontSize="{Binding DataContext.EmojiFontSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"/>
-                                                </Button>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-
-                                <!-- Right arrow -->
-                                <Button x:Name="CmdScrollRight"
-                                        Grid.Column="2"
-                                        Width="20"
-                                        Height="20"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Cursor="Hand"
-                                        MouseEnter="CmdScrollRight_MouseEnter"
-                                        MouseLeave="CmdScrollRight_MouseLeave"
-                                        ToolTip="Scroll right">
-                                    <Button.Style>
-                                        <Style TargetType="Button">
-                                            <Setter Property="Opacity" Value="0.6"/>
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Opacity" Value="1"/>
-                                                    <Setter Property="Background" Value="#22000000"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                    <Image Source="/Resources/right-arrow.png" Stretch="Uniform"/>
-                                </Button>
-                            </Grid>
-                        </Border>
-                    </Popup>
-                </Grid>
-
-                <!-- Row 2.1 : Input field -->
-                <Grid x:Name="GrdMessageInputField"
+                    <!-- Row 2.1 : Input field -->
+                    <Grid x:Name="GrdMessageInputField"
                       Grid.Row="1"
                       MinHeight="34"
                       VerticalAlignment="Stretch"
                       Margin="0">
 
-                    <Border x:Name="BrdMessageInputField"
+                        <Border x:Name="BrdMessageInputField"
+                            Style="{StaticResource MessageInputFieldStyle}"
                             Width="{Binding MessageInputFieldWidth}"
                             d:Width="400"
                             Margin="{Binding MessageInputFieldMargin}"
                             MinHeight="34"
                             HorizontalAlignment="Left"
-                            VerticalAlignment="Stretch"
-                            BorderBrush="{DynamicResource PrimaryBrush}"
-                            BorderThickness="1">
+                            VerticalAlignment="Stretch">
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="40"/>
-                            </Grid.ColumnDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
 
-                            <!-- Dummy watermark -->
-                            <TextBlock x:Name="TxtMessageInputFieldWatermark"
+                                <!-- Dummy watermark -->
+                                <TextBlock x:Name="TxtMessageInputFieldWatermark"
                                        Visibility="Collapsed"
                                        Text="{Binding MessageInputFieldWatermarkText}"/>
 
-                            <!-- Text input -->
-                            <TextBox x:Name="TxtMessageInputField"
+                                <!-- Text input -->
+                                <TextBox x:Name="TxtMessageInputField"
                                      Grid.Column="0"
                                      Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                      FontSize="{Binding DisplayFontSize}"
@@ -939,17 +1016,18 @@
                                      Foreground="{DynamicResource ForegroundBrush}"
                                      PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
                                      SizeChanged="TxtMessageInputField_SizeChanged"
+                                     TextChanged="TxtMessageInputField_TextChanged"
                                      VerticalAlignment="Stretch"
                                      VerticalContentAlignment="Bottom"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      BorderThickness="0"
                                      Padding="4,0,4,10">
-                                <!-- Template unchanged -->
-                            </TextBox>
+                                    <!-- Template unchanged -->
+                                </TextBox>
 
-                            <!-- Send button -->
-                            <Button x:Name="CmdSend"
+                                <!-- Send button -->
+                                <Button x:Name="CmdSend"
                                     Grid.Column="1"
                                     Background="Transparent"
                                     HorizontalAlignment="Center"
@@ -958,13 +1036,14 @@
                                     Width="40"
                                     Height="32"
                                     BorderThickness="0">
-                                <!-- Style unchanged -->
-                                <Image Source="/Resources/send.png" Width="18" Height="18"/>
-                            </Button>
-                        </Grid>
-                    </Border>
+                                    <!-- Style unchanged -->
+                                    <Image Source="/Resources/send.png" Width="18" Height="18"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
-            </Grid>
+            </Border>
         </Grid>
     </Grid>
 </Window>
