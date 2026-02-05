@@ -292,7 +292,7 @@ Exemple :
 </value>
   </data>
   <data name="ServerPrefix" xml:space="preserve">
-    <value># - Serveur</value>
+    <value># Serveur</value>
   </data>
   <data name="DisplayFontSizeLabel" xml:space="preserve">
     <value>Taille du texte des conversations

@@ -13,6 +13,8 @@
     <Color x:Key="AccentColor">#FFC9DEF5</Color>
     <!-- Light grey placeholder for dark theme -->
     <Color x:Key="WatermarkColor">#FFB4B4B4</Color>
+    <!-- Default outgoing bubble background -->
+    <Color x:Key="SentBubbleBackgroundColor">#CC2F3A4A</Color>
 
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
@@ -20,5 +22,6 @@
     <SolidColorBrush x:Key="DisabledButtonBrush" Color="{StaticResource DisabledButtonColor}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
     <SolidColorBrush x:Key="WatermarkBrush" Color="{StaticResource WatermarkColor}" />
+    <SolidColorBrush x:Key="SentBubbleBackgroundBrush" Color="{StaticResource SentBubbleBackgroundColor}"/>
 
 </ResourceDictionary>

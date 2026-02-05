@@ -190,5 +190,17 @@ namespace ChatClient.Properties {
                 this["RawTextMode"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SentBubbleBackgroundBaseColor {
+            get {
+                return ((string)(this["SentBubbleBackgroundBaseColor"]));
+            }
+            set {
+                this["SentBubbleBackgroundBaseColor"] = value;
+            }
+        }
     }
 }

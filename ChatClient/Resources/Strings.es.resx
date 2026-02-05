@@ -291,7 +291,7 @@ Ejemplo:
     <value>Active el cifrado en la configuración para seguir leyendo los mensajes entrantes</value>
   </data>
   <data name="ServerPrefix" xml:space="preserve">
-    <value># - Servidor</value>
+    <value># Servidor</value>
   </data>
   <data name="DisplayFontSizeLabel" xml:space="preserve">
     <value>Tamaño del texto para conversaciones

@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 5th, 2026</date>
+/// <date>February 6th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -14,12 +14,10 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-
 
 namespace ChatClient.MVVM.ViewModel
 {
@@ -152,6 +150,12 @@ namespace ChatClient.MVVM.ViewModel
         /// Updated whenever the window is resized.
         /// </summary>
         private double _rightGridWidth;
+
+        /// <summary>
+        /// Backing field storing the base color used for the background of
+        /// bubbles representing messages sent by the local user.
+        /// </summary>
+        private Color _sentBubbleBackgroundBaseColor = Color.FromArgb(204, 226, 242, 243);
 
         /// <summary>
         /// Backing field for the server IP address used when the client is disconnected.
@@ -497,7 +501,11 @@ namespace ChatClient.MVVM.ViewModel
             get => _isDarkTheme;
             set
             {
-                if (_isDarkTheme == value) return;
+                if (_isDarkTheme == value)
+                {
+                    return;
+                }
+                
                 _isDarkTheme = value;
                 OnPropertyChanged();
 
@@ -826,6 +834,10 @@ namespace ChatClient.MVVM.ViewModel
 
                 // Notifies UI bindings
                 OnPropertyChanged();
+
+                // Forces the view to re-evaluate templates
+                var view = CollectionViewSource.GetDefaultView(Messages); 
+                view?.Refresh();
             }
         }
 
@@ -898,6 +910,46 @@ namespace ChatClient.MVVM.ViewModel
 
         public string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
         public string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
+
+        /// <summary> 
+        /// Gets or sets the base color used for the background of bubbles 
+        /// representing messages sent by the local user. 
+        /// This value is persisted in application settings and can be dynamically modified
+        /// to adjust the visual appearance of outgoing message bubbles.
+        /// </summary> 
+        public Color SentBubbleBackgroundBaseColor 
+        { 
+            get => _sentBubbleBackgroundBaseColor; 
+            set { 
+                if (_sentBubbleBackgroundBaseColor == value) 
+                { 
+                    return; 
+                } 
+                
+                _sentBubbleBackgroundBaseColor = value; 
+                OnPropertyChanged(); 
+                
+                // Persists the new value
+                Settings.Default.SentBubbleBackgroundBaseColor = value.ToString(); 
+                Settings.Default.Save();
+
+                // Notify the UI that the brush derived from this color has changed
+                OnPropertyChanged(nameof(SentBubbleBackgroundBrush)); 
+            } 
+        }
+
+        /// <summary>
+        /// Gets a SolidColorBrush generated from the current value. 
+        /// This brush is used directly in the UI to render the background of outgoing
+        /// message bubbles.
+        /// </summary>
+        public SolidColorBrush SentBubbleBackgroundBrush
+        {
+            get
+            {
+                return new SolidColorBrush(SentBubbleBackgroundBaseColor);
+            }
+        }
 
         /// <summary>
         /// Property used by the IP address TextBox when the client is disconnected.
@@ -1624,11 +1676,11 @@ namespace ChatClient.MVVM.ViewModel
 
                 Messages.Add(new ChatMessage
                 {
-                    Text = $"# {username} {LocalizationManager.GetString("HasConnected")} #",
+                    Text = $"{username} {LocalizationManager.GetString("HasConnected")}",
                     Sender = username,
                     TimeStamp = DateTime.Now.ToString("HH:mm"),
-                    IsFromLocalUser = false,
-                    IsSystemMessage = true
+                    IsSystemMessage = true,
+                    IsFromLocalUser = false
                 });
 
             }
@@ -1652,7 +1704,7 @@ namespace ChatClient.MVVM.ViewModel
 
                 Messages.Add(new ChatMessage
                 {
-                    Text = $"# {username} {LocalizationManager.GetString("HasDisconnected")} #",
+                    Text = $"{username} {LocalizationManager.GetString("HasDisconnected")}",
                     Sender = username,
                     TimeStamp = DateTime.Now.ToString("HH:mm"),
                     IsFromLocalUser = false,
@@ -1797,7 +1849,7 @@ namespace ChatClient.MVVM.ViewModel
             // Adds a user-visible notification in the history
             Messages.Add(new ChatMessage
             {
-                Text = "# " + LocalizationManager.GetString("DisconnectedByServer") + " #",
+                Text = $"{LocalizationManager.GetString("DisconnectedByServer")}",
                 Sender = "System",
                 TimeStamp = DateTime.Now.ToString("HH:mm"),
                 IsFromLocalUser = false,
@@ -1874,7 +1926,7 @@ namespace ChatClient.MVVM.ViewModel
                             Sender = username,
                             TimeStamp = DateTime.Now.ToString("HH:mm"),
                             IsFromLocalUser = false,
-                            IsSystemMessage = false
+                            IsSystemMessage = true
                         });
                     });
                 }
@@ -1927,8 +1979,15 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles a delivered plain‐text message by prefixing the sender’s name.
-        /// Marshals the update to the UI thread and appends "sender: message" to the chat.
+        /// Handles an incoming plain‑text message by creating a corresponding
+        /// ChatMessage instance and appending it to the chat history.
+        /// The update is marshaled onto the UI thread to ensure thread‑safe
+        /// interaction with observable collections.
+        /// This method also determines whether the message originates from the
+        /// local user. This distinction is essential because the UI applies
+        /// different visual templates (alignment, bubble color, and layout)
+        /// depending on whether the message was sent by the user or received
+        /// from a peer.
         /// </summary>
         /// <param name="senderName">The display name of the message sender.</param>
         /// <param name="messageToDisplay">The content of the received message.</param>
@@ -1943,7 +2002,12 @@ namespace ChatClient.MVVM.ViewModel
                         Text = messageToDisplay,
                         Sender = senderName,
                         TimeStamp = DateTime.Now.ToString("HH:mm"),
-                        IsFromLocalUser = false,
+
+                        // Distinguishing local vs. remote messages is essential:
+                        // the UI uses this flag to select the correct bubble template
+                        // (right-aligned + colored for local user, left-aligned + white for peer).
+                        IsFromLocalUser = string.Equals(senderName, Username, StringComparison.OrdinalIgnoreCase),
+
                         IsSystemMessage = false
                     });
                 });
@@ -2124,7 +2188,7 @@ namespace ChatClient.MVVM.ViewModel
             {
                 Messages.Add(new ChatMessage
                 {
-                    Text = $"# {disconnectedUsername} {LocalizationManager.GetString("HasDisconnected")} #",
+                    Text = $"{disconnectedUsername} {LocalizationManager.GetString("HasDisconnected")}",
                     Sender = "System",
                     TimeStamp = DateTime.Now.ToString("HH:mm"),
                     IsFromLocalUser = false,

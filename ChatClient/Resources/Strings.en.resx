@@ -292,7 +292,7 @@ Example:
 </value>
   </data>
   <data name="ServerPrefix" xml:space="preserve">
-    <value># - Server</value>
+    <value># Server</value>
   </data>
   <data name="DisplayFontSizeLabel" xml:space="preserve">
     <value>Text size for conversations

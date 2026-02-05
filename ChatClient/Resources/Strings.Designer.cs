@@ -583,7 +583,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à # - Server.
+        ///   Recherche une chaîne localisée semblable à # Server.
         /// </summary>
         public static string ServerPrefix {
             get {

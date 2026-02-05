@@ -31,8 +31,10 @@
         <conv:WidthPercentageConverter x:Key="Width70" Factor="0.7"/>
 
         <!-- Controls the background of the incoming messages area.
-             Default: uses a soft cream background (#F4F3E8)
-             When raw text mode is enabled: uses the application's theme (BackgroundBrush). -->
+             Default: uses the application's theme (BackgroundBrush).
+             When bubble mode is enabled and connected:
+               - light theme  → soft cream background (#F4F3E8)
+               - dark theme   → very dark brown background (#1E1D0D) -->
         <Style TargetType="Grid" x:Key="IncomingMessagesAreaBackgroundStyle">
 
             <!-- Default: raw text mode or disconnected -->
@@ -40,13 +42,28 @@
 
             <Style.Triggers>
 
-                <!-- Bubble mode + connected → soft cream background -->
+                <!-- Bubble mode + connected + light theme -->
                 <MultiDataTrigger>
                     <MultiDataTrigger.Conditions>
                         <Condition Binding="{Binding RawTextMode}" Value="False"/>
                         <Condition Binding="{Binding IsConnected}" Value="True"/>
+                        <Condition Binding="{Binding DataContext.IsDarkTheme,
+                                             RelativeSource={RelativeSource AncestorType=Window}}"
+                           Value="False"/>
                     </MultiDataTrigger.Conditions>
                     <Setter Property="Background" Value="#F4F3E8"/>
+                </MultiDataTrigger>
+
+                <!-- Bubble mode + connected + dark theme -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding RawTextMode}" Value="False"/>
+                        <Condition Binding="{Binding IsConnected}" Value="True"/>
+                        <Condition Binding="{Binding DataContext.IsDarkTheme,
+                                             RelativeSource={RelativeSource AncestorType=Window}}"
+                           Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#1E1D0D"/>
                 </MultiDataTrigger>
 
             </Style.Triggers>
@@ -83,26 +100,40 @@
 
         <!-- Sent message bubble template -->
         <DataTemplate x:Key="SentBubbleTemplate">
-            <Border Background="#9ABFC2"
-                    CornerRadius="14"
-                    Padding="8,4"
-                    Margin="40,2,6,2"
-                    HorizontalAlignment="Right"
-                    MaxWidth="{Binding ActualWidth, ElementName=GrdRight, Converter={StaticResource Width70}}">
+            <Grid Margin="0,4,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                <StackPanel>
-                    <TextBlock Text="{Binding Text}"
-                               TextWrapping="Wrap"
-                               FontFamily="Segoe UI Emoji"
-                               Foreground="White"/>
+                <!-- Empty space on the left to push the bubble to the right -->
+                <Border Grid.Column="0"/>
 
-                    <TextBlock Text="{Binding TimeStamp}"
-                               FontSize="10"
-                               HorizontalAlignment="Right"
-                               Foreground="White"
-                               Margin="0,2,0,0"/>
-                </StackPanel>
-            </Border>
+                <!-- Sent bubble -->
+                <Border Grid.Column="1"
+                        Background="{Binding DataContext.SentBubbleBackgroundBrush,
+                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                        HorizontalAlignment="Right"
+                        CornerRadius="14"
+                        Margin="0,0,8,0"
+                        Padding="10,6"
+                        MaxWidth="420"
+                        SnapsToDevicePixels="True">
+
+                    <StackPanel>
+                        <TextBlock Text="{Binding Text}"
+                                   TextWrapping="Wrap"
+                                   FontFamily="Segoe UI"
+                                   Foreground="{DynamicResource ForegroundBrush}"/>
+
+                        <TextBlock Text="{Binding TimeStamp}"
+                                   FontSize="10"
+                                   HorizontalAlignment="Right"
+                                   Opacity="0.6"/>
+                    </StackPanel>
+
+                </Border>
+            </Grid>
         </DataTemplate>
 
         <!-- Raw text template -->
@@ -110,8 +141,10 @@
             <TextBlock Text="{Binding FormattedRawText}"
                        TextWrapping="Wrap"
                        FontFamily="Segoe UI"
+                       FontStyle="Normal"
+                       FontWeight="Normal"
                        Foreground="{DynamicResource ForegroundBrush}"
-                       FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                       FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
         </DataTemplate>
 
         <!-- System message template -->
@@ -120,13 +153,13 @@
                        Foreground="#666"
                        HorizontalAlignment="Center"
                        Margin="12"
-                       FontStyle="Italic"/>
+                       FontStyle="Normal"/>
         </DataTemplate>
 
         <!-- Template selector -->
         <local:MessageTemplateSelector x:Key="MessageTemplateSelector"
                                        RawTextTemplate="{StaticResource RawTextTemplate}"
-                                       SentMessageTemplate="{StaticResource SentBubbleTemplate}"
+                                       SentBubbleTemplate="{StaticResource SentBubbleTemplate}"
                                        ReceivedMessageTemplate="{StaticResource ReceivedBubbleTemplate}"
                                        SystemMessageTemplate="{StaticResource SystemMessageTemplate}" />
 
@@ -254,7 +287,7 @@
 
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RawTextMode}" Value="False">
-                    <Setter Property="CornerRadius" Value="18"/>
+                    <Setter Property="CornerRadius" Value="10"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -1009,21 +1042,33 @@
 
                                 <!-- Text input -->
                                 <TextBox x:Name="TxtMessageInputField"
-                                     Grid.Column="0"
-                                     Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                                     FontSize="{Binding DisplayFontSize}"
-                                     Background="Transparent"
-                                     Foreground="{DynamicResource ForegroundBrush}"
-                                     PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
-                                     SizeChanged="TxtMessageInputField_SizeChanged"
-                                     TextChanged="TxtMessageInputField_TextChanged"
-                                     VerticalAlignment="Stretch"
-                                     VerticalContentAlignment="Bottom"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     BorderThickness="0"
-                                     Padding="4,0,4,10">
-                                    <!-- Template unchanged -->
+                                         Grid.Column="0"
+                                         Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                         FontSize="{Binding DisplayFontSize}"
+                                         Background="Transparent"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
+                                         SizeChanged="TxtMessageInputField_SizeChanged"
+                                         TextChanged="TxtMessageInputField_TextChanged"
+                                         Height="40"
+                                         VerticalAlignment="Center"
+                                         VerticalContentAlignment="Center"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         BorderThickness="0"
+                                         Padding="6">
+
+                                <TextBox.Template>
+                                    <ControlTemplate TargetType="TextBox">
+                                        <Border Background="{TemplateBinding Background}" 
+                                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                                BorderThickness="{TemplateBinding BorderThickness}">
+                                            <ScrollViewer x:Name="PART_ContentHost" 
+                                                          VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </TextBox.Template>
+
                                 </TextBox>
 
                                 <!-- Send button -->
@@ -1031,7 +1076,7 @@
                                     Grid.Column="1"
                                     Background="Transparent"
                                     HorizontalAlignment="Center"
-                                    VerticalAlignment="Bottom"
+                                    VerticalAlignment="Center"
                                     Click="CmdSend_Click"
                                     Width="40"
                                     Height="32"

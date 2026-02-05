@@ -1,7 +1,7 @@
 ﻿/// <file>MonitrWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 5th, 2026</date>
+/// <date>February 6th, 2026</date>
 
 using ChatClient.MVVM.ViewModel;             // For MonitorViewModel
 using ChatClient.Net;
