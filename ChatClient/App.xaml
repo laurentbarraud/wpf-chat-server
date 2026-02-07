@@ -19,6 +19,7 @@
             <!-- Custom converters -->
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <conv:LeftOffsetToMarginConverter x:Key="LeftOffsetToMarginConverter" />
+            <conv:SlightLightenConverter x:Key="SlightLightenConverter" BoostFactor="0.06"/>
 
             <!-- Interactive label style -->
             <Style x:Key="InteractiveTextBlockStyle" TargetType="Label">
