@@ -31,6 +31,7 @@
     <None Remove="Resources\calc-icon.ico" />
     <None Remove="Resources\encrypted.png" />
     <None Remove="Resources\font-size.png" />
+    <None Remove="Resources\incoming-bubble-preview.png" />
     <None Remove="Resources\left-arrow.png" />
     <None Remove="Resources\message-input-field-left-offset.png" />
     <None Remove="Resources\monitor-icon.ico" />
@@ -48,6 +49,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\incoming-bubble-preview.png" />
     <Resource Include="Resources\monitor-icon.ico" />
     <Resource Include="Resources\pull-missing-public-key.png" />
   </ItemGroup>

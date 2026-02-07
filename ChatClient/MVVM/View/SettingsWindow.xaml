@@ -14,7 +14,7 @@
     MinWidth="438">
 
     <Window.Resources>
-        
+
         <!-- Common toggle style -->
         <Style x:Key="ToggleStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="54"/>
@@ -190,8 +190,8 @@
                 <Label x:Name="UseTcpPortLabel" Grid.Row="0" Grid.Column="1"
                        Content="{Binding UseTcpPortLabel}"
                        VerticalAlignment="Center"
-                       Margin="0,0,40,10"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="9" />
+                       Margin="0,0,40,0"
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="10" Height="26" />
 
                 <TextBox x:Name="TxtPort"
                      Grid.Row="0" Grid.Column="2"
@@ -225,8 +225,7 @@
                 <Label x:Name="ReduceToTrayLabel" Grid.Row="1" Grid.Column="1"
                            Content="{Binding ReduceToTrayLabel}"
                            VerticalAlignment="Center"
-                           Margin="0,0,0,5"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="10" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="11" Height="36" />
 
                 <ToggleButton Grid.Row="1" Grid.Column="2"
                           Style="{StaticResource ToggleStyle}"
@@ -243,8 +242,7 @@
                 <Label x:Name="UseEncryptionLabel" Grid.Row="2" Grid.Column="1"
                            Content="{Binding UseEncryptionLabel}"
                            VerticalAlignment="Center"
-                           Margin="0,0,0,5"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="11" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="12" Height="35" />
 
                 <ToggleButton Grid.Row="2" Grid.Column="2"
                           Style="{StaticResource ToggleStyle}"
@@ -261,8 +259,7 @@
                 <Label x:Name="RawTextModeLabel" Grid.Row="3" Grid.Column="1"
                        Content="{Binding RawTextModeLabel}"
                        VerticalAlignment="Center"
-                       Margin="0,0,0,5"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="12" />
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="13" Height="35" />
 
                 <ToggleButton Grid.Row="3" Grid.Column="2"
                               Style="{StaticResource ToggleStyle}"
@@ -285,9 +282,11 @@
                     <RowDefinition Height="Auto"/>
                     <!-- Font size -->
                     <RowDefinition Height="Auto"/>
-                    <!-- Width -->
+                    <!-- Incoming bubble color -->
                     <RowDefinition Height="Auto"/>
-                    <!-- Offset -->
+                    <!-- Input field width -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Input field offset -->
                 </Grid.RowDefinitions>
 
                 <Grid.ColumnDefinitions>
@@ -298,39 +297,65 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- MessageFontSize -->
-                <Image Grid.Row="0" Grid.Column="0"
-                   Width="26" Height="26"
-                   Source="/Resources/font-size.png"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"/>
+                <Image Grid.Row="0" 
+                       Grid.Column="0"
+                       Width="26" 
+                       Height="26"
+                       Source="/Resources/font-size.png"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
 
-                <Label x:Name="DisplayFontSizeLabel" Grid.Row="0" Grid.Column="1"
-                           Content="{Binding DisplayFontSizeLabel}"
-                           Margin="0,0,0,5"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="13" />
+                <Label x:Name="DisplayFontSizeLabel" 
+                       Grid.Row="0" Grid.Column="1"
+                       Content="{Binding DisplayFontSizeLabel}"
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="14" />
 
                 <Slider Grid.Row="0" Grid.Column="2"
-                    Minimum="{Binding MinDisplayFontSize}" 
-                    Maximum="{Binding MaxDisplayFontSize}" 
-                    Value="{Binding DisplayFontSize, Mode=TwoWay}"
-                    TickFrequency="1" 
-                    IsSnapToTickEnabled="True"
-                    Width="180"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Margin="0,0,0,5" TabIndex="4"/>
+                        Minimum="{Binding MinDisplayFontSize}" 
+                        Maximum="{Binding MaxDisplayFontSize}" 
+                        Value="{Binding DisplayFontSize, Mode=TwoWay}"
+                        TickFrequency="1" 
+                        IsSnapToTickEnabled="True"
+                        Width="180"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,5" TabIndex="4"/>
 
-                <!-- MessageInputFieldWidth -->
+                <!-- Incoming bubble color -->
                 <Image Grid.Row="1" Grid.Column="0"
+                       Width="26" Height="26"
+                       Source="/Resources/incoming-bubble-preview.png"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+
+                <Label Grid.Row="1" Grid.Column="1"
+                       Content="{Binding IncomingBubbleColorLabel}"
+                       Foreground="{DynamicResource ForegroundBrush}"
+                       Height="25"
+                       VerticalAlignment="Center"
+                       TabIndex="15"/> 
+
+                <Slider Grid.Row="1" Grid.Column="2"
+                        Minimum="0"
+                        Maximum="360"
+                        Value="{Binding SentBubbleHue, Mode=TwoWay}"
+                        Width="180"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,5"
+                        TabIndex="5"/>
+
+                <!-- Message input field width -->
+                <Image Grid.Row="2" Grid.Column="0"
                    Width="26" Height="26"
                    Source="/Resources/message-input-field-width.png"/>
 
-                <Label x:Name="MessageInputFieldWidthLabel" Grid.Row="1" Grid.Column="1"
+                <Label x:Name="MessageInputFieldWidthLabel" Grid.Row="2" Grid.Column="1"
                            Content="{Binding MessageInputFieldWidthLabel}"
                            Margin="0,0,0,1"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="14" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="16" />
 
-                <Slider Grid.Row="1" Grid.Column="2"
+                <Slider Grid.Row="2" Grid.Column="2"
                     Minimum="1" 
                     Maximum="100"
                     Value="{Binding MessageInputFieldWidthPercent, Mode=TwoWay}"
@@ -339,22 +364,21 @@
                     Width="180"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Margin="0,0,0,5" TabIndex="5"/>
+                    Margin="0,0,0,5" TabIndex="6"/>
 
-                <!-- MessageInputFieldLeftOffset -->
-                <Image Grid.Row="2" Grid.Column="0"
+                <!-- Message input field left offset -->
+                <Image Grid.Row="3" Grid.Column="0"
                        Width="26" 
                        Height="26"
                        Source="/Resources/message-input-field-left-offset.png"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"/>
-                <Label x:Name="MessageInputFieldLeftOffsetLabel" Grid.Row="2" Grid.Column="1"
+                <Label x:Name="MessageInputFieldLeftOffsetLabel" Grid.Row="3" Grid.Column="1"
                            Content="{Binding MessageInputFieldLeftOffsetLabel}"
                            VerticalAlignment="Center"
-                           Margin="0,0,0,5"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="15" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="17" Height="26" />
 
-                <Slider Grid.Row="2" Grid.Column="2"
+                <Slider Grid.Row="3" Grid.Column="2"
                         Minimum="0" Maximum="100"
                         Value="{Binding MessageInputFieldLeftOffsetPercent, Mode=TwoWay}"
                         TickFrequency="1" 
@@ -362,7 +386,7 @@
                         Width="180"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        Margin="0,0,0,1" TabIndex="6"/>
+                        Margin="0,0,0,1" TabIndex="7"/>
             </Grid>
             <!-- Separator -->
             <Border Grid.Row="3"
@@ -390,12 +414,11 @@
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"/>
 
-                <Label x:Name="AppLanguageLabel" Grid.Row="0" Grid.Column="1"
+                <Label x:Name="AppLanguageLabel" Grid.Column="1"
                            Content="{Binding AppLanguageLabel}"
-                           HorizontalAlignment="Left"
+                           HorizontalAlignment="Center"
                            VerticalAlignment="Center"
-                           Margin="0,0,0,5"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="16" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="18" Height="27" Width="200" />
 
                 <ComboBox x:Name="AppLanguageComboBox"
                               Grid.Row="0" Grid.Column="2"
@@ -406,7 +429,7 @@
                               ItemsSource="{Binding SupportedLanguages}"
                               SelectedValuePath="LanguageCode"
                               SelectedValue="{Binding AppLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              TextSearch.TextPath="DisplayName" TabIndex="7">
+                              TextSearch.TextPath="DisplayName" TabIndex="8">
 
                     <ComboBox.ItemContainerStyle>
                         <Style TargetType="{x:Type ComboBoxItem}">
@@ -451,7 +474,7 @@
             Click="CmdValidate_Click"
             Width="60"
             Height="32"
-            TabIndex="8"
+            TabIndex="9"
             Margin="0,2,0,8"
             HorizontalAlignment="Center">
             <Image Source="/Resources/validate.png" Stretch="Uniform"/>

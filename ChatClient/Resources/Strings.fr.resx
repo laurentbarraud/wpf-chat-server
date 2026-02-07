@@ -353,4 +353,7 @@ depuis la gauche</value>
   <data name="RawTextModeLabel" xml:space="preserve">
     <value>Utiliser le mode texte brut pour les messages</value>
   </data>
+  <data name="IncomingBubbleColorLabel" xml:space="preserve">
+    <value>Color de los mensajes enviados</value>
+  </data>
 </root>

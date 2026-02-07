@@ -155,7 +155,7 @@ namespace ChatClient.MVVM.ViewModel
         /// Backing field storing the base color used for the background of
         /// bubbles representing messages sent by the local user.
         /// </summary>
-        private Color _sentBubbleBackgroundBaseColor = Color.FromArgb(204, 226, 242, 243);
+        private double _sentBubbleHue = 185.0;
 
         /// <summary>
         /// Backing field for the server IP address used when the client is disconnected.
@@ -455,6 +455,11 @@ namespace ChatClient.MVVM.ViewModel
         /// Base multiplier used to convert the global font size into a consistent control height.
         /// </summary>
         public double HeightScaleFactor { get; } = 2.2;
+
+        /// <summary>
+        /// Gets the localized label text for the incoming bubble color setting
+        /// </summary>
+        public string IncomingBubbleColorLabel => LocalizationManager.GetString("IncomingBubbleColorLabel");
 
         /// <summary> 
         /// Stores the height of the message input area (the text input field). 
@@ -903,6 +908,30 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
+        /// <summary>
+        /// Gets or sets the hue value (0–360°) used to compute the color
+        /// of outgoing message bubbles. This value is updated by the slider
+        /// in the settings window and persisted in application settings.
+        /// </summary>
+        public double SentBubbleHue
+        {
+            get => _sentBubbleHue;
+            set
+            {
+                if (_sentBubbleHue == value) 
+                { 
+                    return;
+                }
+
+                _sentBubbleHue = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SentBubbleBackgroundBrush));
+
+                Settings.Default.SentBubbleHue = value;
+                Settings.Default.Save();
+            }
+        }
+
         /// <summary> Localized text for the settings window title. </summary>
         public string SettingsWindowTitle
         {
@@ -917,44 +946,13 @@ namespace ChatClient.MVVM.ViewModel
         public string ScrollLeftToolTip => LocalizationManager.GetString("ScrollLeftToolTip");
         public string ScrollRightToolTip => LocalizationManager.GetString("ScrollRightToolTip");
 
-        /// <summary> 
-        /// Gets or sets the base color used for the background of bubbles 
-        /// representing messages sent by the local user. 
-        /// This value is persisted in application settings and can be dynamically modified
-        /// to adjust the visual appearance of outgoing message bubbles.
-        /// </summary> 
-        public Color SentBubbleBackgroundBaseColor 
-        { 
-            get => _sentBubbleBackgroundBaseColor; 
-            set { 
-                if (_sentBubbleBackgroundBaseColor == value) 
-                { 
-                    return; 
-                } 
-                
-                _sentBubbleBackgroundBaseColor = value; 
-                OnPropertyChanged(); 
-                
-                // Persists the new value
-                Settings.Default.SentBubbleBackgroundBaseColor = value.ToString(); 
-                Settings.Default.Save();
-
-                // Notify the UI that the brush derived from this color has changed
-                OnPropertyChanged(nameof(SentBubbleBackgroundBrush)); 
-            } 
-        }
-
         /// <summary>
-        /// Gets a SolidColorBrush generated from the current value. 
-        /// This brush is used directly in the UI to render the background of outgoing
-        /// message bubbles.
+        /// Gets the brush representing the current outgoing bubble color,
+        /// computed from the selected hue value.
         /// </summary>
         public SolidColorBrush SentBubbleBackgroundBrush
         {
-            get
-            {
-                return new SolidColorBrush(SentBubbleBackgroundBaseColor);
-            }
+            get => new SolidColorBrush(ColorFromHue(SentBubbleHue));
         }
 
         /// <summary>
@@ -1186,6 +1184,17 @@ namespace ChatClient.MVVM.ViewModel
             Settings.Default.Reload();
             CurrentIPDisplay = Settings.Default.ServerIPAddress;
 
+            // Restores the saved hue for outgoing bubble color, or applies the default value
+            if (double.TryParse(Settings.Default.SentBubbleHue.ToString(), out double savedHue))
+            {
+                _sentBubbleHue = savedHue;
+            }
+
+            else
+            {
+                _sentBubbleHue = 185.0; // Default hue (light blue)
+            }
+
             // Subscribes to language changes to refresh UI text 
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
@@ -1227,6 +1236,80 @@ namespace ChatClient.MVVM.ViewModel
 
             // Applies saved display font size
             DisplayFontSize = Properties.Settings.Default.DisplayFontSize;
+        }
+
+        /// <summary>
+        /// Converts a hue value (0–360°) into an RGB color using fixed
+        /// saturation and lightness values. This produces a visually
+        /// consistent color palette for outgoing message bubbles.
+        /// </summary>
+        private Color ColorFromHue(double hueDegrees)
+        {
+            // Normalizes hue to the [0, 360) range
+            double normalizedHue = hueDegrees % 360;
+            if (normalizedHue < 0)
+            {
+                normalizedHue += 360;
+            }
+
+            // Fixed saturation and lightness
+            const double saturation = 0.65;
+            const double lightness = 0.70;
+
+            // Computes color intensity
+            double colorIntensity = (1 - Math.Abs(2 * lightness - 1)) * saturation;
+
+            // Determines which of the six 60° hue sectors we are in
+            double hueSector = normalizedHue / 60.0;
+
+            // Stores the second strongest RGB component for this hue sector
+            double secondaryComponent = colorIntensity * (1 - Math.Abs(hueSector % 2 - 1));
+
+            double redComponent = 0.0;
+            double greenComponent = 0.0;
+            double blueComponent = 0.0;
+
+            // Assigns RGB components based on the hue sector
+            if (hueSector < 1)
+            {
+                redComponent = colorIntensity;
+                greenComponent = secondaryComponent;
+            }
+            else if (hueSector < 2)
+            {
+                redComponent = secondaryComponent;
+                greenComponent = colorIntensity;
+            }
+            else if (hueSector < 3)
+            {
+                greenComponent = colorIntensity;
+                blueComponent = secondaryComponent;
+            }
+            else if (hueSector < 4)
+            {
+                greenComponent = secondaryComponent;
+                blueComponent = colorIntensity;
+            }
+            else if (hueSector < 5)
+            {
+                redComponent = secondaryComponent;
+                blueComponent = colorIntensity;
+            }
+            else
+            {
+                redComponent = colorIntensity;
+                blueComponent = secondaryComponent;
+            }
+            
+            // Adds the lightness offset to shift RGB components from the [0, chroma] range
+            // into the final [0, 1] range required for proper RGB values.
+            double lightnessOffset = lightness - colorIntensity / 2.0;
+
+            return Color.FromRgb(
+                (byte)((redComponent + lightnessOffset) * 255),
+                (byte)((greenComponent + lightnessOffset) * 255),
+                (byte)((blueComponent + lightnessOffset) * 255)
+            );
         }
 
         /// <summary>
@@ -1792,6 +1875,7 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(UseEncryptionLabel));
             OnPropertyChanged(nameof(RawTextModeLabel));
             OnPropertyChanged(nameof(DisplayFontSizeLabel));
+            OnPropertyChanged(nameof(IncomingBubbleColorLabel));
             OnPropertyChanged(nameof(MessageInputFieldWidthLabel));
             OnPropertyChanged(nameof(MessageInputFieldLeftOffsetLabel));
             OnPropertyChanged(nameof(AppLanguageLabel));

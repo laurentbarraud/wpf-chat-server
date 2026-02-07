@@ -367,6 +367,15 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à Sent bubble color.
+        /// </summary>
+        public static string IncomingBubbleColorLabel {
+            get {
+                return ResourceManager.GetString("IncomingBubbleColorLabel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Invalid public key. Encryption was not enabled..
         /// </summary>
         public static string InvalidPublicKey {

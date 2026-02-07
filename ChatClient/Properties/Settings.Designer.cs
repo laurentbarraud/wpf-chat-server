@@ -193,13 +193,13 @@ namespace ChatClient.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string SentBubbleBackgroundBaseColor {
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public double SentBubbleHue {
             get {
-                return ((string)(this["SentBubbleBackgroundBaseColor"]));
+                return ((double)(this["SentBubbleHue"]));
             }
             set {
-                this["SentBubbleBackgroundBaseColor"] = value;
+                this["SentBubbleHue"] = value;
             }
         }
     }
