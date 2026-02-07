@@ -1,7 +1,7 @@
 ﻿/// <file>LeftOffsetToMarginConverter.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 6th, 2026</date>
+/// <date>February 7th, 2026</date>
 
 using System;
 using System.Globalization;

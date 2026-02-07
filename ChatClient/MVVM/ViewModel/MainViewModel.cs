@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 6th, 2026</date>
+/// <date>February 7th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -341,9 +341,15 @@ namespace ChatClient.MVVM.ViewModel
 
                 _displayFontSize = clampedFontSizeValue;
 
+                // Forces WPF to refresh all message templates and input field visuals.
+                // This triggers a full re-evaluation of DataTemplates, re-applies FontSize bindings,
+                // updates already-rendered bubble messages or raw-text messages.
+                OnPropertyChanged(nameof(DisplayFontSize));
+
                 // Notifies dependent UI elements
                 OnPropertyChanged(nameof(UsernameAndIPAddressInputFieldHeight));
                 OnPropertyChanged(nameof(ConnectDisconnectButtonHeight));
+                OnPropertyChanged(nameof(Messages));
 
                 // Persists user preference
                 Properties.Settings.Default.DisplayFontSize = clampedFontSizeValue;

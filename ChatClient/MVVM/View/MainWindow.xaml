@@ -81,16 +81,19 @@
                 <StackPanel>
                     <TextBlock Text="{Binding Sender}"
                                FontWeight="Bold"
+                               FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                Foreground="{DynamicResource ForegroundBrush}"/>
 
                     <TextBlock Text="{Binding Text}"
                                TextWrapping="Wrap"
                                FontFamily="Segoe UI Emoji"
+                               FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                Foreground="{DynamicResource ForegroundBrush}"
                                Margin="0,2,0,0"/>
 
                     <TextBlock Text="{Binding TimeStamp}"
-                               FontSize="10"
+                               FontSize="12"
+                               Opacity="0.7"
                                HorizontalAlignment="Right"
                                Foreground="{DynamicResource ForegroundBrush}"
                                Margin="0,2,0,0"/>
@@ -124,12 +127,14 @@
                         <TextBlock Text="{Binding Text}"
                                    TextWrapping="Wrap"
                                    FontFamily="Segoe UI"
+                                   FontSize="{Binding DataContext.DisplayFontSize, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                    Foreground="{DynamicResource ForegroundBrush}"/>
 
                         <TextBlock Text="{Binding TimeStamp}"
-                                   FontSize="10"
+                                   FontSize="12"
+                                   Opacity="0.7"
                                    HorizontalAlignment="Right"
-                                   Opacity="0.6"/>
+                                   Margin="0,2,0,0"/>
                     </StackPanel>
 
                 </Border>
@@ -742,7 +747,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition x:Name="RowMessagesRight" Height="*" MinHeight="1"/>
                 <RowDefinition Height="4"/>
-                <RowDefinition x:Name="RowBottomRight" Height="Auto" MinHeight="34" d:Height="34"/>
+                <RowDefinition x:Name="RowBottomRight" Height="Auto" MinHeight="70" d:Height="70"/>
             </Grid.RowDefinitions>
 
             <ItemsControl x:Name="lstReceivedMessages"
@@ -1026,6 +1031,7 @@
                             d:Width="400"
                             Margin="{Binding MessageInputFieldMargin}"
                             MinHeight="34"
+                            CornerRadius="4"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Stretch">
 
@@ -1045,44 +1051,65 @@
                                          Grid.Column="0"
                                          Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                          FontSize="{Binding DisplayFontSize}"
-                                         Background="Transparent"
+                                         Background="{DynamicResource BackgroundBrush}"
                                          Foreground="{DynamicResource ForegroundBrush}"
                                          PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
                                          SizeChanged="TxtMessageInputField_SizeChanged"
                                          TextChanged="TxtMessageInputField_TextChanged"
-                                         Height="40"
-                                         VerticalAlignment="Center"
+                                         MinHeight="40"
+                                         VerticalAlignment="Stretch"
                                          VerticalContentAlignment="Center"
                                          AcceptsReturn="True"
                                          TextWrapping="Wrap"
                                          BorderThickness="0"
                                          Padding="6">
 
-                                <TextBox.Template>
-                                    <ControlTemplate TargetType="TextBox">
-                                        <Border Background="{TemplateBinding Background}" 
-                                                BorderBrush="{TemplateBinding BorderBrush}" 
-                                                BorderThickness="{TemplateBinding BorderThickness}">
-                                            <ScrollViewer x:Name="PART_ContentHost" 
-                                                          VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </TextBox.Template>
+                                    <TextBox.Template>
+                                        <ControlTemplate TargetType="TextBox">
+                                            <Border Background="{TemplateBinding Background}" 
+                                                    BorderBrush="{TemplateBinding BorderBrush}" 
+                                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                                <ScrollViewer x:Name="PART_ContentHost" 
+                                                              VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </TextBox.Template>
 
                                 </TextBox>
 
                                 <!-- Send button -->
                                 <Button x:Name="CmdSend"
                                     Grid.Column="1"
-                                    Background="Transparent"
+                                    Background="{DynamicResource BackgroundBrush}"
+                                    Foreground="{DynamicResource ForegroundBrush}"
+                                    BorderBrush="{DynamicResource ForegroundBrush}"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Click="CmdSend_Click"
                                     Width="40"
                                     Height="32"
                                     BorderThickness="0">
-                                    <!-- Style unchanged -->
-                                    <Image Source="/Resources/send.png" Width="18" Height="18"/>
+
+                                    <!-- Local style controlling the corner radius based on RawTextMode -->
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            
+                                            <!-- Default: rounded corners (bubble mode) -->
+                                            <Setter Property="CornerRadius" Value="4"/>
+
+                                            <Style.Triggers>
+                                                <!-- RawTextMode: square corners -->
+                                                <DataTrigger Binding="{Binding RawTextMode}" Value="True">
+                                                    <Setter Property="CornerRadius" Value="0"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        
+                                        </Style>
+                                    </Button.Resources>
+
+                                    <Image Source="/Resources/send.png" 
+                                           Width="18" 
+                                           Height="18"/>
                                 </Button>
                             </Grid>
                         </Border>
