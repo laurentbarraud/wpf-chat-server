@@ -1,7 +1,7 @@
 ﻿/// <file>App.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 7th, 2026</date>
+/// <date>February 8th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.Properties;

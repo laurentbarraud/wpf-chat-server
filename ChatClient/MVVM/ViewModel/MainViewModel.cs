@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 7th, 2026</date>
+/// <date>February 8th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -456,11 +456,6 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public double HeightScaleFactor { get; } = 2.2;
 
-        /// <summary>
-        /// Gets the localized label text for the incoming bubble color setting
-        /// </summary>
-        public string IncomingBubbleColorLabel => LocalizationManager.GetString("IncomingBubbleColorLabel");
-
         /// <summary> 
         /// Stores the height of the message input area (the text input field). 
         /// This value is updated live by the splitter and persisted in user settings.
@@ -802,6 +797,11 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged();
             }
         }
+
+        /// <summary>
+        /// Gets the localized label text for the incoming bubble color setting
+        /// </summary>
+        public string OutgoingBubbleColorLabel => LocalizationManager.GetString("OutgoingBubbleColorLabel");
 
         /// <summary>
         /// Gets or sets the port number used by the client.
@@ -1875,7 +1875,7 @@ namespace ChatClient.MVVM.ViewModel
             OnPropertyChanged(nameof(UseEncryptionLabel));
             OnPropertyChanged(nameof(RawTextModeLabel));
             OnPropertyChanged(nameof(DisplayFontSizeLabel));
-            OnPropertyChanged(nameof(IncomingBubbleColorLabel));
+            OnPropertyChanged(nameof(OutgoingBubbleColorLabel));
             OnPropertyChanged(nameof(MessageInputFieldWidthLabel));
             OnPropertyChanged(nameof(MessageInputFieldLeftOffsetLabel));
             OnPropertyChanged(nameof(AppLanguageLabel));

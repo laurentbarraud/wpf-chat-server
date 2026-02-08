@@ -321,15 +321,27 @@
                         VerticalAlignment="Center"
                         Margin="0,0,0,5" TabIndex="4"/>
 
-                <!-- Incoming bubble color -->
-                <Image Grid.Row="1" Grid.Column="0"
-                       Width="26" Height="26"
-                       Source="/Resources/incoming-bubble-preview.png"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+                <!-- Outgoing bubble color preview (dynamic emoji) -->
+                <Border Grid.Row="1" Grid.Column="0"
+                        Width="26" Height="26"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        CornerRadius="4">
+
+                    <!-- Background uses the outgoing bubble color (full opacity) -->
+                    <Border.Background>
+                        <SolidColorBrush Color="{Binding SentBubbleBackgroundBrush.Color}"/>
+                    </Border.Background>
+
+                    <!-- OpacityMask uses the PNG shape (black = visible, white = transparent) -->
+                    <Border.OpacityMask>
+                        <ImageBrush ImageSource="/Resources/outgoing-bubble-preview.png"
+                    Stretch="Uniform"/>
+                    </Border.OpacityMask>
+                </Border>
 
                 <Label Grid.Row="1" Grid.Column="1"
-                       Content="{Binding IncomingBubbleColorLabel}"
+                       Content="{Binding OutgoingBubbleColorLabel}"
                        Foreground="{DynamicResource ForegroundBrush}"
                        Height="25"
                        VerticalAlignment="Center"

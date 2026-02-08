@@ -170,6 +170,7 @@
                         SnapsToDevicePixels="True"
                         Opacity="0.88">
 
+                    <!-- Bubble shadow -->
                     <Border.Style>
                         <Style TargetType="Border">
                             <Setter Property="Effect">
@@ -182,6 +183,7 @@
                             </Setter>
 
                             <Style.Triggers>
+                                
                                 <!-- Stronger shadow on hover -->
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Effect">
@@ -197,11 +199,14 @@
                         </Style>
                     </Border.Style>
 
-                    <!-- Gradient -->
+                    <!-- Bubble gradient -->
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
 
-                            <!-- Top slightly lightened -->
+                            <!-- Top slightly lightened.
+                            We are inside a DataTemplate, so the local DataContext is the message item.
+                            This goes back to the first parent of type ItemsControl, 
+                            and uses its DataContext as the source of the binding. -->
                             <GradientStop Offset="0"
                                           Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
                                       RelativeSource={RelativeSource AncestorType=ItemsControl},
@@ -219,8 +224,7 @@
                         </LinearGradientBrush>
                     </Border.Background>
 
-
-                    <!-- Content -->
+                    <!-- Bubble content -->
                     <StackPanel>
                         <TextBlock Text="{Binding Text}"
                                    TextWrapping="Wrap"
@@ -228,7 +232,8 @@
                                    FontSize="{Binding DataContext.DisplayFontSize,
                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                       Foreground="{DynamicResource ForegroundBrush}"/>
-
+                        
+                        <!-- TimeStamp -->
                         <TextBlock Text="{Binding TimeStamp}"
                                    FontSize="12"
                                    Opacity="0.7"

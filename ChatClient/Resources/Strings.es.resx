@@ -351,7 +351,7 @@ y lista de usuarios conectados</value>
   <data name="RawTextModeLabel" xml:space="preserve">
     <value>Usar el modo de texto sin formato para los mensajes</value>
   </data>
-  <data name="IncomingBubbleColorLabel" xml:space="preserve">
+  <data name="OutgoingBubbleColorLabel" xml:space="preserve">
     <value>Couleur des bulles envoyées</value>
   </data>
 </root>

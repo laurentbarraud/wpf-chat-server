@@ -367,15 +367,6 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Sent bubble color.
-        /// </summary>
-        public static string IncomingBubbleColorLabel {
-            get {
-                return ResourceManager.GetString("IncomingBubbleColorLabel", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Recherche une chaîne localisée semblable à Invalid public key. Encryption was not enabled..
         /// </summary>
         public static string InvalidPublicKey {
@@ -498,6 +489,15 @@ namespace ChatClient.Resources {
         public static string NotConnected {
             get {
                 return ResourceManager.GetString("NotConnected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Sent bubble color.
+        /// </summary>
+        public static string OutgoingBubbleColorLabel {
+            get {
+                return ResourceManager.GetString("OutgoingBubbleColorLabel", resourceCulture);
             }
         }
         

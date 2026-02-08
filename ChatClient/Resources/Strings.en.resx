@@ -352,7 +352,7 @@ and connected users list</value>
   <data name="RawTextModeLabel" xml:space="preserve">
     <value>Use raw text mode for messages</value>
   </data>
-  <data name="IncomingBubbleColorLabel" xml:space="preserve">
+  <data name="OutgoingBubbleColorLabel" xml:space="preserve">
     <value>Sent bubble color</value>
   </data>
 </root>
