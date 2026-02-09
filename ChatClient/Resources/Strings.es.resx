@@ -232,26 +232,27 @@
     <value>Uso: chat-client.exe [opciones]
 
 Opciones:
-  -u, --nombre, --username   Establecer nombre de usuario y auto-conectar
-  -p, --port, --puerto       Establecer el puerto del servidor
+  -u, --nombre, --username   Establecer nombre de usuario
+                                        y auto-conectar
+  -p, --port, --puerto      Establecer el puerto del servidor
 
   --oscuro, --dark           Cambiar al tema oscuro
-  --claro,  --light          Cambiar al tema claro
+  --claro,  --light            Cambiar al tema claro
 
-  --es, --español            Cambiar al español
-  --en, --english            Cambiar a inglés
-  --fr, --francés            Cambiar a francés
+  --es, --español             Cambiar al español
+  --en, --english              Cambiar a inglés
+  --fr, --francés               Cambiar a francés
 
-  -e, --enc, --encrypted     Activar cifrado de extremo a extremo
+  -e, --enc, --encrypted   Activar cifrado de extremo a extremo
 
   -r, -t, -m, --reduce       Activar minimizar a la bandeja del sistema
-  --tray, --bandeja          Alias para la bandeja del sistema
+  --tray, --bandeja         Alias para la bandeja del sistema
 
-  -c, -d, --debug            Abrir ventana de consola
+  -c, -d, --debug             Abrir ventana de consola
 
-  -h, -? , --help, --ayuda   Mostrar este mensaje de ayuda
+  -h, -? , --help, --ayuda Mostrar este mensaje de ayuda
 
-  -v, --about, --version     Abrir la ventana Acerca de / mostrar versión
+  -v, --about, --version   Abrir la ventana Acerca de / mostrar versión
 
 Todos los argumentos admiten notación estilo Windows (/opción)
 y estilo Unix (--opción).
@@ -352,6 +353,6 @@ y lista de usuarios conectados</value>
     <value>Usar el modo de texto sin formato para los mensajes</value>
   </data>
   <data name="OutgoingBubbleColorLabel" xml:space="preserve">
-    <value>Couleur des bulles envoyées</value>
+    <value>Color de los mensajes enviados</value>
   </data>
 </root>

@@ -187,11 +187,18 @@
                    Source="/Resources/port-setting.png"
                    VerticalAlignment="Center"/>
 
-                <Label x:Name="UseTcpPortLabel" Grid.Row="0" Grid.Column="1"
+                <Label x:Name="UseTcpPortLabel" Grid.Column="1"
                        Content="{Binding UseTcpPortLabel}"
                        VerticalAlignment="Center"
-                       Margin="0,0,40,0"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="10" Height="26" />
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="10" Height="26" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <TextBox x:Name="TxtPort"
                      Grid.Row="0" Grid.Column="2"
@@ -225,7 +232,15 @@
                 <Label x:Name="ReduceToTrayLabel" Grid.Row="1" Grid.Column="1"
                            Content="{Binding ReduceToTrayLabel}"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="11" Height="36" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="11" Height="36" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <ToggleButton Grid.Row="1" Grid.Column="2"
                           Style="{StaticResource ToggleStyle}"
@@ -242,7 +257,15 @@
                 <Label x:Name="UseEncryptionLabel" Grid.Row="2" Grid.Column="1"
                            Content="{Binding UseEncryptionLabel}"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="12" Height="35" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="12" Height="35" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <ToggleButton Grid.Row="2" Grid.Column="2"
                           Style="{StaticResource ToggleStyle}"
@@ -259,7 +282,15 @@
                 <Label x:Name="RawTextModeLabel" Grid.Row="3" Grid.Column="1"
                        Content="{Binding RawTextModeLabel}"
                        VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="13" Height="35" />
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="13" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <ToggleButton Grid.Row="3" Grid.Column="2"
                               Style="{StaticResource ToggleStyle}"
@@ -308,7 +339,15 @@
                 <Label x:Name="DisplayFontSizeLabel" 
                        Grid.Row="0" Grid.Column="1"
                        Content="{Binding DisplayFontSizeLabel}"
-                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="14" />
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="14" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <Slider Grid.Row="0" Grid.Column="2"
                         Minimum="{Binding MinDisplayFontSize}" 
@@ -345,7 +384,15 @@
                        Foreground="{DynamicResource ForegroundBrush}"
                        Height="25"
                        VerticalAlignment="Center"
-                       TabIndex="15"/> 
+                       TabIndex="15" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <Slider Grid.Row="1" Grid.Column="2"
                         Minimum="0"
@@ -365,7 +412,15 @@
                 <Label x:Name="MessageInputFieldWidthLabel" Grid.Row="2" Grid.Column="1"
                            Content="{Binding MessageInputFieldWidthLabel}"
                            Margin="0,0,0,1"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="16" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="16" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <Slider Grid.Row="2" Grid.Column="2"
                     Minimum="1" 
@@ -388,7 +443,15 @@
                 <Label x:Name="MessageInputFieldLeftOffsetLabel" Grid.Row="3" Grid.Column="1"
                            Content="{Binding MessageInputFieldLeftOffsetLabel}"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="17" Height="26" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="17" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
 
                 <Slider Grid.Row="3" Grid.Column="2"
                         Minimum="0" Maximum="100"
@@ -430,7 +493,16 @@
                            Content="{Binding AppLanguageLabel}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="18" Height="27" Width="200" />
+                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="18" Height="27" Width="200" MinHeight="26">
+
+                    <Label.ContentTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                        </DataTemplate>
+                    </Label.ContentTemplate>
+
+                </Label>
+
 
                 <ComboBox x:Name="AppLanguageComboBox"
                               Grid.Row="0" Grid.Column="2"

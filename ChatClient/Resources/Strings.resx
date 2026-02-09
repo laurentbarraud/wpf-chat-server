@@ -232,7 +232,8 @@
     <value>Usage: chat-client.exe [options]
 
 Options:
-  -u, --username         Set your username and auto-connect
+  -u, --username         Set your username
+                                   and auto-connect
   -p, --port                  Set the server port
 
   --dark, --light           Switch theme
