@@ -44,7 +44,7 @@
     <Setting Name="RawTextMode" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
-    <Setting Name="SentBubbleHue" Type="System.Double" Scope="User">
+    <Setting Name="OutgoingBubbleHue" Type="System.Double" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
   </Settings>

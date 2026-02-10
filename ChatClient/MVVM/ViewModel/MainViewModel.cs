@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 9th, 2026</date>
+/// <date>February 10th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -118,6 +118,12 @@ namespace ChatClient.MVVM.ViewModel
         private List<(Guid UserId, string Username)> _previousRosterSnapshot
             = new List<(Guid, string)>();
 
+        /// <summary>
+        /// Indicates whether the hue preview 
+        /// is currently visible.
+        /// </summary>
+        private bool _isHuePopupVisible;
+
         /// <summary> 
         /// Stores the computed pixel width of the message input field. 
         /// Initialized to 400 so the field has a reasonable default width size. 
@@ -140,6 +146,12 @@ namespace ChatClient.MVVM.ViewModel
         private string _monitorWindowTitle = string.Empty;
 
         /// <summary>
+        /// Backing field storing the base color used for the background of
+        /// bubbles representing messages sent by the local user.
+        /// </summary>
+        private double _outgoingBubbleHue = 185.0;
+
+        /// <summary>
         /// Stores the last known value of AllKeysValid
         /// so the lock animation only runs on state changes.
         /// </summary>
@@ -150,12 +162,6 @@ namespace ChatClient.MVVM.ViewModel
         /// Updated whenever the window is resized.
         /// </summary>
         private double _rightGridWidth;
-
-        /// <summary>
-        /// Backing field storing the base color used for the background of
-        /// bubbles representing messages sent by the local user.
-        /// </summary>
-        private double _sentBubbleHue = 185.0;
 
         /// <summary>
         /// Backing field for the server IP address used when the client is disconnected.
@@ -534,6 +540,26 @@ namespace ChatClient.MVVM.ViewModel
         /// should be visible. </summary> 
         public bool IsGridVisible => MaskMessage == null;
 
+        /// <summary>
+        /// Indicates whether the hue preview popup should be visible.
+        /// This is set to true while the user is dragging the hue slider,
+        /// and reset to false when the drag operation ends.
+        /// </summary>
+        public bool IsHuePopupVisible
+        {
+            get => _isHuePopupVisible;
+            set
+            {
+                if (_isHuePopupVisible == value)
+                {
+                    return;
+                }
+
+                _isHuePopupVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
         /// <summary> True when a mask message should be displayed instead of the grid. </summary>
         public bool IsMaskVisible => MaskMessage != null;
 
@@ -804,6 +830,31 @@ namespace ChatClient.MVVM.ViewModel
         public string OutgoingBubbleColorLabel => LocalizationManager.GetString("OutgoingBubbleColorLabel");
 
         /// <summary>
+        /// Gets or sets the hue value (0–360°) used to compute the color
+        /// of outgoing message bubbles. This value is updated by the slider
+        /// in the settings window and persisted in application settings.
+        /// </summary>
+        public double OutgoingBubbleHue
+        {
+            get => _outgoingBubbleHue;
+            set
+            {
+                if (_outgoingBubbleHue == value)
+                {
+                    return;
+                }
+
+                _outgoingBubbleHue = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SentBubbleBackgroundBrush));
+
+                Settings.Default.OutgoingBubbleHue = value;
+                Settings.Default.Save();
+            }
+        }
+
+
+        /// <summary>
         /// Gets or sets the port number used by the client.
         /// This property acts as a proxy to the underlying application settings.
         /// </summary>
@@ -908,30 +959,6 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        /// <summary>
-        /// Gets or sets the hue value (0–360°) used to compute the color
-        /// of outgoing message bubbles. This value is updated by the slider
-        /// in the settings window and persisted in application settings.
-        /// </summary>
-        public double SentBubbleHue
-        {
-            get => _sentBubbleHue;
-            set
-            {
-                if (_sentBubbleHue == value) 
-                { 
-                    return;
-                }
-
-                _sentBubbleHue = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(SentBubbleBackgroundBrush));
-
-                Settings.Default.SentBubbleHue = value;
-                Settings.Default.Save();
-            }
-        }
-
         /// <summary> Localized text for the settings window title. </summary>
         public string SettingsWindowTitle
         {
@@ -952,7 +979,7 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public SolidColorBrush SentBubbleBackgroundBrush
         {
-            get => new SolidColorBrush(ColorFromHue(SentBubbleHue));
+            get => new SolidColorBrush(ColorFromHue(OutgoingBubbleHue));
         }
 
         /// <summary>
@@ -1185,14 +1212,14 @@ namespace ChatClient.MVVM.ViewModel
             CurrentIPDisplay = Settings.Default.ServerIPAddress;
 
             // Restores the saved hue for outgoing bubble color, or applies the default value
-            if (double.TryParse(Settings.Default.SentBubbleHue.ToString(), out double savedHue))
+            if (double.TryParse(Settings.Default.OutgoingBubbleHue.ToString(), out double savedHue))
             {
-                _sentBubbleHue = savedHue;
+                _outgoingBubbleHue = savedHue;
             }
 
             else
             {
-                _sentBubbleHue = 185.0; // Default hue (light blue)
+                _outgoingBubbleHue = 185.0; // Default hue (light blue)
             }
 
             // Subscribes to language changes to refresh UI text 

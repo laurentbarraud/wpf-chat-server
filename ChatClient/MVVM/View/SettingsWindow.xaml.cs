@@ -1,7 +1,7 @@
 ﻿/// <file>SettingsWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 9th, 2026</date>
+/// <date>February 10th, 2026</date>
 
 using ChatClient.Helpers;                   // For EncryptionHelper, ClientLogger
 using ChatClient.MVVM.ViewModel;   
@@ -11,8 +11,11 @@ using System;
 using System.ComponentModel;                 // For PropertyChangedEventArgs
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace ChatClient.MVVM.View
 {
@@ -22,6 +25,11 @@ namespace ChatClient.MVVM.View
     /// </summary>
     public partial class SettingsWindow : Window
     {
+        /// <summary>
+        /// Flag to track if the user is currently interacting with the hue slider.
+        /// </summary>
+        private bool _isHueActive = false;
+
         private readonly MainViewModel _mainViewModel;
 
         public SettingsWindow(MainViewModel mainViewModel)
@@ -31,11 +39,30 @@ namespace ChatClient.MVVM.View
             _mainViewModel = mainViewModel;
             DataContext = _mainViewModel;
 
-            // Listens to ViewModel property changes (language, tray behavior, etc.)
             _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
-
-            // Initial refresh when window opens
             _mainViewModel.LoadLocalizedStrings();
+
+            // User starts interacting: show popup immediately
+            HueSlider.PreviewMouseDown += (_, __) =>
+            {
+                if (DataContext is MainViewModel viewModel)
+                {
+                    viewModel.IsHuePopupVisible = true;
+                }
+
+                if (HuePopupContent != null)
+                {
+                    // Cancel any previous animation and ensure full opacity
+                    HuePopupContent.BeginAnimation(UIElement.OpacityProperty, null);
+                    HuePopupContent.Opacity = 1.0;
+                }
+            };
+
+            // User stops interacting: start delayed fade-out
+            HueSlider.PreviewMouseUp += (_, __) =>
+            {
+                StartHuePopupFadeOutWithDelay();
+            };
         }
 
         /// <summary>
@@ -71,6 +98,14 @@ namespace ChatClient.MVVM.View
         private void CmdValidate_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private void HideHuePopup()
+        {
+            if (DataContext is MainViewModel viewModel)
+            {
+                viewModel.IsHuePopupVisible = false;
+            }
         }
 
         private void InitializeTrayIcon()
@@ -125,6 +160,39 @@ namespace ChatClient.MVVM.View
             UpdateBinding(MessageInputFieldLeftOffsetLabel);
             UpdateBinding(AppLanguageLabel);
             UpdateBinding(AboutLabel);
+        }
+
+        /// <summary> 
+        /// Starts a delayed fade-out animation on the hue popup.
+        /// The popup remains fully visible during user interaction, 
+        /// then gradually fades out after a short inactivity period.
+        /// </summary>
+        private void StartHuePopupFadeOutWithDelay()
+        {
+            if (HuePopupContent == null)
+            {
+                return;
+            }
+
+            var fadeAnimation = new DoubleAnimation
+            {
+                From = 1.0,
+                To = 0.0,
+                Duration = TimeSpan.FromMilliseconds(500),
+                BeginTime = TimeSpan.FromSeconds(2.0) // delay before fade-out
+            };
+
+            fadeAnimation.Completed += (_, __) =>
+            {
+                HuePopupContent.Opacity = 1.0;
+
+                if (DataContext is MainViewModel viewModel)
+                {
+                    viewModel.IsHuePopupVisible = false;
+                }
+            };
+
+            HuePopupContent.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
         }
 
         /// <summary>

@@ -105,20 +105,6 @@
                                       VerticalAlignment="Center"/>
                             </ToggleButton>
 
-                            <!-- Popup -->
-                            <Popup x:Name="Popup"
-                                   Placement="Bottom"
-                                   IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   AllowsTransparency="True"
-                                   Focusable="False"
-                                   PopupAnimation="Slide">
-                                <Border Background="{DynamicResource BackgroundBrush}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        BorderThickness="1"
-                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ComboBox}}">
-                                    <ItemsPresenter Margin="4,2"/>
-                                </Border>
-                            </Popup>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -327,6 +313,10 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
+                <!-- ===================== -->
+                <!-- ROW 0 : Font size -->
+                <!-- ===================== -->
+
                 <!-- MessageFontSize -->
                 <Image Grid.Row="0" 
                        Grid.Column="0"
@@ -337,7 +327,8 @@
                        VerticalAlignment="Center"/>
 
                 <Label x:Name="DisplayFontSizeLabel" 
-                       Grid.Row="0" Grid.Column="1"
+                       Grid.Row="0" 
+                       Grid.Column="1"
                        Content="{Binding DisplayFontSizeLabel}"
                        Foreground="{DynamicResource ForegroundBrush}" TabIndex="14" MinHeight="26">
 
@@ -349,7 +340,8 @@
 
                 </Label>
 
-                <Slider Grid.Row="0" Grid.Column="2"
+                <Slider Grid.Row="0" 
+                        Grid.Column="2"
                         Minimum="{Binding MinDisplayFontSize}" 
                         Maximum="{Binding MaxDisplayFontSize}" 
                         Value="{Binding DisplayFontSize, Mode=TwoWay}"
@@ -360,9 +352,15 @@
                         VerticalAlignment="Center"
                         Margin="0,0,0,5" TabIndex="4"/>
 
+                <!-- ================================ -->
+                <!-- ROW 1 : Outgoing bubble color -->
+                <!-- ================================ -->
+
                 <!-- Outgoing bubble color preview (dynamic emoji) -->
-                <Border Grid.Row="1" Grid.Column="0"
-                        Width="26" Height="26"
+                <Border Grid.Row="1" 
+                        Grid.Column="0"
+                        Width="26" 
+                        Height="26"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         CornerRadius="4">
@@ -394,25 +392,72 @@
 
                 </Label>
 
-                <Slider Grid.Row="1" Grid.Column="2"
+                <Slider x:Name="HueSlider"
+                        Grid.Row="1" 
+                        Grid.Column="2"
                         Minimum="0"
                         Maximum="360"
-                        Value="{Binding SentBubbleHue, Mode=TwoWay}"
+                        Value="{Binding OutgoingBubbleHue, Mode=TwoWay}"
                         Width="180"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Margin="0,0,0,5"
                         TabIndex="5"/>
 
-                <!-- Message input field width -->
-                <Image Grid.Row="2" Grid.Column="0"
-                   Width="26" Height="26"
-                   Source="/Resources/message-input-field-width.png"/>
+                <Popup x:Name="HuePopup"
+                       IsOpen="{Binding IsHuePopupVisible}"
+                       PlacementTarget="{Binding ElementName=HueSlider}"
+                       Placement="Bottom"
+                       VerticalOffset="4"
+                       AllowsTransparency="True"
+                       Focusable="False"
+                       PopupAnimation="None">
 
-                <Label x:Name="MessageInputFieldWidthLabel" Grid.Row="2" Grid.Column="1"
-                           Content="{Binding MessageInputFieldWidthLabel}"
-                           Margin="0,0,0,1"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="16" MinHeight="26">
+                    <Border x:Name="HuePopupContent"
+                            CornerRadius="4"
+                            Padding="4"
+                            Background="{DynamicResource BackgroundBrush}"
+                            BorderBrush="{DynamicResource BackgroundBrush}"
+                            BorderThickness="1">
+
+                        <Rectangle Width="{Binding ActualWidth, ElementName=HueSlider}"
+                   Height="20">
+                            <Rectangle.LayoutTransform>
+                                <ScaleTransform ScaleX="0.95"/>
+                            </Rectangle.LayoutTransform>
+
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                    <GradientStop Color="#FFFF0000" Offset="0.00"/>
+                                    <GradientStop Color="#FFFFFF00" Offset="0.17"/>
+                                    <GradientStop Color="#FF00FF00" Offset="0.33"/>
+                                    <GradientStop Color="#FF00FFFF" Offset="0.50"/>
+                                    <GradientStop Color="#FF0000FF" Offset="0.67"/>
+                                    <GradientStop Color="#FFFF00FF" Offset="0.83"/>
+                                    <GradientStop Color="#FFFF0000" Offset="1.00"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+
+                    </Border>
+                </Popup>
+
+                <!-- ======================================= -->
+                <!-- ROW 2 : Message input field width -->
+                <!-- ======================================= -->
+
+                <!-- Message input field width -->
+                <Image Grid.Row="2" 
+                       Grid.Column="0"
+                       Width="26" Height="26"
+                       Source="/Resources/message-input-field-width.png"/>
+
+                <Label x:Name="MessageInputFieldWidthLabel" 
+                       Grid.Row="2" 
+                       Grid.Column="1"
+                       Content="{Binding MessageInputFieldWidthLabel}"
+                       Margin="0,0,0,1"
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="16" MinHeight="26">
 
                     <Label.ContentTemplate>
                         <DataTemplate>
@@ -431,19 +476,28 @@
                     Width="180"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Margin="0,0,0,5" TabIndex="6"/>
+                    Margin="0,0,0,5" 
+                    TabIndex="6"/>
+                
+                <!-- =========================================== -->
+                <!-- ROW 3 : Message input field left offset -->
+                <!-- =========================================== -->
 
                 <!-- Message input field left offset -->
-                <Image Grid.Row="3" Grid.Column="0"
+                <Image Grid.Row="3" 
+                       Grid.Column="0"
                        Width="26" 
                        Height="26"
                        Source="/Resources/message-input-field-left-offset.png"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"/>
-                <Label x:Name="MessageInputFieldLeftOffsetLabel" Grid.Row="3" Grid.Column="1"
-                           Content="{Binding MessageInputFieldLeftOffsetLabel}"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="17" MinHeight="26">
+                
+                <Label x:Name="MessageInputFieldLeftOffsetLabel" 
+                       Grid.Row="3" 
+                       Grid.Column="1"
+                       Content="{Binding MessageInputFieldLeftOffsetLabel}"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="17" MinHeight="26">
 
                     <Label.ContentTemplate>
                         <DataTemplate>
@@ -453,16 +507,20 @@
 
                 </Label>
 
-                <Slider Grid.Row="3" Grid.Column="2"
-                        Minimum="0" Maximum="100"
+                <Slider Grid.Row="3" 
+                        Grid.Column="2"
+                        Minimum="0" 
+                        Maximum="100"
                         Value="{Binding MessageInputFieldLeftOffsetPercent, Mode=TwoWay}"
                         TickFrequency="1" 
                         IsSnapToTickEnabled="True"
                         Width="180"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        Margin="0,0,0,1" TabIndex="7"/>
+                        Margin="0,0,0,1" 
+                        TabIndex="7"/>
             </Grid>
+            
             <!-- Separator -->
             <Border Grid.Row="3"
                     Height="1"
@@ -483,17 +541,18 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Image Grid.Row="0" Grid.Column="0"
-                           Width="26" Height="26"
-                           Source="/Resources/app-language-selection.png"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
+                <Image Grid.Row="0" 
+                       Grid.Column="0"
+                       Width="26" Height="26"
+                       Source="/Resources/app-language-selection.png"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
 
                 <Label x:Name="AppLanguageLabel" Grid.Column="1"
-                           Content="{Binding AppLanguageLabel}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource ForegroundBrush}" TabIndex="18" Height="27" Width="200" MinHeight="26">
+                       Content="{Binding AppLanguageLabel}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ForegroundBrush}" TabIndex="18" Height="27" Width="200" MinHeight="26">
 
                     <Label.ContentTemplate>
                         <DataTemplate>
@@ -505,15 +564,16 @@
 
 
                 <ComboBox x:Name="AppLanguageComboBox"
-                              Grid.Row="0" Grid.Column="2"
-                              Width="140"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center"
-                              Margin="0,0,0,5"
-                              ItemsSource="{Binding SupportedLanguages}"
-                              SelectedValuePath="LanguageCode"
-                              SelectedValue="{Binding AppLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              TextSearch.TextPath="DisplayName" TabIndex="8">
+                          Grid.Row="0" 
+                          Grid.Column="2"
+                          Width="140"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Margin="0,0,0,5"
+                          ItemsSource="{Binding SupportedLanguages}"
+                          SelectedValuePath="LanguageCode"
+                          SelectedValue="{Binding AppLanguage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          TextSearch.TextPath="DisplayName" TabIndex="8">
 
                     <ComboBox.ItemContainerStyle>
                         <Style TargetType="{x:Type ComboBoxItem}">

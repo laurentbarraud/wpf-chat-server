@@ -194,12 +194,12 @@ namespace ChatClient.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("0")]
-        public double SentBubbleHue {
+        public double OutgoingBubbleHue {
             get {
-                return ((double)(this["SentBubbleHue"]));
+                return ((double)(this["OutgoingBubbleHue"]));
             }
             set {
-                this["SentBubbleHue"] = value;
+                this["OutgoingBubbleHue"] = value;
             }
         }
     }
