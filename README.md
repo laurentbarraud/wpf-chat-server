@@ -1,7 +1,7 @@
 ## Chat Client
 WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP networking and a custom packet protocol.
 
-[![Release](https://img.shields.io/badge/release-stable-629959)](https://github.com/laurentbarraud/wpf-chat-server/releases)
+[![Release](https://img.shields.io/badge/release-stable-245e48)](https://github.com/laurentbarraud/wpf-chat-server/releases)
 [![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/latest/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases)
 
 <p align="center">
@@ -25,6 +25,9 @@ WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP n
 - 🌐 Instant language switching — localized in French, Spanish and English
 - ✏️ Adjustable input field — resize or shift it horizontally to match your layout preferences
 - 🎞️ Subtle WPF animations using xaml storyboards and UI polish.
+#### Coming soon
+- [ ] 💬 Bubble mode — message bubbles with customizable background color  
+- [ ] 📱 Layout switch — classic side roster or modern top‑panel layout
 
 #### Server
 - ⚙️ Async TCP engine — handles multiple clients concurrently with non‑blocking I/O
