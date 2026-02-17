@@ -1,7 +1,7 @@
 ## Chat Client
 WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP networking and a custom packet protocol.
 
-[![Release](https://img.shields.io/badge/release-stable-245e48)](https://github.com/laurentbarraud/wpf-chat-server/releases)
+[![Release](https://img.shields.io/badge/release-stable-1f593d)](https://github.com/laurentbarraud/wpf-chat-server/releases)
 [![GitHub release downloads](https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/latest/total?color=88aacc&style=flat)](https://github.com/laurentbarraud/wpf-chat-server/releases)
 
 <p align="center">
@@ -13,7 +13,7 @@ WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP n
 - 🔐 End‑to‑end RSA encryption — automatic keypair generation and real‑time public key sync
 - 🔑 Public Key Monitor — live view of all known keys, drives encryption state
 - 📦 Length‑prefixed packet framing — no desync, no corrupted packets
-  ⚡ Async TCP networking — clean connect/disconnect cycle.
+- ⚡ Async TCP networking — clean connect/disconnect cycle.
 
 **Client**
 - 👥 Real‑time user list updates automatically on login/logout
