@@ -28,7 +28,7 @@ WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP n
 
 **Coming soon**
 - [x] 💬 Bubble mode with customizable colors and a modern top‑panel layout
-- [ ] 📄 Raw text mode — a settings toggle that switches back to the classic chat layout with the side roster. 
+- [x] 📄 Raw text mode — a settings toggle that switches back to the classic chat layout with the side roster. 
 
 **Server**
 - ⚙️ Async TCP engine — handles multiple clients concurrently with non‑blocking I/O
@@ -46,6 +46,11 @@ WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP n
 
 In Debug mode, a console window is attached to the client at startup for debugging purposes, but you can freely minimize it.  
 To avoid this, run the application in Release mode.
+
+#### Warning : 🚧 Work in Progress
+Some layout elements are unstable — including the message input area.
+For the best experience, I recommend downloading the latest stable release or checking out the v1.0 tag in Git, which works normally.
+Thank you for your patience while this update is being built.
   
 ## Download
 Go to the [Releases](../../releases) section.
