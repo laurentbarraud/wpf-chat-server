@@ -22,23 +22,28 @@ WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP n
 - 🏠 Local mode — runs locally if no IP address is provided
 - 🪟 System tray integration — minimize/close to tray
 - 🎨 Theme toggle — light/dark themes switchable at any time
-- 🌐 Localized in French, Spanish and English
 - ✏️ Adjustable input field — resize or shift it horizontally to match your layout preferences
-- 🎞️ Subtle WPF animations using xaml storyboards and UI polish.
+- 🎞️ Subtle WPF animations using xaml storyboards and UI polish
+- 🌐 Localized in English, French and Spanish. 
 
 **Coming soon**
-- [x] 💬 Bubble mode with customizable colors and a modern top‑panel layout
-- [x] 📄 Raw text mode — a settings toggle that switches back to the classic chat layout with the side roster. 
+
+- [x] 💬 Bubble‑style message display
+- [x] 🎨 Custom color for outgoing message bubbles
+- [ ] 🌗 Adjustable brightness for bubble backgrounds
+- [ ] 🌓 Automatic text‑contrast switching for optimal readability
+- [x] 🔄 Toggle to switch back to the classic layout (side roster + raw text mode)
+- [ ] 🆔 Public‑key verification with visual identity marker
 
 **Server**
 - ⚙️ Async TCP engine — handles multiple clients concurrently with non‑blocking I/O
 - 📡 Broadcast & routing logic — distributes messages to all connected clients.
-- 🈺 Auto‑localized server messages — automatically switches between English and French based on the OS language
+- 🌐 Auto‑localized server messages — automatically switches between French, Spanish or default to English, based on the OS language. 
 
-**Architecture**
+**Architecture** 
 - 🧩 MVVM‑light — clean separation of UI and logic
 - 🔧 Custom packet reader/writer — opcode‑based routing.
-
+  
 ## How to Run
 - Clone the repository with Git  
 - Open the solution file (.sln) in Visual Studio 2022  
@@ -47,13 +52,20 @@ WPF encrypted chat app in C#, with a console server, RSA encryption, async TCP n
 In Debug mode, a console window is attached to the client at startup for debugging purposes, but you can freely minimize it.  
 To avoid this, run the application in Release mode.
 
-#### Warning : 🚧 Work in Progress
-Some layout elements are unstable — including the message input area.
-For the best experience, I recommend downloading the latest stable release or checking out the v1.0 tag in Git, which works normally.
-Thank you for your patience while this update is being built.
+#### 🚧 Work in Progress
+The new UI is still evolving.
+Some elements — especially the input area — may be unstable.
+For a fully reliable version, download the latest stable release just below or check out the v1.0 tag in Visual Studio after cloning the repository. 
   
 ## Download
 Go to the [Releases](../../releases) section.
 
-Technical documentation is available [here](/docs/ChatClient-documentation.pdf) —
-Documentation technique disponible [ici](/docs/ChatClient-documentation-fr.pdf).
+Technical documentation (5 pages):
+- English — [ChatClient-documentation.pdf](/docs/ChatClient-documentation.pdf)
+- Français — [ChatClient-documentation-fr.pdf](/docs/ChatClient-documentation-fr.pdf).
+
+
+ 
+
+
+
