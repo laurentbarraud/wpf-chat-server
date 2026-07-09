@@ -7,6 +7,7 @@
         xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
         xmlns:local="clr-namespace:ChatClient.MVVM.View"
         xmlns:conv="clr-namespace:ChatClient.Converters"
+        xmlns:selector="clr-namespace:ChatClient.MVVM.View"
         xmlns:settings="clr-namespace:ChatClient.Properties"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
@@ -17,8 +18,7 @@
         Loaded="MainWindow_Loaded"
         PreviewKeyDown="MainWindow_PreviewKeyDown"
         ResizeMode="CanResize"
-        WindowStartupLocation="CenterScreen"
-        d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}">
+        WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
 
@@ -136,7 +136,6 @@
             </Border>
         </DataTemplate>
 
-
         <!-- Sent message bubble template -->
         <DataTemplate x:Key="SentBubbleTemplate">
             <Grid Margin="0,4,0,4">
@@ -163,22 +162,21 @@
                             <Setter Property="Effect">
                                 <Setter.Value>
                                     <DropShadowEffect Color="Black"
-                                  BlurRadius="8"
-                                  ShadowDepth="1"
-                                  Opacity="0.15"/>
+                                              BlurRadius="8"
+                                              ShadowDepth="1"
+                                              Opacity="0.15"/>
                                 </Setter.Value>
                             </Setter>
 
                             <Style.Triggers>
-                                
                                 <!-- Stronger shadow on hover -->
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect Color="Black"
-                                          BlurRadius="12"
-                                          ShadowDepth="2"
-                                          Opacity="0.25"/>
+                                                      BlurRadius="12"
+                                                      ShadowDepth="2"
+                                                      Opacity="0.25"/>
                                         </Setter.Value>
                                     </Setter>
                                 </Trigger>
@@ -190,30 +188,85 @@
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
 
-                        <!-- Top: +6% -->
-                        <GradientStop Offset="0"
-                                      Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
-                                      RelativeSource={RelativeSource AncestorType=ItemsControl},
-                                      Converter={StaticResource SlightLightenConverter},
-                                      ConverterParameter=0.06}"/>
+                            <!-- Top: +6% -->
+                            <GradientStop Offset="0"
+                                  Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                                  Converter={StaticResource SlightLightenConverter},
+                                                  ConverterParameter=0.06}"/>
 
-                        <!-- Middle: base -->
-                        <GradientStop Offset="0.60"
-                                      Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
-                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                            <!-- Middle: base -->
+                            <GradientStop Offset="0.60"
+                                  Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
 
-                        <!-- Bottom: -3% -->
-                        <GradientStop Offset="1"
-                                      Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
-                                      RelativeSource={RelativeSource AncestorType=ItemsControl},
-                                      Converter={StaticResource SlightLightenConverter},
-                                      ConverterParameter=-0.03}"/>
+                            <!-- Bottom: -3% -->
+                            <GradientStop Offset="1"
+                                  Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                                  Converter={StaticResource SlightLightenConverter},
+                                                  ConverterParameter=-0.03}"/>
 
-                    </LinearGradientBrush>
-                </Setter.Value>
-            </Setter>
+                        </LinearGradientBrush>
+                    </Border.Background>
 
-        </Style>
+                    <!-- Bubble content -->
+                    <StackPanel>
+
+                        <!-- Main message text -->
+                        <TextBlock Text="{Binding Text}"
+                           TextWrapping="Wrap"
+                           FontFamily="Segoe UI"
+                           FontSize="{Binding DataContext.DisplayFontSize,
+                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+
+                                    <Style.Triggers>
+                                        
+                                        <!-- Dark theme: forces white text -->
+                                        <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}"
+                                             Value="dark">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                    
+                                    </Style.Triggers>
+                                
+                                </Style>
+                            </TextBlock.Style>
+
+                        </TextBlock>
+
+                        <!-- Timestamp -->
+                        <TextBlock Text="{Binding TimeStamp}"
+                           FontSize="12"
+                           Opacity="0.7"
+                           HorizontalAlignment="Right"
+                           Margin="0,2,0,0">
+
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+
+                                    <Style.Triggers>
+                                        <!-- Dark theme: forces white timestamp -->
+                                        <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}"
+                                             Value="dark">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+
+                        </TextBlock>
+
+                    </StackPanel>
+
+                </Border>
+            </Grid>
+        </DataTemplate>
 
         <!-- System message style -->
         <Style x:Key="SystemBubbleStyle" TargetType="TextBlock">
@@ -223,68 +276,6 @@
             <Setter Property="Margin" Value="12"/>
         </Style>
 
-        <!-- Sent bubble template -->
-        <DataTemplate x:Key="SentBubbleTemplate">
-            <Border Style="{StaticResource SentBubbleStyle}"
-                    IsHitTestVisible="False">
-                <StackPanel>
-
-                    <!-- Main message text -->
-                    <TextBlock Text="{Binding Text}"
-                               TextWrapping="Wrap"
-                               FontFamily="Segoe UI"
-                               FontSize="{Binding DataContext.DisplayFontSize,
-                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}">
-
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                
-                                <!-- Default text color -->
-                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
-
-                                <Style.Triggers>
-
-                                    <!-- Dark theme: forces white text for readability -->
-                                    <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}"
-                                         Value="dark">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-
-                    </TextBlock>
-
-                    <!-- Timestamp -->
-                    <TextBlock Text="{Binding TimeStamp}"
-                               FontSize="12"
-                               Opacity="0.7"
-                               HorizontalAlignment="Right"
-                               Margin="0,2,0,0">
-
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
-
-                                <Style.Triggers>
-
-                                    <!-- Dark theme: forces white text for timestamp -->
-                                    <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}"
-                                                 Value="dark">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-
-                    </TextBlock>
-
-                </StackPanel>
-            </Border>
-        </DataTemplate>
-
         <!-- System message template -->
         <DataTemplate x:Key="SystemMessageTemplate">
             <TextBlock Text="{Binding Text}"
@@ -292,10 +283,12 @@
         </DataTemplate>
 
         <!-- Template selector -->
-        <local:MessageTemplateSelector x:Key="MessageTemplateSelector"
-                               SentBubbleTemplate="{StaticResource SentBubbleTemplate}"
-                               ReceivedMessageTemplate="{StaticResource ReceivedBubbleTemplate}"
-                               SystemMessageTemplate="{StaticResource SystemMessageTemplate}"/>
+        <selector:MessageTemplateSelector
+                x:Key="MessageTemplateSelector"
+                SentBubbleTemplate="{StaticResource SentBubbleTemplate}"
+                ReceivedMessageTemplate="{StaticResource ReceivedBubbleTemplate}"
+                SystemMessageTemplate="{StaticResource SystemMessageTemplate}"/>
+
 
         <!-- Watermark base style -->
         <Style x:Key="WatermarkFadeStyle" TargetType="TextBlock">
@@ -313,22 +306,26 @@
         </Style>
 
     </Window.Resources>
-
+    
     <!-- Main layout -->
     <Grid x:Name="GrdMain"
           Background="{DynamicResource BackgroundBrush}">
 
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>              <!-- 0 : TopPanel -->
-            <RowDefinition Height="*"/>                 <!-- 1 : Messages -->
-            <RowDefinition Height="Auto"/>              <!-- 2 : Splitter -->
-            <RowDefinition x:Name="RowBottomRight"      
+            <RowDefinition Height="Auto"/>
+            <!-- 0 : TopPanel -->
+            <RowDefinition Height="*"/>
+            <!-- 1 : Messages -->
+            <RowDefinition Height="Auto"/>
+            <!-- 2 : Splitter -->
+            <RowDefinition x:Name="RowBottomRight"
                            Height="Auto"
-                           MinHeight="16"/>             <!-- 3 : Emoji bar -->
-
+                           MinHeight="16"/>
+            <!-- 3 : Emoji bar -->
             <RowDefinition x:Name="RowInputArea"
                            Height="Auto"
-                           MinHeight="34"/>             <!-- 4 : Input field -->
+                           MinHeight="34"/>
+            <!-- 4 : Input field -->
         </Grid.RowDefinitions>
 
         <!-- Row 0 : Top panel -->
@@ -338,8 +335,10 @@
               Margin="6,4,6,4">
 
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>     <!-- Center: Username | IP | Connect | List of users -->
-                <ColumnDefinition Width="Auto"/>  <!-- Right: Theme | Settings | Monitor | Spacer -->
+                <ColumnDefinition Width="*"/>
+                <!-- Center: Username | IP | Connect | List of users -->
+                <ColumnDefinition Width="Auto"/>
+                <!-- Right: Theme | Settings | Monitor | Spacer -->
             </Grid.ColumnDefinitions>
 
             <!-- Center area -->
@@ -347,12 +346,18 @@
                   VerticalAlignment="Center"
                   HorizontalAlignment="Center">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>                    <!-- Username -->
-                    <ColumnDefinition Width="8"/>                       <!-- spacing -->
-                    <ColumnDefinition Width="Auto"/>                    <!-- IP -->
-                    <ColumnDefinition Width="8"/>                       <!-- spacing -->
-                    <ColumnDefinition Width="Auto"/>                    <!-- Connect -->
-                    <ColumnDefinition Width="Auto"/>                    <!-- Connected users list -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Username -->
+                    <ColumnDefinition Width="8"/>
+                    <!-- spacing -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- IP -->
+                    <ColumnDefinition Width="8"/>
+                    <!-- spacing -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Connect -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Connected users list -->
                 </Grid.ColumnDefinitions>
 
                 <!-- Username -->
@@ -530,7 +535,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </TextBlock.Style>
-                            
+
                         </TextBlock>
 
                     </Grid>
@@ -605,7 +610,7 @@
                                                Margin="2,1"/>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
-                        
+
                         </ItemsControl>
 
                     </Border>
@@ -617,9 +622,12 @@
             <Grid Grid.Column="1"
                   VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>                    <!-- Theme toggle -->
-                    <ColumnDefinition Width="Auto"/>                    <!-- Settings -->
-                    <ColumnDefinition Width="Auto"/>                    <!-- Monitor -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Theme toggle -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Settings -->
+                    <ColumnDefinition Width="Auto"/>
+                    <!-- Monitor -->
                 </Grid.ColumnDefinitions>
 
                 <!-- Theme toggle -->
@@ -726,8 +734,8 @@
                     </ToggleButton.Template>
                 </ToggleButton>
 
-                    <!-- Settings button -->
-                    <Button x:Name="CmdSettings"
+                <!-- Settings button -->
+                <Button x:Name="CmdSettings"
                             Grid.Column="1"
                             Width="32"
                             Height="32"
@@ -737,25 +745,25 @@
                             Margin="5,0,5,0"
                             Click="CmdSettings_Click">
 
-                        <Button.Style>
-                            <Style TargetType="{x:Type Button}">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Opacity" Value="0.8"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                    <Button.Style>
+                        <Style TargetType="{x:Type Button}">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
 
-                        <Image Source="/Resources/settings.png"
+                    <Image Source="/Resources/settings.png"
                                Stretch="Uniform"
                                VerticalAlignment="Center"
                                HorizontalAlignment="Center"/>
-                    </Button>
+                </Button>
 
-                    <!-- Monitor button -->
-                    <Button x:Name="CmdMonitor"
+                <!-- Monitor button -->
+                <Button x:Name="CmdMonitor"
                             Grid.Column="2"
                             Width="30"
                             Height="30"
@@ -767,75 +775,71 @@
                             Visibility="Collapsed"
                             Opacity="0">
 
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="Transparent"/>
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="Transparent"/>
 
-                                <Style.Triggers>
+                            <Style.Triggers>
 
-                                    <!-- Hover effect only -->
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Opacity" Value="0.8"/>
-                                    </Trigger>
+                                <!-- Hover effect only -->
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.8"/>
+                                </Trigger>
 
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
 
-                        <Image Source="/Resources/monitor.png"
+                    <Image Source="/Resources/monitor.png"
                                Stretch="Uniform"
                                VerticalAlignment="Center"
                                HorizontalAlignment="Left"/>
-                    </Button>
+                </Button>
 
-                    <!-- Spacer -->
-                    <Border Grid.Column="3"/>
-                </Grid>
-
+                <!-- Spacer -->
+                <Border Grid.Column="3"/>
             </Grid>
-        </Border>
+
+        </Grid>
 
         <!-- Vertical Splitter -->
         <GridSplitter Grid.Column="1"
               Width="4"
-              DragCompleted="VerticalSplitter_DragCompleted"
-              PreviewMouseMove="VerticalSplitter_PreviewMouseMove"
               ResizeBehavior="PreviousAndNext"
               ShowsPreview="True"
               Background="Transparent"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"/>
-
         <!-- Right Panel -->
         <Grid x:Name="GrdRight"
               Grid.Column="2"
               Style="{StaticResource IncomingMessagesAreaBackgroundStyle}"
-              SizeChanged="GrdRight_SizeChanged"
               UseLayoutRounding="True"
               SnapsToDevicePixels="True">
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
+            
+            <!-- Messages list -->
+            <ListView x:Name="lstReceivedMessages"
+                      Grid.Row="1"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      ItemsSource="{Binding Messages}"
+                      ItemTemplateSelector="{StaticResource MessageTemplateSelector}">
 
-                <!-- Items are transparent and non-interactive -->
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
-
-                        <!-- No visual chrome -->
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="BorderThickness" Value="0"/>
                         <Setter Property="Margin" Value="0,0,0,2"/>
                         <Setter Property="Padding" Value="0"/>
-
-                        <!-- Disables selection and focus -->
                         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
                         <Setter Property="Focusable" Value="False"/>
                         <Setter Property="IsHitTestVisible" Value="False"/>
-
-                        <!-- Removes selection template -->
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListViewItem">
@@ -851,53 +855,55 @@
                 </ListView.ItemContainerStyle>
 
             </ListView>
+
+            <!-- Row 2 : Horizontal splitter separating the message list and the bottom input area -->
+            <GridSplitter Grid.Row="2"
+                          ResizeDirection="Rows"
+                          ResizeBehavior="PreviousAndNext"
+                          PreviewMouseMove="HorizontalSplitter_PreviewMouseMove"
+                          DragDelta="HorizontalSplitter_DragDelta"
+                          DragCompleted="HorizontalSplitter_DragCompleted"
+                          Height="5"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Center"
+                          Background="Transparent"
+                          ShowsPreview="False">
+
+                <!-- Custom template to show a subtle highlight on hover -->
+                <GridSplitter.Template>
+                    <ControlTemplate TargetType="GridSplitter">
+                        <Border x:Name="Grip"
+                                Background="Transparent"/>
+                        <ControlTemplate.Triggers>
+                            
+                            <!-- Highlight the splitter only when the mouse is over it -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Grip"
+                                        Property="Background"
+                                        Value="#1A777777"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </GridSplitter.Template>
+
+                <!-- Disables the splitter entirely when disconnected -->
+                <GridSplitter.Style>
+                    <Style TargetType="GridSplitter">
+                        <Setter Property="Opacity" Value="1"/>
+                        <Setter Property="IsHitTestVisible" Value="True"/>
+
+                        <Style.Triggers>
+                            
+                            <!-- When not connected: splitter becomes invisible and non-interactive -->
+                            <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                <Setter Property="Opacity" Value="0"/>
+                                <Setter Property="IsHitTestVisible" Value="False"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </GridSplitter.Style>
+            </GridSplitter>
         </Grid>
-
-        <!-- Row 2 : Horizontal splitter separating the message list and the bottom input area -->
-        <GridSplitter Grid.Row="2"
-                      ResizeDirection="Rows"
-                      ResizeBehavior="PreviousAndNext"
-                      PreviewMouseMove="HorizontalSplitter_PreviewMouseMove"
-                      DragDelta="HorizontalSplitter_DragDelta"
-                      DragCompleted="HorizontalSplitter_DragCompleted"
-                      Height="5"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Center"
-                      Background="Transparent"
-                      ShowsPreview="False">
-
-            <!-- Custom template to show a subtle highlight on hover -->
-            <GridSplitter.Template>
-                <ControlTemplate TargetType="GridSplitter">
-                    <Border x:Name="Grip"
-                    Background="Transparent"/>
-                    <ControlTemplate.Triggers>
-                        <!-- Highlight the splitter only when the mouse is over it -->
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Grip"
-                            Property="Background"
-                            Value="#1A777777"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </GridSplitter.Template>
-
-            <!-- Disables the splitter entirely when disconnected -->
-            <GridSplitter.Style>
-                <Style TargetType="GridSplitter">
-                    <Setter Property="Opacity" Value="1"/>
-                    <Setter Property="IsHitTestVisible" Value="True"/>
-
-                    <Style.Triggers>
-                        <!-- When not connected: splitter becomes invisible and non-interactive -->
-                        <DataTrigger Binding="{Binding IsConnected}" Value="False">
-                            <Setter Property="Opacity" Value="0"/>
-                            <Setter Property="IsHitTestVisible" Value="False"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </GridSplitter.Style>
-        </GridSplitter>
 
         <!-- Row 3 : Emoji bar -->         
         <Grid x:Name="GrdEmoji"
