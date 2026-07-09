@@ -172,7 +172,7 @@
     <value>L’adresse IP est incorrecte. Laissez-la vide pour vous connecter localement.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.1 - févr. 2026 - Laurent Barraud </value>
+    <value> v1.1 - juillet 2026 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>Ce logiciel open‑source est fourni dans l'espoir qu'il sera utile, mais sans garantie.</value>
@@ -208,10 +208,10 @@
     <value>Quitter</value>
   </data>
   <data name="UseTcpPortLabel" xml:space="preserve">
-    <value>Utiliser le port TCP :</value>
+    <value>Utiliser le port TCP</value>
   </data>
-  <data name="UseEncryptionLabel" xml:space="preserve">
-    <value>Chiffrement des messages</value>
+  <data name="EncryptMessagesLabel" xml:space="preserve">
+    <value>Chiffrer les messages</value>
   </data>
   <data name="GettingMissingKeysToolTip" xml:space="preserve">
     <value>Obtention des clés manquantes...</value>
@@ -232,26 +232,27 @@
     <value>Utilisation : chat-client.exe [options]
 
 Options:
-  -u, --nom, --username      Définir votre nom d'utilisateur et se connecter automatiquement
-  -p, --port                 Définir le port du serveur
+  -u, --nom, --username  Définir votre nom d'utilisateur et
+                                     se connecter automatiquement
+  -p, --port                   Définir le port du serveur
 
-  --sombre, --dark           Basculer sur le thème sombre
+  --sombre, --dark      Basculer sur le thème sombre
   --clair,  --light          Basculer sur le thème clair
 
-  --fr, --français           Basculer en français
-  --en, --english            Basculer en anglais
-  --es, --español            Basculer en espagnol
+  --fr, --français          Basculer en français
+  --en, --english          Basculer en anglais
+  --es, --español         Basculer en espagnol
 
-  -e, --enc, --encrypted     Activer le chiffrement de bout en bout
+  -e, --enc, --encrypted  Activer le chiffrement de bout en bout
 
-  -r, -t, -m, --reduce       Activer la réduction dans la zone de notification
-  --tray, --systray          Alias pour la zone de notification
+  -r, -t, -m, --reduce    Activer la réduction dans la zone de notification
+  --tray, --systray         Alias pour la zone de notification
 
-  -c, -d, --debug            Ouvrir la fenêtre console
+  -c, -d, --debug          Ouvrir la fenêtre console
 
-  -h, -? , --help, --aide    Afficher ce message d'aide
+  -h, -? , --help, --aide  Afficher ce message d'aide
 
-  -v, --about, --version     Ouvrir la fenêtre À propos / afficher la version
+  -v, --about, --version  Ouvrir la fenêtre À propos / afficher la version
 
 Toutes les options acceptent la notation Windows (/option)
 et Unix (--option).
@@ -351,9 +352,21 @@ depuis la gauche</value>
     <value>Paramètres</value>
   </data>
   <data name="RawTextModeLabel" xml:space="preserve">
-    <value>Utiliser le mode texte brut pour les messages</value>
+    <value>Mode texte brut</value>
   </data>
   <data name="OutgoingBubbleColorLabel" xml:space="preserve">
-    <value>Color de los mensajes enviados</value>
+    <value>Couleur des bulles envoyées</value>
+  </data>
+  <data name="PeerSummaryTextNoPeer" xml:space="preserve">
+    <value>Aucun peer connecté</value>
+  </data>
+  <data name="PeerSummaryTextOnePeer" xml:space="preserve">
+    <value>{0} est connecté</value>
+  </data>
+  <data name="PeerSummaryTextMultiPeers" xml:space="preserve">
+    <value>{0}, {1} sont en ligne</value>
+  </data>
+  <data name="ConnectedUsersListLabelText" xml:space="preserve">
+    <value>Liste des connectés</value>
   </data>
 </root>

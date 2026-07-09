@@ -188,7 +188,7 @@
                     IsCancel="True"
                     TabIndex="2"
                     HorizontalContentAlignment="Center"
-                    VerticalContentAlignment="Center"/>
+                    VerticalContentAlignment="Center" Cursor="Hand"/>
         </DockPanel>
 
     </Grid>

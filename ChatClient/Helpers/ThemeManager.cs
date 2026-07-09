@@ -1,7 +1,7 @@
 ﻿/// <file>ThemeManager.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using System;
 using System.Windows;
@@ -28,12 +28,10 @@ namespace ChatClient.Helpers
             Properties.Settings.Default.AppTheme = useDarkTheme ? "dark" : "light";
             Properties.Settings.Default.Save();
 
-            /// <remarks>
-            /// In WPF, resources applied to Application.Current.MainWindow propagate through
-            /// the visual tree to its child elements, so any secondary window (such as the 
-            /// Settings dialog) opened under this parent automatically inherits 
-            /// the updated theme accordingly.
-            /// </remarks>
+            // In WPF, resources applied to Application.Current.MainWindow propagate through
+            // the visual tree to its child elements, so any secondary window (such as the 
+            // Settings dialog) opened under this parent automatically inherits 
+            // the updated theme accordingly.
             var targetWindow = Application.Current.MainWindow;
 
             if (targetWindow == null)
@@ -44,41 +42,42 @@ namespace ChatClient.Helpers
 
             var themeUri = useDarkTheme ? DarkThemeUri : LightThemeUri;
 
-            /// <summary> Creates a fade-out animation (opacity 1.0 → 0.0 over 150ms). </summary>
-            var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150));
-            fadeOut.Completed += (_, _) =>
+            /// Creates a fade-out animation (opacity 1.0 → 0.0 over 150ms).
+            var fadeOutAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150));
+            fadeOutAnim.Completed += (_, _) =>
             {
-                /// <summary> 
                 /// Removes old theme dictionaries using a LINQ query, which iterates 
                 /// over Application.Current.Resources.MergedDictionaries.
                 /// The lambda checks that each dictionary has a valid URI and
                 /// that it equals either LightThemeUri or DarkThemeUri.
-                /// </summary>
                 var existingThemes = Application.Current.Resources.MergedDictionaries
                     .Where(dict => dict.Source != null && (dict.Source.Equals(LightThemeUri) || 
-                    dict.Source.Equals(DarkThemeUri))).ToList(); /// <remarks>
-                                                                 /// .ToList() materializes
-                                                                 /// the filtered sequence into a 
-                                                                 /// List<ResourceDictionary> so that 
-                                                                 /// it can be safely enumerated.
-                                                                 /// </remarks>
+                    dict.Source.Equals(DarkThemeUri))).ToList(); // .ToList() materializes the filtered
+                                                                 // sequence into a List<ResourceDictionary>
+                                                                 // so that it can be safely enumerated.
 
                 foreach (var dict in existingThemes)
                     Application.Current.Resources.MergedDictionaries.Remove(dict);
 
-                /// <summary> Adds new theme dictionary </summary >
-                Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
-                
+                // Adds new theme dictionary
+                Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary 
+                { 
+                    Source = themeUri 
+                });
+
+                App.ViewModel.MessagesListBackgroundBrush = 
+                (System.Windows.Media.Brush)Application.Current.Resources["MessagesListBackgroundBrush"];
+
                 /// <summary> 
                 /// Prepares the fade‑in animation.
                 /// The DoubleAnimation class animates a property. 
                 /// In this case, opacity transitions from 0 (transparent) 
                 /// to 1 (fully visible) over 150 milliseconds. 
                 /// </summary>
-                var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
+                var fadeInAnim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
 
-                /// <summary> After fade-in completes, applies watermark images to the MainWindow. </summary>
-                fadeIn.Completed += (_, _) =>
+                // After fade-in completes, applies watermark images to the MainWindow.
+                fadeInAnim.Completed += (_, _) =>
                 {
                     targetWindow.Dispatcher.BeginInvoke(() =>
                     {
@@ -101,11 +100,11 @@ namespace ChatClient.Helpers
                 /// the fade‑in effect applies to the entire window and, by extension,
                 /// all of its child elements in the visual tree.
                 /// </remarks>
-                targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+                targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeInAnim);
             };
 
-            /// <summary> Starts fade-out </summary>
-            targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            // Starts fade-out
+            targetWindow.BeginAnimation(UIElement.OpacityProperty, fadeOutAnim);
         }
 
         /// <summary>
@@ -118,20 +117,29 @@ namespace ChatClient.Helpers
         {
             var themeUri = useDarkTheme ? DarkThemeUri : LightThemeUri;
 
-            /// <summary> Removes any existing theme dictionaries (light or dark) with a lambda and LINQ </summary>
+            // Removes any existing theme dictionaries (light or dark) with a lambda and LINQ
             var existingThemes = Application.Current.Resources.MergedDictionaries
                 .Where(dict => dict.Source != null &&
                             (dict.Source.Equals(LightThemeUri) || dict.Source.Equals(DarkThemeUri)))
                 .ToList();
 
             foreach (var dict in existingThemes)
+            {
                 Application.Current.Resources.MergedDictionaries.Remove(dict);
+            }
 
-            /// <summary> Adds the new theme dictionary to application resources. </summary>
-            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = themeUri });
+            // Adds the new theme dictionary to application resources.
+            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary 
+            { 
+                Source = themeUri 
+            });
 
-            /// <summary> Refreshes watermark images in the MainWindow to reflect the new theme. </summary>
+            App.ViewModel.MessagesListBackgroundBrush =
+            (System.Windows.Media.Brush)Application.Current.Resources["MessagesListBackgroundBrush"];
+
+            // Refreshes watermark images in the MainWindow to reflect the new theme.
             var targetWindow = Application.Current.MainWindow;
+            
             if (targetWindow is MainWindow mainWindow)
             {
                 mainWindow.ApplyWatermarks();

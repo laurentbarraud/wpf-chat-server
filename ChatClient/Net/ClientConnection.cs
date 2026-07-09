@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -10,8 +10,6 @@ using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
 using ChatProtocol.Net;
 using ChatProtocol.Net.IO;
-using Microsoft.VisualBasic.ApplicationServices;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Sockets;
 using System.Windows;
@@ -65,11 +63,6 @@ namespace ChatClient.Net
         private TcpClient _tcpClient;
 
         /// <summary>
-        /// Reference to the main ViewModel (always non-null).
-        /// </summary>
-        private static MainViewModel _viewModel = new MainViewModel();
-
-        /// <summary>
         /// Callback used to run actions on the UI thread, ensuring safe property updates.
         /// </summary>
         private readonly Action<Action> _uiDispatcherInvoke;
@@ -109,28 +102,20 @@ namespace ChatClient.Net
         // Fired when the connection is being terminated.
         // Subscribers should reset their roster snapshot state.
         public event Action? ConnectionTerminated;
-        
+
         /// <summary>
         /// Initializes a new ClientConnection instance.
         /// Provides a callback that ensures the given action is executed on the UI thread,
         /// allowing ClientConnection to update UI-bound data safely from background threads.
         /// </summary>
         /// <param name="uiDispatcherInvoke">UI dispatcher callback provided by MainViewModel.</param>
-        /// <param name="viewModel">Main ViewModel instance bound to the application.</param>
-        public ClientConnection(Action<Action> uiDispatcherInvoke, MainViewModel viewModel)
+        public ClientConnection(Action<Action> uiDispatcherInvoke)
         {
             _tcpClient = new TcpClient();
             LocalUid = Guid.Empty;
             LocalPublicKey = Array.Empty<byte>();
-            
+
             _uiDispatcherInvoke = uiDispatcherInvoke ?? throw new ArgumentNullException(nameof(uiDispatcherInvoke));
-
-            // Resolves the ViewModel from the injected parameter,
-            // then the MainWindow DataContext or the existing static fallback
-            _viewModel = viewModel ?? Application.Current?.MainWindow?.DataContext as MainViewModel ?? _viewModel
-                ?? throw new InvalidOperationException("MainViewModel is required.");
-
-            _viewModel.ResetEncryptionPipelineAndUI();
         }
 
         /// <summary>
@@ -146,7 +131,7 @@ namespace ChatClient.Net
         private void CleanConnection()
         {
             // Resets handshake and encryption flags for a fresh state.
-            _viewModel.ResetEncryptionPipelineAndUI();
+            App.ViewModel.ResetEncryptionPipelineAndUI();
             Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
             // Cancels handshake TCS to wake any awaiters.
@@ -251,7 +236,7 @@ namespace ChatClient.Net
                 LocalUid = Guid.NewGuid();
 
                 // Initializes public key for handshake (real if encryption enabled, dummy otherwise).
-                if (Properties.Settings.Default.UseEncryption && EncryptionPipeline != null)
+                if (Properties.Settings.Default.EncryptMessages && EncryptionPipeline != null)
                 {
                     LocalPublicKey = EncryptionPipeline.PublicKeyDer;
 
@@ -449,24 +434,6 @@ namespace ChatClient.Net
         /// </summary>
         private async Task ReadPacketsAsync(CancellationToken cancellationToken)
         {
-            // Captures ViewModel reference on the UI thread.
-            MainViewModel viewModel = null!;
-
-            // Captures ViewModel without blocking the network read thread.
-            await Application.Current.Dispatcher.BeginInvoke(() =>
-            {
-                if (Application.Current.MainWindow is MainWindow mainWindow)
-                {
-                    viewModel = mainWindow.viewModel;
-                }
-            }).Task.ConfigureAwait(false);
-
-            // Ensures that ViewModel is available before proceeding.
-            if (viewModel == null)
-            {
-                return;
-            }
-
             // Waits for handshake reader to release lock before starting continuous read.
             await _readerLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -546,12 +513,12 @@ namespace ChatClient.Net
                                         rosterEntries.Add((userId, username, publicKeyDer));
                                     }
 
-                                    viewModel.UserHasClickedOnDisconnect = false;
+                                    App.ViewModel.UserHasClickedOnDisconnect = false;
 
                                     // Posts roster snapshot update to UI thread.
                                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                     {
-                                        viewModel.DisplayRosterSnapshot(rosterEntries);
+                                        App.ViewModel.DisplayRosterSnapshot(rosterEntries);
                                     }));
                                     break;
                                 }
@@ -562,7 +529,7 @@ namespace ChatClient.Net
                                     _handshakeCompletionTcs?.TrySetResult(true);
                                     Volatile.Write(ref _consecutiveUnexpectedOpcodes, 0);
 
-                                    var localKey = viewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
+                                    var localKey = App.ViewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
 
                                     if (localKey?.Length > 0)
                                     {
@@ -592,12 +559,12 @@ namespace ChatClient.Net
                                     string message = await reader.ReadStringAsync(cancellationToken).ConfigureAwait(false);
 
                                     // Resolves sender name or falls back to UID string.
-                                    string senderName = viewModel.Users.FirstOrDefault(u => u.UID == senderUid)?.Username ?? senderUid.ToString();
+                                    string senderName = App.ViewModel.Users.FirstOrDefault(u => u.UID == senderUid)?.Username ?? senderUid.ToString();
 
                                     // Posts plain message to UI thread.
                                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                     {
-                                        viewModel.OnPlainMessageReceived(senderName, message);
+                                        App.ViewModel.OnPlainMessageReceived(senderName, message);
                                     }));
                                     break;
                                 }
@@ -623,7 +590,7 @@ namespace ChatClient.Net
                                     // Forwards encrypted messages to the ViewModel
                                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                                     {
-                                        _viewModel.OnEncryptedMessageReceived(encryptedSenderUid, cipherBytes);
+                                        App.ViewModel.OnEncryptedMessageReceived(encryptedSenderUid, cipherBytes);
                                     }));
 
                                     break;
@@ -642,7 +609,7 @@ namespace ChatClient.Net
                                     }
 
                                     // Resolves the local public key from ViewModel or fallback
-                                    var localKey = viewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
+                                    var localKey = App.ViewModel.LocalUser.PublicKeyDer ?? EncryptionHelper.PublicKeyDer;
 
                                     // Sends our public key back to the requester if available.
                                     if (localKey?.Length > 0)
@@ -668,7 +635,7 @@ namespace ChatClient.Net
                                     // Updates KnownPublicKeys on the UI thread.
                                     _ = Application.Current.Dispatcher.BeginInvoke(() =>
                                     {
-                                        var encryptionPipeline = _viewModel!.EncryptionPipeline;
+                                        var encryptionPipeline = App.ViewModel.EncryptionPipeline;
                                         if (encryptionPipeline == null)
                                         {
                                             ClientLogger.Log("Encryption encPipeline is null during PublicKeyResponse.", ClientLogLevel.Warn);
@@ -691,7 +658,7 @@ namespace ChatClient.Net
 
                                             // Ensures correct local/non-local classification
                                             // (required so the DataGrid does not hide remote keys)
-                                            matchingEntry.IsLocal = (originUid == _viewModel.LocalUser.UID);
+                                            matchingEntry.IsLocal = (originUid == App.ViewModel.LocalUser.UID);
                                         }
                                         else
                                         {
@@ -700,19 +667,19 @@ namespace ChatClient.Net
                                                 new PublicKeyEntry
                                                 {
                                                     UID = originUid,
-                                                    Username = _viewModel.Users
+                                                    Username = App.ViewModel.Users
                                                         .FirstOrDefault(u => u.UID == originUid)?.Username ?? "",
 
                                                     KeyExcerpt = computedExcerpt,
 
                                                     // Mark as local only if this UID is the local user's UID
-                                                    IsLocal = (originUid == _viewModel.LocalUser.UID)
+                                                    IsLocal = (originUid == App.ViewModel.LocalUser.UID)
                                                 }
                                             );
                                         }
 
                                         // Notifies the ViewModel (handles readiness logic)
-                                        _viewModel.OnPublicKeyReceived(originUid, publicKeyDer);
+                                        App.ViewModel.OnPublicKeyReceived(originUid, publicKeyDer);
 
                                         ClientLogger.Log($"Registered/updated public key for {originUid}", ClientLogLevel.Info);
                                     });
@@ -732,7 +699,7 @@ namespace ChatClient.Net
 
                                     // Posts a disconnect notification to the UI thread so that the view model
                                     // can remove the user from the list and update bindings.
-                                    _ = Application.Current.Dispatcher.BeginInvoke(() => viewModel.OnUserDisconnected(discUid, discName));
+                                    _ = Application.Current.Dispatcher.BeginInvoke(() => App.ViewModel.OnUserDisconnected(discUid, discName));
                                     break;
                                 }
                             case PacketOpCode.ForceDisconnectClient:
@@ -740,7 +707,7 @@ namespace ChatClient.Net
                                     // Posts a forced disconnect to the UI thread and exits the loop.
                                     _ = Application.Current.Dispatcher.BeginInvoke(() =>
                                     {
-                                        viewModel.OnDisconnectedByServer();
+                                        App.ViewModel.OnDisconnectedByServer();
                                     });
                                     return;
                                 }
@@ -757,7 +724,7 @@ namespace ChatClient.Net
                                         _ = Application.Current.Dispatcher.BeginInvoke(() =>
                                         {
 
-                                            viewModel.OnDisconnectedByServer();
+                                            App.ViewModel.OnDisconnectedByServer();
 
                                         });
                                         return;
@@ -801,9 +768,9 @@ namespace ChatClient.Net
                     _ = Application.Current.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         // Don't notify the ViewModel if the user clicked Disconnect button
-                        if (!viewModel.UserHasClickedOnDisconnect)
+                        if (!App.ViewModel.UserHasClickedOnDisconnect)
                         {
-                            viewModel.OnDisconnectedByServer();
+                            App.ViewModel.OnDisconnectedByServer();
                         }
                     }));
                 }
@@ -1040,18 +1007,18 @@ namespace ChatClient.Net
         /// • Encrypted mode: sends one encrypted packet per recipient plus an encrypted self‑echo.
         /// • Solo mode: only the encrypted case performs a self‑echo; plaintext relies on server echo.
         /// </summary>
-        public async Task<bool> SendMessageAsync(string plainText, CancellationToken cancellationToken)
+        public async Task<bool> SendMessageAsync(string plainTextMsg, CancellationToken cancellationToken)
         {
             // Rejects empty messages or missing local user.
-            if (string.IsNullOrWhiteSpace(plainText) || _viewModel?.LocalUser == null)
+            if (string.IsNullOrWhiteSpace(plainTextMsg) || App.ViewModel.LocalUser == null)
             {
                 return false;
             }
 
-            Guid senderUid = _viewModel.LocalUser.UID;
+            Guid senderUid = App.ViewModel.LocalUser.UID;
 
             // Determines whether encryption is fully usable.
-            bool clientCanEncrypt = Settings.Default.UseEncryption && _viewModel.IsConnected && _viewModel.AllKeysValid;
+            bool clientCanEncrypt = Settings.Default.EncryptMessages && App.ViewModel.IsConnected && App.ViewModel.AllKeysValid;
 
 
             // Plain text mode (one packet, server handles broadcast)
@@ -1060,7 +1027,7 @@ namespace ChatClient.Net
                 var packet = new PacketBuilder();
                 packet.WriteOpCode((byte)PacketOpCode.PlainMessage);
                 packet.WriteUid(senderUid);
-                packet.WriteString(plainText);
+                packet.WriteString(plainTextMsg);
 
                 await SendFramedAsync(packet.GetPacketBytes(), cancellationToken).ConfigureAwait(false);
                 return true;
@@ -1068,14 +1035,14 @@ namespace ChatClient.Net
 
             
             // Encrypted mode (one packet per-recipient plus self-echo)
-            var recipients = _viewModel.Users.Where(u => u.UID != senderUid).ToList();
+            var recipients = App.ViewModel.Users.Where(u => u.UID != senderUid).ToList();
             bool messageSent = false;
 
             foreach (var recipient in recipients)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var encPipeline = _viewModel.EncryptionPipeline;
+                var encPipeline = App.ViewModel.EncryptionPipeline;
                 if (encPipeline == null)
                 {
                     ClientLogger.Log("Encryption pipeline is null.", ClientLogLevel.Warn);
@@ -1092,7 +1059,7 @@ namespace ChatClient.Net
                 }
 
                 // Encrypts message for this specific recipient.
-                var cipher = EncryptionHelper.EncryptMessageToBytes(plainText, recipientPublicKeyDer);
+                var cipher = EncryptionHelper.EncryptMessageToBytes(plainTextMsg, recipientPublicKeyDer);
 
                 if (cipher == null || cipher.Length == 0)
                 {
@@ -1110,9 +1077,9 @@ namespace ChatClient.Net
             }
 
             // Self‑echo (encrypted)
-            if (_viewModel?.LocalUser.PublicKeyDer?.Length > 0)
+            if (App.ViewModel.LocalUser.PublicKeyDer?.Length > 0)
             {
-                var selfCipher = EncryptionHelper.EncryptMessageToBytes(plainText, _viewModel.LocalUser.PublicKeyDer);
+                var selfCipher = EncryptionHelper.EncryptMessageToBytes(plainTextMsg, App.ViewModel.LocalUser.PublicKeyDer);
 
                 if (selfCipher != null && selfCipher.Length > 0)
                 {
@@ -1185,7 +1152,7 @@ namespace ChatClient.Net
 
                 ClientLogger.Log("Public key packet sent successfully.", ClientLogLevel.Debug);
 
-                _viewModel?.RefreshEncryptionState();
+                App.ViewModel.RefreshEncryptionState();
 
                 return true;
             }

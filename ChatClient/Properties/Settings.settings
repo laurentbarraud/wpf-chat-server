@@ -11,7 +11,7 @@
     <Setting Name="ReduceToTray" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
-    <Setting Name="UseEncryption" Type="System.Boolean" Scope="User">
+    <Setting Name="EncryptMessages" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="AppLanguageCode" Type="System.String" Scope="User">
@@ -44,7 +44,7 @@
     <Setting Name="RawTextMode" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
-    <Setting Name="SentBubbleHue" Type="System.Double" Scope="User">
+    <Setting Name="OutgoingBubbleHue" Type="System.Double" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
   </Settings>

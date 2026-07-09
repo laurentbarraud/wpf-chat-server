@@ -1,7 +1,7 @@
 ﻿/// <file>MainViewModel.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -18,6 +18,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+
 
 namespace ChatClient.MVVM.ViewModel
 {
@@ -54,12 +55,15 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private ClientConnection _clientConn = null!;
 
+        /// <summary> Backing field for localized text of the connected users list label</summary>
+        private string _connectedUsersListLabelText = string.Empty;
+
         /// <summary>
         /// Holds the localized text displayed in the IP address field
         /// when the client is connected. 
         /// This replaces the normal placeholder and is centered and non‑italic. 
         /// </summary> 
-        private string _connectedWatermarkText = "";
+        private string _connectedWatermark = "";
 
         /// <summary>
         /// Global unified font size setting for :
@@ -91,7 +95,7 @@ namespace ChatClient.MVVM.ViewModel
         /// Holds the localized placeholder text displayed 
         /// in the IP address input field when it is empty and not focused.
         /// </summary> 
-        private string _ipAddressWatermarkText = "";
+        private string _ipAddressWatermark = "";
 
         /// <summary>
         /// Stores the current theme selection state.
@@ -113,6 +117,13 @@ namespace ChatClient.MVVM.ViewModel
         private bool _isFirstRosterSnapshot = true;
 
         /// <summary>
+        /// Indicates whether the hue preview popup is currently visible.
+        /// This flag is set to true while the user is dragging the hue slider,
+        /// and automatically reset to false when the drag operation completes.
+        /// </summary>
+        private bool _isHuePopupVisible;
+
+        /// <summary>
         /// Holds the previous roster’s user IDs and usernames for diffing.
         /// </summary>
         private List<(Guid UserId, string Username)> _previousRosterSnapshot
@@ -125,19 +136,30 @@ namespace ChatClient.MVVM.ViewModel
         private double _messageInputFieldWidth = 400.0; 
 
         /// <summary> 
-        /// Backing field storing the watermark text displayed in the message 
+        /// Stores the watermark text displayed in the message 
         /// input field when empty. 
         /// </summary>
-        private string _messageInputFieldWatermarkText = "";
+        private string _messageInputFieldWatermark = "";
 
         /// <summary>
-        /// Backing field storing the current message being composed by the user 
+        /// Stores the brush used as the background of the messages list.
+        /// </summary>
+        private Brush _messagesListBackgroundBrush = new SolidColorBrush(Color.FromRgb(0xF8, 0xF4, 0xF1));
+
+        /// <summary>
+        /// Stores the current message being composed by the user 
         /// before it is sent.
         /// </summary>
         private string _messageToSend = string.Empty;
 
-        /// <summary> Backing field storing the title of the monitor window.</summary>
+        /// <summary> Stores the title of the monitor window.</summary>
         private string _monitorWindowTitle = string.Empty;
+
+        /// <summary>
+        /// Stores the base color used for the background of
+        /// bubbles representing messages sent by the local user.
+        /// </summary>
+        private double _outgoingBubbleHue = 185.0;
 
         /// <summary>
         /// Stores the last known value of AllKeysValid
@@ -150,12 +172,6 @@ namespace ChatClient.MVVM.ViewModel
         /// Updated whenever the window is resized.
         /// </summary>
         private double _rightGridWidth;
-
-        /// <summary>
-        /// Backing field storing the base color used for the background of
-        /// bubbles representing messages sent by the local user.
-        /// </summary>
-        private double _sentBubbleHue = 185.0;
 
         /// <summary>
         /// Backing field for the server IP address used when the client is disconnected.
@@ -185,7 +201,7 @@ namespace ChatClient.MVVM.ViewModel
         /// Holds the localized placeholder text displayed in the username input field 
         /// when it is empty and not focused. 
         /// </summary> 
-        private string _usernameWatermarkText = "";
+        private string _usernameWatermark = "";
 
         /// <summary>
         /// Brush used to render watermark text. Its color adapts to the current theme:
@@ -235,6 +251,7 @@ namespace ChatClient.MVVM.ViewModel
 
         public string AppLanguageLabel => LocalizationManager.GetString("AppLanguageLabel");
 
+
         /// <summary>
         /// Gets the active client connection used by the ViewModel to manage the
         /// network session and monitor connection state. The underlying field is
@@ -256,7 +273,13 @@ namespace ChatClient.MVVM.ViewModel
         private double BaseEmojiButtonSize => DisplayFontSize * HeightScaleFactor * 0.6;
 
         private double BaseEmojiFontSize => 14;
-        
+
+        /// <summary>
+        /// Gets the localized text for the connect/disconnect button.
+        /// </summary>
+        public string ConnectButtonText =>
+            LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
+
         /// <summary>
         /// Computes the dynamic height of the Connect/Disconnect button based on the
         /// current global font size. 
@@ -290,21 +313,39 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public RelayCommand ConnectDisconnectCommand { get; }
 
+        /// <summary> Localized text for the connected users list label.</summary>
+        public string ConnectedUsersListLabelText
+        {
+            get => _connectedUsersListLabelText;
+            set
+            {
+                _connectedUsersListLabelText = value;
+                OnPropertyChanged();
+            }
+        }
+
         /// <summary> 
         /// Gets or sets the localized text displayed in the IP address field
         /// when the client is connected. 
         /// This replaces the normal placeholder. 
         /// </summary>
-        public string ConnectedWatermarkText
+        public string ConnectedWatermark
         {
-            get => _connectedWatermarkText;
+            get => _connectedWatermark;
             set
             {
-                _connectedWatermarkText = value;
+                _connectedWatermark = value;
 
-                OnPropertyChanged(nameof(ConnectedWatermarkText));
+                OnPropertyChanged(nameof(ConnectedWatermark));
             }
         }
+
+        /// <summary>
+        /// Provides a sorted, UI‑bindable view of the Users collection.
+        /// WPF binds to this view to ensure alphabetical ordering regardless
+        /// of the order in which connection events arrive.
+        /// </summary>
+        public ICollectionView ConnectedUsersView { get; private set; } = null!;
 
         /// <summary>
         /// Provides the IP address text to display in the UI.
@@ -341,15 +382,9 @@ namespace ChatClient.MVVM.ViewModel
 
                 _displayFontSize = clampedFontSizeValue;
 
-                // Forces WPF to refresh all message templates and input field visuals.
-                // This triggers a full re-evaluation of DataTemplates, re-applies FontSize bindings,
-                // updates already-rendered bubble messages or raw-text messages.
-                OnPropertyChanged(nameof(DisplayFontSize));
-
                 // Notifies dependent UI elements
                 OnPropertyChanged(nameof(UsernameAndIPAddressInputFieldHeight));
                 OnPropertyChanged(nameof(ConnectDisconnectButtonHeight));
-                OnPropertyChanged(nameof(Messages));
 
                 // Persists user preference
                 Properties.Settings.Default.DisplayFontSize = clampedFontSizeValue;
@@ -389,13 +424,6 @@ namespace ChatClient.MVVM.ViewModel
         /// to display square emoji buttons without vertical compression.
         /// </summary>
         public int EmojiPopupHeight => (int)Math.Round(EmojiButtonSize * 1.4);
-
-        /// <summary>
-        /// Gets the dynamic width of the emoji popup,
-        /// computed as 90% of the message input field width.
-        /// This keeps the popup proportionally sized when the window is resized.
-        /// </summary>
-        public int EmojiPopupWidth => (int)Math.Round(MessageInputFieldWidth * 0.99);
 
         /// <summary>
         /// Gets a proportional scale factor based on the width of the message input field.
@@ -444,6 +472,36 @@ namespace ChatClient.MVVM.ViewModel
         public EncryptionPipeline EncryptionPipeline { get; private set; }
 
         /// <summary>
+        /// Proxy-property: gets or sets the application setting
+        /// indicating whether encryption is enabled.
+        /// </summary>
+        public bool EncryptMessages
+        {
+            get => Settings.Default.EncryptMessages;
+            set
+            {
+                if (Settings.Default.EncryptMessages == value)
+                {
+                    return;
+                }
+
+                Settings.Default.EncryptMessages = value;
+                Settings.Default.Save();
+
+                // Notifies UI bindings
+                OnPropertyChanged();
+
+                // Atomically triggers the pipeline toggle via ViewModel.
+                ToggleEncryptionState(value);
+            }
+        }
+
+        /// <summary>
+        /// Gets the localized use encryption for messages label text
+        /// </summary>
+        public string EncryptMessagesLabel => LocalizationManager.GetString("EncryptMessagesLabel");
+
+        /// <summary>
         /// Represents the number of clients expected to be connected for encryption readiness.
         /// This value is updated dynamically based on the current user list.
         /// </summary>
@@ -483,12 +541,12 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary> 
         /// Gets or sets the localized placeholder text for the IP address field. 
         /// Displayed when the field is empty and not focused. </summary> 
-        public string IPAddressWatermarkText 
+        public string IPAddressWatermark
         { 
-            get => _ipAddressWatermarkText; 
-            set { _ipAddressWatermarkText = value; 
+            get => _ipAddressWatermark; 
+            set { _ipAddressWatermark = value; 
                 
-                OnPropertyChanged(nameof(IPAddressWatermarkText)); 
+                OnPropertyChanged(nameof(IPAddressWatermark)); 
             } 
         }
 
@@ -507,11 +565,7 @@ namespace ChatClient.MVVM.ViewModel
             get => _isDarkTheme;
             set
             {
-                if (_isDarkTheme == value)
-                {
-                    return;
-                }
-                
+                if (_isDarkTheme == value) return;
                 _isDarkTheme = value;
                 OnPropertyChanged();
 
@@ -552,6 +606,24 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the hue preview popup
+        /// should be displayed. The popup becomes visible during slider interaction
+        /// and hides itself once the user releases the slider.
+        /// </summary>
+        public bool IsHuePopupVisible
+        {
+            get => _isHuePopupVisible;
+            set
+            {
+                if (_isHuePopupVisible == value)
+                    return;
+
+                _isHuePopupVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
         /// Localized header text for the key excerpt column in the monitor grid.
         /// </summary>
         public string KeyExcerptHeader => LocalizationManager.GetString("KeyExcerptHeader");
@@ -577,7 +649,7 @@ namespace ChatClient.MVVM.ViewModel
         {
             get
             {
-                if (!Settings.Default.UseEncryption)
+                if (!Settings.Default.EncryptMessages)
                 {
                     return LocalizationManager.GetString("EnableEncryptionToSeePublicKeysState");
                 }
@@ -661,14 +733,14 @@ namespace ChatClient.MVVM.ViewModel
 
         /// <summary> 
         /// Localized watermark text displayed in the message input field when empty. </summary> 
-        public string MessageInputFieldWatermarkText
+        public string MessageInputFieldWatermark
         {
-            get => _messageInputFieldWatermarkText;
+            get => _messageInputFieldWatermark;
             set
             {
-                if (_messageInputFieldWatermarkText != value)
+                if (_messageInputFieldWatermark != value)
                 {
-                    _messageInputFieldWatermarkText = value;
+                    _messageInputFieldWatermark = value;
 
                     OnPropertyChanged();
                 }
@@ -702,8 +774,7 @@ namespace ChatClient.MVVM.ViewModel
 
                 // Notifies dependent properties
                 OnPropertyChanged(nameof(EmojiScaleFactor)); 
-                OnPropertyChanged(nameof(EmojiButtonSize)); 
-                OnPropertyChanged(nameof(EmojiPopupWidth)); 
+                OnPropertyChanged(nameof(EmojiButtonSize));  
             } 
         }
 
@@ -741,7 +812,22 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged(nameof(MessageInputFieldWidth));
                 OnPropertyChanged(nameof(MessageInputFieldLeftOffset));
                 OnPropertyChanged(nameof(MessageInputFieldMargin));
-                OnPropertyChanged(nameof(EmojiPopupWidth));
+            }
+        }
+
+        /// <summary>
+        /// Background brush used for the messages list area in the modern bubble layout.
+        /// </summary>
+        public Brush MessagesListBackgroundBrush
+        {
+            get => _messagesListBackgroundBrush;
+            set
+            {
+                if (_messagesListBackgroundBrush != value)
+                {
+                    _messagesListBackgroundBrush = value;
+                    OnPropertyChanged();
+                }
             }
         }
 
@@ -761,6 +847,7 @@ namespace ChatClient.MVVM.ViewModel
                 }
             }
         }
+
         /// <summary>
         /// Represents a dynamic collection of chat messages that notifies the UI
         /// when items are added, removed, or when the entire list is refreshed.
@@ -768,7 +855,6 @@ namespace ChatClient.MVVM.ViewModel
         /// timestamp, and display flags.
         /// </summary>
         public ObservableCollection<ChatMessage> Messages { get; set; }
-            = new ObservableCollection<ChatMessage>();
 
         /// <summary>
         /// Minimum font size allowed for UI text scaling.
@@ -802,6 +888,30 @@ namespace ChatClient.MVVM.ViewModel
         /// Gets the localized label text for the incoming bubble color setting
         /// </summary>
         public string OutgoingBubbleColorLabel => LocalizationManager.GetString("OutgoingBubbleColorLabel");
+
+        /// <summary>
+        /// Gets or sets the hue value (0–360°) used to compute the color
+        /// of outgoing message bubbles. This value is updated by the slider
+        /// in the settings window and persisted in application settings.
+        /// </summary>
+        public double OutgoingBubbleHue
+        {
+            get => _outgoingBubbleHue;
+            set
+            {
+                if (_outgoingBubbleHue == value)
+                {
+                    return;
+                }
+
+                _outgoingBubbleHue = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SentBubbleBackgroundBrush));
+
+                Settings.Default.OutgoingBubbleHue = value;
+                Settings.Default.Save();
+            }
+        }
 
         /// <summary>
         /// Gets or sets the port number used by the client.
@@ -843,12 +953,19 @@ namespace ChatClient.MVVM.ViewModel
                 Settings.Default.RawTextMode = value;
                 Settings.Default.Save();
 
-                // Notifies UI bindings
                 OnPropertyChanged();
 
-                // Forces the view to re-evaluate templates
-                var view = CollectionViewSource.GetDefaultView(Messages); 
-                view?.Refresh();
+                var currentWindow = Application.Current.MainWindow;
+
+                if (value)
+                {
+                    App.SwitchWindow(currentWindow, new MainWindowLegacy());
+                }
+                
+                else
+                {
+                    App.SwitchWindow(currentWindow, new MainWindow());
+                }
             }
         }
 
@@ -863,12 +980,14 @@ namespace ChatClient.MVVM.ViewModel
             set
             {
                 if (Properties.Settings.Default.ReduceToTray == value)
+                {
                     return;
+                }
 
                 Properties.Settings.Default.ReduceToTray = value;
                 Properties.Settings.Default.Save();
 
-                OnPropertyChanged(); // CallerMemberName: "ReduceToTray"
+                OnPropertyChanged();
             }
         }
 
@@ -908,30 +1027,6 @@ namespace ChatClient.MVVM.ViewModel
             }
         }
 
-        /// <summary>
-        /// Gets or sets the hue value (0–360°) used to compute the color
-        /// of outgoing message bubbles. This value is updated by the slider
-        /// in the settings window and persisted in application settings.
-        /// </summary>
-        public double SentBubbleHue
-        {
-            get => _sentBubbleHue;
-            set
-            {
-                if (_sentBubbleHue == value) 
-                { 
-                    return;
-                }
-
-                _sentBubbleHue = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(SentBubbleBackgroundBrush));
-
-                Settings.Default.SentBubbleHue = value;
-                Settings.Default.Save();
-            }
-        }
-
         /// <summary> Localized text for the settings window title. </summary>
         public string SettingsWindowTitle
         {
@@ -952,7 +1047,7 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public SolidColorBrush SentBubbleBackgroundBrush
         {
-            get => new SolidColorBrush(ColorFromHue(SentBubbleHue));
+            get => new SolidColorBrush(ColorFromHue(OutgoingBubbleHue));
         }
 
         /// <summary>
@@ -1003,36 +1098,6 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public ICommand ThemeToggleCommand { get; }
 
-        /// <summary>
-        /// Proxy-property: gets or sets the application setting
-        /// indicating whether encryption is enabled.
-        /// </summary>
-        public bool UseEncryption
-        {
-            get => Settings.Default.UseEncryption;
-            set
-            {
-                if (Settings.Default.UseEncryption == value)
-                {
-                    return;
-                }
-
-                Settings.Default.UseEncryption = value;
-                Settings.Default.Save();
-
-                // Notifies UI bindings
-                OnPropertyChanged();
-
-                // Atomically triggers the pipeline toggle via ViewModel.
-                ToggleEncryptionState(value);
-            }
-        }
-
-        /// <summary>
-        /// Gets the localized use encryption for messages label text
-        /// </summary>
-        public string UseEncryptionLabel => LocalizationManager.GetString("UseEncryptionLabel");
-
         /// <summary>True if the user triggered a disconnect.</summary>
         public bool UserHasClickedOnDisconnect
         {
@@ -1046,6 +1111,7 @@ namespace ChatClient.MVVM.ViewModel
                 OnPropertyChanged();
             }
         }
+
 
         /// <summary>
         /// What the user types in the first textbox on top left of the MainWindow.
@@ -1092,14 +1158,14 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary> 
         /// Gets or sets the localized placeholder text for the IP address field. 
         /// Displayed when the field is empty and not focused. </summary> 
-        public string UsernameWatermarkText
+        public string UsernameWatermark
         {
-            get => _usernameWatermarkText;
+            get => _usernameWatermark;
             set
             {
-                _usernameWatermarkText = value;
+                _usernameWatermark = value;
 
-                OnPropertyChanged(nameof(UsernameWatermarkText));
+                OnPropertyChanged(nameof(UsernameWatermark));
             }
         }
 
@@ -1135,181 +1201,80 @@ namespace ChatClient.MVVM.ViewModel
 
         /// <summary>
         /// Initializes the MainViewModel.
-        /// Sets up observable collections, configures the client connection,
-        /// initializes the encryption pipeline, and prepares UI‑bound data views.
+        /// Sets up collections, connection layer, encryption pipeline,
+        /// localization, commands, and UI‑bound data.
         /// </summary>
         public MainViewModel()
         {
-            // Initializes UI‑bound collections
+            // Loads persisted settings (IP, theme, font size, language, etc.)
+            Settings.Default.Reload();
+            CurrentIPDisplay = Settings.Default.ServerIPAddress;
+            DisplayFontSize = Settings.Default.DisplayFontSize;
+
+            // Creates UI-bound collections
             Users = new ObservableCollection<UserModel>();
             Messages = new ObservableCollection<ChatMessage>();
 
-            // Creates client connection with dispatcher callback and reference to this ViewModel.
-            // The dispatcher callback ensures that all UI‑affecting actions are marshalled back
-            // onto the WPF UI thread.
-            // Passing "this" allows the connection layer to push events into the ViewModel.
-            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action),
-                this);
+            // Creates the TCP client connection.
+            // It runs on a background thread, so we give it a way to safely update the WPF UI.
+            // WPF only allows UI changes from the main thread, so any UI‑related
+            // callback from ClientConnection must be dispatched back to the UI thread.
+            // Action is provided to the ClientConnection constructor for this purpose.
+            _clientConn = new ClientConnection(action => Application.Current.Dispatcher.BeginInvoke(action));
 
-            // Gets the default view for the Users collection
-            // Note: WPF does not sort ObservableCollection automatically, so we obtain
-            // the default CollectionView and apply a SortDescription on Username. 
-            // This keeps the roster alphabetically ordered in the UI regardless
-            // of the order in which connection events arrive from the server.
+            // Prepares sorted view for Users (alphabetical roster)
             var usersView = CollectionViewSource.GetDefaultView(Users);
-
-            // Ensures no previous sort rules remain.
             usersView.SortDescriptions.Clear();
+            usersView.SortDescriptions.Add(
+                new SortDescription(nameof(UserModel.Username), ListSortDirection.Ascending));
+            ConnectedUsersView = usersView;
 
-            // Adds ascending sort on Username property.
-            usersView.SortDescriptions.Add(new SortDescription(nameof(UserModel.Username),
-                ListSortDirection.Ascending));
-
-            // Initializes encryption pipeline with ViewModel and client connection
-            EncryptionPipeline = new EncryptionPipeline(this, _clientConn,
+            // Initializes encryption pipeline (crypto ops and key management).
+            // Action is provided to the EncryptionPipeline constructor for UI thread dispatching.
+            EncryptionPipeline = new EncryptionPipeline(this, _clientConn, 
                 action => Application.Current.Dispatcher.BeginInvoke(action));
 
-            // Notifies UI when AllKeysValid, a calculated property, must refresh after collection changes
+            // Binds connection to encryption pipeline
+            _clientConn.EncryptionPipeline = EncryptionPipeline;
+
+            // Notifies UI when key validity changes by using the collection changed event of the KnownPublicKeys dictionary.
             EncryptionPipeline.KnownPublicKeys.CollectionChanged += (_, __) =>
                 OnPropertyChanged(nameof(AllKeysValid));
 
-            // Binds connection to pipeline
-            _clientConn.EncryptionPipeline = EncryptionPipeline;
-
-            // Subscribes to key‑state changes for lock synchronization
+            // Sync lock state when keys change to ensure the UI reflects the current encryption readiness.
             EncryptionPipeline.KnownPublicKeys.CollectionChanged += OnKnownPublicKeysChanged;
 
-            // Reloads user-scoped settings from disk to ensure the ViewModel
-            // starts with the most recently saved values.
-            Settings.Default.Reload();
-            CurrentIPDisplay = Settings.Default.ServerIPAddress;
-
-            // Restores the saved hue for outgoing bubble color, or applies the default value
-            if (double.TryParse(Settings.Default.SentBubbleHue.ToString(), out double savedHue))
-            {
-                _sentBubbleHue = savedHue;
-            }
-
-            else
-            {
-                _sentBubbleHue = 185.0; // Default hue (light blue)
-            }
-
-            // Subscribes to language changes to refresh UI text 
+            // Reacts to language changes (live UI translation)
             Properties.Settings.Default.PropertyChanged += OnSettingsPropertyChanged;
 
-            // Creates Connect/Disconnect RelayCommand 
-            ConnectDisconnectCommand = new RelayCommand(
-                () => { _ = ConnectDisconnectAsync(); },
-                () => true
-            );
+            // Loads localized strings for all UI-bound text
+            LoadLocalizedStrings();
 
-            // Creates ThemeToggleCommand (bound to ToggleButton)
-            ThemeToggleCommand = new RelayCommand<object>(param =>
+            // Applies localized tray menu text
+            if (Application.Current.MainWindow is MainWindow mainWindow)
             {
-                // Reads toggle state from UI; true = dark, false = light
-                bool isDarkThemeSelected = param is bool toggleState && toggleState;
+                ((App)Application.Current).ApplyTrayMenuLocalization();
+            }
 
-                // Pattern matching (introduced in C# 7):
-                // checks type and extracts bool in one step.
-                // toggleState only exists inside the expression.
-                // Command must rely on UI param, not stored settings.
+            // Initializes localized label for connected users list
+            ConnectedUsersListLabelText = LocalizationManager.GetString("ConnectedUsersListLabelText");
 
+            // Creates Connect/Disconnect command
+            ConnectDisconnectCommand = new RelayCommand(
+                () => { _ = ConnectDisconnectAsync(); });
+
+            // Creates theme toggle command
+            ThemeToggleCommand = new RelayCommand(() =>
+            {
+                bool isDarkThemeSelected = IsDarkTheme;
                 Settings.Default.AppTheme = isDarkThemeSelected ? "dark" : "light";
                 Settings.Default.Save();
-
-                // Applies theme immediately
                 ThemeManager.ApplyTheme(isDarkThemeSelected);
             });
 
-            // Creates request missing public key command (bound to the corresponding button in the monitor)
+            // Creates command for requesting missing public keys (used in monitor window)
             RequestMissingPublicKeyCommand =
                 new RelayCommand<Guid>(async uid => await RequestMissingPublicKeyAsync(uid));
-
-            LoadLocalizedStrings();
-
-            // Applies tray menu localization
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.ApplyTrayMenuLocalization();
-            }
-
-            // Applies saved display font size
-            DisplayFontSize = Properties.Settings.Default.DisplayFontSize;
-        }
-
-        /// <summary>
-        /// Converts a hue value (0–360°) into an RGB color using fixed
-        /// saturation and lightness values. This produces a visually
-        /// consistent color palette for outgoing message bubbles.
-        /// </summary>
-        private Color ColorFromHue(double hueDegrees)
-        {
-            // Normalizes hue to the [0, 360) range
-            double normalizedHue = hueDegrees % 360;
-            if (normalizedHue < 0)
-            {
-                normalizedHue += 360;
-            }
-
-            // Fixed saturation and lightness
-            const double saturation = 0.65;
-            const double lightness = 0.70;
-
-            // Computes color intensity
-            double colorIntensity = (1 - Math.Abs(2 * lightness - 1)) * saturation;
-
-            // Determines which of the six 60° hue sectors we are in
-            double hueSector = normalizedHue / 60.0;
-
-            // Stores the second strongest RGB component for this hue sector
-            double secondaryComponent = colorIntensity * (1 - Math.Abs(hueSector % 2 - 1));
-
-            double redComponent = 0.0;
-            double greenComponent = 0.0;
-            double blueComponent = 0.0;
-
-            // Assigns RGB components based on the hue sector
-            if (hueSector < 1)
-            {
-                redComponent = colorIntensity;
-                greenComponent = secondaryComponent;
-            }
-            else if (hueSector < 2)
-            {
-                redComponent = secondaryComponent;
-                greenComponent = colorIntensity;
-            }
-            else if (hueSector < 3)
-            {
-                greenComponent = colorIntensity;
-                blueComponent = secondaryComponent;
-            }
-            else if (hueSector < 4)
-            {
-                greenComponent = secondaryComponent;
-                blueComponent = colorIntensity;
-            }
-            else if (hueSector < 5)
-            {
-                redComponent = secondaryComponent;
-                blueComponent = colorIntensity;
-            }
-            else
-            {
-                redComponent = colorIntensity;
-                blueComponent = secondaryComponent;
-            }
-            
-            // Adds the lightness offset to shift RGB components from the [0, chroma] range
-            // into the final [0, 1] range required for proper RGB values.
-            double lightnessOffset = lightness - colorIntensity / 2.0;
-
-            return Color.FromRgb(
-                (byte)((redComponent + lightnessOffset) * 255),
-                (byte)((greenComponent + lightnessOffset) * 255),
-                (byte)((blueComponent + lightnessOffset) * 255)
-            );
         }
 
         /// <summary>
@@ -1397,7 +1362,7 @@ namespace ChatClient.MVVM.ViewModel
                 {
                     _userHasClickedOnDisconnect = false;
 
-                    CurrentIPDisplay = "- " + LocalizationManager.GetString("Connected") + " -";
+                    CurrentIPDisplay = $"– {LocalizationManager.GetString("Connected")} –";
 
                     OnPropertyChanged(nameof(CurrentIPDisplay));
                     OnPropertyChanged(nameof(ConnectButtonText));
@@ -1429,7 +1394,7 @@ namespace ChatClient.MVVM.ViewModel
                 /// • UI fully loaded
                 /// This ensures encryption is initialized cleanly and predictably.
                 /// </summary>
-                if (Settings.Default.UseEncryption)
+                if (Settings.Default.EncryptMessages)
                 {
                     // Ensures UI and logs appear in a natural order.
                     await Task.Delay(500, cancellationToken);
@@ -1489,10 +1454,78 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Gets the localized text for the connect/disconnect button.
+        /// Converts a hue value (0–360°) into an RGB color using fixed
+        /// saturation and lightness values. This produces a visually
+        /// consistent color palette for outgoing message bubbles.
         /// </summary>
-        public string ConnectButtonText => 
-            LocalizationManager.GetString(IsConnected ? "Disconnect" : "Connect");
+        private Color ColorFromHue(double hueDegrees)
+        {
+            // Normalizes hue to the [0, 360) range
+            double normalizedHue = hueDegrees % 360;
+            if (normalizedHue < 0)
+            {
+                normalizedHue += 360;
+            }
+
+            // Fixed saturation and lightness
+            const double saturation = 0.65;
+            const double lightness = 0.70;
+
+            // Computes color intensity
+            double colorIntensity = (1 - Math.Abs(2 * lightness - 1)) * saturation;
+
+            // Determines which of the six 60° hue sectors we are in
+            double hueSector = normalizedHue / 60.0;
+
+            // Stores the second strongest RGB component for this hue sector
+            double secondaryComponent = colorIntensity * (1 - Math.Abs(hueSector % 2 - 1));
+
+            double redComponent = 0.0;
+            double greenComponent = 0.0;
+            double blueComponent = 0.0;
+
+            // Assigns RGB components based on the hue sector
+            if (hueSector < 1)
+            {
+                redComponent = colorIntensity;
+                greenComponent = secondaryComponent;
+            }
+            else if (hueSector < 2)
+            {
+                redComponent = secondaryComponent;
+                greenComponent = colorIntensity;
+            }
+            else if (hueSector < 3)
+            {
+                greenComponent = colorIntensity;
+                blueComponent = secondaryComponent;
+            }
+            else if (hueSector < 4)
+            {
+                greenComponent = secondaryComponent;
+                blueComponent = colorIntensity;
+            }
+            else if (hueSector < 5)
+            {
+                redComponent = secondaryComponent;
+                blueComponent = colorIntensity;
+            }
+            else
+            {
+                redComponent = colorIntensity;
+                blueComponent = secondaryComponent;
+            }
+
+            // Adds the lightness offset to shift RGB components from the [0, chroma] range
+            // into the final [0, 1] range required for proper RGB values.
+            double lightnessOffset = lightness - colorIntensity / 2.0;
+
+            return Color.FromRgb(
+                (byte)((redComponent + lightnessOffset) * 255),
+                (byte)((greenComponent + lightnessOffset) * 255),
+                (byte)((blueComponent + lightnessOffset) * 255)
+            );
+        }
 
         /// <summary>
         /// Connects or disconnects the client depending on the current state.
@@ -1609,7 +1642,7 @@ namespace ChatClient.MVVM.ViewModel
                 }
 
                 // If encryption is enabled and the pipeline is available
-                if (Settings.Default.UseEncryption && _clientConn != null && _clientConn.EncryptionPipeline != null)
+                if (Settings.Default.EncryptMessages && _clientConn != null && _clientConn.EncryptionPipeline != null)
                 {
                     lock (_clientConn.EncryptionPipeline.KnownPublicKeys)
                     {
@@ -1686,7 +1719,7 @@ namespace ChatClient.MVVM.ViewModel
 
             // --- Encryption: update keys for peers present in this snapshot ---
             // If encryption is enabled, ensures we have keys for all non-local peers.
-            if (Settings.Default.UseEncryption && _clientConn != null && _clientConn.EncryptionPipeline != null)
+            if (Settings.Default.EncryptMessages && _clientConn != null && _clientConn.EncryptionPipeline != null)
             {
                 foreach (var usr in incomingUsers)
                 {
@@ -1735,7 +1768,7 @@ namespace ChatClient.MVVM.ViewModel
             else
             {
                 // Pipeline not available yet: keys will be handled later.
-                if (Settings.Default.UseEncryption)
+                if (Settings.Default.EncryptMessages)
                 {
                     ClientLogger.Log(
                         "DisplayRosterSnapshot: encryption enabled but pipeline not available; deferring key injection.",
@@ -1765,13 +1798,11 @@ namespace ChatClient.MVVM.ViewModel
 
                 Messages.Add(new ChatMessage
                 {
-                    Text = $"{username} {LocalizationManager.GetString("HasConnected")}",
-                    Sender = username,
-                    TimeStamp = DateTime.Now.ToString("HH:mm"),
+                    Sender = "",
+                    Text = $"# {username} {LocalizationManager.GetString("HasConnected")} #",
                     IsSystemMessage = true,
-                    IsFromLocalUser = false
+                    TimeStamp = DateTime.Now.ToString("HH:mm")
                 });
-
             }
 
             // --- Notifications (left users) ---
@@ -1793,11 +1824,10 @@ namespace ChatClient.MVVM.ViewModel
 
                 Messages.Add(new ChatMessage
                 {
-                    Text = $"{username} {LocalizationManager.GetString("HasDisconnected")}",
-                    Sender = username,
-                    TimeStamp = DateTime.Now.ToString("HH:mm"),
-                    IsFromLocalUser = false,
-                    IsSystemMessage = true
+                    Sender = "",
+                    Text = $"# {username} {LocalizationManager.GetString("HasDisconnected")} #",
+                    IsSystemMessage = true,
+                    TimeStamp = DateTime.Now.ToString("HH:mm")
                 });
             }
 
@@ -1849,10 +1879,10 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public void InitializeWatermarkResources()
         {
-            UsernameWatermarkText = LocalizationManager.GetString("UsernameWatermark");
-            IPAddressWatermarkText = LocalizationManager.GetString("IPAddressWatermark");
-            ConnectedWatermarkText = "- " + LocalizationManager.GetString("Connected") + " -";
-            MessageInputFieldWatermarkText = LocalizationManager.GetString("MessageInputFieldWatermark");
+            UsernameWatermark = LocalizationManager.GetString("UsernameWatermark");
+            IPAddressWatermark = LocalizationManager.GetString("IPAddressWatermark");
+            ConnectedWatermark = $"– {LocalizationManager.GetString("Connected")} –";
+            MessageInputFieldWatermark = LocalizationManager.GetString("MessageInputFieldWatermark");
         }
 
         /// <summary>
@@ -1872,10 +1902,8 @@ namespace ChatClient.MVVM.ViewModel
             SettingsWindowTitle = LocalizationManager.GetString("SettingsWindowTitle");
             OnPropertyChanged(nameof(UseTcpPortLabel));
             OnPropertyChanged(nameof(ReduceToTrayLabel));
-            OnPropertyChanged(nameof(UseEncryptionLabel));
-            OnPropertyChanged(nameof(RawTextModeLabel));
+            OnPropertyChanged(nameof(EncryptMessagesLabel));
             OnPropertyChanged(nameof(DisplayFontSizeLabel));
-            OnPropertyChanged(nameof(OutgoingBubbleColorLabel));
             OnPropertyChanged(nameof(MessageInputFieldWidthLabel));
             OnPropertyChanged(nameof(MessageInputFieldLeftOffsetLabel));
             OnPropertyChanged(nameof(AppLanguageLabel));
@@ -1939,11 +1967,10 @@ namespace ChatClient.MVVM.ViewModel
             // Adds a user-visible notification in the history
             Messages.Add(new ChatMessage
             {
-                Text = $"{LocalizationManager.GetString("DisconnectedByServer")}",
-                Sender = "System",
-                TimeStamp = DateTime.Now.ToString("HH:mm"),
-                IsFromLocalUser = false,
-                IsSystemMessage = true
+                Sender = "",
+                Text = "# " + LocalizationManager.GetString("DisconnectedByServer") + " #",
+                IsSystemMessage = true,
+                TimeStamp = DateTime.Now.ToString("HH:mm")
             });
         }
 
@@ -1968,20 +1995,22 @@ namespace ChatClient.MVVM.ViewModel
             string username = Users.FirstOrDefault(u => u.UID == senderUid)?.Username
                               ?? senderUid.ToString();
 
-            // If encryption is OFF, shows localized warning instead of trying to decrypt
-            if (!Settings.Default.UseEncryption)
+            // If encryption is off, shows localized warning instead of trying to decrypt
+            if (!Settings.Default.EncryptMessages)
             {
                 Application.Current.Dispatcher.BeginInvoke(() =>
                 {
                     Messages.Add(new ChatMessage
                     {
+                        Sender = "",
                         Text = LocalizationManager.GetString("EnableEncryptionToKeepReadingMessages"),
-                        Sender = "System",
+                        IsSystemMessage = true,
                         TimeStamp = DateTime.Now.ToString("HH:mm"),
-                        IsFromLocalUser = false,
-                        IsSystemMessage = true
+                        LocalUsername = Username
                     });
                 });
+                
+                return;
             }
 
             // If private key exists, tries decrypt
@@ -1996,11 +2025,11 @@ namespace ChatClient.MVVM.ViewModel
                         // Displays the decrypted message with sender's username
                         Messages.Add(new ChatMessage
                         {
-                            Text = plaintext,
                             Sender = username,
+                            Text = plaintext,
+                            IsSystemMessage = false,
                             TimeStamp = DateTime.Now.ToString("HH:mm"),
-                            IsFromLocalUser = false,
-                            IsSystemMessage = false
+                            LocalUsername = Username
                         });
                     });
                 }
@@ -2012,11 +2041,11 @@ namespace ChatClient.MVVM.ViewModel
                     {
                         Messages.Add(new ChatMessage
                         {
-                            Text = $"[decryption failed — {cipherBytes.Length} bytes]",
                             Sender = username,
+                            Text = $"[decryption failed — {cipherBytes.Length} bytes]",
+                            IsSystemMessage = true,
                             TimeStamp = DateTime.Now.ToString("HH:mm"),
-                            IsFromLocalUser = false,
-                            IsSystemMessage = true
+                            LocalUsername = Username
                         });
                     });
                 }
@@ -2029,11 +2058,11 @@ namespace ChatClient.MVVM.ViewModel
                 {
                     Messages.Add(new ChatMessage
                     {
-                        Text = Encoding.UTF8.GetString(cipherBytes),
                         Sender = username,
+                        Text = Encoding.UTF8.GetString(cipherBytes),
+                        IsSystemMessage = false,
                         TimeStamp = DateTime.Now.ToString("HH:mm"),
-                        IsFromLocalUser = false,
-                        IsSystemMessage = false
+                        LocalUsername = Username
                     });
                 });
             }
@@ -2069,15 +2098,8 @@ namespace ChatClient.MVVM.ViewModel
         }
 
         /// <summary>
-        /// Handles an incoming plain‑text message by creating a corresponding
-        /// ChatMessage instance and appending it to the chat history.
-        /// The update is marshaled onto the UI thread to ensure thread‑safe
-        /// interaction with observable collections.
-        /// This method also determines whether the message originates from the
-        /// local user. This distinction is essential because the UI applies
-        /// different visual templates (alignment, bubble color, and layout)
-        /// depending on whether the message was sent by the user or received
-        /// from a peer.
+        /// Handles a delivered plain‐text message by prefixing the sender’s name.
+        /// Marshals the update to the UI thread and appends "sender: message" to the chat.
         /// </summary>
         /// <param name="senderName">The display name of the message sender.</param>
         /// <param name="messageToDisplay">The content of the received message.</param>
@@ -2089,16 +2111,11 @@ namespace ChatClient.MVVM.ViewModel
                 {
                     Messages.Add(new ChatMessage
                     {
-                        Text = messageToDisplay,
                         Sender = senderName,
+                        Text = messageToDisplay,
+                        IsSystemMessage = false,
                         TimeStamp = DateTime.Now.ToString("HH:mm"),
-
-                        // Distinguishing local vs. remote messages is essential:
-                        // the UI uses this flag to select the correct bubble template
-                        // (right-aligned + colored for local user, left-aligned + white for peer).
-                        IsFromLocalUser = string.Equals(senderName, Username, StringComparison.OrdinalIgnoreCase),
-
-                        IsSystemMessage = false
+                        LocalUsername = Username
                     });
                 });
             }
@@ -2117,11 +2134,10 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         private void OnPublicKeyEntryChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(PublicKeyEntry.IsValid)) 
-            { 
+            if (e.PropertyName == nameof(PublicKeyEntry.IsValid))
                 UpdateLockAnimationState();
-            }
         }
+
 
         /// <summary>
         /// Processes a public key sent by another user and keeps the
@@ -2239,10 +2255,12 @@ namespace ChatClient.MVVM.ViewModel
             {
                 LocalizationManager.InitializeLocalization(Settings.Default.AppLanguageCode); 
                 LoadLocalizedStrings(); 
+                OnPropertyChanged(nameof(EncryptionEnabledToolTip)); 
+                OnPropertyChanged(nameof(GettingMissingKeysToolTip)); 
                 return; 
             }
 
-                if (e.PropertyName == nameof(Settings.Default.UseEncryption))
+                if (e.PropertyName == nameof(Settings.Default.EncryptMessages))
             {
                 OnPropertyChanged(nameof(MaskMessage));
                 OnPropertyChanged(nameof(IsMaskVisible));
@@ -2256,18 +2274,18 @@ namespace ChatClient.MVVM.ViewModel
         /// Removes the user from the local roster, updates the snapshot used 
         /// for roster diffing, and emits a disconnect notification when appropriate.
         /// </summary>
-        /// <param name="disconnectedUserId">UID of the user who disconnected.</param>
+        /// <param name="userId">UID of the user who disconnected.</param>
         /// <param name="username">Display name of the user who disconnected.</param>
-        public void OnUserDisconnected(Guid disconnectedUserId, string username)
+        public void OnUserDisconnected(Guid userId, string username)
         {
-            var disconnectedUser = Users.FirstOrDefault(u => u.UID == disconnectedUserId);
+            var usr = Users.FirstOrDefault(u => u.UID == userId);
 
             // Uses null‑conditional and null‑coalescing operators to pick the first non‑null, non‑empty value.
-            string disconnectedUsername = disconnectedUser?.Username ?? username ?? "(unknown)";
+            string realName = usr?.Username ?? username ?? "(unknown)";
 
-            if (disconnectedUser != null)
+            if (usr != null)
             {
-                Users.Remove(disconnectedUser);
+                Users.Remove(usr);
             }
 
             _previousRosterSnapshot = Users.Select(u => (u.UID, u.Username)).ToList();
@@ -2278,13 +2296,11 @@ namespace ChatClient.MVVM.ViewModel
             {
                 Messages.Add(new ChatMessage
                 {
-                    Text = $"{disconnectedUsername} {LocalizationManager.GetString("HasDisconnected")}",
-                    Sender = "System",
-                    TimeStamp = DateTime.Now.ToString("HH:mm"),
-                    IsFromLocalUser = false,
-                    IsSystemMessage = true
+                    Sender = "",
+                    Text = $"# {realName} {LocalizationManager.GetString("HasDisconnected")} #",
+                    IsSystemMessage = true,
+                    TimeStamp = DateTime.Now.ToString("HH:mm")
                 });
-
             }
         }
 
@@ -2370,13 +2386,13 @@ namespace ChatClient.MVVM.ViewModel
             if (EncryptionPipeline == null)
             {
                 // Pipeline not yet initialized: just reset UI flags
-                UseEncryption = false;
-                OnPropertyChanged(nameof(UseEncryption));
+                EncryptMessages = false;
+                OnPropertyChanged(nameof(EncryptMessages));
                 return;
             }
 
-            UseEncryption = false;
-            OnPropertyChanged(nameof(UseEncryption));
+            EncryptMessages = false;
+            OnPropertyChanged(nameof(EncryptMessages));
         }
 
         /// <summary>
@@ -2413,12 +2429,12 @@ namespace ChatClient.MVVM.ViewModel
         /// </summary>
         public void ToggleEncryptionState(bool enableEncryption)
         {
-            bool previousValue = Settings.Default.UseEncryption;
+            bool previousValue = Settings.Default.EncryptMessages;
 
             // Persists user preference
-            Settings.Default.UseEncryption = enableEncryption;
+            Settings.Default.EncryptMessages = enableEncryption;
             Settings.Default.Save();
-            OnPropertyChanged(nameof(UseEncryption));
+            OnPropertyChanged(nameof(EncryptMessages));
 
             // Determines whether the client is fully ready to apply encryption immediately.
             // This requires:
@@ -2453,9 +2469,9 @@ namespace ChatClient.MVVM.ViewModel
 
                     if (!encPipelineInitOk)
                     {
-                        Settings.Default.UseEncryption = previousValue;
+                        Settings.Default.EncryptMessages = previousValue;
                         Settings.Default.Save();
-                        OnPropertyChanged(nameof(UseEncryption));
+                        OnPropertyChanged(nameof(EncryptMessages));
 
                         ClientLogger.Log("Encryption pipeline initialization failed; preference rolled back.",
                             ClientLogLevel.Warn);
@@ -2476,7 +2492,7 @@ namespace ChatClient.MVVM.ViewModel
         /// <summary>
         /// Validates and saves the port number if it's within the allowed range.
         /// </summary>
-        public static bool TrySavePort(int chosenPort)
+        public bool TrySavePort(int chosenPort)
         {
             if (chosenPort >= 1000 && chosenPort <= 65535)
             {
@@ -2507,6 +2523,33 @@ namespace ChatClient.MVVM.ViewModel
             }
             
             _previousAllKeysValid = current;
+        }
+
+        /// <summary>
+        /// Recalculates the message input field width based on the current window width.
+        /// Ensures consistent behavior across both Modern and Legacy layouts.
+        /// </summary>
+        public void UpdateMessageInputFieldWidth(double windowWidth)
+        {
+            // Safety clamp
+            if (windowWidth <= 0)
+            {
+                return;
+            }
+
+            // Computes available width (subtract margins, buttons, paddings, etc.)
+            double leftMargin = MessageInputFieldMargin.Left;
+            double rightPadding = 40; // space for emoji button, send button, etc.
+
+            double computedWidth = windowWidth - leftMargin - rightPadding;
+
+            // If the computed width is too small, set a minimum to avoid collapsing the input field.
+            if (computedWidth < 50)
+            {
+                computedWidth = 50;
+            }
+
+            MessageInputFieldWidth = computedWidth;
         }
     }
 }

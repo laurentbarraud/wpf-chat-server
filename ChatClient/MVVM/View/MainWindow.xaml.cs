@@ -1,260 +1,231 @@
 ﻿/// <file>MainWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
-using ChatClient.MVVM.ViewModel;
 using ChatClient.Properties;
-using Hardcodet.Wpf.TaskbarNotification;
+using ChatClient.Resources;
 using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
-using System.Security.Policy;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Media3D;
 using System.Windows.Threading;
-
 
 namespace ChatClient.MVVM.View
 {
     /// <summary>
-    /// Primary window for the client-side chat interface.
-    /// Hosts the visual components bound to MainViewModel, including message input, user list, and emoji panel.
-    /// Handles user interactions such as sending messages, connecting to the server, and toggling UI panels.
-    /// Delegates core logic to MainViewModel and ensures thread-safe UI updates.
+    /// Modern chat window. Fully aligned with the new layout (no roster, no GrdLeft/Right).
+    /// Preserves all behaviors from the legacy version: emoji scroll, tray icon,
+    /// monitor window, theme toggle, watermark refresh, auto-scroll, send logic, etc.
     /// </summary>
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        // PRIVATE FIELD
+        // PRIVATE FIELDS
 
         /// <summary>
-        /// Backing field that stores the default height value
+        /// Stores the base height of the emoji panel
         /// </summary>
         private int _emojiPanelHeight = 20;
 
         /// <summary>
-        /// Stores the timestamp of the last Ctrl key press.
-        /// Used for detecting double-press or timing-based shortcuts.
+        /// Timestamp of the last CTRL key press for double-press detection
         /// </summary>
-        private DateTime _lastCtrlPress = DateTime.MinValue;
+        private DateTime _lastCtrlPressDateTime = DateTime.MinValue;
 
         /// <summary>
-        /// Holds a reference to the internal ScrollViewer of the chat ListBox,
-        /// allowing reliable auto-scrolling when new messages are added.
+        /// Reference to the ScrollViewer inside the messages ListBox for auto-scrolling.
         /// </summary>
         private ScrollViewer? _messagesScrollViewer;
 
-        /// <summary>  Defines the minimum allowed height for the input area. </summary>
+        /// <summary>
+        /// Stores the minimum allowed height for the message input area 
+        /// to prevent it from collapsing during splitter drag.
+        /// </summary>
         private const double _MIN_INPUT_AREA_HEIGHT = 34;
 
         /// <summary>
-        /// Indicates whether all persisted layout values (roster width and
-        /// input area height) should be restored after the first valid
-        /// layout pass of the window.
+        /// Flag indicating that the input area height must be restored once,
+        /// after the first full layout pass.
         /// </summary>
         private bool _pendingInitialRestore = true;
 
-        /// <summary> Current scroll direction: -1 = scroll left, 1 = scroll right, 0 = idle. </summary>
+        /// <summary>
+        /// Scroll direction: -1 for left, 1 for right, 0 for no scroll.
+        /// </summary>
         private int _scrollDirection = 0;
 
-        /// <summary> Used for horizontal scrolling animations (emoji panel auto‑scroll on hover). </summary>
+        /// <summary>
+        /// DispatcherTimer for handling continuous emoji panel scrolling when hovering over scroll buttons.
+        /// </summary>
         private readonly DispatcherTimer scrollTimer;
 
-        /// <summary> Tray icon variable </summary>
-        private TaskbarIcon trayIcon;
-
-        // PUBLIC PROPERTIES
-
-        public MainViewModel viewModel { get; set; }
-
+        /// PUBLIC PROPERTIES AND EVENTS
         public event PropertyChangedEventHandler? PropertyChanged;
-        
+
         /// <summary>
         /// Gets or sets the base height of the emoji panel.
-        /// This value defines the default vertical size of the popup
-        /// before any dynamic layout adjustments are applied.
         /// </summary>
-        public int EmojiPanelHeight 
-        { 
-            get => _emojiPanelHeight; 
-            set 
-            { 
-                _emojiPanelHeight = value; 
-                OnPropertyChanged(); 
-            } 
+        public int EmojiPanelHeight
+        {
+            get { return _emojiPanelHeight; }
+            set
+            {
+                _emojiPanelHeight = value;
+                OnPropertyChanged();
+            }
         }
 
         /// <summary>
-        /// Calculated property that indicates whether the client is currently connected to the server.
-        /// Uses null-conditional access to safely evaluate connection state. 
+        /// Indicates whether the client is connected.
         /// </summary>
-        public bool IsConnected => viewModel?.ClientConn != null && viewModel.ClientConn.IsConnected;
+        public bool IsConnected
+        {
+            get { return App.ViewModel?.ClientConn != null && App.ViewModel.ClientConn.IsConnected; }
+        }
 
         /// <summary>
-        /// Indicates whether the window is wide enough or maximized,
-        /// in which case the emoji UI scales up slightly for long-session comfort.
+        /// Indicates whether the window is wide enough to enlarge emoji UI.
         /// </summary>
-        public bool IsWindowWide => TxtMessageInputField.ActualWidth > 600 || WindowState == WindowState.Maximized;
+        public bool IsWindowWide
+        {
+            get { return TxtMessageInputField.ActualWidth > 600 || WindowState == WindowState.Maximized; }
+        }
 
         /// <summary>
-        /// Represents the tray menu item used to reopen the main application window.
-        /// Typically bound to the system tray context menu for restoring visibility when minimized.
+        /// MainWindow constructor.
+        /// Initializes theme, tray icon, emoji scroll timer, watermarks, etc.
         /// </summary>
-        public MenuItem TrayMenuOpen { get; private set; }
-        
-        /// <summary>
-        /// Represents the tray menu item used to exit the application.
-        /// Bound to the system tray context menu to allow clean shutdown from the tray icon.
-        /// </summary>
-        public MenuItem TrayMenuQuit { get; private set; }
-
-        // Initializes the main window: loads UI, binds the ViewModel,
-        // restores preferences, applies localization/theme, and configures UI behavior.
         public MainWindow()
         {
             InitializeComponent();
 
-            // ViewModel setup
-            viewModel = new MainViewModel();
-            DataContext = viewModel;
-            viewModel.PropertyChanged += ViewModel_PropertyChanged;
-            viewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+            // DataContext is set globally in App.xaml.cs
+            this.DataContext = App.ViewModel;
 
-            // Emoji panel auto-scroll timer
-            scrollTimer = new DispatcherTimer 
-            { 
-                Interval = TimeSpan.FromMilliseconds(50) 
+            // Events subscriptions
+            Loaded += MainWindow_Loaded;
+            GrdMain.SizeChanged += GrdMain_SizeChanged;
+            App.ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+            App.ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+
+            LayoutUpdated += MainWindow_LayoutUpdated;
+
+            // Emoji scroll timer initialization
+            scrollTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(50)
             };
             scrollTimer.Tick += ScrollTimer_Tick;
 
-            // Localized tray menu references
-            trayIcon = (TaskbarIcon)FindName("TrayIcon");
-            TrayMenuOpen = (MenuItem)FindName("TrayMenuOpen");
-            TrayMenuQuit = (MenuItem)FindName("TrayMenuQuit");
+            // Theme initialization based on saved settings.
+            // This ensures the correct theme is applied before the window is rendered.
+            ThemeManager.ApplyTheme(Settings.Default.AppTheme.ToLower() == "dark");
+            ApplyWatermarks();
 
-            // Localized tooltips
+            // Sets the theme toggle state based on the current theme.
+            ThemeToggle.IsChecked = Settings.Default.AppTheme?.ToLower() == "dark";
+
+            // Tooltips localization
             CmdSettings.ToolTip = LocalizationManager.GetString("SettingsToolTip");
             CmdScrollLeft.ToolTip = LocalizationManager.GetString("ScrollLeftToolTip");
             CmdScrollRight.ToolTip = LocalizationManager.GetString("ScrollRightToolTip");
 
-            // User preferences
+            // Initializes the server IP address field with the last saved value.
             TxtServerIPAddress.Text = Settings.Default.ServerIPAddress;
-            ThemeToggle.IsChecked = Settings.Default.AppTheme?.ToLower() == "dark";
 
-            double savedHeight = Settings.Default.InputAreaHeight;
-            if (savedHeight < 34)
-                savedHeight = 34;
-
-            // Localization
+            // Initializes localization
             string storedLanguageCode = Settings.Default.AppLanguageCode;
             LocalizationManager.InitializeLocalization(storedLanguageCode);
 
-            // Neutralizes any residual animation
+            // Sets the localized label text for the connected users list.
+            lblConnectedUsers.Content = Strings.ConnectedUsersListLabelText;
+
+            // Hides the monitor button in release mode until toggled via shortcut
             CmdMonitor.BeginAnimation(UIElement.OpacityProperty, null);
+            CmdMonitor.Opacity = 0;
+            CmdMonitor.IsHitTestVisible = false;
 
-            #if DEBUG
-            CmdMonitor.Visibility = Visibility.Visible;
-            CmdMonitor.Opacity = 1;
-            #endif
-
-            // Final UI touches
-            ApplyWatermarks();
             TxtUsername.Focus();
         }
 
-        /// <summary> 
-        /// Rebuilds and reattaches the tray icon context menu using the current language. 
-        /// Safe to call multiple times and does not depend on initialization order. 
-        /// Ensures the right-click handler is always attached. 
-        /// </summary> 
-        public void ApplyTrayMenuLocalization() 
+        /// <summary>
+        /// Handles initialization tasks once the MainWindow has finished loading.
+        /// Subscribes to global view model events, restores input area height,
+        /// refreshes watermarks, and sets focus.
+        /// </summary>
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // Retrieve the tray icon resource safely
-            if (TryFindResource("TrayIcon") is not TaskbarIcon icon)
-            {
-                return;
-            } 
-            
-            trayIcon = icon; 
+            // Subscribes to global ViewModel events
+            App.ViewModel.Messages.CollectionChanged -= Messages_CollectionChanged;
+            App.ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
 
-            // Rebuilds the context menu to apply localization
-            trayIcon.ContextMenu = BuildLocalizedTrayMenu(); 
-            
-            // Reattaches the right-click handler to ensure the menu opens correctly
-            trayIcon.TrayRightMouseUp -= TrayIcon_RightClickHandler; 
-            trayIcon.TrayRightMouseUp += TrayIcon_RightClickHandler; 
+            // Restores input area height from settings
+            double inputAreaSavedHeight = Settings.Default.InputAreaHeight;
+
+            if (double.IsNaN(inputAreaSavedHeight) || inputAreaSavedHeight < _MIN_INPUT_AREA_HEIGHT)
+            {
+                inputAreaSavedHeight = _MIN_INPUT_AREA_HEIGHT;
+            }
+
+            App.ViewModel.InputAreaHeight = inputAreaSavedHeight;
+
+            // Refreshes UI watermarks
+            ApplyWatermarks();
+
+#if DEBUG
+            CmdMonitor.Opacity = 1;
+            CmdMonitor.IsHitTestVisible = true;
+#endif
+
+            TxtUsername.Focus();
         }
 
         /// <summary>
-        /// Refreshes all watermark texts and visual states after a language or theme change.
-        /// This method updates the ViewModel watermark properties and forces the UI to re‑evaluate
-        /// its visibility triggers for each watermark TextBlock.
+        /// Refreshes watermark texts and visibility after theme/language changes.
         /// </summary>
         public void ApplyWatermarks()
         {
-            if (DataContext is MainViewModel viewModel)
+            // Refreshes localized watermark resources
+            App.ViewModel.InitializeWatermarkResources();
+
+            // Forces the binding engine to refresh the watermark text.
+            // UpdateTarget() re-evaluates the binding source immediately, which is required
+            // after dynamic theme or language changes since WPF does not auto-refresh them.
+            TxtUsernameWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+            TxtIPAddressWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+            TxtMessageInputFieldWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
+
+            // Forces the visibility bindings to re-evaluate. This ensures the watermark
+            // correctly appears or hides after UI state changes (focus, input, theme switch).
+            TxtUsernameWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
+            TxtIPAddressWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
+            TxtMessageInputFieldWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
+
+            // Refreshes the "Connected" / IP display text
+            if (App.ViewModel.IsConnected)
             {
-                // Refreshes localized watermark texts
-                viewModel.InitializeWatermarkResources();
-
-                // Refreshes watermarks text
-                TxtUsernameWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
-                TxtIPAddressWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
-                TxtMessageInputFieldWatermark.GetBindingExpression(TextBlock.TextProperty)?.UpdateTarget();
-
-                // Refreshes visibility triggers 
-                TxtUsernameWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
-                TxtIPAddressWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
-                TxtMessageInputFieldWatermark.GetBindingExpression(TextBlock.VisibilityProperty)?.UpdateTarget();
-
-                // Refreshes the "Connected" / IP display text
-                if (viewModel.IsConnected)
-                {
-                    viewModel.CurrentIPDisplay = LocalizationManager.GetString("Connected");
-                }
-                else
-                {
-                    viewModel.CurrentIPDisplay = Settings.Default.ServerIPAddress;
-                }
-
-                // Notifies UI in all cases
-                viewModel.OnPropertyChanged(nameof(viewModel.CurrentIPDisplay));
+                App.ViewModel.CurrentIPDisplay = $"– {LocalizationManager.GetString("Connected")} –";
             }
-        }
-
-        private ContextMenu BuildLocalizedTrayMenu()
-        {
-            var contextMenu = new ContextMenu();
-
-            TrayMenuOpen = new MenuItem
+            else
             {
-                Header = LocalizationManager.GetString("TrayOpenLabel")
-            };
-            TrayMenuOpen.Click += TrayMenu_Open_Click;
+                App.ViewModel.CurrentIPDisplay = Settings.Default.ServerIPAddress;
+            }
 
-            TrayMenuQuit = new MenuItem
-            {
-                Header = LocalizationManager.GetString("TrayQuitLabel")
-            };
-            TrayMenuQuit.Click += TrayMenu_Quit_Click;
-
-            contextMenu.Items.Add(TrayMenuOpen);
-            contextMenu.Items.Add(TrayMenuQuit);
-
-            return contextMenu;
+            // Notifies the UI that the bound property has changed.
+            // OnPropertyChanged(nameof(...)) forces WPF to re-evaluate all bindings
+            // referencing this property so the updated value is pushed to the UI immediately.
+            App.ViewModel.OnPropertyChanged(nameof(App.ViewModel.CurrentIPDisplay));
         }
 
         /// <summary>
-        /// Show the emoji popup panel and hides the arrow button.
+        /// Shows the emoji popup.
         /// </summary>
         private void CmdEmojiPanel_Click(object sender, RoutedEventArgs e)
         {
@@ -264,77 +235,69 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
-        /// Toggles the MonitorWindow:
-        /// - Closes it if already open.
-        /// - Otherwise opens a new instance using the existing MainViewModel,
-        ///   ensuring access to EncryptionPipeline and KnownPublicKeys.
+        /// Opens or closes the monitor window.
         /// </summary>
         private void CmdMonitor_Click(object sender, RoutedEventArgs e)
         {
-            // Checks if a monitor window is already open
-            var existingMonitorWindow = Application.Current.Windows
-                .OfType<MonitorWindow>()
-                .FirstOrDefault();
-
-            if (existingMonitorWindow != null)
-            {
-                existingMonitorWindow.Close();
-                return;
-            }
-
-            // Retrieves the existing MainViewModel from this window
-            var mainViewModel = DataContext as MainViewModel;
-            
-            if (mainViewModel == null)
-            {
-                return; 
-            }
-
-            // Creates the monitor window with the real ViewModel
-            var monitor = new MonitorWindow(mainViewModel)
-            {
-                Owner = this
-            };
-
-            monitor.Show();
+            ToggleMonitorWindow();
         }
 
+        /// <summary>
+        /// Starts scrolling left when mouse enters the left arrow.
+        /// </summary>
+        /// <param name="sender">Left arrow button.</param>
+        /// <param name="e">Event args.</param>
         private void CmdScrollLeft_MouseEnter(object sender, MouseEventArgs e)
         {
             _scrollDirection = -1;
             scrollTimer.Start();
         }
 
+        /// <summary>
+        /// Stops scrolling when mouse leaves the left arrow.
+        /// </summary>
+        /// <param name="sender">Left arrow button.</param>
+        /// <param name="e">Event args.</param>
         private void CmdScrollLeft_MouseLeave(object sender, MouseEventArgs e)
         {
             scrollTimer.Stop();
         }
 
+        /// <summary>
+        /// Starts scrolling right when mouse enters the right arrow.
+        /// </summary>
+        /// <param name="sender">Right arrow button.</param>
+        /// <param name="e">Event args.</param>
         private void CmdScrollRight_MouseEnter(object sender, MouseEventArgs e)
         {
             _scrollDirection = 1;
             scrollTimer.Start();
         }
 
+        /// <summary>
+        /// Stops scrolling when mouse leaves the right arrow.
+        /// </summary>
+        /// <param name="sender">Right arrow button.</param>
+        /// <param name="e">Event args.</param>
         private void CmdScrollRight_MouseLeave(object sender, MouseEventArgs e)
         {
             scrollTimer.Stop();
         }
 
         /// <summary>
-        /// Executes when the user clicks the Send button.
-        /// Validates connection state and message content, then awaits SendMessageAsync
-        /// (which handles plain or encrypted messages transparently).
-        /// Each packet is framed with a 4-byte big-endian length header so the server
-        /// can correctly parse the incoming data.
+        /// Sends a message asynchronously.
+        /// Validates connection state, dispatches the message, and updates the UI accordingly.
         /// </summary>
         private async void CmdSend_Click(object sender, RoutedEventArgs e)
         {
-            // Prevents sending if the message is empty, the socket is not connected,
-            // or the handshake/establishment is not yet complete.
-            if (string.IsNullOrEmpty(viewModel.MessageToSend) ||
-                viewModel.ClientConn?.IsConnected != true ||
-                viewModel.ClientConn?.IsEstablished != true)
+            // Quick validation: prevents sending when the message is empty or the connection
+            // has not completed its handshake.
+            // This avoids unnecessary async calls and keeps the UI responsive under unstable
+            // network conditions.
+
+            if (string.IsNullOrEmpty(App.ViewModel.MessageToSend) ||
+                App.ViewModel.ClientConn?.IsConnected != true ||
+                App.ViewModel.ClientConn?.IsEstablished != true)
             {
                 ClientLogger.Log("Send blocked: connection not yet fully established", ClientLogLevel.Debug);
                 return;
@@ -342,26 +305,27 @@ namespace ChatClient.MVVM.View
 
             try
             {
-                string messageToSend = viewModel.MessageToSend;
+                bool msgSent = await App.ViewModel.ClientConn.SendMessageAsync(App.ViewModel.MessageToSend, CancellationToken.None);
 
-                // Awaits the unified send method; handles encryption internally if enabled.
-                bool messageSent = await viewModel.ClientConn.SendMessageAsync(messageToSend, CancellationToken.None);
-
-                if (messageSent)
+                if (msgSent)
                 {
-                    // The TextBox will automatically empty thanks to the binding.
-                    viewModel.MessageToSend = "";
+                    // Clears input field and restores focus for fast typing.
+                    App.ViewModel.MessageToSend = "";
                     TxtMessageInputField.Focus();
                 }
                 else
                 {
-                    // Notifies user of logical failure (e.g., missing keys or encryption error)
-                    viewModel.Messages.Add(new ChatMessage 
-                    { 
+                    // Inserts a localized system message into the observable collection
+                    // to signal the failure.
+                    // Because Messages is bound to the UI, adding a new ChatMessage
+                    // automatically refreshes the view without blocking the UI thread.
+                    // Marking it as IsSystemMessage allows the UI to style it differently.
+                    App.ViewModel.Messages.Add(new ChatMessage
+                    {
                         Text = $"# {LocalizationManager.GetString("SendingFailed")} #",
-                        Sender = "System", 
-                        TimeStamp = DateTime.Now.ToString("HH:mm"), 
-                        IsFromLocalUser = false, IsSystemMessage = true 
+                        Sender = "System",
+                        TimeStamp = DateTime.Now.ToString("HH:mm"),
+                        IsSystemMessage = true
                     });
                 }
             }
@@ -372,74 +336,49 @@ namespace ChatClient.MVVM.View
             catch (Exception ex)
             {
                 ClientLogger.Log($"Send failed: {ex.Message}", ClientLogLevel.Error);
-                viewModel.Messages.Add(new ChatMessage
+
+                App.ViewModel.Messages.Add(new ChatMessage
                 {
                     Text = $"# {LocalizationManager.GetString("SendingFailed")} #",
                     Sender = "System",
                     TimeStamp = DateTime.Now.ToString("HH:mm"),
-                    IsFromLocalUser = false,
                     IsSystemMessage = true
                 });
             }
         }
 
         /// <summary>
-        /// Handles Settings button interactions:
-        /// - CTRL + Click opens the internal monitor tool.
-        /// - Normal Click toggles the SettingsWindow:
-        ///     • If an instance is already open, it closes it.
-        ///     • Otherwise, it creates and shows a new one bound to the current MainViewModel.
-        /// This prevents multiple SettingsWindow instances from being opened simultaneously.
+        /// Opens SettingsWindow or monitor (CTRL+Click).
         /// </summary>
         private void CmdSettings_Click(object sender, RoutedEventArgs e)
         {
-            // CTRL is held: open the internal monitor tool
             if (Keyboard.Modifiers == ModifierKeys.Control)
             {
                 ToggleMonitorWindow();
                 return;
             }
 
-            // Normal behavior: toggle SettingsWindow
-            var existingSettingsWindow = Application.Current.Windows.OfType<SettingsWindow>()
-                .FirstOrDefault();
-
-            if (existingSettingsWindow != null)
+            var existing = Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault();
+            if (existing != null)
             {
-                existingSettingsWindow.Close();
+                existing.Close();
                 return;
             }
 
-            var settingsWindow = new SettingsWindow(viewModel)
+            var settingsWindow = new SettingsWindow()
             {
-                Owner = this
+                Owner = this,
+                DataContext = App.ViewModel
             };
+
             settingsWindow.Show();
         }
 
         /// <summary>
-        /// Safely disposes the tray icon if it exists, preventing ghost icons
-        /// in the system tray after the application exits.
+        /// Inserts an emoji into the message input field.
         /// </summary>
-        public void DisposeTrayIcon()
-        {
-            try
-            {
-                // Retrieves the tray icon resource safely
-                if (TryFindResource("TrayIcon") is TaskbarIcon trayIcon)
-                {
-                    trayIcon.Dispose();
-                }
-            }
-            catch
-            {
-                // Swallow exceptions silently – disposing the tray icon must never crash the app
-            }
-        }
-
-        /// <summary>
-        /// Inserts the selected emoji into the message input field.
-        /// </summary>
+        /// <param name="sender">Button containing emoji.</param>
+        /// <param name="e">Event args.</param>
         private void EmojiButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btnEmoji && btnEmoji.Content is TextBlock tbEmoji)
@@ -451,77 +390,42 @@ namespace ChatClient.MVVM.View
         }
 
         /// <summary>
-        /// Tries to find a child element of type T somewhere inside the visual tree.
-        /// Gets the ScrollViewer hidden inside the ListBox template.
+        /// Finds a child of type T in the visual tree.
         /// </summary>
+        /// <typeparam name="T">Type to find.</typeparam>
+        /// <param name="parent">Parent element.</param>
+        /// <returns>Child or null.</returns>
         private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
         {
-            // Number of children inside this visual element
             int childCount = VisualTreeHelper.GetChildrenCount(parent);
 
-            // Loops through all direct children
-            for (int childIndex = 0; childIndex < childCount; childIndex++)
+            for (int i = 0; i < childCount; i++)
             {
-                // Gets the child at the current index
-                DependencyObject currentChild = VisualTreeHelper.GetChild(parent, childIndex);
+                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
 
-                // If the child is already the type we want, returns it
-                if (currentChild is T typedChild)
+                if (child is T typed)
                 {
-                    return typedChild;
+                    return typed;
                 }
 
-                // Otherwise, try to search deeper inside this child
-                T? foundChild = FindVisualChild<T>(currentChild);
-
-                // If something was found deeper, returns it
-                if (foundChild != null)
+                T? deeper = FindVisualChild<T>(child);
+                if (deeper != null)
                 {
-                    return foundChild;
+                    return deeper;
                 }
             }
 
-            // If nothing was found at all, returns null
             return null;
         }
 
+        /// <summary>
+        /// Refreshes the stored width of the right grid in the ViewModel when the main grid size changes.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void GrdMain_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            double totalWidth = GrdMain.ActualWidth;
-
-            // Maximum allowed width for the roster
-            double maxRosterWidth = totalWidth / 2.0;
-
-            // Current roster width
-            double colRosterWidth = ColRoster.ActualWidth;
-
-            // Clamps to minimum 40 px
-            if (colRosterWidth < 40)
-            {
-                colRosterWidth = 40;
-            }
-
-            // Clamps to maximum half of the window width
-            if (colRosterWidth > maxRosterWidth)
-            {
-                colRosterWidth = maxRosterWidth;
-            }
-
-            // Applies the clamped width
-            ColRoster.Width = new GridLength(colRosterWidth, GridUnitType.Pixel);
-
-            // Enforces the hard limit on the left grid
-            GrdLeft.MaxWidth = maxRosterWidth;
-        }
-
-        /// <summary>
-        /// Handles size changes of the right panel and updates the ViewModel with
-        /// its current pixel width.
-        /// </summary>
-        private void GrdRight_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            // Updates the width of the right panel
-            viewModel.RightGridWidth = GrdRight.ActualWidth; 
+            App.ViewModel.RightGridWidth = GrdMain.ActualWidth;
         }
 
         /// <summary>
@@ -530,7 +434,7 @@ namespace ChatClient.MVVM.View
         /// </summary>
         public void HideMonitorButton()
         {
-            #if !DEBUG
+#if !DEBUG
             var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(1500))
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
@@ -538,205 +442,145 @@ namespace ChatClient.MVVM.View
 
             fadeOut.Completed += (s, e) =>
             {
-                CmdMonitor.Visibility = Visibility.Collapsed;
+                CmdMonitor.Opacity = 0;
             };
 
             CmdMonitor.BeginAnimation(OpacityProperty, fadeOut);
-            #endif
-        }
-
-
-        /// <summary> 
-        /// Enforces minimum height constraints for both the messages area and the
-        /// bottom input area while the horizontal splitter is being dragged.
-        /// Cancels the drag movement when a limit would be exceeded, 
-        /// ensuring the layout remains stable and visually usable during resizing.
-        /// </summary>
-        private void HorizontalSplitter_DragDelta(object sender, DragDeltaEventArgs e)
-        {
-            double totalHeight = GrdRight.ActualHeight;
-
-            // Mouse position relative to the right panel
-            Point mousePos = Mouse.GetPosition(GrdRight);
-
-            // Height the bottom area would have if the splitter moved here
-            double newBottomHeight = totalHeight - mousePos.Y;
-
-            const double MinMessagesAreaHeight = 20;
-            const double MinBottomHeight = 66;
-
-            // Prevents bottom area from becoming too small
-            if (newBottomHeight < MinBottomHeight)
-            {
-                e.Handled = true;
-                return;
-            }
-
-            // Prevents messages area from becoming too small
-            double newMessagesHeight = totalHeight - newBottomHeight - 5;
-            if (newMessagesHeight < MinMessagesAreaHeight)
-            {
-                e.Handled = true;
-            }
-        }
-
-        /// <summary> Saves the input area height when the horizontal splitter drag operation completes. </summary> 
-        private void HorizontalSplitter_DragCompleted(object sender, DragCompletedEventArgs e) 
-        { 
-            double actualHeight = GrdInputAreaContainer.ActualHeight;
-
-            if (actualHeight < _MIN_INPUT_AREA_HEIGHT)
-            {
-                actualHeight = _MIN_INPUT_AREA_HEIGHT;
-            }
-
-            Settings.Default.InputAreaHeight = actualHeight; 
-            Settings.Default.Save(); 
+#endif
         }
 
         /// <summary>
-        /// Applies minimum height constraints while the horizontal splitter is being dragged.
-        /// This prevents the messages area or the bottom input area from shrinking below
-        /// their allowed limits during live mouse movement.
+        /// Saves InputAreaHeight after drag.
+        /// </summary>
+        private void HorizontalSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            Settings.Default.InputAreaHeight = App.ViewModel.InputAreaHeight;
+            Settings.Default.Save();
+        }
+
+        /// <summary>
+        /// Handles horizontal splitter drag (InputAreaHeight).
+        /// </summary>
+        private void HorizontalSplitter_DragDelta(object sender, DragDeltaEventArgs e)
+        {
+            App.ViewModel.InputAreaHeight = Math.Max(_MIN_INPUT_AREA_HEIGHT, App.ViewModel.InputAreaHeight - e.VerticalChange);
+        }
+
+        /// <summary>
+        /// Enforces minimum heights during splitter drag.
         /// </summary>
         private void HorizontalSplitter_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            // Only enforces limits while the user is actively dragging the splitter
             if (e.LeftButton != MouseButtonState.Pressed)
             {
                 return;
             }
 
-            // Total height of the right panel (messages history + splitter + bottom area)
-            double totalHeight = GrdRight.ActualHeight;
+            double total = GrdMain.ActualHeight;
+            Point pos = e.GetPosition(GrdMain);
 
-            // Mouse position relative to GrdRight
-            Point mousePosition = e.GetPosition(GrdRight);
+            double newBottom = total - pos.Y;
 
-            // If the splitter moved to this Y position, the bottom area would become:
-            double newBottomHeight = totalHeight - mousePosition.Y;
-
-            const double MinMessagesAreaHeight = 20;
-            const double MinBottomHeight = 66;
-
-            // Prevents bottom area from becoming too small
-            if (newBottomHeight < MinBottomHeight)
+            if (newBottom < 66)
             {
                 e.Handled = true;
                 return;
             }
 
-            // Height of the messages area if the splitter moved to this position
-            double newMessagesAreaHeight = totalHeight - newBottomHeight - 5;
+            double newMessages = total - newBottom - 5;
 
-            // Prevents messages area from becoming too small
-            if (newMessagesAreaHeight < MinMessagesAreaHeight)
+            if (newMessages < 20)
             {
                 e.Handled = true;
             }
         }
 
         /// <summary>
-        /// Initializes the tray icon with its localized context menu and event handlers.
-        /// Uses null-safe casting to avoid runtime warnings and ensures the menu is attached only once.
-        /// Handles right-click behavior.
+        /// Opens the connected users popup after layout is ready.
+        /// Prevents the popup from appearing too small and blocking UI hit‑testing.
         /// </summary>
-        public void InitializeTrayIcon()
+        private void lblConnectedUsers_MouseEnter(object sender, MouseEventArgs e)
         {
-            // Safely retrieves the tray icon resource and assigns it if valid
-            if (TryFindResource("TrayIcon") is TaskbarIcon taskBarIcon)
+            if (!App.ViewModel.IsConnected)
             {
-                trayIcon = taskBarIcon;
-
-                // Attaches context menu             
-                trayIcon.ContextMenu = BuildLocalizedTrayMenu();
-
-                // Displays context menu on right-click
-                trayIcon.TrayRightMouseUp += (s, e) =>
-                {
-                    trayIcon.ContextMenu.PlacementTarget = this;
-                    trayIcon.ContextMenu.Placement = PlacementMode.MousePoint;
-                    trayIcon.ContextMenu.IsOpen = true;
-                };
+                return;
             }
+ 
+            ConnectedUsersPopup.IsOpen = true;
         }
 
-        /// <summary> 
-        /// Captures the internal ScrollViewer of the chat ListBox once the visual tree 
-        /// is fully loaded, enabling direct scrolling to the bottom.
+        /// <summary>
+        /// Captures the ScrollViewer of the messages list.
         /// </summary>
         private void lstReceivedMessages_Loaded(object sender, RoutedEventArgs e)
         {
             _messagesScrollViewer = FindVisualChild<ScrollViewer>(lstReceivedMessages);
         }
-        private void MainWindow_Closing(object sender, CancelEventArgs e)
+
+        /// <summary>
+        /// Monitors layout updates to apply the initial input area height restoration from settings.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void MainWindow_LayoutUpdated(object? sender, EventArgs e)
         {
-            // If “minimize to tray” parameter is enabled, cancels close and hides instead
-            if (Properties.Settings.Default.ReduceToTray)
+            if (!_pendingInitialRestore)
             {
-                e.Cancel = true;
-                ReduceToTray();
                 return;
             }
 
-            // Cleans up tray icon resources on application exit
-            DisposeTrayIcon();
+            double savedHeight = Settings.Default.InputAreaHeight;
+
+            // Enforces a minimum height to prevent the input area from collapsing if the saved value is invalid.
+            if (double.IsNaN(savedHeight) || savedHeight < 34)
+            {
+                savedHeight = 34;
+            }
+
+            // Applies the saved height to the input area row.
+            // This ensures that the layout is restored correctly on startup,
+            RowBottomRight.Height = new GridLength(savedHeight, GridUnitType.Pixel);
+
+            // Marks the initial restore as done to prevent re-applying it on subsequent layout updates.
+            _pendingInitialRestore = false;
         }
 
         /// <summary>
-        /// Handles global key press events
+        /// Handles keyboard shortcuts.
         /// </summary>
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // Reveals monitor button and opens monitor window
-            if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
-            {
-                RevealMonitorButtonAndOpenWindow(); 
-                e.Handled = true; 
-                return;
-            }
-
-            // Skips tray logic if feature is disabled
-            if (!ChatClient.Properties.Settings.Default.ReduceToTray)
+            // If ReduceToTray is disabled, no tray-related shortcuts should apply
+            if (!App.ViewModel.ReduceToTray)
             {
                 return;
             }
 
+            // ESC : reduces the application to the system tray
             if (e.Key == Key.Escape)
             {
-                ReduceToTray();
+                ((App)Application.Current).ApplyReduceToTray();
                 return;
             }
 
-            // Reduces to tray if Ctrl is pressed twice within one second
+            // Detects double CTRL press within 1 second and reduces to tray
             if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
             {
-                var now = DateTime.Now;
-                if ((now - _lastCtrlPress).TotalMilliseconds < 1000)
+                var nowDateTime = DateTime.Now;
+
+                // If the previous CTRL press was less than 1 second ago, triggers tray reduction
+                if ((nowDateTime - _lastCtrlPressDateTime).TotalMilliseconds < 1000)
                 {
-                    ReduceToTray();
+                    ((App)Application.Current).ApplyReduceToTray();
                 }
-                _lastCtrlPress = now;
+
+                // Updates last CTRL press timestamp
+                _lastCtrlPressDateTime = nowDateTime;
             }
         }
 
         /// <summary>
-        /// Handles window state changes and minimizes the application to the
-        /// system tray when the user has enabled the "Reduce to tray" option.
-        /// </summary>
-        private void MainWindow_StateChanged(object sender, EventArgs e)
-        {
-            if (Properties.Settings.Default.ReduceToTray && WindowState == WindowState.Minimized)
-            {
-                ReduceToTray();
-            }
-        }
-
-        /// <summary> 
-        /// Automatically scrolls the chat view to the latest message
-        /// whenever a new item is added to the collection. 
-        /// Uses the internal ScrollViewer to ensure reliable scrolling
-        /// even with custom ListBox templates.
+        /// Auto-scrolls to the latest message.
         /// </summary>
         private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
@@ -750,461 +594,235 @@ namespace ChatClient.MVVM.View
                 return;
             }
 
-            var lastIndex = lstReceivedMessages.Items.Count - 1;
-            
-            if (lastIndex < 0)
-            {
-                return;
-            }
-
-            // Waits for the UI to finish layout updates, then scrolls.
-            // BeginInvoke with Background priority runs after rendering,
-            // ensuring the ScrollViewer scrolls to the bottom once the new message appears.
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 _messagesScrollViewer?.ScrollToEnd();
             }), DispatcherPriority.Background);
         }
 
-        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        /// <summary>
+        /// Standard INotifyPropertyChanged implementation.
+        /// </summary>
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
         /// <summary>
-        /// Shows back the arrow icon when popup is closed
+        /// Handles emoji popup closing.
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
         private void popupEmoji_Closed(object sender, EventArgs e)
         {
             popupEmoji.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
-        /// Reduces the application to the system tray if the "ReduceToTray" setting is enabled.
-        /// Ensures the tray icon is initialized and visible, and hides the main window from the taskbar.
-        /// Safe to call from multiple triggers (minimize, Escape, Ctrl+Ctrl, closing).
+        /// Refreshes localized strings in the main window after a language change.
         /// </summary>
-        private void ReduceToTray()
+        public void RefreshMainWindowLocalization()
         {
-            // Checks if tray mode is enabled in settings
-            if (!ChatClient.Properties.Settings.Default.ReduceToTray)
-                return;
+            App.ViewModel.ConnectedUsersListLabelText =
+                LocalizationManager.GetString("ConnectedUsersListLabelText");
 
-            // Retrieves tray icon from resources
-            var trayIcon = TryFindResource("TrayIcon") as TaskbarIcon;
-            if (trayIcon != null)
+            if (App.ViewModel.IsConnected)
             {
-                trayIcon.Visibility = Visibility.Visible;
+                App.ViewModel.CurrentIPDisplay =
+                    $"– {LocalizationManager.GetString("Connected")} –";
             }
-
-            // Hides main window and remove from taskbar
-            this.Hide();
-            this.ShowInTaskbar = false;
         }
 
         /// <summary>
-        /// Reveals the monitor button with a short fade‑in animation if it is hidden,
-        /// then opens or focuses the monitor window.
+        /// Emoji auto-scroll timer tick.
         /// </summary>
-        private void RevealMonitorButtonAndOpenWindow()
-        {
-            if (CmdMonitor.Visibility == Visibility.Collapsed)
-            {
-                CmdMonitor.Visibility = Visibility.Visible;
-                CmdMonitor.Opacity = 0;
-
-                var fadeAnim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
-                {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-                };
-
-                CmdMonitor.BeginAnimation(OpacityProperty, fadeAnim);
-            }
-
-            // Opens or focuses the monitor window
-            CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        }
-
-        /// <summary>
-        /// Handles continuous scrolling of the emoji panel when arrow buttons are hovered.
-        /// <param name="sender">Timer instance firing the event (nullable).</param>
-        /// <param name="e">Event arguments (never null).</param>
         private void ScrollTimer_Tick(object? sender, EventArgs e)
         {
             if (_scrollDirection == -1)
             {
-                // Scroll left
                 emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset - 20);
             }
             else if (_scrollDirection == 1)
             {
-                // Scroll right
                 emojiScrollViewer.ScrollToHorizontalOffset(emojiScrollViewer.HorizontalOffset + 20);
             }
         }
 
+        /// <summary>
+        /// Applies dark theme.
+        /// </summary>
         private void ThemeToggle_Checked(object sender, RoutedEventArgs e)
         {
-            // Save user preference
-            Properties.Settings.Default.AppTheme = "dark";
-            Properties.Settings.Default.Save();
+            Settings.Default.AppTheme = "dark";
+            Settings.Default.Save();
 
-            // Apply dark theme to this window with fade animation
             ThemeManager.ApplyTheme(true);
-
-            // Apply dark theme watermarks
-            ApplyWatermarks();
-        }
-
-        private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
-        {
-            // Save user preference
-            Properties.Settings.Default.AppTheme = "light";
-            Properties.Settings.Default.Save();
-
-            // Apply light theme to this window with fade animation
-            ThemeManager.ApplyTheme(false);
-
-            // Apply light theme watermarks
             ApplyWatermarks();
         }
 
         /// <summary>
-        /// Shows the monitor button with a fade‑in animation in Release mode, 
-        /// then toggles the monitor window:
-        /// - If the window is already open, it closes it.
-        /// - If it is closed, it opens it.
+        /// Applies light theme.
+        /// </summary>
+        private void ThemeToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            Settings.Default.AppTheme = "light";
+            Settings.Default.Save();
+
+            ThemeManager.ApplyTheme(false);
+            ApplyWatermarks();
+        }
+
+        /// <summary>
+        /// Toggles the monitor window.
         /// </summary>
         public void ToggleMonitorWindow()
         {
-            // Checks if the monitor window is already open
-            var existingMonitorWindow = Application.Current.Windows
-                .OfType<MonitorWindow>()
-                .FirstOrDefault();
-
+            // If a monitor window already exists, closes it.
+            var existingMonitorWindow = Application.Current.Windows.OfType<MonitorWindow>().FirstOrDefault();
             if (existingMonitorWindow != null)
             {
                 existingMonitorWindow.Close();
                 return;
             }
 
-            // Window is closed: reveals the button (in release mode)
-            #if !DEBUG
-            if (CmdMonitor.Visibility == Visibility.Collapsed)
+            // Creates a new monitor window using the global ViewModel.
+            var monitorWindow = new MonitorWindow
             {
-                CmdMonitor.Visibility = Visibility.Visible;
-                CmdMonitor.Opacity = 0;
-
-            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(1500))
-            {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                Owner = this
             };
+
+#if !DEBUG
+            // Ensures the monitor button becomes visible again when toggled via shortcuts.
+            CmdMonitor.BeginAnimation(OpacityProperty, null);
+            CmdMonitor.IsHitTestVisible = true;
+
+            if (CmdMonitor.Opacity == 0)
+            {
+                var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(1500))
+                {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                };
 
                 CmdMonitor.BeginAnimation(OpacityProperty, fadeIn);
             }
-            #else
-            
-            // Debug: always visible, no animation
-            CmdMonitor.Visibility = Visibility.Visible;
-            CmdMonitor.Opacity = 1;
-            #endif
+#endif
 
-            // Triggers the same behavior as clicking the monitor button
-            CmdMonitor.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        }
-
-        /// <summary> 
-        /// Handles right-click on the tray icon by opening the localized context menu 
-        /// at the current mouse position.
-        /// </summary> 
-        private void TrayIcon_RightClickHandler(object sender, RoutedEventArgs e) 
-        {
-            if (trayIcon?.ContextMenu == null)
-            {
-                return;
-            }
-            
-            trayIcon.ContextMenu.PlacementTarget = this; 
-            trayIcon.ContextMenu.Placement = PlacementMode.MousePoint; 
-            trayIcon.ContextMenu.IsOpen = true; 
-        }
-
-        public void TrayIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
-        {
-            if (Application.Current.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.TrayMenu_Open_Click(sender, e);
-            }
+            monitorWindow.Show();
         }
 
         /// <summary>
-        /// Handles the "Open" action from the tray context menu.
-        /// Hides the tray icon and restores the main window to its normal state.
-        /// Ensures the window is visible and reappears in the taskbar.
-        /// </summary>
-        public void TrayMenu_Open_Click(object sender, RoutedEventArgs e)
-        {
-            var trayIcon = (TaskbarIcon)FindResource("TrayIcon");
-            if (trayIcon != null)
-            {
-                trayIcon.Visibility = Visibility.Collapsed;
-            }
-
-            this.Show();
-            this.WindowState = WindowState.Normal;
-            this.ShowInTaskbar = true;
-        }
-
-        public void TrayMenu_Quit_Click(object sender, RoutedEventArgs e)
-        {
-            Application.Current.Shutdown();
-        }
-
-        /// <summary>
-        /// Handles keyboard input inside the message textbox.
-        /// Enter alone sends the message.
-        /// Shift+Enter inserts a newline (native WPF behavior).
-        /// Ctrl+Enter and Alt+Enter also insert a newline (manually).
+        /// Handles Enter / Shift+Enter / Ctrl+Enter / Alt+Enter in the message input.
         /// </summary>
         private void TxtMessageInputField_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             bool isEnter = e.Key == Key.Enter || e.Key == Key.Return;
+            bool shift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+            bool ctrl = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+            bool alt = Keyboard.IsKeyDown(Key.LeftAlt) || Keyboard.IsKeyDown(Key.RightAlt);
 
-            // Modifier keys (checked individually for reliability)
-            bool isShift = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
-            bool isCtrl = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
-
-            // Shift+Enter → lets WPF insert a newline normally
-            if (isEnter && isShift)
+            if (isEnter && shift)
             {
                 return;
             }
 
-            // Ctrl+Enter: manually insert a newline
-            if (isEnter && isCtrl)
+            if (isEnter && (ctrl || alt))
             {
-                if (sender is TextBox textBox)
+                if (sender is TextBox tb)
                 {
-                    int caretIndex = textBox.CaretIndex;
-
-                    // Inserts a newline at the current caret position
-                    textBox.Text = textBox.Text.Insert(caretIndex, Environment.NewLine);
-
-                    // Moves caret after the inserted newline
-                    textBox.CaretIndex = caretIndex + Environment.NewLine.Length;
-
-                    // Prevents default Enter behavior
+                    int caret = tb.CaretIndex;
+                    tb.Text = tb.Text.Insert(caret, Environment.NewLine);
+                    tb.CaretIndex = caret + Environment.NewLine.Length;
                     e.Handled = true;
                 }
 
                 return;
             }
 
-            // Enter alone
             if (isEnter)
             {
-                // Prevents newline insertion
                 e.Handled = true;
 
-                // Triggers the send message button (equivalent to WinForms PerformClick)
-                CmdSend.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if (sender is TextBox tb)
+                {
+                    DependencyObject parent = VisualTreeHelper.GetParent(tb);
+
+                    while (parent != null && parent is not Window)
+                    {
+                        if (parent is Grid grid)
+                        {
+                            if (grid.FindName("CmdSend") is Button sendButton)
+                            {
+                                sendButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                                break;
+                            }
+                        }
+
+                        parent = VisualTreeHelper.GetParent(parent);
+                    }
+                }
             }
         }
 
         /// <summary>
-        /// Updates the ViewModel with the current rendered width of the message
-        /// input TextBox whenever its size changes. This keeps the ViewModel's
-        /// width-dependent calculations (emoji scaling, popup width, etc.)
-        /// synchronized with the actual UI layout.
+        /// Dynamically adjusts the height of the message input TextBox to fit its content as the user types.
         /// </summary>
-        private void TxtMessageInputField_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            viewModel.MessageInputFieldWidth = TxtMessageInputField.ActualWidth;
-        }
-
-        /// <summary>
-        /// Adjusts the height of the message input TextBox dynamically based on its content.
-        /// The control expands as the user types multiple lines, up to a defined maximum height.
-        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void TxtMessageInputField_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (sender is not TextBox inputBox)
-            {
-                return;
-            }
+            // Resets height to allow recalculation
+            TxtMessageInputField.Height = Double.NaN;
+            TxtMessageInputField.UpdateLayout();
 
-            // Forces WPF to update the layout before measuring text size
-            inputBox.UpdateLayout();
-
-            // Measures the rendered height of the text inside the TextBox.
-            // We must provide a NumberSubstitution because the FormattedText builder requires this parameter.
-            // It's an old API and Microsoft has chosen to make this parameter mandatory.
-            // The final parameter (1.0) represents the pixels-per-DIP scaling factor, typically 1.0 on standard DPI screens.
-            var formattedText = new FormattedText(
-                inputBox.Text,
-                System.Globalization.CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(inputBox.FontFamily, inputBox.FontStyle, inputBox.FontWeight, inputBox.FontStretch),
-                inputBox.FontSize,
-                Brushes.Black,
-                new NumberSubstitution(),
-                1.0);
-
-            // Adds padding to avoid clipping the last line
-            double desiredHeight = formattedText.Height + 20;
-
-            // Maximum allowed height for the input field
-            const double maxInputHeight = 200;
-
-            // Applies the final height (bounded)
-            inputBox.Height = Math.Min(desiredHeight, maxInputHeight);
+            // Sets height to content
+            TxtMessageInputField.Height = TxtMessageInputField.ExtentHeight +
+                TxtMessageInputField.Padding.Top + TxtMessageInputField.Padding.Bottom;
         }
 
-
+        /// <summary>
+        /// Handles Enter in the IP field.
+        /// </summary>
         private void TxtServerIPAddress_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-                if (DataContext is MainViewModel viewModel)
-                {
-                    viewModel.ConnectDisconnectCommand.Execute(null);
-                }
-
+                // Executes the global connect/disconnect command.
+                App.ViewModel.ConnectDisconnectCommand.Execute(null);
                 e.Handled = true;
             }
         }
 
         /// <summary>
-        /// Handles the Enter key in the Username field and invokes the
-        /// ConnectDisconnectCommand on the ViewModel.
+        /// Handles Enter in the Username field.
         /// </summary>
         private void TxtUsername_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-                if (DataContext is MainViewModel viewModel) 
-                {  
-                    viewModel.ConnectDisconnectCommand.Execute(null);
-                }
-
+                // Executes the global connect/disconnect command.
+                App.ViewModel.ConnectDisconnectCommand.Execute(null);
                 e.Handled = true;
             }
         }
 
         /// <summary>
-        /// Saves the roster panel width when the vertical splitter drag operation completes.
+        /// Updates the text of the label for the connected users list.
         /// </summary>
-        private void VerticalSplitter_DragCompleted(object sender, DragCompletedEventArgs e) 
-        { 
-            double actualWidth = ColRoster.ActualWidth;
-            if (actualWidth < 20)
-            {
-                actualWidth = 20;
-            }
-            
-            Settings.Default.RosterWidth = actualWidth; 
-            Settings.Default.Save(); 
-        }
-
-        /// <summary>
-        /// Restricts the vertical splitter movement by enforcing a maximum width
-        /// for the roster (half of the total window width).
-        /// Cancels the drag when the limit would be exceeded.
-        /// </summary>
-        private void VerticalSplitter_PreviewMouseMove(object sender, MouseEventArgs e)
+        public void UpdateConnectedUsersLabelText()
         {
-            if (e.LeftButton != MouseButtonState.Pressed)
-            {
-                return;
-            }
-
-            double totalWidth = GrdMain.ActualWidth;
-
-            // Maximum allowed width for the roster (half of the total width)
-            double maxRosterWidth = totalWidth / 2.0;
-
-            // Mouse position relative to GrdMain
-            Point mousePosition = e.GetPosition(GrdMain);
-
-            // The width the roster would have if the splitter moved here
-            double newRosterWidth = mousePosition.X;
-
-            // Prevents the roster from exceeding the maximum width
-            if (newRosterWidth > maxRosterWidth)
-            {
-                e.Handled = true;
-                return;
-            }
-
-            // Prevents the roster from shrinking below 40 px
-            if (newRosterWidth < 40)
-            {
-                e.Handled = true;
-                return;
-            }
+            lblConnectedUsers.Content = LocalizationManager.GetString("ConnectedUsersListLabelText");
         }
 
         /// <summary>
-        /// Reacts to ViewModel layout-related changes.
-        /// - Updates the bottom row height live when the splitter moves.
+        /// Updates the input area height in the UI when the corresponding ViewModel property changes.
         /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            // Live update when splitter moves
-            if (e.PropertyName == nameof(viewModel.InputAreaHeight))
+            if (e.PropertyName == nameof(App.ViewModel.InputAreaHeight))
             {
-                RowBottomRight.Height = new GridLength(viewModel.InputAreaHeight, GridUnitType.Pixel);
+                RowBottomRight.Height = new GridLength(App.ViewModel.InputAreaHeight, GridUnitType.Pixel);
             }
-        }
-
-        /// <summary> 
-        /// Restores all persisted layout dimensions (roster width and input area height) 
-        /// after the first valid layout pass of the window. 
-        /// This ensures the restore occurs only once, 
-        /// after WPF has completed its initial layout calculations.
-        /// </summary>
-        private void Window_LayoutUpdated(object sender, EventArgs e)
-        {
-            if (!_pendingInitialRestore)
-            {
-                return;
-            }
-
-            double rosterWidth = Settings.Default.RosterWidth;
-            if (rosterWidth < 20)
-            {
-                rosterWidth = 20;
-            }
-
-            // Restores the roster width
-            ColRoster.Width = new GridLength(rosterWidth, GridUnitType.Pixel);
-
-            // Restores bottom input area height
-            double savedHeight = Settings.Default.InputAreaHeight;
-            if (double.IsNaN(savedHeight) || savedHeight < _MIN_INPUT_AREA_HEIGHT)
-            {
-                savedHeight = _MIN_INPUT_AREA_HEIGHT;
-            }
-
-            RowBottomRight.Height = new GridLength(savedHeight, GridUnitType.Pixel);
-
-            _pendingInitialRestore = false;
-        }
-
-        private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            double maxRosterWidth = this.ActualWidth / 2.0; 
-            
-            // Clamps the current roster width if it exceeds the new max
-            if (ColRoster.Width.Value > maxRosterWidth) 
-            { 
-                ColRoster.Width = new GridLength(maxRosterWidth, GridUnitType.Pixel); 
-            } 
-            
-            // Applies the max constraint
-            GrdLeft.MaxWidth = maxRosterWidth;
         }
     }
 }
+

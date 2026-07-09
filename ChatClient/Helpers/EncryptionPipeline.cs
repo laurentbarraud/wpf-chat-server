@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatClient.MVVM.Model;
 using ChatClient.MVVM.ViewModel;
@@ -112,7 +112,7 @@ namespace ChatClient.Helpers
         public void DisableEncryption()
         {
             // Avoids double-disable and unnecessary work
-            if (!Settings.Default.UseEncryption)
+            if (!Settings.Default.EncryptMessages)
             {
                 return;
             }
@@ -138,7 +138,7 @@ namespace ChatClient.Helpers
             _viewModel.ResetEncryptionPipelineAndUI();
 
             // Updates persisted setting
-            Settings.Default.UseEncryption = false;
+            Settings.Default.EncryptMessages = false;
             Settings.Default.Save();
             
             ClientLogger.Log("Encryption disabled — pipeline cancelled, keys cleared, UI reset",
@@ -155,7 +155,7 @@ namespace ChatClient.Helpers
             bool encryptionReady = false;
 
             // Encryption disabled or local user missing: nothing to evaluate.
-            if (!Settings.Default.UseEncryption || _viewModel.LocalUser == null)
+            if (!Settings.Default.EncryptMessages || _viewModel.LocalUser == null)
             {
                 ClientLogger.Log("EvalEnc: encryption disabled or local user missing.", ClientLogLevel.Info);
                 return false;
@@ -315,7 +315,7 @@ namespace ChatClient.Helpers
         ///
         /// This method never assigns AllKeysValid directly.
         /// AllKeysValid is a computed property that updates automatically
-        /// based on KnownPublicKeys, UseEncryption, and IsConnected.
+        /// based on KnownPublicKeys, EncryptMessages, and IsConnected.
         /// </summary>
         public async Task<bool> SyncKeysAsync(CancellationToken cancellationToken)
         {

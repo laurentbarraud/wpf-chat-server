@@ -1,10 +1,8 @@
 ﻿/// <file>MonitrWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
-using ChatClient.MVVM.ViewModel;             // For MonitorViewModel
-using ChatClient.Net;
 using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,7 +11,7 @@ using System.Windows.Data;
 namespace ChatClient.MVVM.View
 {
     /// <summary>
-    /// Public keys monitor, window bound to the main ViewModel.
+    /// Public keys monitor, window bound to the global view model.
     /// Allows users to display live-refreshing information about public keys
     /// and to request each missing public key from peers.
     /// </summary>
@@ -22,16 +20,15 @@ namespace ChatClient.MVVM.View
         private bool _columnsBuilt = false;
 
         /// <summary>
-        /// Initializes the monitor window, assigns the MainViewModel as DataContext,
+        /// Initializes the monitor window, assigns the global view model as DataContext,
         /// anchors the window to the owner's bottom‑right corner,
         /// and listens for language changes to refresh localized UI.
         /// </summary>
-        public MonitorWindow(MainViewModel mainViewModel)
+        public MonitorWindow()
         {
             InitializeComponent();
-            DataContext = mainViewModel!;
 
-            mainViewModel.LanguageChanged += (_, _) =>
+            App.ViewModel.LanguageChanged += (_, _) =>
             {
                 if (_columnsBuilt)
                 {
@@ -42,22 +39,20 @@ namespace ChatClient.MVVM.View
             PublicKeysDataGrid.Loaded += PublicKeysDataGrid_Loaded;
         }
 
+        /// <summary>
+        /// Applies localized header texts to the DataGrid columns based on the current language settings.
+        /// </summary>
         private void ApplyLocalizedHeaders()
         {
-            if (DataContext is not MainViewModel viewModel)
-            {
-                return;
-            }
-
             if (PublicKeysDataGrid.Columns.Count < 4)
             {
                 return;
             }
 
-            PublicKeysDataGrid.Columns[0].Header = viewModel.UsernameHeader;
-            PublicKeysDataGrid.Columns[1].Header = viewModel.KeyExcerptHeader;
-            PublicKeysDataGrid.Columns[2].Header = viewModel.StatusHeader;
-            PublicKeysDataGrid.Columns[3].Header = viewModel.ActionHeader;
+            PublicKeysDataGrid.Columns[0].Header = App.ViewModel.UsernameHeader;
+            PublicKeysDataGrid.Columns[1].Header = App.ViewModel.KeyExcerptHeader;
+            PublicKeysDataGrid.Columns[2].Header = App.ViewModel.StatusHeader;
+            PublicKeysDataGrid.Columns[3].Header = App.ViewModel.ActionHeader;
         }
 
         /// <summary>
@@ -113,6 +108,11 @@ namespace ChatClient.MVVM.View
             if (Application.Current.MainWindow is MainWindow mainWindow)
             {
                 mainWindow.HideMonitorButton();
+            }
+
+            else if (Application.Current.MainWindow is MainWindowLegacy mainWindowLegacy)
+            {
+                mainWindowLegacy.HideMonitorButton();
             }
         #endif
         }

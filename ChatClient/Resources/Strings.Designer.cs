@@ -127,7 +127,8 @@ namespace ChatClient.Resources {
         ///   Recherche une chaîne localisée semblable à Usage: chat-client.exe [options]
         ///
         ///Options:
-        ///  -u, --username         Set your username and auto-connect
+        ///  -u, --username         Set your username
+        ///                                   and auto-connect
         ///  -p, --port                  Set the server port
         ///
         ///  --dark, --light           Switch theme
@@ -139,9 +140,7 @@ namespace ChatClient.Resources {
         ///  -e, --encrypted         Enable end-to-end encryption
         ///
         ///  -r, -t, -m, --reduce    Enable minimize to system tray
-        ///  --tray, --min
-        ///
-        ///  -c, -d, --debug         Open c [le reste de la chaîne a été tronqué]&quot;;.
+        ///  --tray, --min [le reste de la chaîne a été tronqué]&quot;;.
         /// </summary>
         public static string CliOptionsHelpText {
             get {
@@ -173,6 +172,15 @@ namespace ChatClient.Resources {
         public static string Connected {
             get {
                 return ResourceManager.GetString("Connected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Connected users.
+        /// </summary>
+        public static string ConnectedUsersListLabelText {
+            get {
+                return ResourceManager.GetString("ConnectedUsersListLabelText", resourceCulture);
             }
         }
         
@@ -246,6 +254,15 @@ namespace ChatClient.Resources {
         public static string EncryptionEnabledToolTip {
             get {
                 return ResourceManager.GetString("EncryptionEnabledToolTip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à Encrypt messages.
+        /// </summary>
+        public static string EncryptMessagesLabel {
+            get {
+                return ResourceManager.GetString("EncryptMessagesLabel", resourceCulture);
             }
         }
         
@@ -403,7 +420,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à  v1.1 - Feb. 2026 - Laurent Barraud .
+        ///   Recherche une chaîne localisée semblable à  v1.1 - July 2026 - Laurent Barraud .
         /// </summary>
         public static string LicenceFinal {
             get {
@@ -502,6 +519,33 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
+        ///   Recherche une chaîne localisée semblable à {0}, {1} are online.
+        /// </summary>
+        public static string PeerSummaryTextMultiPeers {
+            get {
+                return ResourceManager.GetString("PeerSummaryTextMultiPeers", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à No peers connected.
+        /// </summary>
+        public static string PeerSummaryTextNoPeer {
+            get {
+                return ResourceManager.GetString("PeerSummaryTextNoPeer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recherche une chaîne localisée semblable à {0} is online.
+        /// </summary>
+        public static string PeerSummaryTextOnePeer {
+            get {
+                return ResourceManager.GetString("PeerSummaryTextOnePeer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Recherche une chaîne localisée semblable à Port number is not valid..
         /// </summary>
         public static string PortNumberInvalid {
@@ -529,7 +573,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Use raw text mode for messages.
+        ///   Recherche une chaîne localisée semblable à Raw text mode.
         /// </summary>
         public static string RawTextModeLabel {
             get {
@@ -655,15 +699,6 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Use encryption for messages.
-        /// </summary>
-        public static string UseEncryptionLabel {
-            get {
-                return ResourceManager.GetString("UseEncryptionLabel", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Recherche une chaîne localisée semblable à User.
         /// </summary>
         public static string UsernameHeader {
@@ -682,7 +717,7 @@ namespace ChatClient.Resources {
         }
         
         /// <summary>
-        ///   Recherche une chaîne localisée semblable à Use TCP port :.
+        ///   Recherche une chaîne localisée semblable à Use TCP port.
         /// </summary>
         public static string UseTcpPortLabel {
             get {

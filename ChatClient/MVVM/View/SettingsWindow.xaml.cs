@@ -1,58 +1,76 @@
 ﻿/// <file>SettingsWindow.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
-using ChatClient.Helpers;                   // For EncryptionHelper, ClientLogger
-using ChatClient.MVVM.ViewModel;   
+using ChatClient.Helpers;               
 using ChatClient.Properties;
-using Hardcodet.Wpf.TaskbarNotification;     // For TaskbarIcon
+using Hardcodet.Wpf.TaskbarNotification;
 using System;
-using System.ComponentModel;                 // For PropertyChangedEventArgs
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 
 namespace ChatClient.MVVM.View
 {
     /// <summary>
-    /// Settings window bound to the main ViewModel.
+    /// Settings window bound to the global view model.
     /// Allows users to configure client preferences and persists them across sessions.
     /// </summary>
     public partial class SettingsWindow : Window
     {
-        private readonly MainViewModel _mainViewModel;
-
-        public SettingsWindow(MainViewModel mainViewModel)
+        public SettingsWindow()
         {
             InitializeComponent();
 
-            _mainViewModel = mainViewModel;
-            DataContext = _mainViewModel;
+            this.DataContext = App.ViewModel;
 
-            // Listens to ViewModel property changes (language, tray behavior, etc.)
-            _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
+            // Listens for ViewModel changes
+            App.ViewModel.PropertyChanged += MainViewModel_PropertyChanged;
 
-            // Initial refresh when window opens
-            _mainViewModel.LoadLocalizedStrings();
+            App.ViewModel.LoadLocalizedStrings();
+
+            // Clean unsubscribes when window closes.
+            // This avoids memory leaks and double refreshes
+            // when reopening the settings window multiple times.
+            Closed += (_, __) =>
+            {
+                App.ViewModel.PropertyChanged -= MainViewModel_PropertyChanged;
+            };
+
+            // User starts interacting: show popup immediately
+            HueSlider.PreviewMouseDown += (_, __) =>
+            {
+                App.ViewModel.IsHuePopupVisible = true;
+                
+                if (HuePopupContent != null)
+                {
+                    // Cancels any previous animation and ensures full opacity
+                    HuePopupContent.BeginAnimation(UIElement.OpacityProperty, null);
+                    HuePopupContent.Opacity = 1.0;
+                }
+            };
+
+            // User stops interacting: start delayed fade-out
+            HueSlider.PreviewMouseUp += (_, __) =>
+            {
+                StartHuePopupFadeOutWithDelay();
+            };
         }
 
         /// <summary>
-        /// Handles property change notifications from MainViewModel.
-        /// Updates UI elements in SettingsWindow when specific properties change.
+        /// Reacts to global ViewModel changes.
+        /// Refreshes localized bindings when the application language changes.
         /// </summary>
         private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            switch (e.PropertyName)
+            if (e.PropertyName == nameof(App.ViewModel.AppLanguage))
             {
-                case nameof(MainViewModel.ReduceToTray):
-                    InitializeTrayIcon();
-                    break;
-
-                case nameof(MainViewModel.AppLanguage):
-                    RefreshLocalizedBindings();
-                    break;
+                RefreshLocalizedBindings();
+                (App.Current.MainWindow as MainWindow)?.UpdateConnectedUsersLabelText();
             }
         }
 
@@ -73,36 +91,12 @@ namespace ChatClient.MVVM.View
             this.Close();
         }
 
-        private void InitializeTrayIcon()
-        {
-            try
-            {
-                if (Application.Current.MainWindow is not MainWindow main)
-                {
-                    return;
-                }
-
-                if (main.TryFindResource("TrayIcon") is not TaskbarIcon icon)
-                {
-                    return;
-                }
-
-                main.InitializeTrayIcon();
-            }
-            catch
-            {
-            }
-        }
-
         private void ReduceToTrayToggle_Checked(object sender, RoutedEventArgs e)
         {
             Settings.Default.ReduceToTray = true;
             Settings.Default.Save();
-
-            InitializeTrayIcon();
         }
 
-        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private void ReduceToTrayToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             Settings.Default.ReduceToTray = false;
@@ -119,12 +113,54 @@ namespace ChatClient.MVVM.View
         {
             UpdateBinding(UseTcpPortLabel);
             UpdateBinding(ReduceToTrayLabel);
-            UpdateBinding(UseEncryptionLabel);
+            UpdateBinding(EncryptMessagesLabel);
             UpdateBinding(DisplayFontSizeLabel);
             UpdateBinding(MessageInputFieldWidthLabel);
             UpdateBinding(MessageInputFieldLeftOffsetLabel);
             UpdateBinding(AppLanguageLabel);
             UpdateBinding(AboutLabel);
+
+            // Updates the connected users list label
+            App.ViewModel.ConnectedUsersListLabelText =
+                LocalizationManager.GetString("ConnectedUsersListLabelText");
+
+            // Update IP display if connected
+            if (App.ViewModel.IsConnected)
+            {
+                App.ViewModel.CurrentIPDisplay = $"– {LocalizationManager.GetString("Connected")} –";
+            }
+        }
+
+        /// <summary>
+        /// Starts a delayed fade-out animation on the hue popup.
+        /// The popup stays fully visible during interaction, then fades out
+        /// after a short inactivity delay.
+        /// </summary>
+        private void StartHuePopupFadeOutWithDelay()
+        {
+            if (HuePopupContent == null)
+            {
+                return;
+            }
+
+            var fadeAnimation = new DoubleAnimation
+            {
+                From = 1.0,
+                To = 0.0,
+                Duration = TimeSpan.FromMilliseconds(500),
+                BeginTime = TimeSpan.FromSeconds(1.5) // delay before fade-out
+            };
+
+            fadeAnimation.Completed += (_, __) =>
+            {
+                // Resets opacity for the next interaction cycle
+                HuePopupContent.Opacity = 1.0;
+
+                // Hides popup in the global ViewModel once the fade-out completes
+                App.ViewModel.IsHuePopupVisible = false;
+            };
+
+            HuePopupContent.BeginAnimation(UIElement.OpacityProperty, fadeAnimation);
         }
 
         /// <summary>
@@ -137,7 +173,6 @@ namespace ChatClient.MVVM.View
             ValidatePortInput();
         }
 
-        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
         private static void UnloadTrayIcon()
         {
             try
@@ -173,13 +208,11 @@ namespace ChatClient.MVVM.View
         /// </summary>
         private void ValidatePortInput()
         {
-            /// <summary> 
-            /// If the textbox content is not a valid integer, stop here to avoid
-            /// processing invalid data (empty, non‑numeric or whitespace)
-            /// </summary> 
+            // If the textbox content is not a valid integer, stop here to avoid
+            // processing invalid data (empty, non‑numeric or whitespace)
             if (!int.TryParse(TxtPort.Text, out int inputPort))
             {
-                /// <summary> Invalid value : silently resets the default port </summary> 
+                // Invalid value : silently resets the default port
                 Settings.Default.PortNumber = 7123;
                 Settings.Default.Save();
 
@@ -193,11 +226,11 @@ namespace ChatClient.MVVM.View
                 return;
             }
 
-            bool isPortValid = MainViewModel.TrySavePort(inputPort);
+            bool isPortValid = App.ViewModel.TrySavePort(inputPort);
 
             if (!isPortValid)
             {
-                /// <summary> Invalid value : silently resets the default port </summary> 
+                // Invalid value : silently resets the default port
                 Settings.Default.PortNumber = 7123;
                 Settings.Default.Save();
 
@@ -211,9 +244,10 @@ namespace ChatClient.MVVM.View
                 return;
             }
 
-            /// <summary> Valid port : green validate icon </summary> 
+            // Valid port : green validate icon
             ImgPortStatus.Source = new BitmapImage(new Uri("/Resources/validate.png", UriKind.Relative));
             ImgPortStatus.ToolTip = LocalizationManager.GetString("PortNumberValid");
         }
+
     }
 }

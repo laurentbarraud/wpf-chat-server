@@ -1,7 +1,7 @@
 ﻿/// <file>StartupConfigurator.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatClient.MVVM.View;
 using ChatClient.MVVM.ViewModel;
@@ -276,7 +276,7 @@ namespace ChatClient.Helpers
                                     if (int.TryParse(flagArgument, out var inputPort))
                                     {
                                         // Validates the port using the same logic as the UI
-                                        bool isPortValid = MainViewModel.TrySavePort(inputPort);
+                                        bool isPortValid = App.ViewModel.TrySavePort(inputPort);
 
                                         // Only saves if valid
                                         if (isPortValid)
@@ -354,54 +354,17 @@ namespace ChatClient.Helpers
                 return;
             }
 
-            // Retrieves window and view model
-            if (Application.Current.MainWindow is not MainWindow mainWindow ||
-                mainWindow.viewModel is not MainViewModel viewModel)
-            {
-                ClientLogger.Log("MainWindow or MainViewModel not found during startup configuration.", ClientLogLevel.Warn);
-                return;
-            }
-
             // Persists encryption preference
-            Properties.Settings.Default.UseEncryption = enableEncryption;
+            Properties.Settings.Default.EncryptMessages = enableEncryption;
             Properties.Settings.Default.Save();
 
             // Updates VM
-            viewModel.UseEncryption = enableEncryption;
+            App.ViewModel.EncryptMessages = enableEncryption;
 
-            // If a username was chosen, we apply it and auto‑connect
             if (!string.IsNullOrEmpty(usernameChosen))
             {
-                // Stores the username in the ViewModel
-                viewModel.Username = usernameChosen;
-
-                // Small helper to run the Connect/Disconnect command
-                void ExecuteConnect()
-                {
-                    viewModel.ConnectDisconnectCommand?.Execute(null);
-                }
-
-                // If the window is already loaded, we can connect right now
-                if (mainWindow.IsLoaded)
-                {
-                    ExecuteConnect();
-                }
-                else
-                {
-                    // Waits for the Loaded event before running the command.
-                    RoutedEventHandler handler = null!;
-                    handler = (_, _) =>
-                    {
-                        // Removes the handler so it runs only once
-                        mainWindow.Loaded -= handler;
-
-                        // Now the window is fully loaded, so we can connect
-                        ExecuteConnect();
-                    };
-
-                    // Runs the handler once the window finishes loading
-                    mainWindow.Loaded += handler;
-                }
+                App.ViewModel.Username = usernameChosen;
+                App.ViewModel.ConnectDisconnectCommand?.Execute(null);
             }
 
             // Theme selection

@@ -1,7 +1,7 @@
 ﻿/// <file>ServerConnectionHandler.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatProtocol.Net;
 using ChatProtocol.Net.IO;

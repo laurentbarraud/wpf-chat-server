@@ -1,13 +1,10 @@
 TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 1. Preamble and copyright notice
-The Code in this repository is protected by copyright under
-the Swiss Federal Act on Copyright and Related Rights (CopA). 
-The Author asserts and preserves all copyrights and moral rights
-recognized by CopA and by applicable international copyright treaties.
-This License is intended to give the same practical rights and 
-limitations to users worldwide while preserving the Author’s rights
-under Swiss law.
+The Author affirms and preserves all copyright and moral rights
+recognized by Swiss law on copyright and by applicable international treaties.
+You must not claim authorship of the Code and any permitted distribution must
+include an unmodified copy of this License.
 
 2. Definitions
 - Author: Laurent Barraud.
@@ -19,50 +16,46 @@ distributed under this License.
 
 3. License grant
 Subject to the terms below, the Author grants You a non-exclusive, worldwide,
-royalty-free copyright license to use, run, copy, inspect, study, modify,
-improve, and translate the Code for educational, demonstration, research,
-and recreational purposes.
+royalty-free license to download, execute, study, modify, improve, and translate
+the Code solely for personal, educational, experimental, learning, research, or
+recreational use.
 
-4. Restrictions on academic claims and media use
-- You may not present the Code or any Derivative Project as the academic work or
-official output of any third-party institution (universities, colleges, research
-labs, etc.).
-- Journalistic use or media citation of the Code is appreciated. 
-The Author asks to be informed by email with a link to the publication, even if 
-no formal permission is sought.
+4. Restrictions
+- You must not present the Code as your own work or associate it with any academic
+institution as if it were produced, validated, or endorsed by such institution.
+- Journalistic citation is permitted; the Author appreciates being informed.
+- You must not publish or publicly distribute any fork or derivative of the Code
+without prior notice to the Author. 
+However, creating a temporary fork to submit a pull request is permitted.
+- You must not sell, monetize, or integrate the Code into any commercial product. 
+- You must not redistribute or publish the Code or any derivative in any library,
+journal, archive, marketplace, or other mass-distribution service without 
+the Author’s written permission. 
+- Permitted public distribution is limited to the original repository at 
+https://github.com/laurentbarraud/wpf-chat-server and direct links to it.
 
-5. Redistribution and commercial publication
-- You may not redistribute, publish, sell, or place the Code or any Derivative Project
-into a physical or online library, journal, commercial archive, marketplace, or other
-mass-distribution service without the Author’s prior written permission.
-- Permitted public distribution is limited to: (a) the original repository at 
-https://github.com/laurentbarraud/wpf-chat-server and (b) direct link sharing that
-points back to that repository.
+In short: you may use and learn from the Code freely, but you may not reuse it
+in your own projects or claim authorship.
 
-6. Derivative Projects and contributions
+5. Derivative Projects and contributions
 - Before any public distribution of a Derivative Project, You must notify the Author
-by opening a pull request on GitHub or by email to laurent(dot)barraud(at)bluewin.ch.
+by opening a pull request on GitHub or by email to laurent(dot)barraud(at)bluewin.ch
 - All Contributions must be submitted by pull request on GitHub or by the same email. 
-The Author is not obliged to accept any Contribution; acceptance is at the Author’s 
+- The Author is not obliged to accept any Contribution; acceptance is at the Author’s 
 sole discretion.
 
-7. Notice, attribution and distribution of this License
-- You must not claim authorship of the original Code or falsely state affiliation with 
-the Author.
-- Every distribution (source or binary) must include an unmodified copy of this License.
-
-8. Disclaimer of warranty and limitation of liability
+6. Disclaimer of warranty and limitation of liability
 - The Code is provided “as is”, without warranty of any kind, express or implied.
 - In no event shall the Author be liable for any direct, indirect, incidental, 
 consequential, exemplary, or special damages arising out of the use of the Code, 
 including but not limited to loss of data, loss of profit, or business interruption.
 
-9. Severability and survival
+7. Severability and survival
 If any provision of this License is found to be invalid or unenforceable under 
 applicable law, that provision shall be limited or removed to the minimum extent 
 necessary so that the remainder of the License remains in full force and effect. 
 
-10. Governing law and venue
+8. Governing law and venue
 This License is governed by the laws of Switzerland. 
 The courts of the Canton of Vaud (Lausanne) shall have exclusive jurisdiction over 
 disputes arising under this License.
@@ -70,4 +63,4 @@ disputes arising under this License.
 END OF TERMS AND CONDITIONS
 
 Created by Laurent Barraud.
-December 2025
+May 2026

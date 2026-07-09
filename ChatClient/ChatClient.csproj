@@ -9,12 +9,11 @@
     <UseWPF>true</UseWPF>
     <AssemblyVersion>1.1</AssemblyVersion>
     <FileVersion>1.1</FileVersion>
-    <Company>ChatClient</Company>
     <Product>ChatClient</Product>
     <Version>1.1</Version>
     <Title>ChatClient</Title>
     <Authors>Laurent Barraud</Authors>
-    <Description>chat client and server</Description>
+    <Description>chat client and console server</Description>
     <StartupObject>ChatClient.App</StartupObject>
     <AssemblyName>ChatClient</AssemblyName>
   </PropertyGroup>
@@ -48,6 +47,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\moon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Resources\outgoing-bubble-preview.png" />
     <Resource Include="Resources\monitor-icon.ico" />
     <Resource Include="Resources\pull-missing-public-key.png" />
@@ -72,12 +74,14 @@
     <Resource Include="Resources\monitor.png" />
     <Resource Include="Resources\raw-text-mode.png" />
     <Resource Include="Resources\spanish-flag.png" />
+    <Resource Include="Resources\sun.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Resources\syncing-keys.png" />
     <Resource Include="Resources\encrypted.png" />
     <Resource Include="Resources\english-flag.png" />
     <Resource Include="Resources\french-flag.png" />
     <Resource Include="Resources\left-arrow.png" />
-    <Resource Include="Resources\moon.png" />
     <Resource Include="Resources\port-setting.png" />
     <Resource Include="Resources\invalid.png" />
     <Resource Include="Resources\reduce-to-tray-calc-icon.png" />
@@ -86,7 +90,6 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\settings.png" />
-    <Resource Include="Resources\sun.png" />
     <Resource Include="Resources\valid-key.png" />
     <Resource Include="Resources\validate.png" />
   </ItemGroup>
@@ -116,9 +119,6 @@
     </EmbeddedResource>
     <EmbeddedResource Update="Resources\Strings.es.resx">
       <SubType>Designer</SubType>
-      <Generator></Generator>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Resources\Strings.en.resx">
       <Generator></Generator>
     </EmbeddedResource>
     <EmbeddedResource Update="Resources\Strings.resx">

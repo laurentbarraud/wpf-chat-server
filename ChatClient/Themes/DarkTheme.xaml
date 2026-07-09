@@ -15,6 +15,8 @@
     <Color x:Key="WatermarkColor">#FFB4B4B4</Color>
     <!-- Default outgoing bubble background -->
     <Color x:Key="SentBubbleBackgroundColor">#CC2F3A4A</Color>
+    <!-- Dark grey background for messages list -->
+    <Color x:Key="MessagesListBackgroundColor">#FF1E1E1E</Color>
 
     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
     <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}" />
@@ -23,5 +25,7 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
     <SolidColorBrush x:Key="WatermarkBrush" Color="{StaticResource WatermarkColor}" />
     <SolidColorBrush x:Key="SentBubbleBackgroundBrush" Color="{StaticResource SentBubbleBackgroundColor}"/>
+    <SolidColorBrush x:Key="MessagesListBackgroundBrush" Color="{StaticResource MessagesListBackgroundColor}"/>
+    <SolidColorBrush x:Key="InputBorderBrush" Color="{StaticResource WatermarkColor}"/>
 
 </ResourceDictionary>

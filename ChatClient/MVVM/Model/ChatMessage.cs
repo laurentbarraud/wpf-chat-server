@@ -1,10 +1,9 @@
 ﻿/// <file>ChatMessage.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatClient.Helpers;
-using Microsoft.VisualBasic.ApplicationServices;
 using System;
 
 namespace ChatClient.MVVM.Model
@@ -36,8 +35,12 @@ namespace ChatClient.MVVM.Model
             }
         }
 
-        public bool IsFromLocalUser { get; set; } = false;
+        public bool IsFromLocalUser => Sender == LocalUsername;
+
         public bool IsSystemMessage { get; set; } = false;
+
+        public string LocalUsername { get; set; } = string.Empty;
+
         public string Sender { get; set; } = string.Empty;
         public string Text { get; set; } = string.Empty;
         public string TimeStamp { get; set; } = string.Empty;

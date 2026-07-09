@@ -62,12 +62,12 @@ namespace ChatClient.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool UseEncryption {
+        public bool EncryptMessages {
             get {
-                return ((bool)(this["UseEncryption"]));
+                return ((bool)(this["EncryptMessages"]));
             }
             set {
-                this["UseEncryption"] = value;
+                this["EncryptMessages"] = value;
             }
         }
         
@@ -194,12 +194,12 @@ namespace ChatClient.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("0")]
-        public double SentBubbleHue {
+        public double OutgoingBubbleHue {
             get {
-                return ((double)(this["SentBubbleHue"]));
+                return ((double)(this["OutgoingBubbleHue"]));
             }
             set {
-                this["SentBubbleHue"] = value;
+                this["OutgoingBubbleHue"] = value;
             }
         }
     }

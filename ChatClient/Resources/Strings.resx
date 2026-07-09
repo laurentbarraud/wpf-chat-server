@@ -172,7 +172,7 @@
     <value>The IP address is incorrect. Leave it blank to connect locally.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value> v1.1 - Feb. 2026 - Laurent Barraud </value>
+    <value> v1.1 - July 2026 - Laurent Barraud </value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>This open-source software is distributed in the hope that it will be useful, but without any warranty.</value>
@@ -208,10 +208,10 @@
     <value>Quit</value>
   </data>
   <data name="UseTcpPortLabel" xml:space="preserve">
-    <value>Use TCP port :</value>
+    <value>Use TCP port</value>
   </data>
-  <data name="UseEncryptionLabel" xml:space="preserve">
-    <value>Use encryption for messages</value>
+  <data name="EncryptMessagesLabel" xml:space="preserve">
+    <value>Encrypt messages</value>
   </data>
   <data name="GettingMissingKeysToolTip" xml:space="preserve">
     <value>Getting missing keys...</value>
@@ -232,7 +232,8 @@
     <value>Usage: chat-client.exe [options]
 
 Options:
-  -u, --username         Set your username and auto-connect
+  -u, --username         Set your username
+                                   and auto-connect
   -p, --port                  Set the server port
 
   --dark, --light           Switch theme
@@ -349,9 +350,21 @@ and connected users list</value>
     <value>Settings</value>
   </data>
   <data name="RawTextModeLabel" xml:space="preserve">
-    <value>Use raw text mode for messages</value>
+    <value>Raw text mode</value>
   </data>
   <data name="OutgoingBubbleColorLabel" xml:space="preserve">
     <value>Sent bubble color</value>
+  </data>
+  <data name="PeerSummaryTextNoPeer" xml:space="preserve">
+    <value>No peers connected</value>
+  </data>
+  <data name="PeerSummaryTextOnePeer" xml:space="preserve">
+    <value>{0} is online</value>
+  </data>
+  <data name="PeerSummaryTextMultiPeers" xml:space="preserve">
+    <value>{0}, {1} are online</value>
+  </data>
+  <data name="ConnectedUsersListLabelText" xml:space="preserve">
+    <value>Connected users</value>
   </data>
 </root>

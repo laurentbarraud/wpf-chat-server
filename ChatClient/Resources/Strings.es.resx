@@ -172,7 +172,7 @@
     <value>La dirección IP es incorrecta. Déjela vacía para conectarse localmente.</value>
   </data>
   <data name="LicenceFinal" xml:space="preserve">
-    <value>v1.1 - feb. 2026 - Laurent Barraud</value>
+    <value>v1.1 - Julio 2026 - Laurent Barraud</value>
   </data>
   <data name="LicenceInfo" xml:space="preserve">
     <value>Este software de código abierto se distribuye con la esperanza de que sea útil, pero sin ninguna garantía.</value>
@@ -208,10 +208,10 @@
     <value>Salir</value>
   </data>
   <data name="UseTcpPortLabel" xml:space="preserve">
-    <value>Usar puerto TCP:</value>
+    <value>Usar puerto TCP</value>
   </data>
-  <data name="UseEncryptionLabel" xml:space="preserve">
-    <value>Usar cifrado para los mensajes</value>
+  <data name="EncryptMessagesLabel" xml:space="preserve">
+    <value>Cifrar los mensajes</value>
   </data>
   <data name="GettingMissingKeysToolTip" xml:space="preserve">
     <value>Obteniendo claves faltantes...</value>
@@ -232,26 +232,27 @@
     <value>Uso: chat-client.exe [opciones]
 
 Opciones:
-  -u, --nombre, --username   Establecer nombre de usuario y auto-conectar
-  -p, --port, --puerto       Establecer el puerto del servidor
+  -u, --nombre, --username   Establecer nombre de usuario
+                                        y auto-conectar
+  -p, --port, --puerto      Establecer el puerto del servidor
 
   --oscuro, --dark           Cambiar al tema oscuro
-  --claro,  --light          Cambiar al tema claro
+  --claro,  --light            Cambiar al tema claro
 
-  --es, --español            Cambiar al español
-  --en, --english            Cambiar a inglés
-  --fr, --francés            Cambiar a francés
+  --es, --español             Cambiar al español
+  --en, --english              Cambiar a inglés
+  --fr, --francés               Cambiar a francés
 
-  -e, --enc, --encrypted     Activar cifrado de extremo a extremo
+  -e, --enc, --encrypted   Activar cifrado de extremo a extremo
 
   -r, -t, -m, --reduce       Activar minimizar a la bandeja del sistema
-  --tray, --bandeja          Alias para la bandeja del sistema
+  --tray, --bandeja         Alias para la bandeja del sistema
 
-  -c, -d, --debug            Abrir ventana de consola
+  -c, -d, --debug             Abrir ventana de consola
 
-  -h, -? , --help, --ayuda   Mostrar este mensaje de ayuda
+  -h, -? , --help, --ayuda Mostrar este mensaje de ayuda
 
-  -v, --about, --version     Abrir la ventana Acerca de / mostrar versión
+  -v, --about, --version   Abrir la ventana Acerca de / mostrar versión
 
 Todos los argumentos admiten notación estilo Windows (/opción)
 y estilo Unix (--opción).
@@ -349,9 +350,21 @@ y lista de usuarios conectados</value>
     <value>Configuración</value>
   </data>
   <data name="RawTextModeLabel" xml:space="preserve">
-    <value>Usar el modo de texto sin formato para los mensajes</value>
+    <value>Modo de texto plano</value>
   </data>
   <data name="OutgoingBubbleColorLabel" xml:space="preserve">
-    <value>Couleur des bulles envoyées</value>
+    <value>Color de los mensajes enviados</value>
+  </data>
+  <data name="PeerSummaryTextNoPeer" xml:space="preserve">
+    <value>Ningún peer conectado</value>
+  </data>
+  <data name="PeerSummaryTextOnePeer" xml:space="preserve">
+    <value>{0} está en línea</value>
+  </data>
+  <data name="PeerSummaryTextMultiPeers" xml:space="preserve">
+    <value>{0}, {1} están en línea</value>
+  </data>
+  <data name="ConnectedUsersListLabelText" xml:space="preserve">
+    <value>Usuarios conectados</value>
   </data>
 </root>

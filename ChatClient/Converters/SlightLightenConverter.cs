@@ -1,7 +1,7 @@
 ﻿/// <file>SlightLightenConverter.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using System;
 using System.Globalization;
@@ -19,6 +19,7 @@ namespace ChatClient.Converters
         /// <summary>
         /// Percentage of brightness to add.
         /// Default is +6%, which is visually subtle but effective.
+        /// If BoostFactor is negative, the color is slightly darkened instead of lightened.
         /// </summary>
         public double BoostFactor { get; set; } = 0.06;
 
@@ -50,12 +51,9 @@ namespace ChatClient.Converters
             normalizedBlue = Math.Min(1.0, normalizedBlue + BoostFactor);
 
             // Converts the normalized components back into byte values (0–255)
-            // and reconstruct the final Color instance.
-            return Color.FromRgb(
-                (byte)(normalizedRed * 255),
-                (byte)(normalizedGreen * 255),
-                (byte)(normalizedBlue * 255)
-            );
+            // and reconstructs the final Color instance.
+            return Color.FromRgb((byte)(normalizedRed * 255), (byte)(normalizedGreen * 255),
+                (byte)(normalizedBlue * 255));
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -1,17 +1,20 @@
 ﻿/// <file>MessageTemplateSelector.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>February 8th, 2026</date>
+/// <date>July 9th, 2026</date>
 
 using ChatClient.MVVM.Model;
-using ChatClient.MVVM.ViewModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace ChatClient.MVVM.View
 {
+    /// <summary>
+    /// Presentation component: in the MVVM architecture, 
+    /// everything related to presentation (XAML, styles, 
+    /// converters, selectors, triggers, templates) must
+    /// be stored in Views folder.
+    /// </summary>
     public class MessageTemplateSelector : DataTemplateSelector
     {
         public DataTemplate RawTextTemplate { get; set; } = null!;
@@ -21,36 +24,45 @@ namespace ChatClient.MVVM.View
 
         /// <summary>
         /// Selects the appropriate DataTemplate for a chat message based on its type
-        /// and the current UI display mode. Prioritizes the raw-text mode when enabled,
-        /// then falls back to system, sent, or received message templates.
+        /// and the current UI display mode. 
         /// </summary>
         public override DataTemplate SelectTemplate(object item, DependencyObject container)
         {
+            // Ensures the item is a ChatMessage
             if (item is not ChatMessage chatMessage)
             {
                 return base.SelectTemplate(item, container);
             }
 
-            // Retrieves the MainViewModel from the owning ItemsControl
-            if (container is FrameworkElement fe)
+            // Resolves ItemsControl to access MainViewModel
+            if (container is FrameworkElement frameworkElement)
             {
-                var itemsControl = ItemsControl.ItemsControlFromItemContainer(fe);
-                if (itemsControl?.DataContext is MainViewModel viewModel && viewModel.RawTextMode)
+                var itemsControl = ItemsControl.ItemsControlFromItemContainer(frameworkElement);
+
+                // Raw text mode applies only in MainWindowLegacy
+                if (Properties.Settings.Default.RawTextMode)
                 {
-                    return RawTextTemplate;
+                    if (Application.Current.MainWindow is ChatClient.MVVM.View.MainWindowLegacy)
+                    {
+                        return RawTextTemplate;
+                    }
                 }
+
             }
 
+            // System messages
             if (chatMessage.IsSystemMessage)
             {
                 return SystemMessageTemplate;
             }
 
+            // Sent by local user
             if (chatMessage.IsFromLocalUser)
             {
                 return SentBubbleTemplate;
             }
 
+            // Received from peer
             return ReceivedMessageTemplate;
         }
     }

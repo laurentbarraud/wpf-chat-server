@@ -1,0 +1,1060 @@
+﻿<Window x:Class="ChatClient.MVVM.View.MainWindowLegacy"
+        x:Name="MainWindowLegacy1"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ChatClient" 
+        xmlns:vm="clr-namespace:ChatClient.MVVM.ViewModel"
+        xmlns:model="clr-namespace:ChatClient.MVVM.Model"
+        xmlns:tb="http://www.hardcodet.net/taskbar"
+        xmlns:helpers="clr-namespace:ChatClient.Helpers"
+        xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+        xmlns:settings="clr-namespace:ChatClient.Properties"
+        mc:Ignorable="d"
+        Title="Chat client" 
+        Icon="/Resources/ChatClient-icon.ico" 
+        Height="491" 
+        Width="759" 
+        d:Width="900"
+        d:Height="600"     
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}"
+        Closing="MainWindow_Closing" 
+        LayoutUpdated="Window_LayoutUpdated" 
+        ResizeMode="CanResize"
+        PreviewKeyDown="MainWindow_PreviewKeyDown" 
+        SizeChanged="Window_SizeChanged"
+        SizeToContent="Manual"
+        StateChanged="MainWindow_StateChanged" 
+        WindowStartupLocation="CenterScreen" 
+        TabIndex="12">
+    <Window.Resources>
+
+        <!-- Connected field shine animation -->
+        <Storyboard x:Key="ConnectedShineAnimation">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                             From="0.2" To="1.0" 
+                             Duration="0:0:0.8"
+                             AutoReverse="False"/>
+        </Storyboard>
+
+        <!-- IP address field style -->
+        <Style x:Key="IPAddressTextBoxStyle" TargetType="TextBox" BasedOn="{x:Null}">
+            <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Opacity" Value="1.0"/>
+
+            <Style.Triggers>
+
+                <!-- Avoids applying disabled grey style of WPF -->
+                <Trigger Property="IsReadOnly" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                </Trigger>
+
+                <!-- Connected -->
+                <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                    <Setter Property="IsReadOnly" Value="True"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="Text" Value="{Binding CurrentIPDisplay}"/>
+                    <Setter Property="Opacity" Value="1.0"/>
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard Storyboard="{StaticResource ConnectedShineAnimation}"/>
+                    </DataTrigger.EnterActions>
+                </DataTrigger>
+
+                <!-- Disconnected -->
+                <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                    <Setter Property="Opacity" Value="0.10"/>
+                </DataTrigger>
+
+            </Style.Triggers>
+        </Style>
+
+        <!-- Lock drop animation -->
+        <Storyboard x:Key="LockDropAnim">
+
+            <!-- Slight vertical offset to simulate coming from above -->
+            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)"
+                     From="-5" To="0"
+                     Duration="0:0:1.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <!-- Scale: simulate depth -->
+            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleX)"
+                     From="1.8" To="1.0"
+                     Duration="0:0:1.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(ScaleTransform.ScaleY)"
+                     From="1.8" To="1.0"
+                     Duration="0:0:1.3">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <!-- Opacity: faint when far away, solid when it lands -->
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                     From="0.001" To="1.00"
+                     Duration="0:0:1.0">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+        </Storyboard>
+
+        <!-- Encryption icon style -->
+        <Style x:Key="EncryptionStatusIconStyle" TargetType="Image">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <TransformGroup>
+                        <ScaleTransform/>
+                        <TranslateTransform/>
+                    </TransformGroup>
+                </Setter.Value>
+            </Setter>
+
+            <Setter Property="Visibility"
+                    Value="{Binding EncryptMessages, Converter={StaticResource BoolToVis}}"/>
+
+            <Setter Property="Source" Value="/Resources/syncing-keys.png"/>
+            <Setter Property="ToolTip"
+                    Value="{Binding GettingMissingKeysToolTip}"/>
+
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding AllKeysValid}" Value="True">
+                    <Setter Property="Source" Value="/Resources/encrypted.png"/>
+                    <Setter Property="ToolTip" Value="{Binding EncryptionEnabledToolTip}"/>
+
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard Storyboard="{StaticResource LockDropAnim}"/>
+                    </DataTrigger.EnterActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Slide animation for emoji popup -->
+        <Storyboard x:Key="SlideInStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupEmoji"
+                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
+                     From="-200" To="0"
+                     Duration="0:0:0.3"
+                     AccelerationRatio="0.2"
+                     DecelerationRatio="0.8" />
+        </Storyboard>
+
+        <!-- Slide-out animation for the emoji panel -->
+        <Storyboard x:Key="SlideOutStoryboard">
+            <DoubleAnimation Storyboard.TargetName="popupEmoji"
+                     Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)"
+                     From="0" To="-480"
+                     Duration="0:0:0.4"
+                     AccelerationRatio="0.6"
+                     DecelerationRatio="0.4" />
+        </Storyboard>
+
+        <!-- Watermarks opacity style -->
+        <Style x:Key="WatermarkFadeStyle" TargetType="TextBlock">
+            <Setter Property="Opacity" Value="0.25"/>
+
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+
+                <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                    <Setter Property="Opacity" Value="0.25"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid x:Name="GrdMain" 
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"
+          DataContext="{Binding}"
+          Background="{DynamicResource BackgroundBrush}">
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="ColRoster" Width="*" MinWidth="40" d:Width="280"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0"
+                BorderBrush="#1A000000"
+                BorderThickness="1"
+                Background="Transparent">
+            
+            <!-- Left Panel -->
+            <Grid x:Name="GrdLeft" 
+              HorizontalAlignment="Stretch" 
+              MinWidth="40">
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Row 0 : Credentials block -->
+                <Grid Grid.Row="0" HorizontalAlignment="Stretch">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Username row -->
+                    <Grid Grid.Row="0" HorizontalAlignment="Stretch">
+
+                        <Grid.Resources>
+                            <Style x:Key="UsernameOpacityStyle"
+                                   TargetType="TextBox"
+                                   BasedOn="{x:Null}">
+                                <Setter Property="Opacity" Value="1.0"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Opacity" Value="0.25"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Resources>
+
+                        <Border BorderBrush="{DynamicResource InputBorderBrush}"
+                                BorderThickness="1"
+                                Background="Transparent"
+                                VerticalAlignment="Center">
+
+                            <Grid>
+                                <TextBox x:Name="TxtUsername"
+                                         IsReadOnly="{Binding IsConnected}"
+                                         Style="{StaticResource UsernameOpacityStyle}"
+                                         Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                                         Height="{Binding UsernameAndIPAddressInputFieldHeight}"
+                                         FontSize="{Binding DisplayFontSize}"
+                                         PreviewKeyDown="TxtUsername_PreviewKeyDown"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         VerticalContentAlignment="Center"
+                                         HorizontalAlignment="Stretch"
+                                         VerticalAlignment="Center"
+                                         MinHeight="25"
+                                         MinWidth="120"
+                                         Panel.ZIndex="1"/>
+
+                                <TextBlock x:Name="TxtUsernameWatermark"
+                                           FontSize="{Binding DisplayFontSize}"
+                                           FontStyle="Italic"
+                                           Text="{Binding UsernameWatermark}"
+                                           Foreground="{DynamicResource WatermarkBrush}"
+                                           Margin="4,0,0,0"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Left"
+                                           IsHitTestVisible="False"
+                                           Panel.ZIndex="0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource WatermarkFadeStyle}">
+
+                                            <!-- Default state: watermark hidden -->
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+
+                                            <Style.Triggers>
+
+                                                <!-- If the TextBox is empty, shows the watermark -->
+                                                <DataTrigger Binding="{Binding Text, ElementName=TxtUsername}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+
+                                                <!-- If the TextBox has keyboard focus, hides the watermark -->
+                                                <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TxtUsername}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+
+                                                <!-- If the TextBox is not empty, hides the watermark -->
+                                                <!-- This ensures the watermark disappears as soon as the user types -->
+                                                <DataTrigger Binding="{Binding Text, ElementName=TxtUsername}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+
+                    </Grid>
+
+                    <!-- IP Address row -->
+                    <Grid Grid.Row="1" HorizontalAlignment="Stretch">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border BorderBrush="{DynamicResource InputBorderBrush}"
+                                BorderThickness="1"
+                                Background="Transparent"
+                                VerticalAlignment="Center">
+
+                            <!-- Grid that contains TextBox and Watermark -->
+                            <Grid x:Name="GrdIPAddressContainer">
+
+                                <!-- IP address input -->
+                                <TextBox x:Name="TxtServerIPAddress" 
+                                         IsReadOnly="{Binding IsConnected}" 
+                                         Style="{StaticResource IPAddressTextBoxStyle}" 
+                                         Text="{Binding CurrentIPDisplay}" 
+                                         Height="{Binding UsernameAndIPAddressInputFieldHeight}" 
+                                         FontSize="{Binding DisplayFontSize}" 
+                                         Foreground="{DynamicResource ForegroundBrush}" 
+                                         Background="Transparent" 
+                                         BorderThickness="0" 
+                                         MinWidth="160" 
+                                         MinHeight="25" 
+                                         HorizontalAlignment="Stretch" 
+                                         VerticalAlignment="Center" 
+                                         VerticalContentAlignment="Center" 
+                                         Panel.ZIndex="1" PreviewKeyDown="TxtServerIPAddress_PreviewKeyDown"/>
+                                
+                                <!-- Native watermark overlay -->
+                                <TextBlock x:Name="TxtIPAddressWatermark"
+                                           FontStyle="Italic"
+                                           FontSize="{Binding DisplayFontSize}"
+                                           Text="{Binding IPAddressWatermark}"
+                                           Margin="4,0,0,0"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Left"
+                                           IsHitTestVisible="False"
+                                           Panel.ZIndex="0">
+
+                                    <!-- Default watermark color -->
+                                    <TextBlock.Foreground>
+                                        <SolidColorBrush Color="{DynamicResource WatermarkColor}"/>
+                                    </TextBlock.Foreground>
+
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource WatermarkFadeStyle}">
+
+                                            <!-- Default state: watermark hidden -->
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+
+                                            <Style.Triggers>
+
+                                                <!-- Uses ForegroundBrush when dark theme has been set -->
+                                                <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}" Value="dark">
+                                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                                                </DataTrigger>
+
+                                                <!-- If the field is empty and not focused and not connected, shows watermark -->
+                                                <DataTrigger Binding="{Binding Text, ElementName=TxtServerIPAddress}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+
+                                                <!-- If the field has keyboard focus, hides watermark -->
+                                                <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TxtServerIPAddress}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+
+                                                <!-- If the user is connected, hides watermark -->
+                                                <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+
+                                </TextBlock>
+
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    
+                    <!-- Connect button -->
+                    <Button Grid.Row="2"
+                        x:Name="CmdConnectDisconnect"
+                        Content="{Binding ConnectButtonText}"
+                        Command="{Binding ConnectDisconnectCommand}"
+                        Height="{Binding UsernameAndIPAddressInputFieldHeight}"
+                        MinHeight="25"
+                        FontSize="{Binding DisplayFontSize}" 
+                        HorizontalAlignment="Stretch"
+                        VerticalContentAlignment="Center"
+                        MinWidth="120"
+                        Background="{DynamicResource PrimaryBrush}"
+                        Foreground="{DynamicResource ForegroundBrush}"/>
+                </Grid>
+
+                <!-- Row 1 : Connected users list  -->
+                <Border Grid.Row="1"
+                    BorderBrush="{DynamicResource InputBorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Background="Transparent">
+
+                    <ListView x:Name="lstConnectedUsers"
+                          ItemsSource="{Binding Users}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Margin="0"
+                          Background="{DynamicResource BackgroundBrush}"
+                          Foreground="{DynamicResource ForegroundBrush}"
+                          BorderThickness="0"
+                          SnapsToDevicePixels="True">
+
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Username}"
+                                       FontSize="{Binding DataContext.DisplayFontSize,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                       TextWrapping="NoWrap"
+                                       VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+
+                    </ListView>
+                </Border>
+
+                <!-- Row 2 : Bottom toolbar -->
+                <Grid x:Name="GrdToolBar"
+                      Grid.Row="2"
+                      MinHeight="34"
+                      Height="Auto"
+                      Margin="0,0,0,2"
+                      VerticalAlignment="Stretch">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Theme toggle -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Settings -->
+                        <ColumnDefinition Width="Auto"/>
+                        <!-- Monitor -->
+                        <ColumnDefinition Width="*"/>
+                        <!-- Spacer -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Theme toggle -->
+                    <ToggleButton x:Name="ThemeToggle"
+                                  Grid.Column="0"
+                                  Width="60"
+                                  Height="32"
+                                  VerticalAlignment="Center"
+                                  Margin="5,0,10,0"
+                                  Command="{Binding ThemeToggleCommand}"
+                                  IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
+                                  TabIndex="3">
+
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                <Grid>
+
+                                    <!-- Background -->
+                                    <Border x:Name="SwitchBackground"
+                                            CornerRadius="16"
+                                            Background="{DynamicResource BackgroundBrush}"
+                                            BorderBrush="{DynamicResource PrimaryBrush}"
+                                            BorderThickness="1" />
+
+                                    <!-- Thumb -->
+                                    <Grid x:Name="ThumbContainer"
+                                          Width="28" Height="28"
+                                          VerticalAlignment="Center"
+                                          Margin="2,2,30,2">
+
+                                        <Ellipse Fill="{DynamicResource PrimaryBrush}" />
+
+                                        <Image x:Name="SwitchIcon"
+                                               Source="/Resources/moon.png"
+                                               Width="18" Height="18"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                    </Grid>
+                                </Grid>
+
+                                <ControlTemplate.Triggers>
+
+                                    <!-- Dark theme : transparant with accentued border -->
+                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                        <Setter TargetName="SwitchBackground" Property="Background" Value="Transparent"/>
+                                        <Setter TargetName="SwitchBackground" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                        <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/sun.png"/>
+                                    </DataTrigger>
+
+                                    <!-- Light theme : normal background and primaryBrush edge -->
+                                    <DataTrigger Binding="{Binding IsDarkTheme}" Value="False">
+                                        <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource BackgroundBrush}"/>
+                                        <Setter TargetName="SwitchBackground" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                                        <Setter TargetName="SwitchIcon" Property="Source" Value="/Resources/moon.png"/>
+                                    </DataTrigger>
+
+                                    <!-- Thumb position -->
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="ThumbContainer" Property="Margin" Value="30,2,2,2"/>
+                                    </Trigger>
+
+                                    <Trigger Property="IsChecked" Value="False">
+                                        <Setter TargetName="ThumbContainer" Property="Margin" Value="2,2,30,2"/>
+                                    </Trigger>
+
+                                    <!-- Hover -->
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="SwitchBackground" Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                        <Setter TargetName="SwitchIcon" Property="Opacity" Value="0.9"/>
+                                    </Trigger>
+
+                                    <!-- Disabled -->
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="SwitchBackground" Property="Opacity" Value="0.4"/>
+                                        <Setter TargetName="ThumbContainer" Property="Opacity" Value="0.4"/>
+                                    </Trigger>
+
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+
+                    <!-- Settings button -->
+                    <Button x:Name="CmdSettings"
+                            Grid.Column="1"
+                            Width="32"
+                            Height="32"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            VerticalAlignment="Center"
+                            Margin="5,0,5,0"
+                            Click="CmdSettings_Click">
+
+                        <Button.Style>
+                            <Style TargetType="{x:Type Button}">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+
+                        <Image Source="/Resources/settings.png"
+                               Stretch="Uniform"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    </Button>
+
+                    <!-- Monitor button -->
+                    <Button x:Name="CmdMonitor"
+                            Grid.Column="2"
+                            Width="30"
+                            Height="30"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            VerticalAlignment="Center"
+                            Margin="10,0,5,0"
+                            Click="CmdMonitor_Click"
+                            Visibility="Collapsed"
+                            Opacity="0">
+
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+
+                                <Style.Triggers>
+
+                                    <!-- Hover effect only -->
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+
+                        <Image Source="/Resources/monitor.png"
+                               Stretch="Uniform"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Left"/>
+                    </Button>
+
+                    <!-- Spacer -->
+                    <Border Grid.Column="3"/>
+                </Grid>
+
+            </Grid>
+        </Border>
+        
+        <!-- Vertical Splitter -->
+        <GridSplitter Grid.Column="1"
+              Width="4"
+              DragCompleted="VerticalSplitter_DragCompleted"
+              PreviewMouseMove="VerticalSplitter_PreviewMouseMove"
+              ResizeBehavior="PreviousAndNext"
+              ShowsPreview="True"
+              Background="Transparent"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"/>
+
+        <!-- Right Panel -->
+        <Grid x:Name="GrdRight"
+              Grid.Column="2"
+              Background="{DynamicResource BackgroundBrush}"
+              SizeChanged="GrdRight_SizeChanged"
+              UseLayoutRounding="True"
+              SnapsToDevicePixels="True">
+
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="RowMessagesRight" Height="*" MinHeight="1"/>
+                <RowDefinition Height="4"/>
+                <RowDefinition x:Name="RowBottomRight" Height="Auto" MinHeight="34" d:Height="34"/>
+            </Grid.RowDefinitions>
+
+            <!-- Row 0 : Received messages -->
+            <ListView x:Name="lstReceivedMessages"
+                      Grid.Row="0"
+                      ItemsSource="{Binding Messages}"
+                      Loaded="lstReceivedMessages_Loaded"
+                      Background="{DynamicResource BackgroundBrush}"
+                      Foreground="{DynamicResource ForegroundBrush}"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.CanContentScroll="True"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      Padding="0"
+                      BorderThickness="0"
+                      TabIndex="6">
+
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="{x:Type ListViewItem}">
+                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                        <Setter Property="Margin" Value="0,0,0,1" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
+
+                <ListView.ItemTemplate>
+                    
+                    <DataTemplate DataType="{x:Type model:ChatMessage}">
+                        
+                        <TextBlock Text="{Binding FormattedRawText}"
+                                   TextWrapping="Wrap"
+                                   FontFamily="Segoe UI Emoji"
+                                   FontSize="{Binding DataContext.DisplayFontSize,
+                                   RelativeSource={RelativeSource AncestorType=Window}}">
+
+                            <TextBlock.Style>
+                                
+                                <Style TargetType="TextBlock">
+
+                                    <!-- Default text color for received messages -->
+                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+
+                                    <Style.Triggers>
+
+                                        <!-- If this message was written by the local user (IsFromLocalUser = true),
+                                         we want the text to use the same color as the outgoing bubble.
+                                         This makes sent messages easy to recognize. -->
+
+                                        <!-- IsFromLocalUser is a property of ChatMessage, so we can check it directly
+                                        with a DataTrigger inside the DataTemplate. -->
+
+                                        <!-- SentBubbleBackgroundBrush is stored in the Window's ViewModel.
+                                         The ListView does not know this brush by itself, so we must go up
+                                         to the Window to access it using RelativeSource AncestorType=Window. -->
+
+                                        <!-- Raw text mode: sent messages should use the same color as outgoing bubbles -->
+                                        <DataTrigger Binding="{Binding IsFromLocalUser}" Value="True">
+                                            <Setter Property="Foreground"
+                                                    Value="{Binding DataContext.SentBubbleBackgroundBrush,
+                                                        ElementName=MainWindowLegacy1}"/>
+                                                        <!-- Using ElementName ensures the binding resolves correctly.
+                                                        AncestorType=Window fails in Legacy because the visual tree
+                                                        does not include the Window as a direct ancestor. -->
+                                        </DataTrigger>
+
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+
+                        </TextBlock>
+
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+
+            </ListView>
+
+            <!-- Row 1 : Horizontal splitter separating the message list and the bottom input area -->
+            <GridSplitter Grid.Row="1"
+                          PreviewMouseMove="HorizontalSplitter_PreviewMouseMove"
+                          DragDelta="HorizontalSplitter_DragDelta"
+                          DragCompleted="HorizontalSplitter_DragCompleted"
+                          Height="5"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Center"
+                          ResizeDirection="Rows"
+                          ResizeBehavior="PreviousAndNext"
+                          Background="Transparent"
+                          ShowsPreview="False">
+
+                <!-- Custom template to show a subtle highlight on hover -->
+                <GridSplitter.Template>
+                    <ControlTemplate TargetType="GridSplitter">
+                        <Border x:Name="Grip"
+                                Background="Transparent"/>
+                        <ControlTemplate.Triggers>
+                            <!-- Highlight the splitter only when the mouse is over it -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Grip"
+                                        Property="Background"
+                                        Value="#1A777777"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </GridSplitter.Template>
+
+                <!-- Disables the splitter entirely when disconnected -->
+                <GridSplitter.Style>
+                    <Style TargetType="GridSplitter">
+                        <Setter Property="Opacity" Value="1"/>
+                        <Setter Property="IsHitTestVisible" Value="True"/>
+
+                        <Style.Triggers>
+                            <!-- When not connected: splitter becomes invisible and non-interactive -->
+                            <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                <Setter Property="Opacity" Value="0"/>
+                                <Setter Property="IsHitTestVisible" Value="False"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </GridSplitter.Style>
+            </GridSplitter>
+
+            <!-- Row 2 : Bottom block (emoji bar + input field) 
+            This entire section is hidden when the user is not connected. -->
+            <Grid Grid.Row="2"
+                  x:Name="GrdBottom"
+                  MinHeight="34"
+                  Height="Auto"
+                  VerticalAlignment="Stretch"
+                  Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}">
+                
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <!-- Emoji bar -->
+                    <RowDefinition x:Name="RowInputArea" Height="*" MinHeight="34"/>
+                    <!-- Input field -->
+                </Grid.RowDefinitions>
+
+                <!-- Row 2.0 : Emoji bar -->
+                <Grid x:Name="GrdEmoji"
+                      Grid.Row="0"
+                      MinHeight="22"
+                      Height="Auto"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Bottom">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Emoji toggle button -->
+                    <Button x:Name="CmdEmojiPanel"
+                            Grid.Column="0"
+                            Click="CmdEmojiPanel_Click"
+                            Width="32"
+                            Height="32"
+                            VerticalAlignment="Bottom"
+                            Margin="2,0,0,0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            ToolTip="Emoji bar"
+                            TabIndex="6">
+                        <Image x:Name="ImgEmojiPanel"
+                               Source="/Resources/right-arrow.png"
+                               Stretch="Uniform"
+                               Width="14"/>
+                    </Button>
+
+                    <!-- Encryption icon -->
+                    <Image x:Name="imgEncryptionStatus"
+                           Grid.Column="1"
+                           Width="15"
+                           Height="15"
+                           VerticalAlignment="Center"
+                           Margin="2,0,0,0"
+                           Style="{StaticResource EncryptionStatusIconStyle}"/>
+
+                    <!-- Emoji popup -->
+                    <Popup x:Name="popupEmoji"
+                           DataContext="{Binding}"
+                           Closed="popupEmoji_Closed"
+                           Visibility="Collapsed"
+                           Placement="Top"
+                           PlacementTarget="{Binding ElementName=TxtMessageInputField}"
+                           StaysOpen="False"
+                           AllowsTransparency="True"
+                           PopupAnimation="Fade"
+                           HorizontalOffset="0"
+                           VerticalOffset="-5">
+
+                        <Popup.RenderTransform>
+                            <TranslateTransform X="0"/>
+                        </Popup.RenderTransform>
+
+                        <Border DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                Background="{DynamicResource BackgroundBrush}"
+                                BorderBrush="{DynamicResource PrimaryBrush}"
+                                BorderThickness="1"
+                                Padding="4"
+                                Height="{Binding EmojiPopupHeight}"
+                                Width="{Binding ElementName=BrdMessageInputField, Path=ActualWidth}"
+                                HorizontalAlignment="Center">
+
+                            <!-- Emoji panel layout -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Left arrow -->
+                                <Button x:Name="CmdScrollLeft"
+                                        Grid.Column="0"
+                                        Width="20"
+                                        Height="20"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        MouseEnter="CmdScrollLeft_MouseEnter"
+                                        MouseLeave="CmdScrollLeft_MouseLeave"
+                                        ToolTip="Scroll left">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Opacity" Value="0.6"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Opacity" Value="1"/>
+                                                    <Setter Property="Background" Value="#22000000"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <Image Source="/Resources/left-arrow.png" Stretch="Uniform"/>
+                                </Button>
+
+                                <!-- Emoji list -->
+                                <ScrollViewer x:Name="emojiScrollViewer"
+                                              Grid.Column="1"
+                                              VerticalAlignment="Center"
+                                              MinHeight="48"
+                                              Margin="4,0,0,0"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              CanContentScroll="True">
+                                    <ItemsControl x:Name="emojiItems"
+                                                  ItemsSource="{Binding EmojiList}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Width="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                        Height="{Binding DataContext.EmojiButtonSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                        Margin="2,0,0,0"
+                                                        Padding="0"
+                                                        Background="{DynamicResource PrimaryBrush}"
+                                                        Foreground="{DynamicResource ForegroundBrush}"
+                                                        BorderThickness="0"
+                                                        VerticalAlignment="Center"
+                                                        Click="EmojiButton_Click">
+
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="{TemplateBinding Background}"
+                                                                    CornerRadius="4"
+                                                                    VerticalAlignment="Stretch"
+                                                                    HorizontalAlignment="Stretch">
+                                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                                  VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+
+                                                    <TextBlock Text="{Binding}"
+                                                               FontSize="{Binding DataContext.EmojiFontSize, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <!-- Right arrow -->
+                                <Button x:Name="CmdScrollRight"
+                                        Grid.Column="2"
+                                        Width="20"
+                                        Height="20"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        MouseEnter="CmdScrollRight_MouseEnter"
+                                        MouseLeave="CmdScrollRight_MouseLeave"
+                                        ToolTip="Scroll right">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Opacity" Value="0.6"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Opacity" Value="1"/>
+                                                    <Setter Property="Background" Value="#22000000"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <Image Source="/Resources/right-arrow.png" Stretch="Uniform"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </Popup>
+                </Grid>
+
+                <!-- Row 2.1 : Input field -->
+                <Grid x:Name="GrdMessageInputField"
+                      Grid.Row="1"
+                      Height="Auto"
+                      MinHeight="34"
+                      VerticalAlignment="Stretch"
+                      Margin="0">
+
+                    <Border x:Name="BrdMessageInputField"
+                            Width="{Binding MessageInputFieldWidth}"
+                            d:Width="400"
+                            Margin="{Binding MessageInputFieldMargin}"
+                            Height="Auto"
+                            MinHeight="34"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Stretch"
+                            BorderBrush="{DynamicResource PrimaryBrush}"
+                            BorderThickness="1">
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Input field watermark -->
+                            <TextBlock x:Name="TxtMessageInputFieldWatermark"
+                                       Text="{Binding MessageInputFieldWatermark}"
+                                       FontSize="{Binding DisplayFontSize}"
+                                       Margin="6,2,0,0"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Left"
+                                       IsHitTestVisible="False">
+
+                                <!-- Default watermark color (light theme) -->
+                                <TextBlock.Foreground>
+                                    <SolidColorBrush Color="{DynamicResource WatermarkColor}"/>
+                                </TextBlock.Foreground>
+
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource WatermarkFadeStyle}">
+
+                                        <!-- Default: hidden -->
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+
+                                        <Style.Triggers>
+
+                                            <!-- Uses ForegroundBrush when dark theme has been set -->
+                                            <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}" Value="dark">
+                                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                                            </DataTrigger>
+
+                                            <!-- Shows watermark when TextBox is empty -->
+                                            <DataTrigger Binding="{Binding Text, ElementName=TxtMessageInputField}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+
+                                            <!-- Hides watermark when TextBox has text -->
+                                            <DataTrigger Binding="{Binding Text, ElementName=TxtMessageInputField}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+
+                                            <!-- Hides watermark when TextBox is focused -->
+                                            <DataTrigger Binding="{Binding IsKeyboardFocusWithin, ElementName=TxtMessageInputField}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+
+                            </TextBlock>
+
+                            <!-- Text input -->
+                            <TextBox x:Name="TxtMessageInputField"
+                                     Grid.Column="0"
+                                     Text="{Binding MessageToSend, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                     FontSize="{Binding DisplayFontSize}"
+                                     CaretBrush="{DynamicResource ForegroundBrush}"
+                                     Background="Transparent"
+                                     Foreground="{DynamicResource ForegroundBrush}"
+                                     PreviewKeyDown="TxtMessageInputField_PreviewKeyDown"
+                                     VerticalAlignment="Stretch"
+                                     VerticalContentAlignment="Top"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     BorderThickness="0"
+                                     Padding="6,4,6,6"
+                                     TextChanged="TxtMessageInputField_TextChanged"/>
+
+                            <!-- Send button -->
+                            <Button x:Name="CmdSend"
+                                    Grid.Column="1"
+                                    Background="Transparent"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Bottom"
+                                    Click="CmdSend_Click"
+                                    Width="40"
+                                    Height="32"
+                                    BorderThickness="0">
+                                <!-- Style unchanged -->
+                                <Image Source="/Resources/send.png" Width="18" Height="18"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
