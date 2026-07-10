@@ -1,18 +1,15 @@
 ## Chat Client
-WPF encrypted chat app in C#, with a console server, async TCP networking, a custom packet protocol and a packet builder/parser.
+An encrypted chat application built in C# and WPF that connects locally or remotely to a minimalist console server. 
+It uses a custom binary packet protocol with framed, length‑fixed packets and provides optional RSA message encryption, along with a full dark theme.
 
 <a href="https://github.com/laurentbarraud/wpf-chat-server/releases">
   <img src="https://img.shields.io/badge/release-stable-64B07B" alt="Release"></a>
-<a href="https://dotnet.microsoft.com/en-us/download/dotnet/9.0">
-  <img src="https://img.shields.io/badge/.NET-9-4B1D7A" alt=".NET 9"></a>
 <a href="https://github.com/laurentbarraud/wpf-chat-server/releases">
   <img src="https://img.shields.io/github/downloads/laurentbarraud/wpf-chat-server/latest/total?color=88aacc&style=flat" alt="GitHub release downloads"></a>
 <br/>
 <p align="center">
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="chat client screenshot" >
-</p>
-
-> 🔧 The modern layout is almost ready, new commits are coming soon. 
+</p> 
 
 ## Features
 **Core**
@@ -33,12 +30,11 @@ WPF encrypted chat app in C#, with a console server, async TCP networking, a cus
 - 🎞️ Subtle WPF animations using xaml storyboards. 
 - 🌐 Localized in English, French and Spanish. 
 
-**Coming soon**
+**Coming soon in v1.1**
 - [x] 💬 Bubble‑style message display
 - [x] 🎨 Custom color for outgoing message bubbles
-- [ ] 🌗 Adjustable brightness for bubble backgrounds
-- [ ] 🌓 Automatic text‑contrast switching for optimal readability
-- [x] 🔄 Toggle to switch back to the classic layout (side roster + raw text mode)
+- [x] 🔄 Toggle to switch back to the legacy layout
+- [ ] 🌗 Adaptive bubble background brightness that automatically switches text color when the contrast threshold is reached.
 - [ ] 🆔 Public‑key verification with visual identity marker
 
 **Server**
@@ -55,14 +51,9 @@ In Debug mode, a console window is attached to the client at startup for debuggi
 To avoid this, run the application in Release mode.
 
 ## Download
-Go to the [Releases](../../releases) section.
+Go to the [Releases](../../releases) section to get a packaged installer.
 
-Technical documentation (5 pages):
+Technical documentation covering class responsibilities and the encryption pipeline (5 pages):
 - English — [ChatClient-documentation.pdf](/docs/ChatClient-documentation.pdf)
 - Français — [ChatClient-documentation-fr.pdf](/docs/ChatClient-documentation-fr.pdf).
-
-
- 
-
-
 
