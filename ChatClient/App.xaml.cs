@@ -1,7 +1,7 @@
 ﻿/// <file>App.xaml.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>July 9th, 2026</date>
+/// <date>July 10th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.View;

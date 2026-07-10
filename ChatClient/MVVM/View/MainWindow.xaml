@@ -22,17 +22,37 @@
 
     <Window.Resources>
 
-        <SolidColorBrush x:Key="SentBubbleBaseBrush"
-                     Color="{Binding DataContext.SentBubbleBackgroundBrush.Color,
-                                     ElementName=lstReceivedMessages}"/>
-
         <!-- Controls the background of the incoming messages area.
-             Default: uses the application's theme (BackgroundBrush).
-             When bubble mode is enabled and connected:
-               - light theme  → soft cream background (#F4F3E8)
-               - dark theme   → very dark brown background (#1E1D0D) -->
+        Default: uses the application's theme (BackgroundBrush).
+        When bubble mode is enabled and connected:
+            - light theme  → soft cream background (#F4F3E8)
+            - dark theme   → soft neutral dark background (#121212) -->
         <Style TargetType="Grid" x:Key="IncomingMessagesAreaBackgroundStyle">
+
             <Setter Property="Background" Value="{DynamicResource BackgroundBrush}"/>
+
+            <Style.Triggers>
+
+                <!-- Light theme -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsConnected}" Value="True"/>
+                        <Condition Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}" Value="light"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#F4F3E8"/>
+                </MultiDataTrigger>
+
+                <!-- Dark theme -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsConnected}" Value="True"/>
+                        <Condition Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}" Value="dark"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#121212"/>
+                </MultiDataTrigger>
+
+            </Style.Triggers>
+
         </Style>
 
         <!-- Connected field shine animation -->
@@ -282,14 +302,6 @@
                Style="{StaticResource SystemBubbleStyle}"/>
         </DataTemplate>
 
-        <!-- Template selector -->
-        <selector:MessageTemplateSelector
-                x:Key="MessageTemplateSelector"
-                SentBubbleTemplate="{StaticResource SentBubbleTemplate}"
-                ReceivedMessageTemplate="{StaticResource ReceivedBubbleTemplate}"
-                SystemMessageTemplate="{StaticResource SystemMessageTemplate}"/>
-
-
         <!-- Watermark base style -->
         <Style x:Key="WatermarkFadeStyle" TargetType="TextBlock">
             <Setter Property="Opacity" Value="0.25"/>
@@ -304,6 +316,12 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+
+        <local:MessageTemplateSelector x:Key="MessageTemplateSelector"
+                               SentBubbleTemplate="{StaticResource SentBubbleTemplate}"
+                               ReceivedMessageTemplate="{StaticResource ReceivedBubbleTemplate}"
+                               SystemMessageTemplate="{StaticResource SystemMessageTemplate}" />
 
     </Window.Resources>
     
@@ -330,34 +348,29 @@
 
         <!-- Row 0 : Top panel -->
         <Grid x:Name="TopPanel"
-              Grid.Row="0"
-              Background="{DynamicResource BackgroundBrush}"
-              Margin="6,4,6,4">
+          Grid.Row="0"
+          Background="{DynamicResource BackgroundBrush}"
+          Margin="6,4,6,4">
 
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <!-- Center: Username | IP | Connect | List of users -->
-                <ColumnDefinition Width="Auto"/>
-                <!-- Right: Theme | Settings | Monitor | Spacer -->
+                <ColumnDefinition Width="*"/>                       <!-- left spacer -->
+                <ColumnDefinition Width="Auto"/>                     <!-- center area -->
+                <ColumnDefinition Width="2*"/>                       <!-- right spacer -->
             </Grid.ColumnDefinitions>
 
             <!-- Center area -->
-            <Grid Grid.Column="0"
+            <Grid Grid.Column="1"
                   VerticalAlignment="Center"
                   HorizontalAlignment="Center">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <!-- Username -->
-                    <ColumnDefinition Width="8"/>
-                    <!-- spacing -->
-                    <ColumnDefinition Width="Auto"/>
-                    <!-- IP -->
-                    <ColumnDefinition Width="8"/>
-                    <!-- spacing -->
-                    <ColumnDefinition Width="Auto"/>
-                    <!-- Connect -->
-                    <ColumnDefinition Width="Auto"/>
-                    <!-- Connected users list -->
+                    <ColumnDefinition Width="Auto"/>                         <!-- Username -->
+                    <ColumnDefinition Width="8"/>                            <!-- spacing -->
+                    <ColumnDefinition Width="Auto"/>                         <!-- IP -->
+                    <ColumnDefinition Width="8"/>                            <!-- spacing -->
+                    <ColumnDefinition Width="Auto"/>                         <!-- Connect -->
+                    <ColumnDefinition Width="12"/>                           <!-- spacing -->
+                    <ColumnDefinition Width="Auto"/>                         <!-- Connected users label -->
+                    <ColumnDefinition Width="32"/>                           <!-- spacing -->
                 </Grid.ColumnDefinitions>
 
                 <!-- Username -->
@@ -368,6 +381,7 @@
                         Focusable="True" 
                         KeyboardNavigation.IsTabStop="False"
                         Margin="0,0,6,0">
+
                     <Grid>
                         <TextBox x:Name="TxtUsername"
                                  Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
@@ -382,7 +396,35 @@
                                  MinWidth="120"
                                  MinHeight="25"
                                  TabIndex="0"
-                                 Panel.ZIndex="1"/>
+                                 Panel.ZIndex="1">
+
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                                    <Setter Property="IsEnabled" Value="True"/>
+
+                                    <Style.Triggers>
+
+                                        <!-- Disables the field when connected -->
+                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                        </DataTrigger>
+
+                                        <!-- Activates the field when disconnected -->
+                                        <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                                            <Setter Property="IsEnabled" Value="True"/>
+                                        </DataTrigger>
+
+                                        <!-- Dark theme: forces white text -->
+                                        <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}" Value="dark">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+
+                        </TextBox>
 
                         <TextBlock x:Name="TxtUsernameWatermark"
                                    FontSize="{Binding DisplayFontSize}"
@@ -557,7 +599,7 @@
                         Cursor="Hand"/>
 
                 <!-- Connected users list -->
-                <Label Grid.Column="5"
+                <Label Grid.Column="6"
                        x:Name="lblConnectedUsers"
                        Content="{x:Static sys:String.Empty}"
                        Foreground="{DynamicResource ForegroundBrush}"
@@ -615,12 +657,11 @@
 
                     </Border>
                 </Popup>
-
             </Grid>
 
             <!-- Right area : Theme | Settings | Monitor | Spacer -->
-            <Grid Grid.Column="1"
-                  VerticalAlignment="Center">
+            <Grid Grid.Column="2"
+                VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <!-- Theme toggle -->
@@ -629,6 +670,13 @@
                     <ColumnDefinition Width="Auto"/>
                     <!-- Monitor -->
                 </Grid.ColumnDefinitions>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
                 <!-- Theme toggle -->
                 <ToggleButton x:Name="ThemeToggle"
@@ -770,9 +818,9 @@
                             Background="Transparent"
                             BorderThickness="0"
                             VerticalAlignment="Center"
-                            Margin="10,0,5,0"
+                            HorizontalAlignment="Center"
+                            Margin="5,0,5,0"
                             Click="CmdMonitor_Click"
-                            Visibility="Collapsed"
                             Opacity="0">
 
                     <Button.Style>
@@ -802,34 +850,18 @@
 
         </Grid>
 
-        <!-- Vertical Splitter -->
-        <GridSplitter Grid.Column="1"
-              Width="4"
-              ResizeBehavior="PreviousAndNext"
-              ShowsPreview="True"
-              Background="Transparent"
-              HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"/>
-        <!-- Right Panel -->
-        <Grid x:Name="GrdRight"
-              Grid.Column="2"
-              Style="{StaticResource IncomingMessagesAreaBackgroundStyle}"
-              UseLayoutRounding="True"
-              SnapsToDevicePixels="True">
+        <!-- Messages list -->
+        <Grid Grid.Row="1"
+              Style="{StaticResource IncomingMessagesAreaBackgroundStyle}">
 
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            
-            <!-- Messages list -->
             <ListView x:Name="lstReceivedMessages"
-                      Grid.Row="1"
                       Background="Transparent"
                       BorderThickness="0"
                       ItemsSource="{Binding Messages}"
                       ItemTemplateSelector="{StaticResource MessageTemplateSelector}">
 
                 <ListView.ItemContainerStyle>
+                    
                     <Style TargetType="ListViewItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -842,70 +874,76 @@
                         <Setter Property="IsHitTestVisible" Value="False"/>
                         <Setter Property="Template">
                             <Setter.Value>
+                                
                                 <ControlTemplate TargetType="ListViewItem">
+                                    
                                     <Border Background="Transparent"
                                             BorderThickness="0"
                                             SnapsToDevicePixels="False">
                                         <ContentPresenter/>
                                     </Border>
+                                
                                 </ControlTemplate>
+                            
                             </Setter.Value>
                         </Setter>
                     </Style>
+            
                 </ListView.ItemContainerStyle>
-
+            
             </ListView>
 
-            <!-- Row 2 : Horizontal splitter separating the message list and the bottom input area -->
-            <GridSplitter Grid.Row="2"
-                          ResizeDirection="Rows"
-                          ResizeBehavior="PreviousAndNext"
-                          PreviewMouseMove="HorizontalSplitter_PreviewMouseMove"
-                          DragDelta="HorizontalSplitter_DragDelta"
-                          DragCompleted="HorizontalSplitter_DragCompleted"
-                          Height="5"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Center"
-                          Background="Transparent"
-                          ShowsPreview="False">
-
-                <!-- Custom template to show a subtle highlight on hover -->
-                <GridSplitter.Template>
-                    <ControlTemplate TargetType="GridSplitter">
-                        <Border x:Name="Grip"
-                                Background="Transparent"/>
-                        <ControlTemplate.Triggers>
-                            
-                            <!-- Highlight the splitter only when the mouse is over it -->
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Grip"
-                                        Property="Background"
-                                        Value="#1A777777"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </GridSplitter.Template>
-
-                <!-- Disables the splitter entirely when disconnected -->
-                <GridSplitter.Style>
-                    <Style TargetType="GridSplitter">
-                        <Setter Property="Opacity" Value="1"/>
-                        <Setter Property="IsHitTestVisible" Value="True"/>
-
-                        <Style.Triggers>
-                            
-                            <!-- When not connected: splitter becomes invisible and non-interactive -->
-                            <DataTrigger Binding="{Binding IsConnected}" Value="False">
-                                <Setter Property="Opacity" Value="0"/>
-                                <Setter Property="IsHitTestVisible" Value="False"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </GridSplitter.Style>
-            </GridSplitter>
         </Grid>
 
-        <!-- Row 3 : Emoji bar -->         
+        <!-- Row 2 : Horizontal splitter separating the message list and the bottom input area -->
+        <GridSplitter Grid.Row="2"
+                        ResizeDirection="Rows"
+                        ResizeBehavior="PreviousAndNext"
+                        PreviewMouseMove="HorizontalSplitter_PreviewMouseMove"
+                        DragDelta="HorizontalSplitter_DragDelta"
+                        DragCompleted="HorizontalSplitter_DragCompleted"
+                        Height="5"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        ShowsPreview="False">
+
+            <!-- Custom template to show a subtle highlight on hover -->
+            <GridSplitter.Template>
+                <ControlTemplate TargetType="GridSplitter">
+                    <Border x:Name="Grip"
+                            Background="Transparent"/>
+                    <ControlTemplate.Triggers>
+
+                        <!-- Highlight the splitter only when the mouse is over it -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Grip"
+                                    Property="Background"
+                                    Value="#1A777777"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </GridSplitter.Template>
+
+            <!-- Disables the splitter entirely when disconnected -->
+            <GridSplitter.Style>
+                <Style TargetType="GridSplitter">
+                    <Setter Property="Opacity" Value="1"/>
+                    <Setter Property="IsHitTestVisible" Value="True"/>
+
+                    <Style.Triggers>
+
+                        <!-- When not connected: splitter becomes invisible and non-interactive -->
+                        <DataTrigger Binding="{Binding IsConnected}" Value="False">
+                            <Setter Property="Opacity" Value="0"/>
+                            <Setter Property="IsHitTestVisible" Value="False"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </GridSplitter.Style>
+        </GridSplitter>
+    
+        <!-- Row 3 : Emoji bar -->
         <Grid x:Name="GrdEmoji"
                 Grid.Row="3"
                 Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}"
@@ -1103,7 +1141,7 @@
                                 <Setter Property="Visibility" Value="Collapsed"/>
 
                                 <Style.Triggers>
-                                    
+
                                     <!-- Uses ForegroundBrush when dark theme has been set -->
                                     <DataTrigger Binding="{Binding Source={x:Static settings:Settings.Default}, Path=AppTheme}" Value="dark">
                                         <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
@@ -1173,7 +1211,6 @@
                                 BorderThickness="0">
                         <Image Source="/Resources/send.png" Width="18" Height="18"/>
                     </Button>
-
                 </Grid>
             </Border>
         </Grid>
