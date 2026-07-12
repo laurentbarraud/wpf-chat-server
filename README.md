@@ -10,11 +10,11 @@ An encrypted chat app built in C# and WPF that connects to a minimalist console 
 </p> 
 
 It uses a custom binary packet protocol with framed, fixed‑length packets.  
-Each packet type is identified by an opcode, defined in a shared library with a homemade binary writer and parser.
+Each packet type is identified by an opcode, defined in a shared library. 
 
-Message encryption was tested for months with several clients running on localhost and would behave the same remotely anywhere in the world, as long as you have forwarded a port so your friend can reach the server you host.
+Message encryption was tested with several clients running on localhost and would behave the same remotely anywhere in the world, as long as you have forwarded a port so your friend can reach the server you host.
 
-### Features
+## Features
 **Core**
 - 🔐 End‑to‑end RSA 2048 bits encryption with OAEP for messages, automatic keypair generation and real‑time public key sync. 
 - 🔑 Public Key Monitor — live view of all known keys, drives encryption state. 
@@ -33,7 +33,7 @@ Message encryption was tested for months with several clients running on localho
 - 🎞️ Subtle WPF animations using xaml storyboards. 
 - 🌐 Localized in English, French and Spanish. 
 
-**Coming soon in v1.1**
+**Coming soon**
 - [ ] 🔐 Migration of message encryption to AES, with key exchange encrypted using RSA
 - [x] 💬 Bubble‑style message display
 - [x] 🎨 Custom background color for outgoing message bubbles
@@ -45,10 +45,10 @@ Message encryption was tested for months with several clients running on localho
 - 📡 Broadcast & routing logic that distributes messages to all connected clients.
 - 🌐 Auto‑localized server messages in French, Spanish or English, used as fallback for any other OS language.
 
-**Coming soon in v1.1**
+**Coming soon**
 - [ ] Non‑blocking input loop that keeps accepting clients while processing commands
 
-### How to Run
+## How to Run
 (to get the upcoming alpha version)
 
 1. Get the .git link from the green Code button on the repository main page.
@@ -68,16 +68,16 @@ After a successful build:
 
 To launch additional clients, run ChatClient.exe from the /Release folder.
 
-### Good to Know
+## Good to Know
 - In Debug mode, a console window is attached to the client at startup for debugging purposes, but you can freely minimize it.  
 - In Release mode, you have to press Ctrl+K or Ctrl+M to open the monitor window - so random coworkers won't find it.
 - The server and client use TCP port 7123 by default.
 If that port is unavailable or blocked by your company, just pick any open port above 1000 and set both to use it.
-- Message encryption was tested for months  with several clients running on localhost.   Functional tests are available <a href="https://github.com/laurentbarraud/wpf-chat-server/issues/24">here</a>.
-- In the upcoming version, message encryption will be replaced by AES, now that the encryption pipeline is reliable.
+- Message encryption was tested with several clients running on localhost. Functional tests are available <a href="https://github.com/laurentbarraud/wpf-chat-server/issues/24">here</a>.
+- In the upcoming version, message encryption will be replaced by AES-GCM, now that the encryption pipeline is reliable.
 
 ## Download
-Go to the [Releases](../../releases) section to get a packaged installer, recommended for stable testing or if you don’t want to install Visual Studio.
+Go to the [Releases](../../releases) section to get a packaged installer. Recommended for recreative testing or if you don’t want to install Visual Studio.
 
 Technical overview with class responsibilities (5 pages):
 - English — [ChatClient-documentation.pdf](/docs/ChatClient-documentation.pdf)
