@@ -1,6 +1,5 @@
 ## Chat Client
 An encrypted chat app built in C# and WPF that connects to a minimalist console server.  
-
 <a href="https://github.com/laurentbarraud/wpf-chat-server/releases">
   <img src="https://img.shields.io/badge/release-stable-64B07B" alt="Release"></a>
 <a href="https://github.com/laurentbarraud/wpf-chat-server/releases">
@@ -10,9 +9,10 @@ An encrypted chat app built in C# and WPF that connects to a minimalist console 
 <img src="https://raw.githubusercontent.com/laurentbarraud/wpf-chat-server/refs/heads/master/WPF-chat-server-main-window-screenshot.jpg" width="500" alt="chat client screenshot" >
 </p> 
 
-It uses a custom binary packet protocol with framed, length‑fixed packets and each type is identified by a opcode, defined in a shared library containing the enum and the binary writer/parser. 
+It uses a custom binary packet protocol with framed, fixed‑length packets.  
+Each packet type is identified by an opcode, defined in a shared library with a homemade binary writer and parser.
 
-Message encryption was tested with several clients opened on localhost. 
+Message encryption was tested for months with several clients running on localhost and would behave the same remotely anywhere in the world, as long as you have forwarded a port so your friend can reach the server you host.
 
 ### Features
 **Core**
