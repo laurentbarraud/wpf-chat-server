@@ -321,4 +321,7 @@
   <data name="PublicKeyResponseRelayFailed" xml:space="preserve">
     <value>Falló la retransmisión de la respuesta de clave pública.</value>
   </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>Comando desconocido.</value>
+  </data>
 </root>

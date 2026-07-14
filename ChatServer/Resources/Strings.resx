@@ -321,4 +321,7 @@
   <data name="PublicKeyResponseRelayFailed" xml:space="preserve">
     <value>Public key response relay failed.</value>
   </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>Unknown command.</value>
+  </data>
 </root>

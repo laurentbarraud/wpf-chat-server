@@ -1,7 +1,7 @@
 ﻿/// <file>ClientConnection.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>July 10th, 2026</date>
+/// <date>July 15th, 2026</date>
 
 using ChatClient.Helpers;
 using ChatClient.MVVM.Model;
@@ -323,8 +323,8 @@ namespace ChatClient.Net
         /// </summary>
         public Task DisconnectFromServerAsync(CancellationToken cancellationToken = default)
         {
-            // Ensures single concurrent execution by using Interlocked.Exchange
-            // to set the sentinel _disconnectFromServerCalled to 1.
+            // Ensures single concurrent execution.
+            // If the previous value was 0, this thread is the first to call disconnect, and it proceeds with cleanup.
             // If the previous value was non-zero, another disconnect is already in progress,
             // so the method returns immediately with a completed Task.
             if (Interlocked.Exchange(ref _disconnectFromServerCalled, 1) != 0)

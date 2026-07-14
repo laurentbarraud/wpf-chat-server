@@ -1,7 +1,7 @@
 ﻿/// <file>EncryptionPipeline.cs</file>
 /// <author>Laurent Barraud</author>
 /// <version>1.1</version>
-/// <date>July 10th, 2026</date>
+/// <date>July 15th, 2026</date>
 
 using ChatClient.MVVM.Model;
 using ChatClient.MVVM.ViewModel;

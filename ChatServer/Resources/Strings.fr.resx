@@ -321,4 +321,7 @@
   <data name="PublicKeyResponseRelayFailed" xml:space="preserve">
     <value>Echec du relai de la clé publique en réponse.</value>
   </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>Commande inconnue.</value>
+  </data>
 </root>
