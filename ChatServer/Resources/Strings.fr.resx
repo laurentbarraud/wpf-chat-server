@@ -324,4 +324,49 @@
   <data name="UnknownCommand" xml:space="preserve">
     <value>Commande inconnue.</value>
   </data>
+  <data name="EnterCommandsBelow" xml:space="preserve">
+    <value>Entrez une commande ci-dessous, ou tapez « ? » pour lister les commandes disponibles :</value>
+  </data>
+  <data name="KickUsage" xml:space="preserve">
+    <value>Utilisation : kick &lt;nom_utilisateur&gt; ou kick &lt;uid&gt;</value>
+  </data>
+  <data name="NoUserFoundWithThisUid" xml:space="preserve">
+    <value>Aucun utilisateur trouvé avec cet UID.</value>
+  </data>
+  <data name="NoUserFoundWithUsername" xml:space="preserve">
+    <value>Aucun utilisateur trouvé avec ce nom d’utilisateur.</value>
+  </data>
+  <data name="UsernameAmbiguousUseUid" xml:space="preserve">
+    <value>Nom d’utilisateur ambigu, veuillez utiliser l’UID (kick &lt;uid&gt;).</value>
+  </data>
+  <data name="CurrentLimit" xml:space="preserve">
+    <value>Limite actuelle : {0}</value>
+  </data>
+  <data name="InvalidLimitValue" xml:space="preserve">
+    <value>Valeur de limite invalide.</value>
+  </data>
+  <data name="MaxClientsLimitSet" xml:space="preserve">
+    <value>Limite maximale de clients définie à {0}.</value>
+  </data>
+  <data name="NoUsersConnected" xml:space="preserve">
+    <value>Aucun utilisateur connecté.</value>
+  </data>
+  <data name="ListUserEntry" xml:space="preserve">
+    <value>UID : {0} | nom : {1} | IP : {2} | Connecté depuis : {3}</value>
+  </data>
+  <data name="ListenerAlreadyRunning" xml:space="preserve">
+    <value>L'écouteur est déjà en cours d’exécution.</value>
+  </data>
+  <data name="ListenerStartedAccepting" xml:space="preserve">
+    <value>Ecouteur démarré, acceptation de nouveaux clients.</value>
+  </data>
+  <data name="ListenerNotRunning" xml:space="preserve">
+    <value>L'écouteur n’est pas en cours d’exécution.</value>
+  </data>
+  <data name="ListenerStopped" xml:space="preserve">
+    <value>Ecouteur arrêté, n’accepte plus de nouveaux clients.</value>
+  </data>
+  <data name="ShutdownRequested" xml:space="preserve">
+    <value>Arrêt demandé.</value>
+  </data>
 </root>

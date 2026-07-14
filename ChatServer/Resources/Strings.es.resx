@@ -324,4 +324,50 @@
   <data name="UnknownCommand" xml:space="preserve">
     <value>Comando desconocido.</value>
   </data>
+  <data name="EnterCommandsBelow" xml:space="preserve">
+    <value>Introduzca uno comando abajo, o escriba « ? » para listar los comandos disponibles:</value>
+  </data>
+  <data name="KickUsage" xml:space="preserve">
+    <value>Uso: kick &lt;nombre_de_usuario&gt; o kick &lt;uid&gt;</value>
+  </data>
+  <data name="NoUserFoundWithThisUid" xml:space="preserve">
+    <value>No se encontró ningún usuario con este UID.</value>
+  </data>
+  <data name="NoUserFoundWithUsername" xml:space="preserve">
+    <value>No se encontró ningún usuario con ese nombre.
+</value>
+  </data>
+  <data name="UsernameAmbiguousUseUid" xml:space="preserve">
+    <value>Nombre de usuario ambiguo, use el UID (kick &lt;uid&gt;).</value>
+  </data>
+  <data name="CurrentLimit" xml:space="preserve">
+    <value>Límite actual: {0}</value>
+  </data>
+  <data name="InvalidLimitValue" xml:space="preserve">
+    <value>Valor de límite inválido.</value>
+  </data>
+  <data name="MaxClientsLimitSet" xml:space="preserve">
+    <value>Límite máximo de clientes establecido en {0}.</value>
+  </data>
+  <data name="NoUsersConnected" xml:space="preserve">
+    <value>Ningún usuario conectado.</value>
+  </data>
+  <data name="ListUserEntry" xml:space="preserve">
+    <value>UID: {0} | nombre: {1} | IP: {2} | Conectado desde: {3}</value>
+  </data>
+  <data name="ListenerAlreadyRunning" xml:space="preserve">
+    <value>El listener ya está en ejecución.</value>
+  </data>
+  <data name="ListenerStartedAccepting" xml:space="preserve">
+    <value>Listener iniciado, aceptando nuevos clientes.</value>
+  </data>
+  <data name="ListenerNotRunning" xml:space="preserve">
+    <value>El listener no está en ejecución.</value>
+  </data>
+  <data name="ListenerStopped" xml:space="preserve">
+    <value>Listener detenido, ya no acepta nuevos clientes.</value>
+  </data>
+  <data name="ShutdownRequested" xml:space="preserve">
+    <value>Apagado solicitado.</value>
+  </data>
 </root>

@@ -324,4 +324,49 @@
   <data name="UnknownCommand" xml:space="preserve">
     <value>Unknown command.</value>
   </data>
+  <data name="EnterCommandsBelow" xml:space="preserve">
+    <value>Enter a command below, or type '?' to list available commands:</value>
+  </data>
+  <data name="KickUsage" xml:space="preserve">
+    <value>Usage: kick &lt;username&gt; or kick &lt;uid&gt;</value>
+  </data>
+  <data name="NoUserFoundWithThisUid" xml:space="preserve">
+    <value>No user found with this UID.</value>
+  </data>
+  <data name="NoUserFoundWithUsername" xml:space="preserve">
+    <value>No user found with this username.</value>
+  </data>
+  <data name="UsernameAmbiguousUseUid" xml:space="preserve">
+    <value>Username ambiguous, please use UID (kick &lt;uid&gt;).</value>
+  </data>
+  <data name="CurrentLimit" xml:space="preserve">
+    <value>Current limit: {0}</value>
+  </data>
+  <data name="InvalidLimitValue" xml:space="preserve">
+    <value>Invalid limit value.</value>
+  </data>
+  <data name="MaxClientsLimitSet" xml:space="preserve">
+    <value>Max clients limit set to {0}.</value>
+  </data>
+  <data name="NoUsersConnected" xml:space="preserve">
+    <value>No users connected.</value>
+  </data>
+  <data name="ListUserEntry" xml:space="preserve">
+    <value>UID: {0} | username: {1} | IP: {2} | On since: {3}</value>
+  </data>
+  <data name="ListenerAlreadyRunning" xml:space="preserve">
+    <value>Listener already running.</value>
+  </data>
+  <data name="ListenerStartedAccepting" xml:space="preserve">
+    <value>Listener started, accepting new clients.</value>
+  </data>
+  <data name="ListenerNotRunning" xml:space="preserve">
+    <value>Listener is not running.</value>
+  </data>
+  <data name="ListenerStopped" xml:space="preserve">
+    <value>Listener stopped, no longer accepting new clients.</value>
+  </data>
+  <data name="ShutdownRequested" xml:space="preserve">
+    <value>Shutdown requested.</value>
+  </data>
 </root>

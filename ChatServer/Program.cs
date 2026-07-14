@@ -121,7 +121,7 @@ namespace ChatServer
                 Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartedOnPort"), port));
 
                 // Server is ready to accept commands from the console.
-                Console.WriteLine("Enter commands below, or type '?' to list available commands:");
+                Console.WriteLine(LocalizationManager.GetString("EnterCommandsBelow"));
 
                 // Starts the async accept loop in the background with fire-and-forget,
                 // so it doesn't block the main thread.
@@ -141,7 +141,9 @@ namespace ChatServer
 
             catch (Exception ex)
             {
-                Console.WriteLine($"\nFailed to start server on port {port}: {ex.Message}");
+                Console.WriteLine(string.Format(LocalizationManager.GetString("ServerStartFailed"),
+                        port, ex.Message));
+
                 Environment.Exit(1);
             }
         }
@@ -492,7 +494,7 @@ namespace ChatServer
                 }
                 else
                 {
-                    Console.WriteLine("Invalid port, would you like to use default port (7123)? (y/n): ");
+                    Console.WriteLine(LocalizationManager.GetString("InvalidPortPrompt"));
                     string confirmRaw = ReadLineWithTimeout(7000);
                     string confirm = (confirmRaw ?? string.Empty).Trim().ToLowerInvariant();
 
@@ -502,7 +504,7 @@ namespace ChatServer
                     }
                     else
                     {
-                        Console.WriteLine("Exiting...");
+                        Console.WriteLine(LocalizationManager.GetString("Exiting"));
                         Environment.Exit(0);
                     }
                 }
@@ -520,7 +522,7 @@ namespace ChatServer
         {
             if (string.IsNullOrWhiteSpace(argument))
             {
-                Console.WriteLine("Usage: kick <username> or kick <uid>");
+                Console.WriteLine(LocalizationManager.GetString("KickUsage"));
                 ServerLogger.Log("Kick command missing argument.", ServerLogLevel.Warn);
                 return;
             }
@@ -540,7 +542,7 @@ namespace ChatServer
 
                 if (targetByUid == null)
                 {
-                    Console.WriteLine("No user found with this UID.");
+                    Console.WriteLine(LocalizationManager.GetString("NoUserFoundWithThisUid"));
                     ServerLogger.Log($"Kick by UID failed: {parsedUid}", ServerLogLevel.Warn);
                     return;
                 }
@@ -565,14 +567,14 @@ namespace ChatServer
 
             if (userMatches.Count == 0)
             {
-                Console.WriteLine("No user found with this username.");
+                Console.WriteLine(LocalizationManager.GetString("NoUserFoundWithUsername"));
                 ServerLogger.Log($"Kick by username failed: {argument}", ServerLogLevel.Warn);
                 return;
             }
 
             if (userMatches.Count > 1)
             {
-                Console.WriteLine("Username ambiguous, please use UID (kick <uid>).");
+                Console.WriteLine(LocalizationManager.GetString("UsernameAmbiguousUseUid"));
                 ServerLogger.Log($"Kick ambiguous username: {argument}", ServerLogLevel.Warn);
                 return;
             }
@@ -595,20 +597,20 @@ namespace ChatServer
         {
             if (string.IsNullOrWhiteSpace(arg))
             {
-                Console.WriteLine($"Current limit: {MaxClients}");
+                Console.WriteLine(string.Format(LocalizationManager.GetString("CurrentLimit"), MaxClients));
                 ServerLogger.Log($"Limit command queried current value: {MaxClients}", ServerLogLevel.Info);
                 return;
             }
 
             if (!int.TryParse(arg.Trim(), out int newLimit) || newLimit <= 0)
             {
-                Console.WriteLine("Invalid limit value.");
+                Console.WriteLine(LocalizationManager.GetString("InvalidLimitValue"));
                 ServerLogger.Log($"Limit command invalid value: {arg}", ServerLogLevel.Warn);
                 return;
             }
 
             MaxClients = newLimit;
-            Console.WriteLine($"Max clients limit set to {MaxClients}.");
+            Console.WriteLine(string.Format(LocalizationManager.GetString("MaxClientsLimitSet"), MaxClients));
             ServerLogger.Log($"Max clients limit changed to {MaxClients}.", ServerLogLevel.Info);
         }
 
@@ -618,40 +620,44 @@ namespace ChatServer
         /// </summary>
         private static void HandleListCommand()
         {
-            List<ServerConnectionHandler> snapshot;
+            List<ServerConnectionHandler> usersSnapshot;
+            
             lock (Users)
             {
-                snapshot = Users.ToList();
+                usersSnapshot = Users.ToList();
             }
 
-            if (snapshot.Count == 0)
+            if (usersSnapshot.Count == 0)
             {
-                Console.WriteLine("No users connected.");
+                Console.WriteLine(LocalizationManager.GetString("NoUsersConnected"));
                 ServerLogger.Log("List command: no users connected.", ServerLogLevel.Info);
                 return;
             }
 
-            foreach (var usr in snapshot)
+            foreach (var usr in usersSnapshot)
             {
-                string uidCompact = CompactUid(usr.UID);
+                string userUidCompact = CompactUid(usr.UID);
                 string username = string.IsNullOrWhiteSpace(usr.Username) ? "(unknown)" : usr.Username;
 
-                string ip = "(unknown)";
+                string userIpAddress = "(unknown)";
+                
                 try
                 {
-                    if (usr.ClientSocket?.Client?.RemoteEndPoint is IPEndPoint ep)
+                    if (usr.ClientSocket?.Client?.RemoteEndPoint is IPEndPoint endPoint)
                     {
-                        ip = $"{ep.Address}:{ep.Port}";
+                        userIpAddress = $"{endPoint.Address}:{endPoint.Port}";
                     }
                 }
                 catch { }
 
-                string since = usr.GetConnectedSinceDurationString();
+                string userConnectedSince = usr.GetConnectedSinceDurationString();
 
-                Console.WriteLine($"UID: {uidCompact} | username: {username} | IP: {ip} | On since: {since}");
+                Console.WriteLine(string.Format(LocalizationManager.GetString("ListUserEntry"), 
+                    userUidCompact, username, userIpAddress, userConnectedSince));
+
             }
 
-            ServerLogger.Log($"List command: {snapshot.Count} users listed.", ServerLogLevel.Info);
+            ServerLogger.Log($"List command: {usersSnapshot.Count} users listed.", ServerLogLevel.Info);
         }
 
 
@@ -662,13 +668,13 @@ namespace ChatServer
         {
             if (Listener != null)
             {
-                Console.WriteLine("Listener already running.");
+                Console.WriteLine(LocalizationManager.GetString("ListenerAlreadyRunning"));
                 ServerLogger.Log("startAccepting called but listener already running.", ServerLogLevel.Debug);
                 return;
             }
 
             CreateAndStartListener(_currentPort);
-            Console.WriteLine("Listener started, accepting new clients.");
+            Console.WriteLine(LocalizationManager.GetString("ListenerStartedAccepting"));
             ServerLogger.Log("Listener started via startAccepting command.", ServerLogLevel.Info);
         }
 
@@ -679,7 +685,7 @@ namespace ChatServer
         {
             if (Listener == null)
             {
-                Console.WriteLine("Listener is not running.");
+                Console.WriteLine(LocalizationManager.GetString("ListenerNotRunning"));
                 ServerLogger.Log("stopAccepting called but listener is null.", ServerLogLevel.Debug);
                 return;
             }
@@ -690,7 +696,7 @@ namespace ChatServer
             Listener.Stop();
             Listener = null;
 
-            Console.WriteLine("Listener stopped, no longer accepting new clients.");
+            Console.WriteLine(LocalizationManager.GetString("ListenerStopped"));
             ServerLogger.Log("Listener stopped via stopAccepting command.", ServerLogLevel.Info);
         }
 
@@ -699,7 +705,7 @@ namespace ChatServer
         /// </summary>
         private static void HandleShutdownCommand()
         {
-            Console.WriteLine("Shutdown requested.");
+            Console.WriteLine(LocalizationManager.GetString("ShutdownRequested"));
             ServerLogger.Log("Shutdown command received.", ServerLogLevel.Info);
 
             Listener?.Stop();
