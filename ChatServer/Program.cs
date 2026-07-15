@@ -1074,6 +1074,9 @@ namespace ChatServer
             {
                 while (!token.IsCancellationRequested)
                 {
+                    // Prompt for commands
+                    Console.Write("> ");
+                    
                     // Blocking call: must stay on a dedicated thread.
                     string? lineToRead = Console.ReadLine();
 
