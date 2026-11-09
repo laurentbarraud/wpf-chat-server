@@ -1,6 +1,7 @@
 ## Chat Client
 
-An encrypted chat app built in C# and WPF that connects to a minimalist console server. <br/>
+An end-to-end encrypted chat application built with C# and WPF, connecting to a lightweight console-based server.
+<br/>
 <br/>
 <a href="https://github.com/laurentbarraud/wpf-chat-server/releases">
   <img src="https://img.shields.io/badge/release-stable-64B07B" alt="Release"></a>
